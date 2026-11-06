@@ -173,7 +173,7 @@ function shippingFormContext(d){
 }
 /* Шаблон для печати: сохранённый в конструкторе (Data → Company & print →
    Forms) или по умолчанию. */
-function shippingFormTemplate(){return formClean(DB.formTemplate&&DB.formTemplate.packingSlip,shippingFormDefault());}
+function shippingFormTemplate(){return formClean(DB.formTemplate&&DB.formTemplate[formUseKey('packingSlip')],shippingFormDefault());}
 /* Лист для конструктора, когда PS в базе ещё нет. */
 function shippingFormSample(){
  return {number:'PS-0001',date:finToday(),method:'delivery',shipTo:{addressee:'Site office',address1:'10 Glass St',city:'Toronto',province:'ON',postalCode:'M1M 1M1',contact:'Pat',phone:'416-555-0100'},customer:'Sample Customer',company:docCompanyBlock(),

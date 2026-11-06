@@ -14,7 +14,13 @@ let docState=null,docLastKind='proforma';
 /* Квота печатается только бланком Quote, заказ — тремя бланками заказа. У
    квоты с ревизиями галочками выбирается, какие ревизии печатать и слать. */
 /* Invoice — только когда клиент получил последний юнит (finInvoiceDate). */
-function docKindsFor(o){return DOC_KINDS.filter(d=>salesIsQuote(o)?d.k==='quote':d.k!=='quote'&&(d.k!=='invoice'||!!finInvoiceDate(o)));}
+function docKindsFor(o){
+ const list=DOC_KINDS.filter(d=>salesIsQuote(o)?d.k==='quote':d.k!=='quote'&&(d.k!=='invoice'||!!finInvoiceDate(o))),ks=new Set(list.map(d=>d.k));
+ /* Свои формы (Data → Forms → New form) — рядом со своим бланком. */
+ return list.concat(docCustomForms().filter(f=>ks.has(f.base)).map(f=>({k:f.k,label:f.name,base:f.base})));
+}
+/* Вкладка окна → бланк (данные, ✎ Customize) и своя форма, если она. */
+function docKindForm(k){const c=docCustomForm(k);return c?{kind:c.base,form:c.k}:{kind:k,form:''};}
 /* Чертежи строк — не бланк, а своя вкладка окна (владелец, 26–27.09.2026):
    лист текущей строки крупно, лента мини-листов, печать — этот лист или все.
    focus — строка, с которой открыть окно (клик по форме строки в батче). */
@@ -23,13 +29,15 @@ function docOpen(kind,focus){
  const kinds=docKindsFor(soDraft).map(d=>d.k),q=salesIsQuote(soDraft);
  kind=kind==='drawings'||kinds.includes(kind)?kind:q?'quote':kinds.includes(docLastKind)?docLastKind:kinds[0];
  const cur=q?salesQuoteCurrentId():null;
- docState={kind,opts:kind==='drawings'?{}:docDefaultOptions(kind),panel:false,status:'',revs:cur?[cur]:[],cur,focus:focus||'',current:focus||'',drawings:null};
+ const kf=docKindForm(kind);kind=kf.kind;
+ docState={kind,form:kf.form,opts:kind==='drawings'?{}:docDefaultOptions(kind),panel:false,status:'',revs:cur?[cur]:[],cur,focus:focus||'',current:focus||'',drawings:null};
  render();
 }
 function docClose(){docState=null;render();}
 function docSetKind(kind){
  if(!docState||!soDraft||!(kind==='drawings'||docKindsFor(soDraft).some(d=>d.k===kind)))return;
  if(kind!=='quote'&&kind!=='drawings')docLastKind=kind;
+ const kf=docKindForm(kind);kind=kf.kind;docState.form=kf.form;
  docState.kind=kind;docState.opts=kind==='drawings'?{}:docDefaultOptions(kind);docState.status='';if(kind==='drawings')docState.panel=false;render();
 }
 function docTogglePanel(){if(!docState)return;docState.panel=!docState.panel;render();}
@@ -58,8 +66,9 @@ function docToggleRev(id,on){
  docState.revs=[...s];docState.status='';render();
 }
 function docCurrentPages(){
- if(docState.kind!=='quote')return docPages(docBuildModel(docState.kind,soDraft,docState.opts));
- return docQuoteRecords().flatMap(r=>finWithOrder(r,()=>docPages(docBuildModel('quote',r,docState.opts))));
+ const form=docState.form||'';
+ if(docState.kind!=='quote')return docPages(Object.assign(docBuildModel(docState.kind,soDraft,docState.opts),{form}));
+ return docQuoteRecords().flatMap(r=>finWithOrder(r,()=>docPages(Object.assign(docBuildModel('quote',r,docState.opts),{form}))));
 }
 function docRevisionPicker(){
  if(!docState||docState.kind!=='quote')return '';
@@ -83,7 +92,7 @@ function docModal(){
  let pages=[],error='';
  if(!drawings)try{pages=docCurrentPages();}catch(e){error=e&&e.message||String(e);console.error(e);}
  const warn=docWarnings(),status=docState.status?'<span>'+esc(docState.status)+'</span>':'';
- const kinds=docKindsFor(soDraft).map(d=>`<button type="button" class="${d.k===docState.kind?'on':''}" onclick="docSetKind('${d.k}')">${d.label}</button>`).join('')+`<button type="button" class="${drawings?'on':''}" data-doc-kind="drawings" onclick="docSetKind('drawings')">Drawings</button>`;
+ const kinds=docKindsFor(soDraft).map(d=>`<button type="button" class="${d.k===(docState.form||docState.kind)?'on':''}" onclick="docSetKind('${esc(d.k)}')">${esc(d.label)}</button>`).join('')+`<button type="button" class="${drawings?'on':''}" data-doc-kind="drawings" onclick="docSetKind('drawings')">Drawings</button>`;
  const tools=drawings?docDrawingTools(items):`<button type="button" class="doc-pen${docState.panel?' on':''}" aria-pressed="${docState.panel}" onclick="docTogglePanel()">✎ Customize</button>`;
  const body=drawings?docDrawingsBody(items):`<div class="doc-pages">${error?`<div class="err" style="display:block">${esc(error)}</div>`:pages.map(pg=>`<div class="doc-sheet">${docPageSVG(pg)}</div>`).join('')}</div>`;
  return `<div class="doc-back" onclick="if(event.target===this)docClose()"><div class="doc-window" role="dialog" aria-modal="true" aria-label="Documents">
@@ -178,7 +187,7 @@ function docDrawingsPrint(which){
  if(printSheet(sheets,'',salesSheetFitDrawing)&&soDraft&&typeof orderLogAdd==='function')orderLogAdd(soDraft.id,'Printed','Drawings'+(sheets.length>1?' · '+sheets.length:''));
 }
 function docPanel(){
- const kind=docState.kind,o=docState.opts,groups=[],tpl=DOC_FORM_KINDS.includes(kind)?docFormTemplate(kind):null;
+ const kind=docState.kind,o=docState.opts,groups=[],tpl=DOC_FORM_KINDS.includes(kind)?docFormTemplate(kind,docState.form):null;
  /* Бланк на шаблоне формы: галочки — из его блоков; свой блок — своя
     галочка (по умолчанию стоит). */
  docFieldsFor(kind).filter(f=>!tpl||docFormHas(tpl,f.k)).concat(tpl?docFormAdded(kind,tpl).map(x=>({k:'b:'+x.b.id,g:'Added blocks',label:docFormBlockLabel(x.b),on:true})):[]).forEach(f=>{let g=groups.find(x=>x.name===f.g);if(!g){g={name:f.g,fields:[]};groups.push(g);}g.fields.push(f);});
@@ -299,7 +308,7 @@ function docEmailQuote(){
  if(before!==cur)ids=ids.filter(id=>id!==before).concat(cur);
  if(!ids.length)ids=[cur];
  const recs=ids.map(id=>DB.salesOrder.find(o=>o.id===id)).sort((a,b)=>(a.quoteRev||0)-(b.quoteRev||0)),files=[];
- try{recs.forEach(r=>{const pages=finWithOrder(r,()=>docPages(docBuildModel('quote',r,docState.opts)));files.push({name:docFileName('quote',r),bytes:docPdfBytes(pages,{title:'Quote '+r.businessNumber})});});}
+ try{recs.forEach(r=>{const pages=finWithOrder(r,()=>docPages(Object.assign(docBuildModel('quote',r,docState.opts),{form:docState.form||''})));files.push({name:docFileName('quote',r),bytes:docPdfBytes(pages,{title:'Quote '+r.businessNumber})});});}
  catch(e){alert('The PDF could not be prepared: '+(e&&e.message||e));return;}
  const C=salesFindCustomer(recs[0].customerId),to=C?(C.invoiceEmail||customerPrimaryContact(C).email||''):'';
  const url=docGmailUrl(to,docQuoteEmailSubject(recs),docQuoteEmailBody(recs));

@@ -16,11 +16,13 @@ DEFAULT.formTemplate={};
 /* Версии (окно Versions, вариант В 05.11.2026): каждое Save — строка
    {id, form, at, by, note, tpl}; на форму хранятся последние FORMS_VERSIONS. */
 DEFAULT.formVersion=[];
+/* Свои формы (New form): {k, name, base} — erp/documents/order-form. */
+DEFAULT.formCustom=[];
 const FORMS_VERSIONS=20;
 /* Формы на шаблоне. Остальные бланки переходят сюда по одному, после
    сверки «печатает то же». */
 function formsDefs(){
- return [{k:'packingSlip',label:'Packing slip',def:shippingFormDefault,fields:()=>shippingFormFields(),
+ const list=[{k:'packingSlip',label:'Packing slip',def:shippingFormDefault,fields:()=>shippingFormFields(),
   samples:()=>(DB.shipment||[]).slice().sort((a,b)=>String(b.number).localeCompare(String(a.number),undefined,{numeric:true})).slice(0,100).map(s=>({id:s.id,label:s.number+' · '+salesCustomerDisplay(s.customerId)})),
   doc:id=>{const s=id&&shippingFind(id);if(s)try{return shippingDocument(s);}catch(e){}return shippingFormSample();},
   context:d=>shippingFormContext(d),
@@ -29,10 +31,7 @@ function formsDefs(){
   pages:(tpl,d,map)=>shippingPages(d,null,tpl,map)}]
  /* Бланки заказа (erp/documents/order-form): живой лист — заказ с набором
     галочек ✎ Customize по умолчанию. */
- .concat(DOC_FORM_KINDS.map(k=>({k,label:docKindLabel(k),custom:true,def:()=>docFormDefault(k),fields:()=>docFormFields(),
-  parts:{head:['Page 1 header','page 1'],every:['Page header','page 2 on'],table:['Lines table','grows'],totals:['After lines','totals, notes']},
-  samples:()=>docFormSamples(k),doc:id=>docFormSample(k,id),context:m=>docFormContext(m),columns:{},
-  pages:(tpl,m,map)=>docFormPages(m,tpl,map)})))
+ .concat(DOC_FORM_KINDS.map(formsOrderDef))
  .concat(DOC_FORM_FIN.map(k=>({k,label:docFormLabel(k),def:()=>docFormDefault(k),fields:()=>docFormFields(k),
   parts:{head:['Page 1 header','page 1'],every:['Page header','page 2 on'],table:['Table','grows'],totals:['After table','totals']},
   samples:()=>docFormFinSamples(k),doc:id=>docFormFinSample(k,id),context:m=>docFormContext(m),columns:{},
@@ -63,13 +62,26 @@ function formsDefs(){
   /* Наклейка тары 4 × 6 (erp/documents/carrier-form): живой лист — наклейка. */
   {k:'carrierLabel',label:'Dolly / Skid label',def:carrierLabelDefault,fields:()=>carrierLabelFields(),add:['text','field','image','barcode'],sheetClass:tpl=>'fm-lsheet'+(carrierLabelSize(tpl)==='3x4'?' cl-small':''),
   parts:{label:['Label 4 × 6','portrait'],small:['Label 3 × 4','landscape']},samples:()=>carrierLabelSamples(),doc:id=>id,context:id=>carrierLabelCtx(id&&id!=='sample'?id:'SA-10'),columns:{},
-  html:(tpl,id,view)=>carrierLabelSheetHTML(tpl,id,view),after:()=>drawFormOverlaps(),pageOf:tpl=>carrierLabelPage(tpl),panel:(part,tpl)=>carrierLabelPanelHTML(part,tpl)}]);
+  html:(tpl,id,view)=>carrierLabelSheetHTML(tpl,id,view),after:()=>drawFormOverlaps(),pageOf:tpl=>carrierLabelPage(tpl),panel:(part,tpl)=>carrierLabelPanelHTML(part,tpl)}])
+ /* Свои формы — в конце строки форм; данные и печать — бланка base. */
+;
+ /* Свои формы — в конце строки форм; данные и печать — бланка base. */
+ return list.concat((Array.isArray(DB.formCustom)?DB.formCustom:[]).map(f=>{const d=f&&list.find(x=>x.k===f.base);return d&&Object.assign({},d,{k:f.k,label:f.name,base:f.base,use:!!f.use});}).filter(Boolean));
+}
+function formsOrderDef(k){
+ return {k,label:docKindLabel(k),custom:true,def:()=>docFormDefault(k),fields:()=>docFormFields(),
+  parts:{head:['Page 1 header','page 1'],every:['Page header','page 2 on'],table:['Lines table','grows'],totals:['After lines','totals, notes']},
+  samples:()=>docFormSamples(k),doc:id=>docFormSample(k,id),context:m=>docFormContext(m),columns:{},
+  pages:(tpl,m,map)=>docFormPages(m,tpl,map)};
 }
 function formsPartLabel(k){const d=formsDef(formsState().form);return (d.parts&&d.parts[k])||FORMS_PARTS[k]||[k,''];}
 function formsDef(k){return formsDefs().find(x=>x.k===k)||formsDefs()[0];}
 function formsSaved(k){const def=formsDef(k);return formClean(DB.formTemplate&&DB.formTemplate[k],def.def());}
 function normalizeFormTemplates(){
  if(typeof normalizeDrawingFrozen==='function')normalizeDrawingFrozen();
+ const seen=new Set(),bases=formsDefs().filter(d=>!d.base).map(d=>d.k);
+ DB.formCustom=(Array.isArray(DB.formCustom)?DB.formCustom:[]).filter(f=>f&&typeof f.k==='string'&&/^my-[a-z0-9]{4,24}$/.test(f.k)&&!seen.has(f.k)&&seen.add(f.k)&&bases.includes(f.base)&&typeof f.name==='string'&&f.name.trim())
+  .map(f=>Object.assign({k:f.k,name:f.name.trim().slice(0,40),base:f.base},f.use&&!DOC_FORM_KINDS.includes(f.base)?{use:true}:{}));
  const src=DB.formTemplate&&typeof DB.formTemplate==='object'&&!Array.isArray(DB.formTemplate)?DB.formTemplate:{},out={},defs=formsDefs();
  defs.forEach(d=>{if(src[d.k])out[d.k]=formClean(src[d.k],d.def());});
  DB.formTemplate=out;
@@ -78,6 +90,7 @@ function normalizeFormTemplates(){
  DB.formVersion=defs.flatMap(d=>rows.filter(v=>v.form===d.k).slice(-FORMS_VERSIONS).map(v=>({id:v.id,form:v.form,at:v.at,by:str(v.by),note:str(v.note),tpl:formClean(v.tpl,d.def())})));
 }
 function validateFormTemplatePayload(src){
+ if(src.formCustom!=null&&!Array.isArray(src.formCustom))throw new Error('Custom forms must be a list.');
  if(src.formTemplate!=null&&(typeof src.formTemplate!=='object'||Array.isArray(src.formTemplate)))throw new Error('Form templates must be an object.');
  if(src.formVersion!=null&&!Array.isArray(src.formVersion))throw new Error('Form versions must be a list.');
 }
@@ -476,14 +489,70 @@ function viewMdForms(){
  return `<div class="fm" data-forms>
   <div class="fm-bar"><div class="fm-forms">${formsDefs().map(x=>`<button type="button" class="sl-quick-pill${x.k===s.form?' on':''}" onclick="formsSetForm('${x.k}')">${esc(x.label)}</button>`).join('')}</div><span class="fm-sp"></span>
    <label class="fm-preview"><span>Preview</span><select data-forms-sample onchange="formsSetSample(this.value)">${samples.length?samples.map(x=>`<option value="${esc(x.id)}" ${x.id===s.sample?'selected':''}>${esc(x.label)}</option>`).join(''):'<option value="sample">Sample</option>'}</select></label>
-   <button type="button" data-forms-undo ${d.undo.length?'':'disabled'} onclick="formsUndo()">Undo</button><button type="button" data-forms-redo ${d.redo.length?'':'disabled'} onclick="formsRedo()">Redo</button><button type="button" data-forms-history onclick="formsVersionsOpen()">History</button><button type="button" data-forms-reset onclick="formsReset()">Reset to default</button>
+   <button type="button" data-forms-undo ${d.undo.length?'':'disabled'} onclick="formsUndo()">Undo</button><button type="button" data-forms-redo ${d.redo.length?'':'disabled'} onclick="formsRedo()">Redo</button><button type="button" data-forms-new onclick="formsNewOpen()">+ New form</button>${def.base&&!DOC_FORM_KINDS.includes(def.base)?`<label class="fm-check" title="Prints instead of ${esc(formsDef(def.base).label)}"><input type="checkbox" data-forms-use ${def.use?'checked':''} onchange="formsUseForm(this.checked)"><span>Use for printing</span></label>`:''}${def.base?`<button type="button" data-forms-rename onclick="formsRenameForm()">Rename</button><button type="button" data-forms-remove onclick="formsRemoveForm()">Delete form</button>`:''}<button type="button" data-forms-history onclick="formsVersionsOpen()">History</button><button type="button" data-forms-reset onclick="formsReset()">Reset to default</button>
    ${dirty?'<span class="fm-dirty" data-forms-dirty>Unsaved changes</span>':s.notice?`<span class="fm-saved">${esc(s.notice)}</span>`:''}<button type="button" class="pri" data-forms-save ${dirty?'':'disabled'} onclick="formsSave()">Save</button></div>
   <div class="fm-grid">
    <aside class="fm-card fm-left"><div class="fm-h">Add</div><div class="fm-add">${add.map(([k,l])=>`<button type="button" data-forms-add="${k}" onclick="formsAdd('${k}')">+ ${l}</button>`).join('')}</div><input type="file" accept="image/*" hidden data-forms-picture onchange="formsPicture(this)">
     <div class="fm-h">Parts of the sheet</div><div class="fm-tree">${formsTreeHTML(tpl)}</div></aside>
    <div class="fm-stage" data-forms-stage>${formsSheetsHTML()}</div>
    <aside class="fm-card fm-right" data-forms-settings>${formsSettingsHTML(tpl)}</aside>
-  </div>${formsModalHTML(ctx)}${formsVersionsHTML()}${formsAddToHTML()}</div>`;
+  </div>${formsModalHTML(ctx)}${formsVersionsHTML()}${formsAddToHTML()}${formsNewHTML()}</div>`;
+}
+
+/* ------------------------------ Новая форма -------------------------- */
+/* С нуля или копией (задание Spiel, 06.11.2026): своё имя; печатается из
+   окна бланков заказа рядом с бланком, данные которого берёт. */
+function formsNewOpen(){
+ const s=formsState(),d=formsDef(s.form),base=d.base||s.form;
+ s.newForm={name:'',base,from:s.form};render();
+ const el=document.querySelector('[data-forms-new-name]');if(el)el.focus();
+}
+function formsNewClose(){formsUi.newForm=null;render();}
+function formsNewSet(k,v){const m=formsUi.newForm;if(!m)return;m[k]=v;if(k==='base')m.from='blank';if(k!=='name')render();}
+function formsNewSources(base){return [{k:'blank',label:'Blank sheet'}].concat(formsDefs().filter(d=>d.k===base||d.base===base).map(d=>({k:d.k,label:'Copy of '+d.label})));}
+function formsNewHTML(){
+ const m=formsState().newForm;if(!m)return '';
+ return `<div class="fm-modal-back" onclick="formsNewClose()"></div><div class="fm-modal fm-addto" role="dialog" aria-modal="true" aria-label="New form" data-forms-new-modal>
+  <div class="fm-modal-head"><b>New form</b><button type="button" class="fm-x" aria-label="Close" onclick="formsNewClose()">×</button></div>
+  <label class="fm-row"><span>Name</span><input class="fm-in" data-forms-new-name maxlength="40" value="${esc(m.name)}" placeholder="Invoice · Spiel" oninput="formsNewSet('name',this.value)"></label>
+  <label class="fm-row"><span>Prints with</span><select class="fm-in" data-forms-new-base onchange="formsNewSet('base',this.value)">${formsDefs().filter(d=>!d.base).map(d=>`<option value="${d.k}" ${d.k===m.base?'selected':''}>${esc(d.label)}</option>`).join('')}</select></label>
+  <label class="fm-row"><span>Start from</span><select class="fm-in" data-forms-new-from onchange="formsNewSet('from',this.value)">${formsNewSources(m.base).map(x=>`<option value="${esc(x.k)}" ${x.k===m.from?'selected':''}>${esc(x.label)}</option>`).join('')}</select></label>
+  <p class="fm-note">${DOC_FORM_KINDS.includes(m.base)?'Sales → order → Documents, next to '+esc(docKindLabel(m.base))+'.':'Prints instead of '+esc(formsDef(m.base).label)+' when Use for printing is on.'}</p>
+  <div class="fm-modal-foot"><button type="button" onclick="formsNewClose()">Cancel</button><button type="button" class="pri" data-forms-new-create onclick="formsNewCreate()">Create</button></div></div>`;
+}
+function formsNewCreate(){
+ const s=formsState(),m=s.newForm;if(!m)return;
+ const name=String(m.name||'').trim().slice(0,40);if(!name){alert('Enter a form name.');return;}
+ if(formsDefs().some(d=>d.label.toLowerCase()===name.toLowerCase())){alert('A form with this name already exists.');return;}
+ const k='my-'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),def=formsDef(m.base).def();
+ const src=m.from!=='blank'&&formsNewSources(m.base).some(x=>x.k===m.from)?formsClone(formsSaved(m.from)):DOC_FORM_KINDS.includes(m.base)?docFormBlank(m.base):formsBlank(def);
+ const tpl=formClean(src,def),me=typeof signinUser==='function'?signinUser():null;
+ DB.formCustom=(DB.formCustom||[]).concat([{k,name,base:m.base}]);
+ DB.formTemplate=Object.assign({},DB.formTemplate,{[k]:tpl});
+ DB.formVersion=(DB.formVersion||[]).concat([{id:salesUid('FV'),form:k,at:new Date().toISOString(),by:me?me.name:'',note:m.from==='blank'?'New form · blank':'New form · '+formsDef(m.from).label,tpl:formsClone(tpl)}]);
+ s.newForm=null;touch();formsSetForm(k);s.notice='Created';render();
+}
+/* С нуля у остальных бланков: те же части листа без блоков. */
+function formsBlank(def){const t=formsClone(def);Object.keys(t.parts).forEach(k=>{if(t.parts[k].blocks)t.parts[k].blocks=[];});return t;}
+/* Use for printing: печатается вместо бланка base; у бланка одна такая. */
+function formsUseForm(on){
+ const s=formsState(),f=(DB.formCustom||[]).find(x=>x.k===s.form);if(!f)return;
+ DB.formCustom=DB.formCustom.map(x=>x.base!==f.base?x:x.k===f.k&&on?Object.assign({},x,{use:true}):(({use,...r})=>r)(x));
+ s.notice=on?'Prints instead of '+formsDef(f.base).label:'Not used for printing';touch();render();
+}
+function formsRenameForm(){
+ const s=formsState(),f=(DB.formCustom||[]).find(x=>x.k===s.form);if(!f)return;
+ const v=prompt('Form name',f.name);if(v==null)return;const name=String(v).trim().slice(0,40);if(!name||name===f.name)return;
+ if(formsDefs().some(d=>d.k!==f.k&&d.label.toLowerCase()===name.toLowerCase())){alert('A form with this name already exists.');return;}
+ DB.formCustom=DB.formCustom.map(x=>x.k===f.k?Object.assign({},x,{name}):x);s.notice='Renamed';touch();render();
+}
+function formsRemoveForm(){
+ const s=formsState(),f=(DB.formCustom||[]).find(x=>x.k===s.form);if(!f)return;
+ if(!confirm('Delete form “'+f.name+'”? It will no longer print.'))return;
+ DB.formCustom=DB.formCustom.filter(x=>x.k!==f.k);
+ const t=Object.assign({},DB.formTemplate);delete t[f.k];DB.formTemplate=t;
+ DB.formVersion=(DB.formVersion||[]).filter(v=>v.form!==f.k);delete s.drafts[f.k];
+ s.form=f.base;s.sample='';s.sel=null;s.cols=null;s.part=Object.keys(formsDef(f.base).def().parts)[0];s.notice='Form deleted';touch();render();
 }
 
 /* ------------------------ Добавить в другие формы -------------------- */

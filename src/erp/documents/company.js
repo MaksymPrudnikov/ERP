@@ -105,6 +105,8 @@ const DOC_PRICE_MODES=[
 const DOC_ALL=['workOrder','proforma','confirmation','invoice','quote'],DOC_SALE=['proforma','confirmation','invoice','quote'],DOC_ORDER_SALE=['proforma','confirmation','invoice'],DOC_SHOP=['workOrder'];
 const DOC_FIELDS=[
  {k:'company',g:'Header',label:'Company logo and details',kinds:DOC_ALL,on:DOC_ALL},
+ /* Строка итогов на первой странице после клиента (владелец 06.11.2026). */
+ {k:'totalsTop',g:'Header',label:'Totals strip',hint:'total, credits, balance, qty, weight, ft²',kinds:DOC_ORDER_SALE,on:DOC_ORDER_SALE},
  {k:'date',g:'Header',label:'Date',kinds:DOC_ALL,on:DOC_ALL,as:{invoice:'Invoice date'}},
  {k:'validUntil',g:'Header',label:'Valid until',kinds:['quote'],on:['quote']},
  {k:'customerPo',g:'Header',label:'Customer PO',kinds:DOC_ALL,on:DOC_ALL},
@@ -127,7 +129,8 @@ const DOC_FIELDS=[
  {k:'shapeDrawing',g:'Lines',label:'Shape drawing',hint:'small drawing next to shaped lines',kinds:DOC_ALL,on:[]},
  {k:'billableArea',g:'Lines',label:'Billable area',kinds:DOC_SALE,on:DOC_SALE},
  {k:'actualArea',g:'Lines',label:'Actual area',kinds:DOC_ALL,on:DOC_SHOP},
- {k:'weight',g:'Lines',label:'Weight per unit / per line',kinds:DOC_ALL,on:DOC_SHOP},
+ {k:'weight',g:'Lines',label:'Weight per unit / per line',kinds:DOC_ALL,on:DOC_SHOP.concat(DOC_ORDER_SALE)},
+ {k:'weightLb',g:'Lines',label:'Weight in lb',hint:'some customers ask',kinds:DOC_SALE,on:[]},
  {k:'route',g:'Production',label:'Route by station',kinds:DOC_SHOP,on:DOC_SHOP},
  {k:'scanStatus',g:'Production',label:'Status from station scans',hint:'where each glass is now',kinds:DOC_SHOP,on:DOC_SHOP},
  {k:'cutSize',g:'Production',label:'Cut size at CUT',kinds:DOC_SHOP,on:DOC_SHOP},
@@ -138,7 +141,7 @@ const DOC_FIELDS=[
  {k:'extraItems',g:'Bottom',label:'Additional items',kinds:DOC_ALL,on:DOC_ALL},
  {k:'groupTotals',g:'Bottom',label:'Totals by group',hint:'glass / services / surcharges',kinds:DOC_SALE,on:[]},
  {k:'totals',g:'Bottom',label:'Subtotal · ES · HST · Total',kinds:DOC_SALE,on:DOC_SALE},
- {k:'receipts',g:'Bottom',label:'Receipts and balance',hint:'paid to date and balance due, when paid',kinds:DOC_ORDER_SALE,on:DOC_ORDER_SALE},
+ {k:'receipts',g:'Bottom',label:'Payments and balance',hint:'each payment, credits total, balance',kinds:DOC_ORDER_SALE,on:DOC_ORDER_SALE},
  {k:'orderSummary',g:'Bottom',label:'Order summary',hint:'units, ft², kg',kinds:DOC_ALL,on:DOC_SHOP},
  {k:'payment',g:'Bottom',label:'Deposit or credit terms',kinds:DOC_SALE,on:DOC_SALE,as:{invoice:'Amount due and due date'}},
  {k:'paymentInstructions',g:'Bottom',label:'Payment instructions',kinds:DOC_ORDER_SALE,on:['proforma','invoice']},

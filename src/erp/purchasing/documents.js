@@ -114,7 +114,7 @@ const PUR_FORM_FIELDS=[
  {k:'supplier.method',g:'Supplier',label:'Payment method',v:d=>(d.p.supplier||{}).paymentMethod}];
 function purFormFields(){return formWithCompany(PUR_FORM_FIELDS).concat(formMyFields());}
 function purFormContext(d){const by=new Map(purFormFields().map(x=>[x.k,x]));return {field:k=>{const x=by.get(k);return x?x.v(d):undefined;},off:b=>!!b.opt&&!d.opt[b.opt]};}
-function purFormTemplate(){return formClean(DB.formTemplate&&DB.formTemplate.purchaseOrder,purFormDefault());}
+function purFormTemplate(){return formClean(DB.formTemplate&&DB.formTemplate[formUseKey('purchaseOrder')],purFormDefault());}
 function purDocPages(p,raw,title,tpl,map){
  const opt=purDocOptions(raw),W=DOC_PAGE,C=DOC_COLOR,cols=purDocColumns(p,opt);let tableOn=false;
  tpl=tpl||purFormTemplate();const f=formFlow(tpl,purFormContext({p,opt,title}),map);

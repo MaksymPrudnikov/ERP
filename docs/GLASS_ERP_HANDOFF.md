@@ -2,6 +2,37 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Бланк Spiel: Invoice по ответам бухгалтера и свои формы · 6 ноября 2026
+
+Владелец 06.11.2026: «наш бланк лучше Spiel — доделывать наш»; бухгалтер: Credits раздельно, Balance — по заказу.
+Вид выбран по картинкам на заказе 76005 (~/Documents/ERP_PLAN/spiel-samples/variants3/, «наш стиль, не Spiel»).
+
+- Оплаты заказа — каждая своей строкой под Total: «Deposit · R-0412 · Sep 29, 2026 −$50.00» (до дня счёта —
+  Deposit, с него — Payment), затем Credits total (`docOrderCredits`, галочка «Payments and balance»). У счёта
+  остаток — в рамке «Balance · this order» (раньше «Payment due … · Net» — дата осталась в ячейке Payment due);
+  у Proforma / Confirmation — строкой Balance due, как было. Кредит (бой, скидка после счёта) в ERP — Adjustments −
+  на заказе: строкой в таблице, уменьшает Subtotal и налог.
+- Строка итогов на первой странице под адресами (секция `strip`, галочка Totals strip, Proforma / Confirmation /
+  Invoice): Total, Credits (если были оплаты), Balance due, Quantity, Weight, Area. Адреса выросли — строка ниже;
+  выключена — лист как раньше (сторож test/order-forms, интервал `sa` у блока).
+- Вид (IGU, Triple, Laminated) — только в строке товара; вес строки «штука × кол-во = строка» (`docLineWeightText`,
+  Weight по умолчанию включён у бланков заказа с ценами); галочка Weight in lb — фунты.
+- Условия (Terms and conditions) и GST/HST No. (`company.hstNumber`) — внизу слева рядом с итогами.
+- Поля конструктора: Credits, Payments one per line, Total weight lb.
+- Свои формы: Data → Forms → + New form — имя, Prints with (бланк заказа), Blank sheet или Copy of; Rename, Delete
+  form. `DB.formCustom` {k, name, base}, шаблон — `DB.formTemplate[k]`; в окне Documents заказа — вкладка рядом со
+  своим бланком. У остальных бланков (Packing slip, PO, Trip sheet, Receipt, Statement, Drawing, тара) печать идёт из
+  многих мест — своя форма печатается вместо бланка, когда у неё включено Use for printing (одна на бланк;
+  `formUseKey` в геттерах шаблонов). Выключили или удалили — снова обычный бланк.
+- Sales: колонка Invoice (Invoiced — Invoice напечатан или отправлен, по журналу заказа; Not invoiced — всё выдано,
+  счёта не было; включается в списке колонок) и вкладка Not invoiced рядом с Needs attention (видна, когда такие есть).
+- Statement как таблица Spiel: Invoices — Invoice No · Date · Reference · Amount · Balance, каждый счёт один раз
+  (раньше заказ стоял и в Orders, и в Account activity); Account activity — галочкой в окне Statement.
+- Statement → Due now (бухгалтер делала в Excel): до даты (Last Monday, Last Friday, Today) и галочки по счёту;
+  выбранные строки — красным (`DOC_COLOR.due`, без своих цветов); внизу ячейки Overdue 90+ days · Overdue 60+ days ·
+  Due now · Current — вместе весь долг по счетам (`finStatementDuePick`). Печать, PDF и email — с ним.
+- Finance → Payments: кнопки формы квитанции были под строкой статуса (`.app-foot`) — подняты (`bottom:46px`).
+
 ## Work order: статус стёкол по сканам в маршруте (вариант G) · 6 ноября 2026
 
 Владелец 06.11.2026: Work order «не меньше информации, чем у Spiel, а лучше больше»; из вариантов A–G выбран G

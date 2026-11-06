@@ -96,13 +96,13 @@ module.exports=async function({page,eq}){
   const allowed=salesTransitionChecks(o,'done').length;finSaveTerms(o.id,{paymentMode:'credit',depositPercent:0,creditDays:30,issuedOn:'2020-01-01',dueOn:'2020-02-01'},'Past due');
   return {printed,allowed,warned:salesTransitionChecks(o,'done').some(x=>x.title.includes('overdue payments'))};
  }),{printed:'Net 30 days',allowed:0,warned:true});
- eq('receipt: company block, balance after this payment, refunds; statement for a period: orders, activity, balance forward and closing',await t.p.evaluate(()=>{
+ eq('receipt: company block, balance after this payment, refunds; statement for a period: invoices once (activity only when ticked), balance forward and closing',await t.p.evaluate(()=>{
   const {o}=financeSeed();DB.company=Object.assign(DB.company||{},{legalName:'QA Glass Co'});const r=financePayment(100,20);finCreateRefund({receiptId:r.id,amount:25,date:'2026-09-02',method:'cash',reason:'Return'});
   const later=finSaveReceiptRecord({customerId:'CUS-FIN',currency:'CAD',date:'2026-09-05',method:'cash',reference:'',amount:30,note:'',allocations:[{orderId:'SO-FIN',amount:30}]});
   o.status='done';o.statusDates.done=new Date('2026-09-03T15:00:00').toISOString();
   const receipt=finDocText(finReceiptDoc(r.id)),d=finStatementData('CUS-FIN','2026-09-02','2026-09-30'),statement=finDocText(finStatementDoc('CUS-FIN','2026-09-02','2026-09-30','2026-10-01'));
   return {company:receipt.includes('QA Glass Co')&&statement.includes('QA Glass Co'),title:receipt.includes('PAYMENT RECEIPT'),after:receipt.includes('$80.00')&&!receipt.includes('$50.00'),refund:receipt.includes('Refunded')&&receipt.includes('$25.00'),
-   data:[d.opening,d.billed,d.paid,d.refunded,d.closing],lines:d.rows.map(l=>l.kind+':'+l.balance),orders:statement.includes('91001')&&statement.includes('Orders')&&statement.includes('Account activity'),
+   data:[d.opening,d.billed,d.paid,d.refunded,d.closing],lines:d.rows.map(l=>l.kind+':'+l.balance),orders:statement.includes('91001')&&statement.includes('Invoices')&&!statement.includes('Account activity')&&finDocText(finStatementDoc('CUS-FIN','2026-09-02','2026-09-30','2026-10-01',null,true)).includes('Account activity'),
    closing:statement.includes('Balance forward')&&statement.includes('-$100.00')&&statement.includes('Credit balance')&&statement.includes('$5.00'),later:!!later};
  }),{company:true,title:true,after:true,refund:true,data:[-100,100,30,25,-5],lines:['refund:-75','order:25','payment:-5'],orders:true,closing:true,later:true});
  eq('monthly statements: last month range, customers with activity only, CSV for the customer books, email text with totals',await t.p.evaluate(()=>{

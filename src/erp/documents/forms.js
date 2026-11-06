@@ -305,6 +305,9 @@ function formCleanBlock(b){
  if(o.y===undefined)o.y=0;
  return o;
 }
+/* Своя форма вместо бланка (Data → Forms → New form, Use for printing):
+   печать любого бланка берёт её шаблон. */
+function formUseKey(base){const c=(Array.isArray(DB.formCustom)?DB.formCustom:[]).find(f=>f&&f.base===base&&f.use);return c&&DB.formTemplate&&DB.formTemplate[c.k]?c.k:base;}
 function formClean(src,def){
  if(!src||typeof src!=='object'||!src.parts||typeof src.parts!=='object')return def;
  const m=Object.assign({},def.page.margin),sm=src.page&&src.page.margin||{};

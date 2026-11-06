@@ -38,7 +38,7 @@ module.exports=async function({page,eq}){
   const out={};
   DOC_FORM_KINDS.filter(k=>k!=='workOrder').forEach(kind=>[1,14].forEach(n=>{const o=ofOrder(n);['full','split','glass','unit','none'].forEach(mode=>{
    const all=Object.fromEntries(docFieldsFor(kind).map(f=>[f.k,true]));
-   [docBaseOptions(kind),Object.assign(all,{priceMode:mode})].forEach((opts,i)=>{const m=docBuildModel(kind,o,opts),a=ofSer(docLayout(m)),b=ofSer(docPages(m));out[kind+n+mode+i]=a===b?JSON.parse(a).length:'differs';});
+   [docBaseOptions(kind),Object.assign(all,{priceMode:mode})].forEach((opts,i)=>{const m=docBuildModel(kind,o,Object.assign({},opts,{totalsTop:false})),a=ofSer(docLayout(m)),b=ofSer(docPages(m));out[kind+n+mode+i]=a===b?JSON.parse(a).length:'differs';});
   });}));
   const v=Object.values(out);DB.company=keep;
   return {cases:v.length,differ:v.filter(x=>x==='differs').length,many:Math.max(...v)>1,kinds:DOC_FORM_KINDS};
@@ -97,5 +97,18 @@ module.exports=async function({page,eq}){
   const heads=po.slice(1).map(P=>P.items.some(i=>i.s==='DESCRIPTION'));DB.formTemplate={};
   return {po:[...new Set(marks(po))],pages:po.length>1,heads:[...new Set(heads)],req:marks(req),reqTitle:req[0].items.some(i=>i.s==='DELIVERY REQUEST'),trip:marks(trip),stops:trip[0].items.some(i=>i.s==='No stops')};
  }),{po:[1],pages:true,heads:[true],req:[1],reqTitle:true,trip:[1],stops:true});
+ eq('Order forms: New form — a copy prints the same as its form, a blank one only the lines; both are tabs in Documents next to their form; Delete removes the form',await t.p.evaluate(()=>{
+  formsUi=null;DB.formTemplate={};DB.formCustom=[];DB.formVersion=[];navGo('masterdata');mdSection='print';mdSetTab('forms');formsSetForm('confirmation');
+  formsNewOpen();const from=formsUi.newForm.from;formsNewSet('name','Confirmation · short');formsNewCreate();const copy=DB.formCustom[0].k;
+  const pill=[...document.querySelectorAll('.fm-forms .sl-quick-pill')].map(b=>b.textContent).includes('Confirmation · short'),rename=!!document.querySelector('[data-forms-rename]');
+  formsNewOpen();formsNewSet('name','Bare');formsNewSet('base','workOrder');formsNewCreate();const bare=DB.formCustom[1].k;
+  const o=ofOrder(2);docOpen(copy);const st=[docState.kind,docState.form===copy],tabs=[...document.querySelectorAll('.doc-kinds button')].map(b=>b.textContent);
+  const strip=P=>JSON.stringify(P.map(p=>p.items.filter(i=>i.t==='text').map(i=>i.s)));
+  const same=strip(docCurrentPages())===strip(docPages(docBuildModel('confirmation',o,docState.opts)));
+  docSetKind(bare);const texts=docCurrentPages().flatMap(P=>P.items.filter(i=>i.t==='text').map(i=>i.s));
+  docClose();navGo('masterdata');mdSection='print';mdSetTab('forms');formsSetForm(copy);window.confirm=()=>true;formsRemoveForm();
+  const left=DB.formCustom.map(f=>f.name),tpl=!!DB.formTemplate[copy];DB.formTemplate={};DB.formCustom=[];DB.formVersion=[];formsUi=null;
+  return {from,pill,rename,st,tabs:tabs.filter(x=>/short|Bare/.test(x)),same,bare:{lines:texts.some(s=>/^W-1/.test(s)||s.includes('W-1')),title:texts.some(s=>/WORK ORDER/i.test(s))},left,tpl};
+ }),{from:'confirmation',pill:true,rename:true,st:['confirmation',true],tabs:['Confirmation · short','Bare'],same:true,bare:{lines:true,title:false},left:['Bare'],tpl:false});
  eq('Order forms browser errors',t.errs,[]);await t.c.close();
 };

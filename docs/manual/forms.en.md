@@ -85,6 +85,27 @@ print time (the bottom of the sheet says "Printed … · status from station sca
   this page": units, panels, ft² and kg of the lines up to that sheet.
 - ✎ Customize: Status from station scans (untick — the route without status), Entered by.
 
+## Invoice: payments, Balance and the totals strip
+
+- Under Total, every payment on its own line (Deposit before the invoice date, Payment after), receipt number and
+  date; then Credits total. What is left on this order is in the “Balance · this order” frame. No payments — no lines.
+- Page 1, under the addresses: the totals strip — Total, Credits, Balance due, Quantity, Weight, Area (Proforma,
+  Order confirmation, Invoice). To hide it, untick Totals strip in ✎ Customize or remove the block in the builder.
+- Each item line shows its weight: “17.2 kg × 2 = 34.5 kg”. Tick Weight in lb for pounds.
+- Bottom left: terms (Data → Company, Terms) and GST/HST No. (Data → Company, HST number).
+- Fields for your own forms: Credits, Payments one per line, Total weight lb (Insert field, Totals group).
+
+## New form — blank or a copy
+
++ New form in the forms row: a name, Prints with — the order document it prints with (its data and ✎ Customize),
+Start from — Blank sheet (an empty sheet with the order lines only) or Copy of an existing form. The form shows in
+the forms row and as a tab in the order's Documents window next to its document. Your own forms have Rename and
+Delete form.
+
+For other documents (Packing slip, Purchase order, Trip sheet, Receipt, Statement, Drawing, dolly / skid sheet and
+label) your form prints instead of the document when Use for printing is on — wherever it is printed from. One such
+form per document. Turned off or deleted — the usual document prints again.
+
 ## Receipt, Statement, Purchase order, Trip sheet
 
 - **Receipt** and **Statement** — the same header, cells, addresses and totals as the order forms; the program draws the

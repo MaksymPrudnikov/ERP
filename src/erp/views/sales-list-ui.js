@@ -41,6 +41,9 @@ const SALES_LIST_COLUMNS=[
  {k:'total',label:'Total',type:'number',def:true,sum:true,money:true},
  {k:'receipts',label:'Receipts',type:'number',def:true,sum:true,money:true},
  {k:'balance',label:'Balance',type:'number',def:true,sum:true,money:true},
+ /* Счёт (владелец 06.11.2026): Invoiced — бухгалтер напечатал или отправил
+    Invoice клиенту (журнал заказа); Not invoiced — всё выдано, счёта не было. */
+ {k:'invoice',label:'Invoice',type:'list'},
  {k:'hold',label:'On Hold',type:'list'},
  {k:'delivery',label:'Delivery',type:'list'},
  {k:'rep',label:'Sales rep',type:'text'},
@@ -133,7 +136,7 @@ function salesListCleanPrefs(p){
  if(tab==='purchasing'&&p.purchasingDateInitialized!==true&&typeof purListDefaults==='function')Object.entries(purListDefaults()).forEach(([k,f])=>{if(!filters[k])filters[k]=salesListCleanFilter(k,f);});
  const calc={},src2=p.calc&&typeof p.calc==='object'&&!Array.isArray(p.calc)?p.calc:{};
  Object.keys(src2).forEach(k=>{const c=salesListColumn(k);if(c&&salesListCalcOptions(c).some(x=>x[0]===src2[k]))calc[k]=src2[k];});
- const clean={cols,filters,sort,createdRangeInitialized:true,statusExpanded:p.statusExpanded===true,statusHidden:p.statusHidden===true,quick:SALES_QUICK.some(q=>q[0]===p.quick)?p.quick:'all',calc,pinned:(Array.isArray(p.pinned)?p.pinned:[]).filter(k=>salesListColumn(k)),frozen:(Array.isArray(p.frozen)?p.frozen:[]).filter(k=>salesListColumn(k))};
+ const clean={cols,filters,sort,createdRangeInitialized:true,statusExpanded:p.statusExpanded===true,statusHidden:p.statusHidden===true,quick:SALES_QUICK_ALL.some(q=>q[0]===p.quick)?p.quick:'all',calc,pinned:(Array.isArray(p.pinned)?p.pinned:[]).filter(k=>salesListColumn(k)),frozen:(Array.isArray(p.frozen)?p.frozen:[]).filter(k=>salesListColumn(k))};
  if(tab==='inventory'&&p.inventoryDateInitialized!==true&&typeof invListDefaults==='function')Object.entries(invListDefaults()).forEach(([k,f])=>{if(!filters[k])filters[k]=salesListCleanFilter(k,f);});
  if(tab==='purchasing')clean.purchasingDateInitialized=true;
  if(salesListCwId()){const w=cwClean(p.widths);if(Object.keys(w).length)clean.widths=w;}
@@ -266,6 +269,7 @@ function salesListValue(info,k){
   case 'rep':v=c.salesRep||'';break;
   case 'createdBy':{const e=orderCreatedBy(o.id);v=e?e.by:'';break;}
   case 'terms':v=finTermsFor(o).paymentMode==='credit'?'Credit':'Cash';break;
+  case 'invoice':v=q||!finInvoiceDate(o)?'':salesInvoicedSet().has(o.id)?'Invoiced':'Not invoiced';break;
   case 'lines':v=lines.length;break;
   /* Пункт 14: известный вес всегда, неполный — с Partial (salesListWeightCell);
      число — для сортировки и фильтра, признак — в memo. */
@@ -380,19 +384,30 @@ function salesListRows(infos,skip){
    Выданные, закрытые и отменённые заказы в сроки и «внимание» не попадают —
    с ними уже ничего делать не нужно. */
 const SALES_QUICK=[['all','All'],['today','Today'],['week','Due this week'],['attention','Needs attention']];
+/* Только в Sales: заказы, которым пора выставить счёт. */
+const SALES_QUICK_ALL=SALES_QUICK.concat([['invoice','Not invoiced']]);
+/* Заказы, чей Invoice напечатан или отправлен (журнал заказа). */
+let salesInvoicedCache=null;
+function salesInvoicedSet(){
+ const ev=Array.isArray(DB.orderEvent)?DB.orderEvent:[];
+ if(salesInvoicedCache&&salesInvoicedCache.ev===ev&&salesInvoicedCache.n===ev.length)return salesInvoicedCache.s;
+ const s=new Map();ev.forEach(e=>{if(e&&(e.what==='Printed'||e.what==='Emailed')&&e.note==='Invoice'){const d=String(e.at||'').slice(0,10);if(!s.has(e.orderId)||d<s.get(e.orderId))s.set(e.orderId,d);}});
+ salesInvoicedCache={ev,n:ev.length,s};return s;
+}
 function salesQuickOpen(o){return !salesIsQuote(o)&&!['done','closed','cancelled'].includes(o.status);}
 function salesQuickTest(key,info){
  if(key==='all'||info.n)return key==='all';
+ if(key==='invoice')return salesListValue(info,'invoice')==='Not invoiced';
  const o=info.o,today=salesListDay(new Date()),week=salesListPresetRange('thisWeek'),due=o.dueDate||'';
  if(!salesQuickOpen(o))return false;
  if(key==='today')return due===today;
  if(key==='week')return !!due&&due>=today&&due<=week[1];
  return !!o.onHold||(o.lines||[]).some(l=>l.onHold)||(!!due&&due<today);
 }
-function salesQuickSet(key){const p=salesListLoadPrefs();p.quick=SALES_QUICK.some(q=>q[0]===key)?key:'all';salesListSel=new Set();salesListSavePrefs();render();}
+function salesQuickSet(key){const p=salesListLoadPrefs();p.quick=SALES_QUICK_ALL.some(q=>q[0]===key)?key:'all';salesListSel=new Set();salesListSavePrefs();render();}
 function salesQuickHTML(rows,anyDate,options){
  const cur=options&&options.cur||salesListLoadPrefs().quick||'all',test=options&&options.test||salesQuickTest,set=options&&options.set||'salesQuickSet',name=options&&options.name||(x=>x);
- return `<div class="sl-quick" role="tablist" aria-label="Quick views">${SALES_QUICK.map(([k,label])=>{const n=(k==='all'?rows:anyDate).filter(r=>test(k,r)).length;
+ return `<div class="sl-quick" role="tablist" aria-label="Quick views">${(options&&options.invoice?SALES_QUICK_ALL:SALES_QUICK).map(([k,label])=>{const n=(k==='all'?rows:anyDate).filter(r=>test(k,r)).length;if(k==='invoice'&&!n&&cur!=='invoice')return '';
   return `<button type="button" role="tab" class="sl-quick-pill${k===cur?' on':''}${k==='attention'&&n?' warn':''}" aria-selected="${k===cur}" data-quick="${k}" onclick="${set}('${k}')">${name(label)}${k==='all'||n?`<b>${n}</b>`:''}</button>`;}).join('')}</div>`;
 }
 /* В очереди флажок Glass — конкретное стекло из каталога, даже если оно
@@ -545,7 +560,7 @@ function salesListView(){
  },cols.length+2);
  const empty=`<tr><td colspan="${cols.length+2}" class="empty">${all.length?'Nothing matches the filters.':'No Sales Orders yet'}</td></tr>`;
  const wide=window.innerWidth>=1600,dateBtn=salesListDateButton(),chips=salesStatusChips(shown);salesListChipsNow=chips;
- return `<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">${salesListShowButton()}${openBtn}${deleteBtn}${holdBtn}${stickersBtn}${estBtn}<span class="sales-toolbar-sp"></span>${wide?'':dateBtn}<button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div><div class="sl-filter-row">${salesQuickHTML(filtered,anyDate,{cur:salesStatusFilter?'-':quick,set:'salesQuickPick',name:salesListShortLabel})}${salesListStatusPills(chips)}${wide?`<span class="sales-toolbar-sp"></span>${dateBtn}`:''}</div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${cw?cwTableClass('sales'):''}"${cw?cwTableAttrs('sales',keys):''}>${cw?cwColgroup('sales',keys):''}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
+ return `<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">${salesListShowButton()}${openBtn}${deleteBtn}${holdBtn}${stickersBtn}${estBtn}<span class="sales-toolbar-sp"></span>${wide?'':dateBtn}<button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div><div class="sl-filter-row">${salesQuickHTML(filtered,anyDate,{cur:salesStatusFilter?'-':quick,set:'salesQuickPick',name:salesListShortLabel,invoice:true})}${salesListStatusPills(chips)}${wide?`<span class="sales-toolbar-sp"></span>${dateBtn}`:''}</div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${cw?cwTableClass('sales'):''}"${cw?cwTableAttrs('sales',keys):''}>${cw?cwColgroup('sales',keys):''}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
 }
 
 /* ------------------------------ Меню ----------------------------------- */
@@ -665,7 +680,7 @@ function salesListMoveColumnTo(from,to,after){
  const [c]=cols.splice(a,1),b=cols.findIndex(x=>x.k===to);if(b<0){cols.splice(a,0,c);return;}
  cols.splice(after?b+1:b,0,c);salesListSavePrefs();render();
 }
-const SALES_LIST_WIDTH={type:76,number:96,customer:110,po:88,created:92,due:84,status:140,priority:84,glass:150,orderItems:160,batch:110,unitType:96,readyQty:80,units:76,area:92,total:100,receipts:100,balance:100};
+const SALES_LIST_WIDTH={type:76,number:96,customer:110,po:88,created:92,due:84,status:140,priority:84,glass:150,orderItems:160,batch:110,unitType:96,readyQty:80,units:76,area:92,total:100,receipts:100,balance:100,invoice:96};
 cwRegister('sales',{
  widths:()=>salesListLoadPrefs().widths||{},
  save:w=>{const p=salesListLoadPrefs();if(Object.keys(w).length)p.widths=w;else delete p.widths;salesListSavePrefs();},

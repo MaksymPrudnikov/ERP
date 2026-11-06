@@ -114,7 +114,7 @@ function finPreviewPages(){
  if(p.kind==='receipt')return finReceiptDoc(p.id);
  if(p.kind==='statement'){
   if(finPeriodError(p))return [];
-  const pages=finStatementDoc(p.id,p.from,p.to);if(!p.invoices)return pages;
+  const pages=finStatementDoc(p.id,p.from,p.to,undefined,finStatementDue(p),!!p.activity);if(!p.invoices)return pages;
   const key=p.id+'|'+p.from+'|'+p.to;if(p.invoiceKey!==key){p.invoiceKey=key;p.invoicePages=null;setTimeout(()=>finStatementInvoiceBuild(p,key),0);}
   /* Пока счета собираются, Print и Email PDF ждут — иначе ушла бы одна выписка. */
   return p.invoicePages?pages.concat(p.invoicePages):[];
@@ -140,13 +140,23 @@ function finPreviewInfo(){
 }
 function finStatementControls(p){
  const err=finPeriodError(p),skipped=err?[]:finStatementData(p.id,p.from,p.to).skipped;
- return `<div class="sales-toolbar fin-preview-period">${finRangeButton('preview')}<label class="chk fin-statement-invoices" title="Invoices for the period after the statement"><input type="checkbox" data-statement-invoices ${p.invoices?'checked':''} onchange="finStatementInvoices(this.checked)"> Invoices</label><span class="sales-toolbar-sp"></span><button type="button" ${err?'disabled':''} onclick="finStatementExport()" title="Account activity for the customer's books">CSV</button></div>
+ return `<div class="sales-toolbar fin-preview-period">${finRangeButton('preview')}<label class="chk" title="Every charge and payment by date"><input type="checkbox" data-statement-activity ${p.activity?'checked':''} onchange="finPreview.activity=this.checked;render()"> Account activity</label><label class="chk fin-statement-invoices" title="Invoices for the period after the statement"><input type="checkbox" data-statement-invoices ${p.invoices?'checked':''} onchange="finStatementInvoices(this.checked)"> Invoices</label><span class="sales-toolbar-sp"></span><button type="button" ${err?'disabled':''} onclick="finStatementExport()" title="Account activity for the customer's books">CSV</button></div>${err?'':finStatementDueHTML(p)}
  ${err?`<p role="alert" class="fin-due fin-preview-note">${esc(err)}</p>`:''}${skipped.length?`<p class="fin-hint fin-preview-note">Not priced, left out: ${esc(skipped.map(o=>o.businessNumber).join(', '))}</p>`:''}${p.invoices&&!err?`<p class="fin-hint fin-preview-note" data-statement-invoices-note>${p.invoicePages?p.invoiceCount?p.invoiceCount+' invoice'+(p.invoiceCount===1?'':'s')+' after the statement':'No invoices in this period':'Preparing invoices…'}</p>`:''}`;
 }
 /* Счета за период к выписке (владелец, 22.10.2026: «выслать клиенту все
    инвойсы, информацию за год»): Invoice каждого заказа, выданного в
    периоде, — после выписки, одним PDF. Ушедшие в архив читаются с диска на
    время сборки (archiveWith). */
+/* Due now: до даты и галочки по счёту (finStatementDuePick). */
+function finStatementDue(p){return p&&(p.dueBy||Object.keys(p.duePick||{}).length)?{by:p.dueBy||'',pick:p.duePick||{}}:null;}
+function finStatementDueBy(v){const p=finPreview;if(!p)return;p.dueBy=v||'';p.duePick={};p.status='';render();}
+function finStatementDueToggle(id,on){const p=finPreview;if(!p)return;p.duePick=Object.assign({},p.duePick,{[id]:!!on});render();}
+function finLastWeekday(wd){const d=new Date(finToday()+'T12:00:00');while(d.getDay()!==wd)d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);}
+function finStatementDueHTML(p){
+ const due=finStatementDue(p),open=finStatementOrders(p.id,p.from,p.to).filter(finStatementDueOpen);if(!open.length)return '';
+ const picks=due?`<div class="fin-due-picks" data-statement-due-picks>${open.map(x=>`<label class="chk"><input type="checkbox" data-statement-due-pick="${esc(x.o.id)}" ${finStatementDuePick(x,due)?'checked':''} onchange="finStatementDueToggle('${esc(x.o.id)}',this.checked)"> ${esc(x.o.businessNumber)} · ${esc(docDate(x.billed))} · ${esc(docMoney(x.f.b.balance))}</label>`).join('')}</div>`:'';
+ return `<div class="sales-toolbar fin-preview-period fin-due-now"><b>Due now</b><label class="chk">up to <input type="date" data-statement-due value="${esc(p.dueBy||'')}" onchange="finStatementDueBy(this.value)"></label><button type="button" onclick="finStatementDueBy(finLastWeekday(1))">Last Monday</button><button type="button" onclick="finStatementDueBy(finLastWeekday(5))">Last Friday</button><button type="button" onclick="finStatementDueBy(finToday())">Today</button>${due?'<button type="button" onclick="finStatementDueBy(\'\')">Clear</button>':''}</div>${picks}`;
+}
 function finStatementInvoices(on){const p=finPreview;if(!p)return;p.invoices=!!on;p.status='';render();}
 async function finStatementInvoiceBuild(p,key){
  const inPeriod=d=>!!d&&(!p.from||d>=p.from)&&(!p.to||d<=p.to),list=finStatementOrders(p.id,p.from,p.to).filter(x=>inPeriod(x.billed)),old=list.filter(x=>x.archived).map(x=>x.o.id);

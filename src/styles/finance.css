@@ -28,6 +28,8 @@
 .fin-summary b{font-variant-numeric:tabular-nums}
 .fin-over{color:var(--danger)}
 .fin-form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+.fin-due-now{gap:8px;align-items:center}
+.fin-due-picks{display:flex;flex-wrap:wrap;gap:4px 14px;margin:2px 0 8px;font-size:12px}
 .fin-modal{width:min(560px,96vw)}
 .fin-modal-body{padding:16px}
 .sales-editor-top .fin-strip{margin-left:auto;margin-right:12px}
@@ -73,7 +75,7 @@
 @media(max-width:900px){.fin-workspace-head{align-items:flex-start;flex-wrap:wrap}.fin-stat{min-width:0;flex:1}.fin-event-diff{padding:0 0 12px;grid-template-columns:1fr}.fin-event-time{max-width:120px}.fin-account-head .row{flex-wrap:wrap}.fin-account-totals{gap:16px}}
 /* Телефон: четыре плитки в одну строку не помещаются — по две, кнопка ниже. */
 @media(max-width:650px){.fin-overview{flex-basis:100%}.fin-stat{flex:1 1 130px}}
-.fin-form>.fin-form-actions{position:sticky;bottom:0;background:var(--surface);padding:12px 0;border-top:1px solid var(--line);z-index:1}
+.fin-form>.fin-form-actions{position:sticky;bottom:46px;background:var(--surface);padding:12px 0;border-top:1px solid var(--line);z-index:1}
 /* Таблицы Finance на движке Sales (views/finance-lists) */
 .fin-card .sl-quiet.on{background:var(--accent);border-color:var(--accent);color:var(--on-solid)}
 .fin-list td.fin-actions,.fin-list th.fin-actions{text-align:right;width:1%}

@@ -144,5 +144,14 @@ module.exports=async function({page,eq}){
   const c=formClean(bad,def);
   return {every:c.parts.every.blocks.map(b=>[b.type,b.size,b.place,b.onclick,b.src]),h:c.parts.every.h,cols:c.parts.table.columns.length,totals:c.parts.totals.blocks.length===def.parts.totals.blocks.length,json:JSON.stringify(JSON.parse(JSON.stringify(c)))===JSON.stringify(c)};
  }),{every:[['text',96,'left',null,null],['image',null,'left',null,null]],h:90,cols:8,totals:true,json:true});
+ await require('./optimization-fixture')(t.p);await t.p.evaluate(helpers);
+ eq('Forms: New form for a Packing slip — a copy with its own text prints instead of the Packing slip only with Use for printing; off or deleted — the Packing slip as before',await t.p.evaluate(()=>{
+  feOpen();DB.formCustom=[];formsSetForm('packingSlip');formsNewOpen();formsNewSet('name','PS · short');formsNewCreate();const k=DB.formCustom[0].k,box=!!document.querySelector('[data-forms-use]');
+  const tpl=JSON.parse(JSON.stringify(DB.formTemplate[k]));const p=Object.keys(tpl.parts).find(x=>tpl.parts[x].blocks);tpl.parts[p].blocks.push({id:'own',type:'text',text:'OWN FORM TEXT',place:'left',y:0,w:200,h:12,size:9,lh:12});DB.formTemplate[k]=tpl;
+  const s=fePs(),has=()=>feText(shippingPages(shippingDocument(s))).includes('OWN FORM TEXT');
+  const before=has();formsUseForm(true);const on=has(),flag=DB.formCustom[0].use;formsUseForm(false);const off=has();
+  formsUseForm(true);window.confirm=()=>true;formsRemoveForm();const gone=has();DB.formTemplate={};DB.formCustom=[];DB.formVersion=[];formsUi=null;
+  return {before,box,on,flag,off,gone};
+ }),{before:false,box:true,on:true,flag:true,off:false,gone:false});
  eq('Forms browser errors',t.errs,[]);await t.c.close();
 };
