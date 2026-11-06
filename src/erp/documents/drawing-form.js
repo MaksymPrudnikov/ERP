@@ -40,8 +40,12 @@ const DRAW_LOOK=[
    кегль 12 pt = прежние 16px. Низ: подпись стекла из батча слева, дата
    справа (7.5px и 10px прежнего листа). */
 const DRAW_HEAD_SIZE=12,DRAW_FOOT_SIZE=5.63,DRAW_TAG_SIZE=7.5;
+/* Поля листа — поля печати 9 мм (@page в modules.css): x блока Free — от
+   края бумаги, как на линейке конструктора. */
+const DRAW_MARGIN=25.51;
 function drawFormDefault(){
- return {form:'drawing',page:{w:612,h:792,margin:{top:0,right:0,bottom:0,left:0}},style:Object.assign({},DRAW_STYLE_DEFAULT),parts:{
+ const m=DRAW_MARGIN;
+ return {form:'drawing',page:{w:612,h:792,margin:{top:m,right:m,bottom:m,left:m}},style:Object.assign({},DRAW_STYLE_DEFAULT),parts:{
   head:{h:0,blocks:[
    {id:'customer',type:'field',field:'customer',prefix:'Customer:',place:'left',y:0,size:DRAW_HEAD_SIZE,bold:true},
    {id:'po',type:'field',field:'po',prefix:'PO:',place:'center',y:0,size:DRAW_HEAD_SIZE,bold:true},
@@ -108,7 +112,7 @@ function drawBlockStyle(b,base,kind){
  if(b.italic)st.push('font-style:italic');
  if(b.font)st.push('font-family:'+(b.font==='times'?'Times,serif':'Courier,monospace'));
  if(/^#[0-9a-f]{3,6}$/i.test(b.color||''))st.push('color:'+b.color);
- if(b.place==='free')st.push('position:absolute','left:'+(b.x||0)+'pt','top:'+(b.y||0)+'pt');
+ if(b.place==='free')st.push('position:absolute','left:'+Math.round(((b.x||0)-DRAW_MARGIN)*100)/100+'pt','top:'+(b.y||0)+'pt');
  else if(b.y)st.push('position:relative','top:'+b.y+'pt');
  return st;
 }
@@ -170,21 +174,45 @@ function drawFormSheetHTML(tpl,id){
  [['sheet-field','drawing'],['sheet-side','info'],['sheet-route"','route']].forEach(([c,p])=>{h=pick(c,p)(h);});
  return '<div class="print-sheet gf-light">'+h+'</div>';
 }
-/* Правая панель части Drawing: бумага, единицы, размер, кегли, цвета. */
+/* Правая панель части Drawing (владелец, 06.11.2026: «интерфейс максимально
+   дружелюбным»): группы Paper / Units / Text / Lines / Colors, у чисел − и +,
+   быстрые наборы для всех линий и цветов, пример единиц. Сейчас (пусто) —
+   прежний вид. */
+const DRAW_TEXT=[['dimSize','Numbers',18],['noteSize','Slope notes',16],['labelSize','Edge work, radius',12],['serviceSize','Service labels, sizes',14]];
+const DRAW_LINES=[['edgeW','Glass edge',1.9],['lineW','Dimension lines',1],['featureW','Service marks',1.5]];
+const DRAW_LINE_STEPS=[[.7,'Thinner'],[0,'As now'],[1.5,'Bolder']];
 function drawFormStyleHTML(tpl){
  const st=drawStyle(tpl),set=(k,v)=>`formsStyle('${k}',${v})`;
  const seg=(k,cur,list,raw)=>`<div class="fm-seg">${list.map(([v,l])=>`<button type="button" class="${String(cur)===String(v)?'on':''}" onclick="${set(k,raw?v:`'${v}'`)}">${l}</button>`).join('')}</div>`;
  const sel=(k,cur,list)=>`<select class="fm-in" data-draw-${k} onchange="${set(k,'this.value')}">${list.map(([v,l])=>`<option value="${v}" ${cur===v?'selected':''}>${l}</option>`).join('')}</select>`;
- const n=(key,title,attr)=>`<input class="fm-in fm-dnum" ${attr} inputmode="decimal" placeholder="auto" title="${title}" value="${st[key]||''}" onchange="${set(key,'Number(this.value)||0')}">`;
- const look=DRAW_LOOK.map(([k,label,now,w,z])=>`<div class="fm-drow"><span>${label}</span><input type="color" class="fm-in fm-color" data-draw-color="${k}" value="${st[k]||now}" onchange="${set(k,'this.value')}" title="Color">${st[k]?`<button type="button" class="fm-dreset" title="As now" onclick="${set(k,"''")}">×</button>`:'<i></i>'}${w?n(w,'Line width, px',`data-draw-width="${k}"`):z?n(z,'Text size, px',`data-draw-size="${k}"`):'<i></i>'}</div>`).join('');
+ /* Число с − и +: пусто — как сейчас, первое нажатие идёт от прежнего значения. */
+ const step=(k,now,d,unit)=>{const v=st[k];return `<span class="fm-step" data-draw-step="${k}"><button type="button" title="Less" onclick="formsStyleStep('${k}',${-d},${now})">−</button><input class="fm-in" inputmode="decimal" placeholder="${now}" title="Empty — as now" value="${v||''}" onchange="${set(k,'Number(this.value)||0')}"><button type="button" title="More" onclick="formsStyleStep('${k}',${d},${now})">+</button><i>${unit}</i></span>`;};
+ const row=(label,ctl,reset)=>`<div class="fm-drow"><span>${label}</span>${ctl}${reset||'<i></i>'}</div>`;
+ const back=k=>`<button type="button" class="fm-dreset" title="As now" onclick="${set(k,k==='dimSize'?18:k==='noteSize'?16:0)}">×</button>`;
+ const changed=k=>k==='dimSize'?st[k]!==18:k==='noteSize'?st[k]!==16:st[k]>0;
+ const lines=DRAW_LINES.every(([k])=>!st[k])?0:(DRAW_LINE_STEPS.find(([f])=>f&&DRAW_LINES.every(([k,,now])=>st[k]===Math.round(now*f*10)/10))||[-1])[0];
+ const black=DRAW_LOOK.every(([k])=>k==='altColor'||st[k]==='#000000'),now=DRAW_LOOK.every(([k])=>!st[k]);
+ const ex=dimUnitText(33.25,st.units,false),ex2=st.alt?' ('+dimUnitText(33.25,st.alt,true)+')':'';
  return `<div class="fm-h">Part · Drawing</div>
-  <label><span>Paper</span>${seg('paper',st.paper,[['portrait','Portrait'],['landscape','Landscape']])}</label>
-  <label><span>Units</span>${sel('units',st.units,DRAW_UNITS)}</label>
-  <label><span>Second units</span>${sel('alt',st.alt,[['','None']].concat(DRAW_UNITS.filter(u=>u[0]!==st.units)))}</label>
-  <label><span>Drawing size</span>${seg('size',st.size,[[75,'75%'],[90,'90%'],[100,'Fill']],true)}</label>
-  <div class="fm-row"><label><span>Numbers, px</span><input class="fm-in" data-draw-dim inputmode="decimal" value="${st.dimSize}" onchange="${set('dimSize','Number(this.value)')}"></label><label><span>Slope notes, px</span><input class="fm-in" inputmode="decimal" value="${st.noteSize}" onchange="${set('noteSize','Number(this.value)')}"></label></div>
-  <label class="fm-check"><input type="checkbox" data-draw-bg ${st.bg?'checked':''} onchange="${set('bg','this.checked')}"><span>White under numbers</span></label>
-  <div class="fm-h">Look</div><div class="fm-dlook"><div class="fm-drow fm-dhead"><span>Element</span><span>Color</span><i></i><span>Width · size</span></div>${look}</div>
-  <p class="fm-note">Empty — as now. × — color as now.</p>`;
+  <div class="fm-dsec"><b>Paper</b>${seg('paper',st.paper,[['portrait','▯ Portrait'],['landscape','▭ Landscape']])}</div>
+  <div class="fm-dsec"><b>Drawing size</b>${seg('size',st.size,[[75,'75%'],[90,'90%'],[100,'Fill']],true)}</div>
+  <div class="fm-dsec"><b>Units</b>${sel('units',st.units,DRAW_UNITS)}
+   <label class="fm-dsub"><span>Second units, small gray</span>${sel('alt',st.alt,[['','None']].concat(DRAW_UNITS.filter(u=>u[0]!==st.units)))}</label>
+   <div class="fm-dex" data-draw-example>Example: <b>${esc(ex)}</b>${ex2?`<span>${esc(ex2)}</span>`:''}</div></div>
+  <div class="fm-dsec"><b>Text size</b>${DRAW_TEXT.map(([k,l,n])=>row(l,step(k,n,1,'px'),changed(k)?back(k):'')).join('')}
+   <label class="fm-check"><input type="checkbox" data-draw-bg ${st.bg?'checked':''} onchange="${set('bg','this.checked')}"><span>White under numbers</span></label></div>
+  <div class="fm-dsec"><b>Lines</b><div class="fm-seg" data-draw-lines>${DRAW_LINE_STEPS.map(([f,l])=>`<button type="button" class="${lines===f?'on':''}" onclick="formsStyleLines(${f})">${l}</button>`).join('')}</div>
+   ${DRAW_LINES.map(([k,l,n])=>row(l,step(k,n,.2,'px'),changed(k)?back(k):'')).join('')}</div>
+  <div class="fm-dsec"><b>Colors</b><div class="fm-seg" data-draw-colors><button type="button" class="${now?'on':''}" onclick="formsStyleColors('')">As now</button><button type="button" class="${black?'on':''}" onclick="formsStyleColors('#000000')">All black</button></div>
+   ${DRAW_LOOK.map(([k,label,was])=>row(label,`<input type="color" class="fm-in fm-color" data-draw-color="${k}" value="${st[k]||was}" title="Pick a color" onchange="${set(k,'this.value')}">`,st[k]?`<button type="button" class="fm-dreset" title="As now" onclick="${set(k,"''")}">×</button>`:'')).join('')}</div>
+  <p class="fm-note">The sheet shows every change at once. Save — all prints.</p>`;
 }
 function formsStyle(k,v){formsEdit(t=>{t.style=Object.assign({},DRAW_STYLE_DEFAULT,t.style,{[k]:v});});}
+/* − / +: от сохранённого или прежнего значения, шаг 1 px у текста, 0.2 px у линий. */
+function formsStyleStep(k,d,now){
+ const st=drawStyle(formsDraft().tpl),line=DRAW_LINES.some(x=>x[0]===k),lo=line?.2:6,hi=line?12:40;
+ formsStyle(k,Math.min(hi,Math.max(lo,Math.round(((st[k]||now)+d)*10)/10)));
+}
+/* Все линии сразу: тоньше, как сейчас, толще — от прежних толщин. */
+function formsStyleLines(f){formsEdit(t=>{t.style=Object.assign({},DRAW_STYLE_DEFAULT,t.style);DRAW_LINES.forEach(([k,,now])=>{t.style[k]=f?Math.round(now*f*10)/10:0;});});}
+function formsStyleColors(c){formsEdit(t=>{t.style=Object.assign({},DRAW_STYLE_DEFAULT,t.style);DRAW_LOOK.forEach(([k])=>{t.style[k]=c&&k!=='altColor'?c:'';});});}

@@ -20,7 +20,7 @@ module.exports=async function({page,eq}){
   foot:'<span><!--sheet-tag--></span><span>DATE · 1 / 1</span>',root:['print-shape-sheet',null],svg:false,finished:'Finished 37″ × 71″'});
  eq('Drawing form: the batch glass tag goes where the Glass tag block is; Free and Show if work in the header',await t.p.evaluate(()=>{
   const o=dfOrder(),tag=dfDoc(salesSheetFoot(dfSheet(o),'B7 · 1/2')).querySelector('.sheet-foot').innerHTML;
-  dfSave({},t=>{t.parts.head.blocks.push({id:'n',type:'text',text:'Rush {order}',place:'free',x:200,y:20,size:9});t.parts.head.blocks.push({id:'s',type:'field',field:'note',prefix:'Note:',place:'right',show:{when:'filled',field:'note',value:''}});
+  dfSave({},t=>{t.parts.head.blocks.push({id:'n',type:'text',text:'Rush {order}',place:'free',x:225.51,y:20,size:9});t.parts.head.blocks.push({id:'s',type:'field',field:'note',prefix:'Note:',place:'right',show:{when:'filled',field:'note',value:''}});
    t.parts.foot.blocks=t.parts.foot.blocks.filter(b=>b.id!=='date');t.parts.foot.blocks[0].place='right';});
   const d=dfDoc(salesSheetFoot(dfSheet(o),'B7 · 1/2')),free=d.querySelector('.sheet-free');
   return {tag:tag.replace(/\d{4}-\d{2}-\d{2}/,'DATE'),free:[free.textContent,free.getAttribute('style'),free.querySelector('b').getAttribute('style')],note:d.querySelector('.sheet-id-o').children.length,foot:d.querySelector('.sheet-foot').innerHTML};
@@ -59,5 +59,17 @@ module.exports=async function({page,eq}){
   const was=sMetricDetail;sMetricDetail=true;const printed=[...dfDoc(dfSheet(o)).querySelectorAll('.sheet-field svg text')].some(e=>e.textContent==='939.8');sMetricDetail=was;
   return {parts,add,live,hits,panel,liveMm,dirty,saved:DB.formTemplate.drawing.style.units,printed,sample:s.sample.startsWith(o.id+'|')};
  }),{parts:['Header','Info','Drawing','Route','Footer'],add:['+ Text','+ Field'],live:true,hits:['head|customer','head|po','head|order','foot|tag','foot|date'],panel:true,liveMm:true,dirty:true,saved:'mm',printed:true,sample:true});
- await t.close();
+ eq('Drawing form: Lines — Thinner / As now / Bolder for all lines, − and + per line; Colors — All black; the ruler and guides on the sheet',await t.p.evaluate(()=>{
+  dfOrder();dfOpen();formsSelect('drawing','');const btn=(sel,txt)=>[...document.querySelectorAll(sel+' button')].find(b=>b.textContent===txt);
+  btn('[data-draw-lines]','Bolder').click();const st=()=>drawStyle(formsDraft().tpl),bold=['edgeW','lineW','featureW'].map(k=>st()[k]);
+  const on=btn('[data-draw-lines]','Bolder').classList.contains('on');
+  document.querySelector('[data-draw-step="edgeW"] button[title="Less"]').click();const less=st().edgeW;
+  document.querySelector('[data-draw-step="dimSize"] button[title="More"]').click();const dim=st().dimSize;
+  btn('[data-draw-colors]','All black').click();const black=[st().edge,st().text,st().altColor];
+  btn('[data-draw-lines]','As now').click();
+  const sheet=document.querySelector('[data-forms-stage] .print-shape-sheet');
+  return {bold,on,less,dim,black,now:['edgeW','lineW','featureW'].map(k=>st()[k]),cls:sheet.className,ruler:!!document.querySelector('.fm-dsheet .fm-ruler.x')&&!!document.querySelector('.fm-dsheet [data-forms-ruler="y"]'),
+   margins:document.querySelectorAll('.fm-dsheet [data-forms-margin]').length,example:document.querySelector('[data-draw-example]').textContent};
+ }),{bold:[2.8,1.5,2.3],on:true,less:2.6,dim:19,black:['#000000','#000000',''],now:[0,0,0],cls:'print-shape-sheet',ruler:true,margins:0,example:'Example: 33 1/4'});
+ eq('Drawing form browser errors',t.errs,[]);await t.c.close();
 };

@@ -320,7 +320,7 @@ function formsGuides(tpl,axis){const m=tpl.page.margin,g=tpl.guides||{};return a
 function formsRulerStart(e,kind,which,index){
  if(e.button!==0||formsPointer)return;e.preventDefault();e.stopPropagation();
  const stage=e.currentTarget.closest('[data-forms-stage]'),sheet=stage.querySelector('[data-forms-page="0"]'),d=formsDraft();if(!sheet)return;
- const r=sheet.getBoundingClientRect(),k=d.tpl.page.w/r.width;
+ const r=sheet.getBoundingClientRect(),k=(+sheet.dataset.w||d.tpl.page.w)/r.width;
  if(kind==='new'){if(!d.tpl.guides)d.tpl.guides={x:[],y:[]};const list=d.tpl.guides[which]=(d.tpl.guides[which]||[]).slice();list.push(which==='x'?(e.clientX-r.left)*k:(e.clientY-r.top)*k);kind='guide';index=list.length-1;}
  formsPointer={kind,which,index,pid:e.pointerId,stage,before:formsClone(d.tpl),k,rect:r};
  try{stage.setPointerCapture(e.pointerId);}catch(x){}
@@ -341,16 +341,16 @@ function formsRulerEnd(e,cancel){
  const d=formsDraft(),t=d.tpl;
  if(cancel)d.tpl=p.before;
  else{
-  if(p.kind==='guide'){const g=t.guides,v=g[p.which][p.index],max=p.which==='x'?t.page.w:t.page.h;if(p.out||!(v>0&&v<max)){g[p.which].splice(p.index,1);}if(!g.x.length&&!g.y.length)delete t.guides;}
+  if(p.kind==='guide'){const g=t.guides,v=g[p.which][p.index],max=p.k*(p.which==='x'?p.rect.width:p.rect.height);if(p.out||!(v>0&&v<max)){g[p.which].splice(p.index,1);}if(!g.x.length&&!g.y.length)delete t.guides;}
   if(JSON.stringify(p.before)!==JSON.stringify(t)){d.undo.push(p.before);if(d.undo.length>80)d.undo.shift();d.redo=[];formsUi.notice='';}
  }
  render();
 }
-function formsRulerMarks(tpl){
+function formsRulerMarks(tpl,fixed){
  const W=tpl.page.w,H=tpl.page.h,m=tpl.page.margin,pc=(v,of)=>(v/of*100).toFixed(4)+'%',in2=v=>(Math.round(v/72*100)/100)+'″';
  const mk=(which,cls,pos,title)=>`<span class="fm-mk ${cls}" data-forms-margin="${which}" style="${cls==='x'?'left':'top'}:${pos}" title="${title}" onpointerdown="formsRulerStart(event,'margin','${which}')"></span>`;
- return `<div class="fm-rgrab x" data-forms-ruler="x" title="Drag down for a guide" onpointerdown="formsRulerStart(event,'new','x')"></div><div class="fm-rgrab y" data-forms-ruler="y" title="Drag right for a guide" onpointerdown="formsRulerStart(event,'new','y')"></div>`+
-  mk('left','x',pc(m.left,W),'Left margin '+in2(m.left))+mk('right','x',pc(W-m.right,W),'Right margin '+in2(m.right))+mk('top','y',pc(m.top,H),'Top margin '+in2(m.top))+mk('bottom','y',pc(H-m.bottom,H),'Bottom margin '+in2(m.bottom));
+ return `<div class="fm-rgrab x" data-forms-ruler="x" title="Drag down for a guide" onpointerdown="formsRulerStart(event,'new','x')"></div><div class="fm-rgrab y" data-forms-ruler="y" title="Drag right for a guide" onpointerdown="formsRulerStart(event,'new','y')"></div>`+(fixed?'':
+  mk('left','x',pc(m.left,W),'Left margin '+in2(m.left))+mk('right','x',pc(W-m.right,W),'Right margin '+in2(m.right))+mk('top','y',pc(m.top,H),'Top margin '+in2(m.top))+mk('bottom','y',pc(H-m.bottom,H),'Bottom margin '+in2(m.bottom)));
 }
 function formsGuidesHTML(tpl){
  const g=tpl.guides||{},W=tpl.page.w,H=tpl.page.h,pc=(v,of)=>(v/of*100).toFixed(4)+'%',in2=v=>(Math.round(v/72*100)/100)+'″';
@@ -371,7 +371,10 @@ function formsSheetsHTML(){
   const land=tpl.style&&tpl.style.paper==='landscape';let h;
   try{h=def.html(tpl,d);}catch(e){return `<p class="fm-note">Preview failed: ${esc(e.message)}</p>`;}
   setTimeout(()=>document.querySelectorAll('[data-forms-stage] .print-sheet').forEach(el=>salesSheetFitDrawing(el)),0);
-  return `<div class="fm-sheet fm-dsheet${land?' land':''}" data-forms-page="0" data-w="${land?792:612}" data-h="${land?612:792}">${h}</div>`;
+  /* Линейка и направляющие (владелец: «рулетку тоже, чтобы выравнивать»);
+     поля — поля печати, их не тянут. */
+  const W=land?792:612,H=land?612:792,v=Object.assign({},tpl,{page:Object.assign({},tpl.page,{w:W,h:H})}),m=tpl.page.margin,pc=(x,of)=>(x/of*100).toFixed(4)+'%';
+  return `<div class="fm-sheet fm-dsheet${land?' land':''}" data-forms-page="0" data-w="${W}" data-h="${H}">${h}${formsRuler(false,W)+formsRuler(true,H)+formsRulerMarks(v,true)}<div class="fm-margin" style="left:${pc(m.left,W)};right:${pc(m.right,W)}"></div>${formsGuidesHTML(v)}</div>`;
  }
  let pages;try{pages=def.pages(tpl,d,map);}catch(e){return `<p class="fm-note">Preview failed: ${esc(e.message)}</p>`;}
  const W=tpl.page.w,H=tpl.page.h,pc=(v,of)=>(v/of*100).toFixed(4)+'%',m=tpl.page.margin;

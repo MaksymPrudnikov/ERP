@@ -87,7 +87,8 @@ batch print. One setting works everywhere; by default the sheet is exactly what 
 
 - **Header** — the line above the drawing: Customer left, PO center, Order Number right. **+ Text** and **+ Field**
   blocks, places Left / Center / Right (a column of the line, blocks in it go top down; Y moves down) and Free (its own
-  place, drag with the mouse). Size, B, I, font, color, Show if — as in other forms.
+  place, drag with the mouse). Size, B, I, font, color, Show if — as in other forms. A ruler in inches runs along the
+  sheet, the dashed lines are the 9 mm print margins; drag a guide off the ruler, a Free block snaps to it.
 - **Footer** — the bottom of the sheet: Glass tag (the glass label in a batch print) and the date. The Glass tag block can
   be moved or removed.
 - **Info** and **Route** are drawn by the program (makeup, Finished, weight, LINE, NOTE; the route by stations). Click
@@ -98,11 +99,14 @@ batch print. One setting works everywhere; by default the sheet is exactly what 
     **Second units** — a second smaller gray label next to the number: "844.6 (33 1/4″)". The Finished line uses these
     units too. The route (CUT …) stays in inches — the sticker prints the same route.
   - **Drawing size** — 75 %, 90 % or Fill (all the room, as before).
-  - **Numbers** and **Slope notes** — text size of dimensions (18) and slope labels (16).
-  - **White under numbers** — the white patch under a number on a line.
-  - **Look** — every element has its own color (any color, click it), lines a width, labels a text size: glass edge,
-    dimension lines, arrows, services (hole, hardware and cutout marks), numbers, edge work and radius, service labels
-    and sizes, second units. Empty — as now (lines gray, text black); × — color as now.
+  - Under the units — an example number in the chosen units.
+  - **Text size** — dimensions (18), slope labels (16), edge work and radius, service labels and sizes (holes,
+    hinges, clamps, cutouts); − and + or a number. **White under numbers** — the white patch under a number.
+  - **Lines** — Thinner / As now / Bolder for all lines at once, then − and + for the glass edge, dimension lines and
+    service marks (px).
+  - **Colors** — As now or All black in one click; every element has its own color (any color, click it): edge,
+    dimension lines, arrows, service marks, numbers, edge work, service labels, second units. × — as now.
+  - Empty or × — as now (lines gray, text black).
 - The Metric detail button in the shape editor does not change prints from the Drawings window, stations or batches:
   they follow Drawing. Print / PDF in the editor itself prints what is on the screen.
 
