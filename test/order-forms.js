@@ -33,16 +33,30 @@ module.exports=async function({page,eq}){
   const run=(y,lines,sec)=>{const f=formFlow(tpl,ofCtx({n:lines},{section:k=>sec?{h:20,draw:(P,yy)=>P.rect(36,yy,540,20,{})}:null}));f.page();f.y=y;f.flow('totals');return f.finish().map(P=>P.items.map(i=>i.t==='rect'?'R@'+i.y:i.s+'@'+Math.round(i.y*10)/10).join(' '));};
   return {fits:run(640,['a','b'],true),label:run(677,['a','b'],true),one:run(677,['a'],true),noSec:run(661,['a','b'],false)};
  }),{fits:['R@640 NOTES@673 a@684 b@694'],label:['R@677','NOTES@53 a@64 b@74'],one:['R@677 NOTES@710 a@721'],noSec:['NOTES@674 a@685 b@695']});
- eq('Order forms: all five order forms print from their forms and the sheets are the same as before (one and two pages, every price mode, notes and terms)',await t.p.evaluate(()=>{
+ eq('Order forms: Quote, Proforma, Order confirmation and Invoice print from their forms and the sheets are the same as before (one and two pages, every price mode, notes and terms)',await t.p.evaluate(()=>{
   const keep=JSON.parse(JSON.stringify(DB.company));DB.company.termsText='Terms. '.repeat(120);DB.company.logo=ofJpeg;
   const out={};
-  DOC_FORM_KINDS.forEach(kind=>[1,14].forEach(n=>{const o=ofOrder(n);['full','split','glass','unit','none'].forEach(mode=>{
+  DOC_FORM_KINDS.filter(k=>k!=='workOrder').forEach(kind=>[1,14].forEach(n=>{const o=ofOrder(n);['full','split','glass','unit','none'].forEach(mode=>{
    const all=Object.fromEntries(docFieldsFor(kind).map(f=>[f.k,true]));
    [docBaseOptions(kind),Object.assign(all,{priceMode:mode})].forEach((opts,i)=>{const m=docBuildModel(kind,o,opts),a=ofSer(docLayout(m)),b=ofSer(docPages(m));out[kind+n+mode+i]=a===b?JSON.parse(a).length:'differs';});
   });}));
   const v=Object.values(out);DB.company=keep;
   return {cases:v.length,differ:v.filter(x=>x==='differs').length,many:Math.max(...v)>1,kinds:DOC_FORM_KINDS};
- }),{cases:100,differ:0,many:true,kinds:['quote','proforma','confirmation','invoice','workOrder']});
+ }),{cases:80,differ:0,many:true,kinds:['quote','proforma','confirmation','invoice','workOrder']});
+ eq('Work order: the route shows each glass status from station scans — done ✓, here now with how many and on which dolly or skid (— when on nothing), part done 3/4, not yet; Shipping ready and Ship at the end; broken and a Recut row under it',await t.p.evaluate(()=>{
+  const o=ofOrder(1),l=o.lines[0],P=(id,unit,route,far,waiting,on,extra)=>Object.assign({id,g:{c:{index:0}},unit,place:{route,far,waiting,shipped:far===route.length-1},scans:[{at:'2026-11-01T10:00:00Z',on}]},extra||{});
+  const R=['CUT','ARRIS','IGU','SHIPR','SHIP'],ps=[P('G1','1',R,1,'IGU','DL-57'),P('G2','2',R,2,'SHIPR',''),P('G3','3',R,3,'SHIP','SA-17'),P('G4','4',R,4,'','SA-17'),P('G5','5',R,0,'ARRIS','',{place:{route:R,far:0,waiting:'',broken:true}}),P('G6','R1.1',R,0,'ARRIS','DL-9')];
+  const it={lites:[{label:'Lite 1',glass:'4CLEAR · AN',chips:[{code:'CUT',text:''},{code:'ARRIS',text:''},{code:'IGU',text:''}]}],info:'6.4 ft²'};
+  docScanStatus(it,{lines:new Map([[l.id,ps]]),ps:new Map([['G3','PS-0021']])},o,l);
+  const pick=x=>x.chips.map(c=>c.code+(c.done?'✓':'')+(c.tag?' '+c.tag:'')+(c.here?' '+c.here:''));
+  return {main:pick(it.lites[0]),broken:it.lites[0].broken,recut:[it.lites[1].label,pick(it.lites[1])],info:it.info};
+ }),{main:['CUT✓','ARRIS✓','IGU 1 · DL-57','SHIPR 1 · —','SHIP 1 · SA-17 · PS-0021'],broken:1,recut:['Recut 1',['CUT✓','ARRIS 1 · DL-9','IGU','SHIPR','SHIP']],info:'In work · 6.4 ft²'});
+ eq('Work order: barcode of the number, Required with the weekday, Entered by; IGU units, single lites and panels apart, kg and lb; every page says what is done up to it and when it was printed',await t.p.evaluate(()=>{
+  const o=ofOrder(14);o.dueDate='2026-11-20';const m=docBuildModel('workOrder',o),pages=docPages(m),texts=P=>P.items.filter(i=>i.t==='text').map(i=>i.s);
+  return {cells:m.meta.map(c=>c.label),required:m.meta.find(c=>c.label==='Required').value,summary:m.summary.map(c=>c.label),lb:/kg · [\d,]+ lb$/.test(m.summary[4].value),
+   bars:pages[0].items.filter(i=>i.t==='rect'&&i.fill==='#000000').length>10,upto:[...new Set(pages.map(P=>texts(P).filter(s=>/^Up to this page: \d+ units · \d+ panels/.test(s)).length))],many:pages.length>1,printed:pages.every(P=>texts(P).some(s=>/Printed .* · status from station scans at print time/.test(s))),
+   last:texts(pages.at(-1)).find(s=>/^Up to this page/.test(s))===('Up to this page: '+m.lineTotals.reduce((n,x)=>n+x.units,0)+' units · '+m.lineTotals.reduce((n,x)=>n+x.panels,0)+' panels · '+docNum(m.lineTotals.reduce((n,x)=>n+x.area,0),1)+' ft² · '+docNum(m.lineTotals.reduce((n,x)=>n+x.kg,0),0)+' kg')};
+ }),{cells:['Order date','Customer PO','Required','Priority','Delivery','Entered by'],required:'Fri, Nov 20, 2026',summary:['IGU units','Single lites','Panels (glass)','Total area','Total weight','Required'],lb:true,bars:true,upto:[1],many:true,printed:true,last:true});
  eq('Order forms: ✎ Customize ticks come from the form blocks — a removed section takes its ticks away, an added block is a tick of its own; unticked it does not print; Save as default keeps it',await t.p.evaluate(()=>{
   ofOrder(1,'quote');docOpen('quote');docState.panel=true;render();
   const ticks=()=>[...document.querySelectorAll('.doc-panel [data-doc-field]')].map(i=>i.dataset.docField+(i.checked?'':'-'));

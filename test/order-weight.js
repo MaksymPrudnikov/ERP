@@ -112,12 +112,13 @@ module.exports=async function({page,eq}){
 
  eq('Бланки: Order summary во всех, где отмечен, — «80 kg · Partial» и строка «Partial weight: interlayer weight not included.» на листе; выключенный — нет; Weight per unit: Work order «27.5 kg/unit · Partial», «25.0 kg/unit»; Order confirmation — «Weight 27.5 kg per unit · Partial»',await run(()=>{
   owSetup();const o=salesRecord(owOrder()),opt=(k,on)=>docCleanOptions(k,Object.assign(docBaseOptions(k),{orderSummary:on,weight:on}));
-  const sum=k=>{const m=finWithOrder(o,()=>docBuildModel(k,o,opt(k,true)));const svg=docLayout(m).map(docPageSVG).join('');return [m.summary.find(c=>c.label==='Total weight').value,m.summaryNote,svg.includes('80 kg · Partial')&&svg.includes('Partial weight: interlayer weight not included.')];};
+  const sum=k=>{const m=finWithOrder(o,()=>docBuildModel(k,o,opt(k,true)));const svg=docLayout(m).map(docPageSVG).join('');return [m.summary.find(c=>c.label==='Total weight').value,m.summaryNote,svg.includes(k==='workOrder'?'80 kg · 176 lb · Partial':'80 kg · Partial')&&svg.includes('Partial weight: interlayer weight not included.')];};
   const off=finWithOrder(o,()=>docBuildModel('confirmation',o,opt('confirmation',false))).summary;
-  const wo=finWithOrder(o,()=>docBuildModel('workOrder',o,opt('workOrder',true))).items.map(i=>i.info.split(' · ').slice(1).join(' · '));
+  /* У Work order в шапке строки первым — итог по сканам (Not in a batch). */
+  const wo=finWithOrder(o,()=>docBuildModel('workOrder',o,opt('workOrder',true))).items.map(i=>i.info.split(' · ').slice(2).join(' · '));
   const conf=finWithOrder(o,()=>docBuildModel('confirmation',o,opt('confirmation',true))).items.map(i=>((i.sub.find(x=>/Weight/.test(x.text))||{}).text||'').split(' · ').slice(1).join(' · '));
   return {kinds:['workOrder','proforma','confirmation'].map(sum),off,wo,conf};
- }),{kinds:[['80 kg · Partial','Partial weight: interlayer weight not included.',true],['80 kg · Partial','Partial weight: interlayer weight not included.',true],['80 kg · Partial','Partial weight: interlayer weight not included.',true]],off:null,
+ }),{kinds:[['80 kg · 176 lb · Partial','Partial weight: interlayer weight not included.',true],['80 kg · Partial','Partial weight: interlayer weight not included.',true],['80 kg · Partial','Partial weight: interlayer weight not included.',true]],off:null,
   wo:['27.5 kg/unit · Partial','25.0 kg/unit'],conf:['Weight 27.5 kg per unit · Partial','Weight 25.0 kg per unit']});
 
  eq('Бланк заказа без размеров: «Weight unavailable», не 0; полный — без Partial и без строки под блоком',await run(()=>{

@@ -309,8 +309,8 @@ function docLineTotals(l,order){
 }
 function docShopSummary(order,w,weightText){
  const t=(order.lines||[]).map(l=>docLineTotals(l,order)).reduce((s,x)=>{Object.keys(x).forEach(k=>{s[k]=(s[k]||0)+x[k];});return s;},{});
- const lb=w.kg==null?'':' · '+docNum(w.kg*2.20462,0)+' lb';
- return [{label:'IGU units',value:String(t.igu||0)},{label:'Single lites',value:String(t.single||0)},{label:'Panels (glass)',value:String(t.panels||0)},{label:'Total area',value:docNum(t.area||0,1)+' ft²'},{label:'Total weight',value:weightText+lb},{label:'Required',value:docDateWeek(order.dueDate)||'—'}];
+ const lb=w.kg==null?'':' kg · '+docNum(w.kg*2.20462,0)+' lb';
+ return [{label:'IGU units',value:String(t.igu||0)},{label:'Single lites',value:String(t.single||0)},{label:'Panels (glass)',value:String(t.panels||0)},{label:'Total area',value:docNum(t.area||0,1)+' ft²'},{label:'Total weight',value:lb?weightText.replace(' kg',lb):weightText},{label:'Required',value:docDateWeek(order.dueDate)||'—'}];
 }
 /* Дата с днём недели — Required на Work order: «Wed, Oct 7, 2026». */
 function docDateWeek(v){

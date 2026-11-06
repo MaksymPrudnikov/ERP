@@ -2,6 +2,30 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Work order: статус стёкол по сканам в маршруте (вариант G) · 6 ноября 2026
+
+Владелец 06.11.2026: Work order «не меньше информации, чем у Spiel, а лучше больше»; из вариантов A–G выбран G
+(картинки ~/Documents/ERP_PLAN/work-order-06-11/). «Система сама должна распознавать, что done, а что нет» — колонки
+для подписи цеха нет; статус — по каждому стеклу («solargray или clear на темперинге»), в одной структуре с маршрутом.
+
+- Маршрут стекла и есть статус (`docScanStatus`, `docScanChip`, рисует `docRouteStatusPart`): фишка зелёная с галочкой —
+  все стёкла лайта прошли станцию; жёлтая «IGU 1 · DL-57» — стоят тут сейчас, сколько и на какой таре (`on` последнего
+  скана, «—» — ни на чём; на скиде ещё номер PS, если стекло уже в packing slip); «3/4» — часть прошла; серая — не
+  дошли. В конце — фишки Shipping ready и Ship (`shippingStations`). Разбитое — «1 broken» красным, под лайтом строка
+  «Recut N» (стёкла `R1.1`) со своим маршрутом; Recut без стёкол — «Not in a batch yet · причина». Итог строки в
+  шапке позиции: Shipped / Made · waiting to ship / In work / Not in a batch. Сканы один раз на бланк — `docScanIndex`.
+- Шапка: штрихкод номера под номером (блок `barcode` шаблона), Required с днём недели (`docDateWeek`, ячейка Due date у
+  Work order), ячейка Entered by (`docEnteredBy` — первая запись журнала заказа), в Ship to — контакт и машина рейса
+  (`docTruckText`, «not planned yet»).
+- Сводка Work order: IGU units, Single lites, Panels (glass), Total area, Total weight кг · lb, Required
+  (`docShopSummary`; юниты и стёкла раздельно — «в кашу» у Spiel владелец назвал багом). Внизу каждого листа — «Up to
+  this page: units · panels · ft² · kg» (строки, начатые на этом листе и раньше; `m.lineTotals`, `f.pageFields` движка
+  — поля своего листа) и «Internal · no prices · Printed … · status from station scans at print time».
+- ✎ Customize Work order: Entered by (Header), Status from station scans (Production; снята — маршрут как раньше).
+- Остальные бланки не изменились: сверка Quote / Proforma / OC / Invoice, Receipt / Statement / PO / Trip sheet и
+  Packing slip — старый dist против ветки, 0 расхождений (выгрузка владельца, shop-week).
+- Проверки: `test/order-forms.js` (+2). README 2450. Руководство `docs/manual/forms.*` — «Work order: статус по сканам».
+
 ## Лист скида / долли на конструкторе, Add to other forms, один набор полей · 6 ноября 2026
 
 Владелец 06.11.2026: «положим и шаблон скидов доллей и что мы ещё забыли»; «везде должно быть одно название, нам не

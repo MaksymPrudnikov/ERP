@@ -90,7 +90,6 @@ const DOC_FORM_FIELDS=[
  {k:'footer.left',g:'Document',label:'Footer text',v:m=>m.footerLeft},
  {k:'footer.right',g:'Document',label:'Company and number',v:m=>m.footerRight},
  {k:'printed',g:'Document',label:'Printed at',v:()=>{const d=new Date();return docDate(d.toISOString().slice(0,10))+' '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});}},
- {k:'page.upto',g:'Totals',label:'Up to this page',v:m=>m.pageUpto?m.pageUpto(-1):''},
  {k:'customerPo',g:'Order',label:'Customer PO',v:m=>m.data.customerPo},
  {k:'paymentTerms',g:'Order',label:'Payment terms',v:m=>m.data.terms},
  {k:'currency',g:'Order',label:'Currency',v:m=>m.data.currency},
@@ -109,7 +108,9 @@ const DOC_FORM_FIELDS=[
  {k:'total.hst',g:'Totals',label:'HST',v:m=>m.data.hst},
  {k:'total.grand',g:'Totals',label:'Total',v:m=>m.data.grand},
  {k:'total.paid',g:'Totals',label:'Paid to date',v:m=>m.data.paid},
- {k:'total.balance',g:'Totals',label:'Balance',v:m=>m.data.balance}];
+ {k:'total.balance',g:'Totals',label:'Balance',v:m=>m.data.balance},
+ /* Итоги «до этой страницы» — значение своё у каждого листа (pageFields). */
+ {k:'page.upto',g:'Totals',label:'Up to this page',v:()=>''}];
 /* Квитанция и выписка — без полей заказа (даты, условия, итоги заказа). */
 const DOC_FORM_FIN_FIELDS=['company.name','company.lines','company.logo','title','docName','number','number.label','header.short','footer.left','footer.right','customer'];
 function docFormFields(kind){return formWithCompany(DOC_FORM_FIN.includes(kind)?DOC_FORM_FIELDS.filter(f=>DOC_FORM_FIN_FIELDS.includes(f.k)):DOC_FORM_FIELDS).concat(formMyFields());}

@@ -68,6 +68,23 @@ quotes (Quote) or orders (the rest).
   currency), Customer (addresses, contact), Totals (units, area, weight, Subtotal, HST, Total, paid, balance),
   My fields.
 
+## Work order: status from scans
+
+The Work order shows where every glass is by itself: no signing by hand — the status comes from the station scans at
+print time (the bottom of the sheet says "Printed … · status from station scans at print time").
+
+- On a glass row (Lite 1, Lite 2, its glass — 6SOLARGRAY, 6CLEAR…) the route by station, and every chip is a status:
+  **green with a tick** — all its glass passed; **amber** "IGU 1 · DL-57" — standing here now, how many and on which dolly
+  or skid ("—" — on nothing; on a skid also the PS number once the glass is on a packing slip); "3/4" — part passed;
+  **grey** — not there yet. At the end — Shipping ready (SHIPR) and Ship.
+- Broken glass — "1 broken" in red, with a **Recut N** row under it on its own route; a Recut with no glass yet — "Not in
+  a batch yet".
+- The line heading carries the line status: Shipped, Made · waiting to ship, In work.
+- Header: the number barcode, Required with the weekday, Entered by, the site contact and truck in Ship to.
+- Summary: IGU units, Single lites and Panels (glass) apart, area, weight in kg and lb. The bottom of every sheet — "Up to
+  this page": units, panels, ft² and kg of the lines up to that sheet.
+- ✎ Customize: Status from station scans (untick — the route without status), Entered by.
+
 ## Receipt, Statement, Purchase order, Trip sheet
 
 - **Receipt** and **Statement** — the same header, cells, addresses and totals as the order forms; the program draws the
