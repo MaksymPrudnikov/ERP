@@ -102,6 +102,10 @@ Start from — Blank sheet (an empty sheet with the order lines only) or Copy of
 the forms row and as a tab in the order's Documents window next to its document. Your own forms have Rename and
 Delete form.
 
+For other documents (Packing slip, Purchase order, Trip sheet, Receipt, Statement, Drawing, dolly / skid sheet and
+label) your form prints instead of the document when Use for printing is on — wherever it is printed from. One such
+form per document. Turned off or deleted — the usual document prints again.
+
 ## Receipt, Statement, Purchase order, Trip sheet
 
 - **Receipt** and **Statement** — the same header, cells, addresses and totals as the order forms; the program draws the

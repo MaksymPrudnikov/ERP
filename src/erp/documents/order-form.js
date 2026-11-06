@@ -142,7 +142,7 @@ function docFormContext(m,tpl){
      свой блок — b:<id>. */
   off:b=>b.opt?!opts[b.opt]:added.has(b.id)&&opts['b:'+b.id]===false};
 }
-function docFormTemplate(kind,form){const c=form&&docCustomForm(form);return formClean(DB.formTemplate&&DB.formTemplate[c&&c.base===kind?c.k:kind],docFormDefault(kind));}
+function docFormTemplate(kind,form){const c=form&&docCustomForm(form);return formClean(DB.formTemplate&&DB.formTemplate[c&&c.base===kind?c.k:DOC_FORM_FIN.includes(kind)?formUseKey(kind):kind],docFormDefault(kind));}
 /* Свои формы (06.11.2026): новая форма с нуля или копией бланка заказа.
    DB.formCustom — {k, name, base}; шаблон — DB.formTemplate[k]; данные и
    ✎ Customize — бланка base, печать — из окна бланков заказа рядом с ним. */

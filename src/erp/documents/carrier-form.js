@@ -42,7 +42,7 @@ function carrierFormFields(){
   f('Order','customer','Customer (one order)'),f('Order','order','Order Number (one order)'),f('Order','customerPo','PO (one order)')].concat(formCompanyFields(),formMyFields());
 }
 let carrierFormPreview=null;
-function carrierFormTpl(){return carrierFormPreview?carrierFormPreview.tpl:formClean(DB.formTemplate&&DB.formTemplate.carrierSheet,carrierFormDefault());}
+function carrierFormTpl(){return carrierFormPreview?carrierFormPreview.tpl:formClean(DB.formTemplate&&DB.formTemplate[formUseKey('carrierSheet')],carrierFormDefault());}
 function carrierFormStyle(tpl){
  const s=Object.assign({},carrierFormDefault().style,(tpl||carrierFormTpl()).style||{}),o={};
  CS_LOOK.forEach(([k])=>{o[k]=/^#[0-9a-f]{6}$/i.test(s[k]||'')?String(s[k]).toLowerCase():'';});
@@ -140,7 +140,7 @@ function carrierLabelFields(){
   .concat(formCompanyFields(),formMyFields());
 }
 let carrierLabelPreview=null;
-function carrierLabelTpl(){return carrierLabelPreview?carrierLabelPreview.tpl:formClean(DB.formTemplate&&DB.formTemplate.carrierLabel,carrierLabelDefault());}
+function carrierLabelTpl(){return carrierLabelPreview?carrierLabelPreview.tpl:formClean(DB.formTemplate&&DB.formTemplate[formUseKey('carrierLabel')],carrierLabelDefault());}
 function carrierLabelCtx(code){
  const t=carrierType(code)||{label:''},fields={code,type:String(t.label||'').toUpperCase(),typeName:t.label||'',date:new Date().toISOString().slice(0,10)};
  formCompanyFields().concat(formMyFields()).forEach(f=>{fields[f.k]=f.v;});

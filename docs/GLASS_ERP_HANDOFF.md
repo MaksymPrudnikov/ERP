@@ -21,7 +21,9 @@
 - Поля конструктора: Credits, Payments one per line, Total weight lb.
 - Свои формы: Data → Forms → + New form — имя, Prints with (бланк заказа), Blank sheet или Copy of; Rename, Delete
   form. `DB.formCustom` {k, name, base}, шаблон — `DB.formTemplate[k]`; в окне Documents заказа — вкладка рядом со
-  своим бланком. Пока только у бланков заказа (Quote, Proforma, Confirmation, Invoice, Work order).
+  своим бланком. У остальных бланков (Packing slip, PO, Trip sheet, Receipt, Statement, Drawing, тара) печать идёт из
+  многих мест — своя форма печатается вместо бланка, когда у неё включено Use for printing (одна на бланк;
+  `formUseKey` в геттерах шаблонов). Выключили или удалили — снова обычный бланк.
 
 ## Work order: статус стёкол по сканам в маршруте (вариант G) · 6 ноября 2026
 

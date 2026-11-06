@@ -84,7 +84,7 @@ let drawFormPreview=null,drawSheetLastFields={};
 function drawFormTpl(o){
  if(drawFormPreview)return drawFormPreview.tpl;
  const f=drawFrozenOf(o===undefined?(typeof soDraft!=='undefined'?soDraft:null):o);if(f)return f.tpl;
- return formClean(DB.formTemplate&&DB.formTemplate.drawing,drawFormDefault());
+ return formClean(DB.formTemplate&&DB.formTemplate[formUseKey('drawing')],drawFormDefault());
 }
 /* ----------------------- Вид на день архивации ----------------------- */
 /* Владелец, 06.11.2026: «в заказе, который заархивирован, чертёж не
@@ -95,7 +95,7 @@ function drawFormTpl(o){
    Вернули в работу (archiveReturn) — снова нынешний вид. */
 DEFAULT.drawingFrozen={};
 function drawFrozenKeep(){
- const v={tpl:formClean(DB.formTemplate&&DB.formTemplate.drawing,drawFormDefault()),company:JSON.parse(JSON.stringify(DB.company||{}))};
+ const v={tpl:formClean(DB.formTemplate&&DB.formTemplate[formUseKey('drawing')],drawFormDefault()),company:JSON.parse(JSON.stringify(DB.company||{}))};
  const key='D'+sha256Hex(JSON.stringify(v)).slice(0,16),all=DB.drawingFrozen&&typeof DB.drawingFrozen==='object'?DB.drawingFrozen:{};
  if(!all[key])DB.drawingFrozen=Object.assign({},all,{[key]:v});
  return key;
