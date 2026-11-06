@@ -2,6 +2,32 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Деньги на виду: Statement, Invoice, Accounts, Sales · 7 ноября 2026
+
+Владелец 07.11.2026 выбрал по картинкам восемь правок (`~/Documents/ERP_PLAN/spiel-samples/visual/`, v2 и v3) — в том
+же PR, что окно Allocate.
+
+- **Statement** (finance/print): счета по месяцам — `finStatementRows`: строка `group` (месяц), счета, `sub` — подытог
+  «Due now · N invoices» после последнего счёта к оплате, `total` — итог месяца под чертой; заказы в работе — группой
+  In work. К оплате сейчас (`finStatementNow`) — те же правила, что итоги внизу: просрочка 60+ и 90+ всегда, моложе —
+  выбранное бухгалтером, без выбора — просроченное; такие строки красные. Колонка Days late (`finStatementLate`).
+  Строки рисует общий `finDocRow` (finDocLayout и finDocTable). Итоги сроков — с цветной меткой (`docCells` cell.mark),
+  под ними полоса `m.summaryBar` (`docBar`) и проценты.
+- **Invoice / Proforma / Confirmation**: в строке итогов Credits → **Paid** зелёным, Balance due красным (оплачено всё
+  — зелёным; `docCells` cell.tone), под строкой полоса `docPaidBar` из `m.stripPaid` — только когда есть оплата.
+  Полоса — часть секции Totals strip, в конструкторе ходит вместе с ней. Процент — до десятой, 100% только без
+  остатка. Значок вида перед названием строки: `it.panes` 1 / 2 / 3 черты (Single lite / IGU / Triple IGU).
+- **Accounts**: под Balance полоса сроков `finAgingBar` (views/finance-lists, классы `.fin-age-*` на токенах),
+  суммы — в title.
+- **Sales**: колонка Invoice видна по умолчанию, за Status (у сохранённых списков включается один раз —
+  `invoiceShown`); ячейка `salesInvoicePill`: Invoiced — `pill ok`, «Not invoiced · N d» — с 3 дней `pill warn`, в
+  работе — прочерк, значение фильтра In work. Статусы — `salesListStatusRow`: второй строкой, только на All (или
+  когда выбран статус); на узком экране — прежняя кнопка Status.
+- Тесты: `test/finance-visual.js` (5); `test/finance.js` ждёт Paid вместо Credits; `test/sales-list.js` берёт счёт
+  статусов из `salesListChipsNow` — на Today кнопок больше нет.
+- Замечено, не правил: в Accounts итоги внизу (строка «19 customers») стоят на колонку левее своих — было и до этой
+  правки.
+
 ## Finance: окно Allocate payments как в Spiel · 6 ноября 2026
 
 Владелец 06.11.2026: бухгалтер привыкла к экрану разнесения Spiel (Debit | Credit Transactions). Вид выбран по

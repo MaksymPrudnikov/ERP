@@ -8,6 +8,9 @@
 **Accounts** (клиенты и их счёт), **Due dates** (сроки оплаты), **Payments** (квитанции). Клик по клиенту в Accounts —
 его карточка: Balance, Overdue, Prepaid, On account, заказы и оплаты, кнопки **Allocate**, **Statement**, **+ Receipt**.
 
+Под Balance в Accounts — полоса сроков: красное — просрочка 90+, жёлтое — 60+, оранжевое — просрочено моложе (Due
+now), зелёное — Current. Суммы — в подсказке при наведении. Те же правила, что итоги внизу Statement.
+
 ## Разнесение оплат — Allocate payments
 
 Окно для бухгалтера «как в Spiel»: Finance → Accounts → клиент → **Allocate**. Слева **Orders & invoices** — заказы и

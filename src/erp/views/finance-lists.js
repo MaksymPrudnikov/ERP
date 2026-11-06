@@ -118,11 +118,21 @@ function finAccountInfos(){
   return {o:{id:c.id,createdAt:c.createdAt||''},c,m,memo:{customer:finCustomerName(c),code:c.code||'',terms:a.terms,balance:x.balance,overdue:x.overdue,prepaid:x.prepaid,deposit:x.deposit,limit:a.creditLimit,orders:x.orders,state:finAccountState(c,a)}};
  }).filter(i=>finAccountAll?i.c.status!=='archived'||finAccountOpen(i.m):finAccountOpen(i.m));
 }
+/* Полоса сроков под Balance (владелец 07.11.2026): как итоги выписки —
+   просрочка 90+ и 60+, просрочено моложе (Due now) и Current. */
+const FIN_AGING=[['Overdue 90+','fin-age-90'],['Overdue 60+','fin-age-60'],['Due now','fin-age-now'],['Current','fin-age-cur']];
+function finAgingBar(rows){
+ const day=finToday(),v=[0,0,0,0];
+ (rows||[]).forEach(({f})=>{const b=f.b;if(b.status==='review'||!(b.balance>0))return;const d=f.dueOn&&f.dueOn<day?Math.floor((Date.parse(day)-Date.parse(f.dueOn))/864e5):0;v[d>=90?0:d>=60?1:d>0?2:3]+=b.balance;});
+ const all=v.reduce((s,n)=>s+n,0);if(!(all>0))return '';
+ const tip=FIN_AGING.map((a,i)=>v[i]>0?a[0]+' '+finFmt(finMoney(v[i])):'').filter(Boolean).join(' · ');
+ return `<div class="fin-aging" data-fin-aging title="${esc(tip)}">${v.map((n,i)=>n>0?`<span class="${FIN_AGING[i][1]}" style="width:${(100*n/all).toFixed(2)}%"></span>`:'').join('')}</div>`;
+}
 function finAccountCell(r,c){
  const v=salesListValue(r,c.k),x=r.m.money;
  switch(c.k){
   case 'customer':return `<td><button class="fin-link" onclick="finOpenAccount('${esc(r.c.id)}')">${raw(v)}</button>${x.review?'<span class="pill warn">Review required</span>':''}<div class="mut small">${raw(r.c.code||'')}${r.c.onHold?' · <b class="fin-due">On hold</b>':''}</div></td>`;
-  case 'balance':return `<td class="n">${v>0?`<b>${finFmt(v)}</b>`:'<span class="mut">—</span>'}${x.incomplete?`<div class="mut small">${x.incomplete} not priced</div>`:''}</td>`;
+  case 'balance':return `<td class="n">${v>0?`<b>${finFmt(v)}</b>${finAgingBar(r.m.rows)}`:'<span class="mut">—</span>'}${x.incomplete?`<div class="mut small">${x.incomplete} not priced</div>`:''}</td>`;
   case 'overdue':return `<td class="n">${v>0?`<b class="fin-due">${finFmt(v)}</b>`:'<span class="mut">—</span>'}</td>`;
   case 'deposit':return `<td class="n">${v>0?`<span class="fin-deposit">${finFmt(v)}</span>`:'<span class="mut">—</span>'}</td>`;
   case 'prepaid':return `<td class="n">${finMoneyText(v)}</td>`;

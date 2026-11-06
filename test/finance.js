@@ -124,7 +124,7 @@ module.exports=async function({page,eq,ok}){
   const received=docBuildModel('proforma',soDraft).end.deposit.map(x=>x.label),off=docBuildModel('proforma',soDraft,{receipts:false}).end.paid;
   soEdit=null;soDraft=null;
   return {paid:/^Deposit · R-0001 · \w+ \d+, \d{4}=−/.test(paid[0])&&paid[0].endsWith(docMoney(part))&&paid[1]==='Credits total=−'+docMoney(part)&&paid[2]==='Balance due='+docMoney(salesMoney(total-part)),deposit:deposit[0]==='Deposit due now · 50%='+docMoney(salesMoney(dep-part)),printed,received,off,strip};
- }),{paid:true,deposit:true,printed:true,received:['Deposit received · 50%'],off:null,strip:['Total CAD','Credits','Balance due','Quantity','Weight','Area']});
+ }),{paid:true,deposit:true,printed:true,received:['Deposit received · 50%'],off:null,strip:['Total CAD','Paid','Balance due','Quantity','Weight','Area']});
 
  eq('Export/Import JSON несёт квитанции, не массив — понятная ошибка; клиента с оплатами не удалить',await t.p.evaluate(()=>{
   finCleanup();const {cust,o}=finFixture();

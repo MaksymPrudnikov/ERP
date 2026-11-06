@@ -112,3 +112,7 @@
 .fin-alloc-link td{padding-top:4px;padding-bottom:4px}.fin-alloc-link td:nth-child(3){padding-left:14px}
 .fin-alloc-unlink{color:var(--danger)}
 @media(max-width:1100px){.fin-alloc{flex-direction:column}}
+/* Полоса сроков под Balance в Accounts (07.11.2026). */
+.fin-aging{display:flex;height:5px;width:110px;max-width:100%;margin:4px 0 0 auto;border-radius:3px;overflow:hidden;background:var(--surface-3)}
+.fin-aging span{display:block;height:100%}
+.fin-age-90{background:var(--danger)}.fin-age-60{background:var(--warning)}.fin-age-now{background:var(--series-3)}.fin-age-cur{background:var(--accent)}

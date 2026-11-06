@@ -28,9 +28,8 @@ function finDocLayout(m){
   if(sec.title){y+=si?10:0;P.text(W.left,y+11,sec.title,{size:9,bold:true,color:C.navy});y+=18;}
   cur=sec;head();
   sec.rows.forEach(r=>{
-   const h=15;if(y+h>W.bottom)start();
-   r.cells.forEach((v,i)=>{const c=sec.cols[i];if(!c)return;P.text(c.x,y+10.5,docFit(String(v==null?'':v),7.8,!!(c.bold||r.bold),c.w),{size:7.8,bold:!!(c.bold||r.bold),align:c.align||'left',color:r.hi||r.due&&c.due?C.due:r.mut?C.mut:C.ink});});
-   P.line(W.left,y+h,W.right,y+h,{stroke:C.line,lw:.5});y+=h;
+   const h=finDocRowH(r);if(y+h+(r.group?15:0)>W.bottom)start();
+   finDocRow(P,sec,r,y);y+=h;
   });
   if(!sec.rows.length&&sec.empty){P.text(W.left,y+12,sec.empty,{size:7.8,color:C.mut});y+=18;}
  });
@@ -46,6 +45,17 @@ function finDocLayout(m){
  });
  return pages;
 }
+/* Строка таблицы бланка. Обычная — ячейки по колонкам; group — заголовок
+   месяца; sub — подытог (Due now) красным; total — итог месяца под чертой. */
+function finDocRowH(r){return r.group?14:r.sub?12:r.total?16:15;}
+function finDocRow(P,sec,r,y){
+ const W=DOC_PAGE,C=DOC_COLOR;
+ if(r.group){P.text(W.left,y+10,r.group,{size:7.2,bold:true,color:C.navy});return;}
+ if(r.sub){P.text(W.left+16,y+8.5,r.sub,{size:6.6,bold:true,color:C.due});P.text(W.right,y+8.5,r.value,{size:6.6,bold:true,color:C.due,align:'right'});P.line(W.left,y+12,W.right,y+12,{stroke:C.line,lw:.5});return;}
+ if(r.total){P.line(W.left,y+2,W.right,y+2,{stroke:C.navy,lw:.5});P.text(W.left,y+11.5,r.total,{size:6.8,bold:true,color:C.navy});P.text(W.right,y+11.5,r.value,{size:6.8,bold:true,color:C.navy,align:'right'});return;}
+ r.cells.forEach((v,i)=>{const c=sec.cols[i];if(!c)return;P.text(c.x,y+10.5,docFit(String(v==null?'':v),7.8,!!(c.bold||r.bold),c.w),{size:7.8,bold:!!(c.bold||r.bold),align:c.align||'left',color:r.hi||r.due&&c.due?C.due:r.mut?C.mut:C.ink});});
+ P.line(W.left,y+15,W.right,y+15,{stroke:C.line,lw:.5});
+}
 /* Таблицы квитанции и выписки на листах шаблона формы (erp/documents/
    order-form): те же места, что у finDocLayout; шапка, итоги и низ — из
    шаблона. */
@@ -59,9 +69,8 @@ function finDocTable(f,m){
   if(sec.title){f.y+=si?10:0;f.P.text(W.left,f.y+11,sec.title,{size:9,bold:true,color:C.navy});f.y+=18;}
   cur=sec;head();
   sec.rows.forEach(r=>{
-   const h=15;if(f.y+h>f.bottom)start();
-   r.cells.forEach((v,i)=>{const c=sec.cols[i];if(!c)return;f.P.text(c.x,f.y+10.5,docFit(String(v==null?'':v),7.8,!!(c.bold||r.bold),c.w),{size:7.8,bold:!!(c.bold||r.bold),align:c.align||'left',color:r.hi||r.due&&c.due?C.due:r.mut?C.mut:C.ink});});
-   f.P.line(W.left,f.y+h,W.right,f.y+h,{stroke:C.line,lw:.5});f.y+=h;
+   const h=finDocRowH(r);if(f.y+h+(r.group?15:0)>f.bottom)start();
+   finDocRow(f.P,sec,r,f.y);f.y+=h;
   });
   if(!sec.rows.length&&sec.empty){f.P.text(W.left,f.y+12,sec.empty,{size:7.8,color:C.mut});f.y+=18;}
  });
@@ -129,6 +138,28 @@ function finStatementDoc(customerId,from,to,today,due,activity){const m=finState
    жёлтым, их сумма — Due now, остальное — Current. Было — в Excel руками. */
 function finStatementDueOpen(x){return !x.archived&&!!x.billed&&x.f.b.status!=='review'&&x.f.b.balance>0;}
 function finStatementDuePick(x,due){if(!due||!finStatementDueOpen(x))return false;const p=due.pick&&due.pick[x.o.id];return p!=null?!!p:!!due.by&&x.billed<=due.by;}
+/* Дни просрочки и «к оплате сейчас» — те же правила, что итоги внизу:
+   просрочка 60+ и 90+ всегда, моложе — выбранное бухгалтером (без выбора —
+   уже просроченное). */
+function finStatementLate(x,day){return x.f.dueOn&&x.f.dueOn<day?Math.floor((Date.parse(day)-Date.parse(x.f.dueOn))/864e5):0;}
+function finStatementNow(x,day,due){if(!finStatementDueOpen(x))return false;const d=finStatementLate(x,day);return d>=60||(due?finStatementDuePick(x,due):d>0);}
+/* Строки счетов по месяцам: заголовок месяца, счета, подытог Due now после
+   последнего счёта к оплате, итог месяца. Заказы в работе — группой In work. */
+function finStatementRows(orders,day,due){
+ const money=docMoney,groups=[];
+ orders.forEach(x=>{const k=x.billed?x.billed.slice(0,7):'';let g=groups[groups.length-1];if(!g||g.k!==k)groups.push(g={k,list:[]});g.list.push(x);});
+ const plural=(n,w)=>n+' '+w+(n===1?'':'s'),bal=l=>finMoney(l.filter(x=>x.f.b.status!=='review').reduce((s,x)=>s+x.f.b.balance,0));
+ return groups.flatMap(g=>{
+  const name=g.k?FIN_MONTH_NAMES[+g.k.slice(5,7)-1]+' '+g.k.slice(0,4):'In work',now=g.list.filter(x=>finStatementNow(x,day,due)),last=now[now.length-1],out=[{group:name}];
+  g.list.forEach(x=>{
+   const d=finStatementDueOpen(x)?finStatementLate(x,day):0;
+   out.push({hi:now.includes(x),due:d>0,mut:!x.billed,cells:[x.o.businessNumber,x.billed?docDate(x.billed):'In work',x.o.customerPo||'—',d>0?d+' d':'',money(x.f.b.total),x.f.b.status==='review'?'Review required':finSigned(x.f.b.balance)]});
+   if(x===last)out.push({sub:'Due now · '+plural(now.length,'invoice'),value:money(bal(now))});
+  });
+  out.push({total:name+' · '+plural(g.list.length,g.k?'invoice':'order'),value:finSigned(bal(g.list))});
+  return out;
+ });
+}
 function finStatementModel(customerId,from,to,today,due,activity){
  const c=salesFindCustomer(customerId);if(!c)return null;
  const day=today||finToday(),money=docMoney,company=DB.company||{},d=finStatementData(c.id,from,to);
@@ -139,9 +170,10 @@ function finStatementModel(customerId,from,to,today,due,activity){
  const orders=finStatementOrders(c.id,from,to,day);
  m.sections=[
   /* Счета как в таблице Spiel (владелец 06.11.2026): каждый один раз;
-     выбранные к оплате (Due now) — красным, сроки — в итогах внизу. */
-  {title:'Invoices',empty:'No invoices in this period.',cols:[{label:'Invoice No',x:36,w:70,bold:true},{label:'Date',x:112,w:74},{label:'Reference',x:192,w:220},{label:'Amount',x:486,w:80,align:'right'},{label:'Balance',x:576,w:80,align:'right',bold:true}],
-   rows:orders.map((x,i)=>({hi:finStatementDuePick(x,due),mut:!x.billed,cells:[x.o.businessNumber,x.billed?docDate(x.billed):'In work',x.o.customerPo||'—',money(x.f.b.total),x.f.b.status==='review'?'Review required':finSigned(x.f.b.balance)]}))},
+     к оплате сейчас — красным, сроки — в итогах внизу. 07.11.2026 — по
+     месяцам с итогом, подытог Due now и колонка Days late. */
+  {title:'Invoices',empty:'No invoices in this period.',cols:[{label:'Invoice No',x:36,w:70,bold:true},{label:'Date',x:112,w:74},{label:'Reference',x:192,w:180},{label:'Days late',x:432,w:50,align:'right',bold:true,due:true},{label:'Amount',x:486,w:80,align:'right'},{label:'Balance',x:576,w:80,align:'right',bold:true}],
+   rows:finStatementRows(orders,day,due)},
   activity&&{title:'Account activity',empty:'',cols:[{label:'Date',x:36,w:58},{label:'Document',x:98,w:52,bold:true},{label:'Description',x:154,w:204},{label:'Charges',x:418,w:58,align:'right'},{label:'Payments',x:494,w:58,align:'right'},{label:'Balance',x:576,w:66,align:'right',bold:true}],
    rows:[{mut:true,cells:[from?docDate(from):'','','Balance forward','','',finSigned(d.opening)]}].concat(d.rows.map(l=>({due:l.overdue,cells:[docDate(l.date),l.doc,l.text,l.charge?money(l.charge):'',l.payment?money(l.payment):'',finSigned(l.balance)]})))}
  ].filter(Boolean);
@@ -155,10 +187,15 @@ function finStatementModel(customerId,from,to,today,due,activity){
  /* Итоги по срокам (как у Spiel, вместе — весь долг по счетам): просрочка
     90+ и 60+ дней; Due now — выбранное бухгалтером (без выбора — уже
     просроченное); Current — остальное. */
- const open=orders.filter(finStatementDueOpen),late=x=>x.f.dueOn&&x.f.dueOn<day?Math.floor((Date.parse(day)-Date.parse(x.f.dueOn))/864e5):0,sum=l=>money(finMoney(l.reduce((s,x)=>s+x.f.b.balance,0)));
+ const open=orders.filter(finStatementDueOpen),late=x=>finStatementLate(x,day);
  if(open.length){
   const o90=open.filter(x=>late(x)>=90),o60=open.filter(x=>late(x)>=60&&late(x)<90),young=open.filter(x=>late(x)<60),chosen=!!due,now=young.filter(x=>chosen?finStatementDuePick(x,due):late(x)>0);
-  m.summary=[{label:'Overdue 90+ days',value:sum(o90)},{label:'Overdue 60+ days',value:sum(o60)},{label:'Due now',value:sum(now)},{label:'Current',value:sum(young.filter(x=>!now.includes(x)))}];
+  const cur=young.filter(x=>!now.includes(x)),C=DOC_COLOR,n=l=>finMoney(l.reduce((s,x)=>s+x.f.b.balance,0));
+  /* Полоса сроков (владелец 07.11.2026): доли долга цветом, проценты под ней. */
+  const parts=[['Overdue 90+ days',o90,C.due],['Overdue 60+ days',o60,C.adj],['Due now',now,C.warn],['Current',cur,C.paid]].map(([label,l,color])=>({label,n:n(l),color}));
+  m.summary=parts.map(p=>({label:p.label,value:money(p.n),mark:p.color}));
+  const all=parts.reduce((s,p)=>s+p.n,0);
+  if(all>0)m.summaryBar={parts,text:parts.filter(p=>p.n>0).map(p=>p.label.replace(' days','')+' '+Math.round(100*p.n/all)+'%').join(' · ')};
  }
  m.footerRight=finPeriodText(from,to);
  return m;

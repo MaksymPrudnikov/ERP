@@ -9,6 +9,9 @@ tabs **Accounts** (customers and their account), **Due dates** and **Payments** 
 Accounts to open the card: Balance, Overdue, Prepaid, On account, orders and payments, and the buttons **Allocate**,
 **Statement**, **+ Receipt**.
 
+Under Balance in Accounts there is an aging bar: red — overdue 90+, yellow — 60+, orange — overdue less (Due now),
+green — Current. Amounts are in the tip on hover. The same rules as the totals at the bottom of the Statement.
+
 ## Allocating payments — Allocate payments
 
 A bookkeeper's window that works like Spiel: Finance → Accounts → customer → **Allocate**. On the left, **Orders &

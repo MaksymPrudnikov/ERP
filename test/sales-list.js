@@ -218,7 +218,8 @@ module.exports=async function({page,eq,ok}){
  }),{first:['Draft1','New1'],only:1,num:true,on:true,allOff:true,back:2});
  eq('числа статусов идут за быстрым видом и фильтрами, All и остальные быстрые — не за кнопкой статуса',await t.p.evaluate(()=>{
   slCleanup();const a=slCustomer('North Condo Build'),today=salesListDay(new Date()),x=slOrder(a,{days:1}),y=slOrder(a,{days:1});slById(x).dueDate=today;slById(y).dueDate='2099-01-01';render();
-  const n=k=>document.querySelector(`[data-status-chip="${k}"] b`).textContent,q=k=>(document.querySelector(`[data-quick="${k}"] b`)||{}).textContent;
+  /* Статусы видны только при All — счёт берём из тех же кнопок (salesListChipsNow). */
+  const n=k=>String(salesListChipsNow.find(c=>c.key===k).n),q=k=>(document.querySelector(`[data-quick="${k}"] b`)||{}).textContent;
   const all=n('order:new');salesQuickSet('today');const inToday=n('order:new');salesQuickSet('all');
   salesSetStatusFilter('order:verified');const held=q('all');salesSetStatusFilter('');
   salesListSetFilter('customer',{values:['(none)']});const filtered=n('order:new');salesListClearAll();
