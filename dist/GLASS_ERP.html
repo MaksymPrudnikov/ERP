@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 199 модулей, 27 стиля.
+  Состав сборки: 200 модулей, 27 стиля.
 -->
 <html lang="en">
 <head>
@@ -2462,6 +2462,26 @@ textarea.fm-in{resize:vertical}
 .fm-dsheet [data-forms-overlap]{outline:1.5px dashed var(--warning)!important}
 .fm-doverlap{align-self:stretch;background:var(--warning-soft);color:var(--warning);border-radius:8px;padding:6px 10px;font-size:12.5px}
 .fm-right .fm-check.fm-dshow{display:flex;gap:8px;align-items:center;margin:0;padding:3px 0;font-size:13px}
+/* Лист скида / долли (форма Dolly / Skid sheet): поля @page 10 / 10 / 12 мм,
+   низ страницы — строкой у нижнего края. */
+.fm-sheet.fm-dsheet.fm-csheet{padding:10mm 10mm 12mm}
+.cs-stage .cs-sheet{height:100%}
+.fm-csheet .cs-foot-preview{position:absolute;left:10mm;right:10mm;bottom:4mm;display:grid;grid-template-columns:1fr auto 1fr;gap:8px;font:8px Helvetica,Arial,sans-serif;color:var(--text-2)}
+.fm-csheet .cs-fp-center{text-align:center}.fm-csheet .cs-fp-right{text-align:right}
+.fm-sheet.fm-dsheet.fm-csheet{overflow:hidden}
+.fm-csheet .cs-foot-preview{background:var(--on-solid);padding-top:2px}
+/* Окно Add to other forms. */
+.fm-modal.fm-addto{width:min(460px,92vw)}
+.fm-addto-list{display:grid;gap:2px;padding:6px 0;max-height:52vh;overflow:auto}
+.fm-addto-list .fm-check{display:grid;grid-template-columns:20px 1fr auto;align-items:center;gap:8px;padding:5px 4px;margin:0}
+.fm-addto-list .fm-check small{color:var(--text-3);font-size:11.5px}
+.fm-addto-list .fm-check.off span{color:var(--text-3)}
+/* Наклейка долли / скида 4 × 6 (форма Dolly / Skid label). */
+.fm-sheet.fm-dsheet.fm-lsheet{width:4in;height:6in;padding:0;zoom:1.25}
+.fm-sheet.fm-dsheet.fm-lsheet.cl-small{width:4in;height:3in}
+.fm-lsheet .cl-paper,.fm-lsheet .cl-paper svg{display:block;width:100%;height:100%}
+.fm-lsheet svg [data-forms-hit]{cursor:grab}
+.fm-lsheet svg [data-forms-sel]{outline:1.5px solid var(--accent)}
 
 /* ---- src/styles/cutting.css ---- */
 /* Раскрой: параметры реза в Master Data и экран раскладки у батча. */
@@ -3639,6 +3659,11 @@ button.cb-tile:hover{border-color:var(--accent-line)}
 .cc-table td:last-child,.cc-table td:nth-child(3){white-space:nowrap}
 .cc-warn{color:var(--warning)}.cc-bad{color:var(--danger)}
 .cc-table .cw-code{white-space:nowrap}
+/* Форма Dolly / Skid sheet: свои блоки шапки, колонки из нескольких блоков,
+   что не показывать. */
+.cs-col{display:flex;flex-direction:column;gap:2px}.cs-col-right{align-items:flex-end;text-align:right}.cs-col-center{align-items:center;text-align:center}
+.cs-free{white-space:nowrap}
+.cs-no-station .cs-c-station,.cs-no-since .cs-c-since,.cs-no-onit .cs-c-onit,.cs-no-weight .cs-c-weight,.cs-no-printedby .cs-c-printedby,.cs-no-customer .cs-cust,.cs-no-total .cs-total{display:none}
 
 /* ---- src/styles/reports.css ---- */
 /* =====================================================================
@@ -4236,7 +4261,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='b849131883c9';
+var ERP_BUILD='7141475e9a79';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -16937,7 +16962,7 @@ const PUR_FORM_FIELDS=[
  {k:'supplier.website',g:'Supplier',label:'Website',v:d=>(d.p.supplier||{}).website},
  {k:'supplier.terms',g:'Supplier',label:'Payment terms',v:d=>{const s=d.p.supplier||{};return s.paymentDays!=null?'Net '+s.paymentDays+' days':'';}},
  {k:'supplier.method',g:'Supplier',label:'Payment method',v:d=>(d.p.supplier||{}).paymentMethod}];
-function purFormFields(){return PUR_FORM_FIELDS.concat(formMyFields());}
+function purFormFields(){return formWithCompany(PUR_FORM_FIELDS).concat(formMyFields());}
 function purFormContext(d){const by=new Map(purFormFields().map(x=>[x.k,x]));return {field:k=>{const x=by.get(k);return x?x.v(d):undefined;},off:b=>!!b.opt&&!d.opt[b.opt]};}
 function purFormTemplate(){return formClean(DB.formTemplate&&DB.formTemplate.purchaseOrder,purFormDefault());}
 function purDocPages(p,raw,title,tpl,map){
@@ -23191,22 +23216,21 @@ function salesShapeSheetHTML(shape,result,svg,kind,opts){
   var note=[line&&line.mark,line&&line.notes].filter(Boolean).join(' · ');
   /* Шапка и низ — из шаблона формы Drawing (erp/documents/drawing-form);
      по умолчанию это прежние строки листа. Поля листа — его же числа. */
-  var tpl=drawFormTpl(),st=drawStyle(tpl),root=drawSheetRootAttrs(st,tpl),edit=drawFormPreview&&drawFormPreview.edit;
-  var fields=drawSheetLastFields={customer:order?salesCustomerDisplay(order.customerId):'',po:order&&order.customerPo||'',order:order&&order.businessNumber||'',
-    date:new Date().toISOString().slice(0,10),line:lineText,glass:t.name,spec:t.spec||'',qty:qty,finished:finished,mass:mass,note:note,tag:'',
-    company:DB.company&&DB.company.legalName||''};
-  /* Данные компании и цены — по запросу поля (функцией): лист без них их не
-     считает. Цены — ячейки строки в Sales (salesMetricCell): Unit Price,
-     Line Total, Materials; ручная цена строки — тоже оттуда. */
-  var co=DB.company||{},price=null,money=function(v){return v==null||!isFinite(v)?'':docMoney(v);};
+  var tpl=drawFormTpl(order),st=drawStyle(tpl),root=drawSheetRootAttrs(st,tpl),edit=drawFormPreview&&drawFormPreview.edit;
+  var fields=drawSheetLastFields={customer:order?salesCustomerDisplay(order.customerId):'',customerPo:order&&order.customerPo||'',order:order&&order.businessNumber||'',
+    date:new Date().toISOString().slice(0,10),line:lineText,glass:t.name,spec:t.spec||'',qty:qty,finished:finished,mass:mass,note:note,tag:'',dueDate:order&&order.dueDate||''};
+  /* Поля компании — общий набор бланков (formCompanyFields); у заказа из
+     архива — реквизиты дня его ухода. */
+  var frozen=drawFrozenOf(order),co=frozen&&frozen.company||null;
+  formCompanyFields(co).forEach(function(f){fields[f.k]=f.v;});
+  /* Цены — по запросу поля (функцией): лист без них их не считает. Цены —
+     ячейки строки в Sales (salesMetricCell): Unit Price, Line Total,
+     Materials; ручная цена строки — тоже оттуда. */
+  var price=null,money=function(v){return v==null||!isFinite(v)?'':docMoney(v);};
   var priced=function(){if(!price&&line&&order)try{price=salesLineCommercialPrice(line,order);}catch(e){price={};}return price||{};};
-  var address=function(){return [[co.address1,co.address2].filter(Boolean).join(', '),[co.city,[co.province,co.postalCode].filter(Boolean).join(' ')].filter(Boolean).join(', ')].filter(Boolean).join(', ');};
-  Object.assign(fields,{companyAddress:address,
-    companyPhone:co.phone||'',companyEmail:co.email||'',companyWebsite:co.website||'',companyHst:co.hstNumber?'HST # '+co.hstNumber:'',companyLogo:co.logo||'',dueDate:order&&order.dueDate||'',
-    companyLine:function(){return [co.legalName,address(),co.phone,co.email,co.website].filter(Boolean).join(' · ');},
-    unitPrice:function(){return money(priced().unit);},linePrice:function(){return money(priced().line);},
+  Object.assign(fields,{unitPrice:function(){return money(priced().unit);},linePrice:function(){return money(priced().line);},
     materialsPrice:function(){var p=priced();return p.missingMaterials||p.unsupportedCurrency?'':money(p.materials);}});
-  formMyFields().forEach(function(f){fields[f.k]=f.v();});
+  (co?(co.myFields||[]).map(function(f){return {k:'my.'+f.id,v:function(){return f.value;}};}):formMyFields()).forEach(function(f){fields[f.k]=f.v();});
   var ctx={field:function(k){var v=fields[k];if(typeof v==='function')v=fields[k]=v();return v==null?'':v;}};
   return '<div class="print-shape-sheet'+root.cls+'"'+root.style+'>'+
     /* Три опоры, по которым лист опознают, — одной строкой поверх всего:
@@ -23981,8 +24005,8 @@ function docInvoiceShipTo(order){
 function docLastPaidOn(order){
  return (DB.receipt||[]).filter(r=>!r.voided&&(r.allocations||[]).some(a=>a.orderId===order.id&&+a.amount>0)).map(r=>r.date).sort().pop()||'';
 }
-function docCompanyBlock(){
- const c=DB.company||{};
+function docCompanyBlock(src){
+ const c=src||DB.company||{};
  /* Провинция без города и индекса — ещё не адрес: пока реквизиты не
     заполнены, под названием компании печаталось одинокое «ON». */
  const city=c.city||c.postalCode?[c.city,[c.province,c.postalCode].filter(Boolean).join(' ')].filter(Boolean).join(', '):'';
@@ -24807,6 +24831,28 @@ function formFormat(v,type,fmt){
  const f=(list.find(x=>x.k===fmt)||list[0]).f,one=x=>/^\d{4}-\d{2}-\d{2}/.test(String(x))?f(String(x).slice(0,10)):x;
  return Array.isArray(v)?v.map(one):v==null||v===''?v:one(v);
 }
+/* Поля компании — один набор во всех бланках, одни имена (владелец,
+   06.11.2026: «везде должно быть одно название, не плодить разные наборы»).
+   src — свои реквизиты (заказ из архива печатается реквизитами дня ухода). */
+const FORM_COMPANY_BASE=['company.name','company.lines','company.logo'];
+function formCompanyFields(src){
+ const c=()=>src||DB.company||{},b=()=>docCompanyBlock(src);
+ const addr=()=>{const x=c();return [[x.address1,x.address2].filter(Boolean).join(', '),[x.city,[x.province,x.postalCode].filter(Boolean).join(' ')].filter(Boolean).join(', ')].filter(Boolean).join(', ');};
+ const f=(k,label,v)=>({k,g:'Company',label,v});
+ return [f('company.name','Company name',()=>b().name),f('company.lines','Address and contacts',()=>b().lines),f('company.logo','Logo',()=>b().logo||''),
+  f('company.line','Company details, one line',()=>[c().legalName,addr(),c().phone,c().email,c().website].filter(Boolean).join(' · ')),
+  f('company.address','Address, one line',addr),f('company.phone','Phone',()=>c().phone||''),f('company.email','Email',()=>c().email||''),
+  f('company.website','Website',()=>c().website||''),f('company.hst','HST number',()=>c().hstNumber?'HST # '+c().hstNumber:'')];
+}
+/* Список полей бланка с общим набором компании: свои три поля (у Packing
+   slip — из документа) остаются, остальные встают сразу за ними. */
+function formWithCompany(list){
+ const extra=formCompanyFields().filter(f=>!FORM_COMPANY_BASE.includes(f.k)),at=list.findIndex(f=>f.k==='company.logo');
+ return at<0?formCompanyFields().filter(f=>!list.some(x=>x.k===f.k)).concat(list):list.slice(0,at+1).concat(extra,list.slice(at+1));
+}
+/* Прежние имена полей листа чертежа (до 06.11.2026) — общие имена. */
+const FORM_FIELD_RENAMED={company:'company.name',companyLogo:'company.logo',companyLine:'company.line',companyAddress:'company.address',
+ companyPhone:'company.phone',companyEmail:'company.email',companyWebsite:'company.website',companyHst:'company.hst',po:'customerPo'};
 /* Свои поля из Data → Company (My fields) — одинаковы для всех бланков. */
 function formMyFields(){return ((DB.company&&DB.company.myFields)||[]).map(f=>({k:'my.'+f.id,g:'My fields',label:f.name||'Untitled field',v:()=>f.value}));}
 /* Show if: блок печатается, только если условие верно. show = {when:
@@ -25029,10 +25075,11 @@ function formCleanBlock(b){
  const o={id:str(b.id,40)||'b'+Math.random().toString(36).slice(2,9),type:b.type,place:FORM_PLACES.includes(b.place)?b.place:'left'};
  [['x',-200,800],['y',-200,800],['w',0,800],['h',0,800],['size',4,96],['lh',0,200],['max',0,200],['lw',0,20],['r',0,50],['ls',0,10],['gap',0,200],['module',.5,5],['sa',0,200],['lead',0,200],['keep',0,800],['z',-50,50]].forEach(([k,lo,hi])=>{const v=num(b[k],lo,hi);if(v!==undefined)o[k]=v;});
  ['text','field','color','fill','empty','prefix','format','after','before','k','opt'].forEach(k=>{const v=str(b[k]);if(v!==undefined)o[k]=v;});
+ if(o.field&&FORM_FIELD_RENAMED[o.field])o.field=FORM_FIELD_RENAMED[o.field];
  if(['left','center','right'].includes(b.align))o.align=b.align;
  ['bold','italic','wrap','fit','pin'].forEach(k=>{if(b[k])o[k]=true;});
  if(b.font==='times'||b.font==='courier')o.font=b.font;
- if(b.show&&typeof b.show==='object'&&['filled','is','not'].includes(b.show.when)&&typeof b.show.field==='string')o.show={when:b.show.when,field:b.show.field.slice(0,60),value:String(b.show.value==null?'':b.show.value).slice(0,200)};
+ if(b.show&&typeof b.show==='object'&&['filled','is','not'].includes(b.show.when)&&typeof b.show.field==='string')o.show={when:b.show.when,field:FORM_FIELD_RENAMED[b.show.field]||b.show.field.slice(0,60),value:String(b.show.value==null?'':b.show.value).slice(0,200)};
  if(b.type==='image'&&typeof b.src==='string'&&/^data:image\/jpeg;base64,/.test(b.src)&&b.src.length<3e6)o.src=b.src;
  if(o.y===undefined)o.y=0;
  return o;
@@ -25162,7 +25209,7 @@ const DOC_FORM_FIELDS=[
  {k:'total.balance',g:'Totals',label:'Balance',v:m=>m.data.balance}];
 /* Квитанция и выписка — без полей заказа (даты, условия, итоги заказа). */
 const DOC_FORM_FIN_FIELDS=['company.name','company.lines','company.logo','title','docName','number','number.label','header.short','footer.left','footer.right','customer'];
-function docFormFields(kind){return (DOC_FORM_FIN.includes(kind)?DOC_FORM_FIELDS.filter(f=>DOC_FORM_FIN_FIELDS.includes(f.k)):DOC_FORM_FIELDS).concat(formMyFields());}
+function docFormFields(kind){return formWithCompany(DOC_FORM_FIN.includes(kind)?DOC_FORM_FIELDS.filter(f=>DOC_FORM_FIN_FIELDS.includes(f.k)):DOC_FORM_FIELDS).concat(formMyFields());}
 /* Блоки, которых нет в шаблоне по умолчанию, — свои галочки в ✎ Customize
    (ключ b:<id>, по умолчанию стоит). */
 function docFormAdded(kind,tpl){
@@ -25224,7 +25271,7 @@ function docFormHas(tpl,k){
 }
 function docFormBlockLabel(b){
  if(b.type==='text'){const t=String(b.text||'').replace(/\{[\w.]+(\|[^}]*)?\}/g,'…').replace(/\s+/g,' ').trim();return t.length>34?t.slice(0,33)+'…':t||'Text';}
- if(b.type==='field'){const f=DOC_FORM_FIELDS.find(x=>x.k===b.field)||formMyFields().find(x=>x.k===b.field);return (b.prefix||'')+(f?f.label:b.field);}
+ if(b.type==='field'){const f=formWithCompany(DOC_FORM_FIELDS).find(x=>x.k===b.field)||formMyFields().find(x=>x.k===b.field);return (b.prefix||'')+(f?f.label:b.field);}
  if(b.type==='section')return DOC_SECTIONS[b.k]||'Section';
  return {line:'Line',box:'Frame',image:'Picture',barcode:'Barcode'}[b.type]||'Block';
 }
@@ -25291,7 +25338,7 @@ const DRAW_SHOW=[['showQty','Qty','dw-no-qty','info'],['showFinished','Finished 
    иначе выбор файла, как в других бланках. */
 function drawFormAddPicture(){
  if(!(DB.company&&DB.company.logo))return false;
- formsAddBlock(()=>({type:'image',field:'companyLogo',place:'left',w:120,h:28}));return true;
+ formsAddBlock(()=>({type:'image',field:'company.logo',place:'left',w:120,h:28}));return true;
 }
 const DRAW_UNITS=[['in16','Inches · 1/16'],['in','Decimal inches'],['mm','mm']];
 /* Что на чертеже красится отдельно: ключ стиля, подпись, цвет как сейчас
@@ -25319,7 +25366,7 @@ function drawFormDefault(){
  return {form:'drawing',page:{w:612,h:792,margin:{top:m,right:m,bottom:m,left:m}},style:Object.assign({},DRAW_STYLE_DEFAULT),parts:{
   head:{h:0,blocks:[
    {id:'customer',type:'field',field:'customer',prefix:'Customer:',place:'left',y:0,size:DRAW_HEAD_SIZE,bold:true},
-   {id:'po',type:'field',field:'po',prefix:'PO:',place:'center',y:0,size:DRAW_HEAD_SIZE,bold:true},
+   {id:'po',type:'field',field:'customerPo',prefix:'PO:',place:'center',y:0,size:DRAW_HEAD_SIZE,bold:true},
    {id:'order',type:'field',field:'order',prefix:'Order Number:',place:'right',y:0,size:DRAW_HEAD_SIZE,bold:true}]},
   info:{lines:true},
   drawing:{},
@@ -25331,18 +25378,45 @@ function drawFormDefault(){
 function drawFormFields(){
  const f=(g,k,label)=>({g,k,label});
  const d=(g,k,label)=>({g,k,label,t:'date'});
- return [f('Order','customer','Customer'),f('Order','po','PO'),f('Order','order','Order Number'),d('Order','dueDate','Due date'),d('Order','date','Date printed'),
+ return [f('Order','customer','Customer'),f('Order','customerPo','PO'),f('Order','order','Order Number'),d('Order','dueDate','Due date'),d('Order','date','Date printed'),
   f('Line','line','Line'),f('Line','glass','Glass / Makeup'),f('Line','spec','Makeup spec'),f('Line','qty','Qty'),
   f('Line','finished','Finished size'),f('Line','mass','sq ft · kg'),f('Line','note','Note'),f('Line','tag','Glass tag (batch)'),
-  f('Prices','unitPrice','Unit price'),f('Prices','linePrice','Line total'),f('Prices','materialsPrice','Materials'),
-  f('Company','company','Company name'),f('Company','companyLine','Company details, one line'),f('Company','companyAddress','Address'),
-  f('Company','companyPhone','Phone'),f('Company','companyEmail','Email'),f('Company','companyWebsite','Website'),f('Company','companyHst','HST number'),f('Company','companyLogo','Company logo')].concat(formMyFields());
+  f('Prices','unitPrice','Unit price'),f('Prices','linePrice','Line total'),f('Prices','materialsPrice','Materials')].concat(formCompanyFields(),formMyFields());
 }
-/* Черновик конструктора — на время живого листа; иначе сохранённый. */
+/* Черновик конструктора — на время живого листа; у заказа из архива — вид
+   на день его ухода (drawFrozenOf); иначе сохранённый. Заказ — по умолчанию
+   открытый (soDraft): лист рисуется внутри finWithOrder. */
 let drawFormPreview=null,drawSheetLastFields={};
-function drawFormTpl(){
+function drawFormTpl(o){
  if(drawFormPreview)return drawFormPreview.tpl;
+ const f=drawFrozenOf(o===undefined?(typeof soDraft!=='undefined'?soDraft:null):o);if(f)return f.tpl;
  return formClean(DB.formTemplate&&DB.formTemplate.drawing,drawFormDefault());
+}
+/* ----------------------- Вид на день архивации ----------------------- */
+/* Владелец, 06.11.2026: «в заказе, который заархивирован, чертёж не
+   меняется, чтобы случайно ничего не изменить». При уходе в архив
+   (archiveRun) запоминаются шаблон Drawing и данные компании — одна запись
+   на каждый вид (ключ — хеш), строка указателя архива хранит ключ. Заказ,
+   ушедший раньше, печатается видом по умолчанию: другого у него не было.
+   Вернули в работу (archiveReturn) — снова нынешний вид. */
+DEFAULT.drawingFrozen={};
+function drawFrozenKeep(){
+ const v={tpl:formClean(DB.formTemplate&&DB.formTemplate.drawing,drawFormDefault()),company:JSON.parse(JSON.stringify(DB.company||{}))};
+ const key='D'+sha256Hex(JSON.stringify(v)).slice(0,16),all=DB.drawingFrozen&&typeof DB.drawingFrozen==='object'?DB.drawingFrozen:{};
+ if(!all[key])DB.drawingFrozen=Object.assign({},all,{[key]:v});
+ return key;
+}
+function drawFrozenOf(o){
+ if(!o||typeof archiveViewing!=='function'||!archiveViewing(o))return null;
+ const a=typeof archiveIndex!=='undefined'&&archiveIndex.get(o.id);if(!a)return null;
+ const f=a.drawing&&DB.drawingFrozen&&DB.drawingFrozen[a.drawing];
+ return f?{tpl:formClean(f.tpl,drawFormDefault()),company:f.company&&typeof f.company==='object'?f.company:{}}:{tpl:drawFormDefault(),company:null};
+}
+/* Записи вида — чистые: ключ D + 16 знаков, шаблон через formClean. */
+function normalizeDrawingFrozen(){
+ const src=DB.drawingFrozen&&typeof DB.drawingFrozen==='object'&&!Array.isArray(DB.drawingFrozen)?DB.drawingFrozen:{},out={};
+ Object.keys(src).forEach(k=>{const v=src[k];if(/^D[0-9a-f]{16}$/.test(k)&&v&&typeof v==='object')out[k]={tpl:formClean(v.tpl,drawFormDefault()),company:v.company&&typeof v.company==='object'&&!Array.isArray(v.company)?v.company:{}};});
+ DB.drawingFrozen=out;
 }
 /* Вид — чистый: перечисления, цвета #rrggbb, числа в пределах. */
 function drawStyle(tpl){
@@ -25384,7 +25458,9 @@ function drawWithStyle(fn){
  try{return fn(st);}finally{DIM_PRINT=keep.p;SHAPE_DIM_FONT=keep.d;SHAPE_NOTE_FONT=keep.n;}
 }
 /* ------------------------- Шапка и низ листа ------------------------- */
-function drawBlockStyle(b,base,kind){
+/* ml — поле листа слева (x блока Free — от края бумаги): у чертежа 9 мм,
+   у листа скида свои (erp/documents/carrier-form). */
+function drawBlockStyle(b,base,kind,ml){
  const st=[];
  if(b.size!=null&&Math.abs(b.size-base)>.01)st.push('font-size:'+b.size+'pt');
  if(kind==='head'&&!b.bold)st.push('font-weight:400');
@@ -25392,7 +25468,7 @@ function drawBlockStyle(b,base,kind){
  if(b.italic)st.push('font-style:italic');
  if(b.font)st.push('font-family:'+(b.font==='times'?'Times,serif':'Courier,monospace'));
  if(/^#[0-9a-f]{3,6}$/i.test(b.color||''))st.push('color:'+b.color);
- if(b.place==='free')st.push('position:absolute','left:'+Math.round(((b.x||0)-DRAW_MARGIN)*100)/100+'pt','top:'+(b.y||0)+'pt');
+ if(b.place==='free')st.push('position:absolute','left:'+Math.round(((b.x||0)-(ml==null?DRAW_MARGIN:ml))*100)/100+'pt','top:'+(b.y||0)+'pt');
  else if(b.y)st.push('position:relative','top:'+b.y+'pt');
  /* Слой (как в Figma: To front / To back): выше нуля — поверх чертежа,
     ниже — под ним. */
@@ -25408,7 +25484,7 @@ function drawBlockAttrs(part,b,st,edit){
 function drawBlockText(b,ctx){
  let v=b.type==='text'?formFill(b.text,ctx).replace(/\{page\}/g,'1').replace(/\{pages\}/g,'1'):ctx.field(b.field);
  /* Дата — в виде, выбранном в окне Insert field (Mon d, yyyy …). */
- const f=b.type==='field'&&drawFormFields().find(x=>x.k===b.field);if(f&&f.t)v=formFormat(v,f.t,b.format);
+ const f=b.type==='field'&&(ctx.defs||drawFormFields)().find(x=>x.k===b.field);if(f&&f.t)v=formFormat(v,f.t,b.format);
  return Array.isArray(v)?v.join(', '):String(v==null?'':v);
 }
 /* Картинка (логотип компании или своя): высота блока, ширина по картинке. */
@@ -25499,7 +25575,7 @@ function drawFormStyleHTML(tpl){
    ${DRAW_LOOK.map(([k,label,was])=>row(label,`<input type="color" class="fm-in fm-color" data-draw-color="${k}" value="${st[k]||was}" title="Pick a color" onchange="${set(k,'this.value')}">`,st[k]?`<button type="button" class="fm-dreset" title="As now" onclick="${set(k,"''")}">×</button>`:'')).join('')}</div>
   <p class="fm-note">The sheet shows every change at once. Save — all prints.</p>`;
 }
-function formsStyle(k,v){formsEdit(t=>{t.style=Object.assign({},DRAW_STYLE_DEFAULT,t.style,{[k]:v});});}
+function formsStyle(k,v){const def=formsDef(formsState().form).def().style||{};formsEdit(t=>{t.style=Object.assign({},def,t.style,{[k]:v});});}
 /* − / +: от сохранённого или прежнего значения, шаг 1 px у текста, 0.2 px у линий. */
 function formsStyleStep(k,d,now){
  const st=drawStyle(formsDraft().tpl),line=DRAW_LINES.some(x=>x[0]===k),lo=line?.2:6,hi=line?12:40;
@@ -25545,6 +25621,193 @@ function drawFormShowHTML(part,tpl){
  return `<div class="fm-h">Part · ${lab}</div><p class="fm-note">Drawn by the program — you choose where and what.</p>${place}<div class="fm-h">Show</div>
   ${list.map(([k,l])=>`<label class="fm-check fm-dshow"><input type="checkbox" data-draw-show="${k}" ${st[k]?'checked':''} onchange="formsStyle('${k}',this.checked)"><span>${l}</span></label>`).join('')}`;
 }
+
+/* ==== src/erp/documents/carrier-form.js ==== */
+/* =====================================================================
+   erp/documents/carrier-form  ·  carrier-1.0
+   Лист скида / долли на конструкторе форм (Data → Company & print → Forms
+   → Dolly / Skid sheet; владелец 06.11.2026: «положим и шаблон скидов
+   доллей»). Тот же лист печатают окно тары, Shipping → Skid sheet и
+   станция (carrierSheetHTML, views/carriers-board).
+   IN : шаблон формы carrierSheet — шапка (head) из блоков, низ страницы
+        (foot) — блоки в полях @page, вид (style) — цвета и галочки частей,
+        которые рисует программа (полоса, клиент, итог); данные листа
+   OUT: разметка шапки, классы и переменные листа, строка @page
+   По умолчанию — прежняя разметка: название компании с адресом слева,
+   вид и номер тары справа, низ — «Printed … by …» и номер страницы.
+   Колонки таблицы — по-прежнему у станции и человека (Data → Stations).
+   ===================================================================== */
+
+/* Поля страницы листа: @page carriersheet 10 / 10 / 12 мм. */
+const CS_MARGIN=28.35;
+/* Цвета листа: ключ, подпись, токен DOC_COLOR (как сейчас). */
+const CS_LOOK=[['csInk','Text','ink'],['csMut','Labels, notes','mut'],['csNavy','Company name, order lines','navy'],
+ ['csLine','Row lines','line'],['csBar','Table heading','bar'],['csBox','Strip, stripes','box']];
+/* Что показывать из частей, которые рисует программа: ключ, подпись, часть,
+   класс листа «спрятать». */
+const CS_SHOW=[['showStation','Station','strip','cs-no-station'],['showSince','Since / Shipped','strip','cs-no-since'],['showOnIt','On it','strip','cs-no-onit'],
+ ['showWeight','Weight','strip','cs-no-weight'],['showPrintedBy','Printed by','strip','cs-no-printedby'],['showCustomer','Customer and order','customer','cs-no-customer'],
+ ['showTotal','Total','total','cs-no-total']];
+/* Кегли прежнего листа: название компании 13 pt, номер тары 34 pt, текст
+   листа 9 pt, низ страницы 8 px = 6 pt. */
+const CS_CO_SIZE=13,CS_CODE_SIZE=34,CS_TEXT_SIZE=9,CS_FOOT_SIZE=6;
+function carrierFormDefault(){
+ const m=CS_MARGIN,style={};CS_LOOK.forEach(([k])=>{style[k]='';});CS_SHOW.forEach(([k])=>{style[k]=true;});
+ return {form:'carrierSheet',page:{w:612,h:792,margin:{top:m,right:m,bottom:34.02,left:m}},style,parts:{
+  head:{h:0,blocks:[{id:'company',type:'field',field:'companyBlock',place:'left',y:0,size:CS_CO_SIZE},{id:'code',type:'field',field:'codeBlock',place:'right',y:0,size:CS_CODE_SIZE}]},
+  strip:{lines:true},customer:{lines:true},table:{lines:true},total:{lines:true},
+  foot:{h:0,blocks:[{id:'printed',type:'field',field:'printedLine',place:'left',y:0,size:CS_FOOT_SIZE},{id:'page',type:'text',text:'{kind} · {code} · {page} / {pages}',place:'right',y:0,size:CS_FOOT_SIZE}]}}};
+}
+function carrierFormFields(){
+ const f=(g,k,label)=>({g,k,label});
+ return [f('Sheet','companyBlock','Company name and address'),f('Sheet','codeBlock','Kind and number of the dolly / skid'),
+  f('Sheet','kind','Kind (Skid contents…)'),f('Sheet','code','Dolly / skid number'),f('Sheet','type','Dolly / skid type'),
+  f('Sheet','station','Station'),f('Sheet','since','Since / Shipped'),f('Sheet','onIt','On it'),f('Sheet','weight','Weight'),
+  f('Sheet','printedBy','Printed by'),f('Sheet','printedLine','Printed … by … at …'),{g:'Sheet',k:'date',label:'Date printed',t:'date'},
+  f('Order','customer','Customer (one order)'),f('Order','order','Order Number (one order)'),f('Order','customerPo','PO (one order)')].concat(formCompanyFields(),formMyFields());
+}
+let carrierFormPreview=null;
+function carrierFormTpl(){return carrierFormPreview?carrierFormPreview.tpl:formClean(DB.formTemplate&&DB.formTemplate.carrierSheet,carrierFormDefault());}
+function carrierFormStyle(tpl){
+ const s=Object.assign({},carrierFormDefault().style,(tpl||carrierFormTpl()).style||{}),o={};
+ CS_LOOK.forEach(([k])=>{o[k]=/^#[0-9a-f]{6}$/i.test(s[k]||'')?String(s[k]).toLowerCase():'';});
+ CS_SHOW.forEach(([k])=>{o[k]=s[k]!==false;});
+ return o;
+}
+/* Цвета листа — переменные --cs-*; спрятанное — классами. */
+function carrierFormColor(st,key,tok){return st[key]||DOC_COLOR[tok];}
+function carrierFormClasses(st){return CS_SHOW.filter(([k])=>!st[k]).map(x=>' '+x[3]).join('');}
+/* Шапка: колонки Left / Center / Right строки над полосой, Free — своё место. */
+function carrierHeadHTML(tpl,ctx,edit){
+ const {cols,free}=drawColumns(tpl,'head',ctx),pos=s=>/^(position|left|top|z-index)/.test(s);
+ const one=b=>{
+  const st=drawBlockStyle(b,b.field==='companyBlock'?CS_CO_SIZE:b.field==='codeBlock'?CS_CODE_SIZE:CS_TEXT_SIZE,'foot',CS_MARGIN),at=drawBlockAttrs('head',b,st.filter(pos),edit),look=st.filter(s=>!pos(s)),ls=look.length?' style="'+look.join(';')+'"':'';
+  if(b.type==='image')return '<div'+at+'>'+drawImageHTML(b,ctx)+'</div>';
+  if(b.field==='companyBlock'){const c=ctx.field('companyBlockData')||{};return '<div class="cs-co"'+at+'><b data-raw'+ls+'>'+esc(c.name||'')+'</b>'+(c.lines||[]).slice(0,2).map(t=>'<div data-raw>'+esc(t)+'</div>').join('')+'</div>';}
+  if(b.field==='codeBlock')return '<div class="cs-code"'+at+'><small>'+esc(String(ctx.field('kind')).toUpperCase())+'</small><b'+ls+'>'+esc(ctx.field('code'))+'</b>'+(ctx.field('type')?'<span>'+esc(ctx.field('type'))+'</span>':'')+'</div>';
+  return '<div class="cs-blk"'+at+'>'+(b.type==='field'&&b.prefix?'<span class="cs-mut">'+esc(b.prefix)+' </span>':'')+'<span'+ls+'>'+esc(drawBlockText(b,ctx))+'</span></div>';
+ };
+ const col=k=>{const l=cols[k];return !l.length?'':l.length===1?one(l[0]):'<div class="cs-col cs-col-'+k+'">'+l.map(one).join('')+'</div>';};
+ return '<div class="cs-head"'+(free.length?' style="position:relative"':'')+'>'+col('left')+(cols.center.length?col('center'):'')+col('right')+free.map(one).join('')+'</div>';
+}
+/* Низ страницы — поля @page (повторяется на каждой странице): блоки Left /
+   Center / Right, {page} и {pages} — номер страницы и их число. */
+function carrierFootCss(tpl,ctx){
+ const {cols}=drawColumns(tpl,'foot',ctx),q=t=>'"'+String(t).replace(/["\\]/g,'')+'"';
+ const content=b=>{const t=b.type==='text'?formFill(b.text,ctx):drawBlockText(b,ctx);
+  return t.split(/(\{pages?\})/).filter(x=>x!=='').map(x=>x==='{page}'?'counter(page)':x==='{pages}'?'counter(pages)':q(x)).join(' ');};
+ return ['left','center','right'].map(k=>{const l=cols[k];if(!l.length)return '';const b=l[0],size=b.size||CS_FOOT_SIZE;
+  const font='font:'+(b.bold?'700 ':'')+(b.italic?'italic ':'')+Math.round(size*4/3*100)/100+'px '+(b.font==='times'?'Times,serif':b.font==='courier'?'Courier,monospace':'Helvetica,Arial,sans-serif');
+  return '@bottom-'+k+'{content:'+l.map(content).join(' "  " ')+';'+font+';color:'+(/^#[0-9a-f]{3,6}$/i.test(b.color||'')?b.color:DOC_COLOR.mut)+'}';}).join('');
+}
+/* В конструкторе низ страницы виден строкой у нижнего края листа. */
+function carrierFootPreview(tpl,ctx,edit){
+ const {cols}=drawColumns(tpl,'foot',ctx);
+ return '<div class="cs-foot-preview">'+['left','center','right'].map(k=>'<div class="cs-fp-'+k+'">'+cols[k].map(b=>'<span'+drawBlockAttrs('foot',b,drawBlockStyle(b,CS_FOOT_SIZE,'foot',CS_MARGIN).filter(s=>!/^(position|left|top)/.test(s)),edit)+'>'+esc((b.type==='text'?formFill(b.text,ctx):drawBlockText(b,ctx)).replace(/\{page\}/g,'1').replace(/\{pages\}/g,'1'))+'</span>').join(' ')+'</div>').join('')+'</div>';
+}
+/* ------------------------ Конструктор: живой лист -------------------- */
+function carrierFormSamples(){
+ const out=[];try{for(const c of carrierContents().keys()){const m=carrierModelOf(c);if(m&&m.items.length)out.push({id:c,label:c+' · '+carrierSheetKind(m)});if(out.length>=60)break;}}catch(e){}
+ return out;
+}
+let carrierSheetLastFields={};
+function carrierFormContext(){return {field:k=>{let v=carrierSheetLastFields[k];if(typeof v==='function')v=v();return v==null?'':v;},defs:carrierFormFields};}
+function carrierFormSheetHTML(tpl,code,view){
+ const m=code&&code!=='sample'?carrierModelOf(code):null;
+ if(!m||!(m.items.length||m.gone.length))return '<div class="fm-note fm-dnote">No dolly or skid with glass yet.</div>';
+ const s=formsState(),keep=carrierFormPreview,edit=view?null:{sel:s.sel};carrierFormPreview={tpl,edit};
+ let h;try{h=carrierSheetHTML(m,carrierColsOn(carrierStationCols(carrierLoaderOf(m))||[]),{id:'',name:'Office'});}finally{carrierFormPreview=keep;}
+ if(!view)[['cs-strip','strip'],['cs-table','table'],['cs-total','total']].forEach(([c,p])=>{h=h.replace('class="'+c+'"','data-forms-part-hit="'+p+'"'+(!s.sel&&s.part===p?' data-forms-sel':'')+' onpointerdown="formsSelect(\''+p+'\',\'\')" class="'+c+'"');});
+ return '<div class="print-sheet gf-light cs-stage">'+h+(view?'':carrierFootPreview(tpl,carrierFormContext(),edit))+'</div>';
+}
+/* Правая панель частей, которые рисует программа, и вида листа. */
+function carrierFormPanelHTML(part,tpl){
+ const st=carrierFormStyle(tpl),set=(k,v)=>`formsStyle('${k}',${v})`;
+ if(part==='table')return `<div class="fm-h">Part · Table</div><p class="fm-note">Drawn by the program. Columns — per station in Production → Stations, or ⚙ Columns in the dolly window.</p>${carrierFormLookHTML(st,set)}`;
+ const list=CS_SHOW.filter(x=>x[2]===part);if(!list.length)return '';
+ const lab={strip:'Strip',customer:'Customer',total:'Total'}[part];
+ return `<div class="fm-h">Part · ${lab}</div><p class="fm-note">Drawn by the program. Show on the sheet:</p>
+  ${list.map(([k,l])=>`<label class="fm-check fm-dshow"><input type="checkbox" data-cs-show="${k}" ${st[k]?'checked':''} onchange="${set(k,'this.checked')}"><span>${l}</span></label>`).join('')}${carrierFormLookHTML(st,set)}`;
+}
+function carrierFormLookHTML(st,set){
+ return `<div class="fm-dsec"><b>Colors</b><div class="fm-seg"><button type="button" class="${CS_LOOK.every(([k])=>!st[k])?'on':''}" onclick="formsCarrierColors('')">As now</button><button type="button" class="${['csInk','csMut','csNavy'].every(k=>st[k]==='#000000')?'on':''}" onclick="formsCarrierColors('black')">Black text</button></div>
+  ${CS_LOOK.map(([k,l,tok])=>`<div class="fm-drow"><span>${l}</span><input type="color" class="fm-in fm-color" data-cs-color="${k}" value="${st[k]||DOC_COLOR[tok]}" title="Pick a color" onchange="${set(k,'this.value')}">${st[k]?`<button type="button" class="fm-dreset" title="As now" onclick="${set(k,"''")}">×</button>`:'<i></i>'}</div>`).join('')}</div>`;
+}
+function formsCarrierColors(c){formsEdit(t=>{t.style=Object.assign({},carrierFormDefault().style,t.style);CS_LOOK.forEach(([k])=>{t.style[k]=c==='black'&&['csInk','csMut','csNavy'].includes(k)?'#000000':'';});});}
+/* ===================== Наклейка долли / скида 4 × 6 ==================== */
+/* Форма carrierLabel (Data → Forms → Dolly / Skid label; владелец
+   06.11.2026: «управление стикерами долли и скида — добавь»). Наклейка —
+   SVG 4 × 6″ стоя, 288 × 432 pt; блок: text, field, barcode, image; y у
+   текста — линия букв, у штрихкода и картинки — верх. По умолчанию —
+   прежняя наклейка: тип тары, крупный номер, штрихкод Code 128 номера,
+   номер мелко. */
+/* Размеры (владелец: «3×4 тоже»): 4 × 6 стоя — часть label, 3 × 4 лёжа —
+   часть small, как стикеры стекла этого размера; у каждого своя раскладка. */
+const CL_SIZES={'4x6':{w:288,h:432,part:'label',inW:4,inH:6,label:'4 × 6'},'3x4':{w:288,h:216,part:'small',inW:4,inH:3,label:'3 × 4'}},CL_MARGIN=12;
+function carrierLabelDefault(){
+ const m=CL_MARGIN;
+ return {form:'carrierLabel',page:{w:288,h:432,margin:{top:m,right:m,bottom:m,left:m}},style:{size:'4x6'},parts:{
+  label:{h:0,blocks:[
+   {id:'type',type:'field',field:'type',place:'center',y:60,size:22,bold:true},
+   {id:'code',type:'field',field:'code',place:'center',y:190,size:100,bold:true},
+   {id:'bar',type:'barcode',field:'code',place:'center',y:250,h:110,module:2.4},
+   {id:'num',type:'field',field:'code',place:'center',y:390,size:18}]},
+  small:{h:0,blocks:[
+   {id:'type',type:'field',field:'type',place:'center',y:34,size:18,bold:true},
+   {id:'code',type:'field',field:'code',place:'center',y:118,size:80,bold:true},
+   {id:'bar',type:'barcode',field:'code',place:'center',y:134,h:56,module:2.4},
+   {id:'num',type:'field',field:'code',place:'center',y:206,size:14}]}}};
+}
+function carrierLabelSize(tpl){const k=tpl&&tpl.style&&tpl.style.size;return CL_SIZES[k]?k:'4x6';}
+function carrierLabelFields(){
+ const f=(g,k,label)=>({g,k,label});
+ return [f('Dolly / skid','code','Number'),f('Dolly / skid','type','Type, uppercase'),f('Dolly / skid','typeName','Type'),{g:'Dolly / skid',k:'date',label:'Date printed',t:'date'}]
+  .concat(formCompanyFields(),formMyFields());
+}
+let carrierLabelPreview=null;
+function carrierLabelTpl(){return carrierLabelPreview?carrierLabelPreview.tpl:formClean(DB.formTemplate&&DB.formTemplate.carrierLabel,carrierLabelDefault());}
+function carrierLabelCtx(code){
+ const t=carrierType(code)||{label:''},fields={code,type:String(t.label||'').toUpperCase(),typeName:t.label||'',date:new Date().toISOString().slice(0,10)};
+ formCompanyFields().concat(formMyFields()).forEach(f=>{fields[f.k]=f.v;});
+ return {field:k=>{let v=fields[k];if(typeof v==='function')v=fields[k]=v();return v==null?'':v;},defs:carrierLabelFields};
+}
+/* Наклейка: блоки по порядку (слой — z), x по месту блока. */
+function carrierLabelSVGOf(tpl,code,edit){
+ const Z=CL_SIZES[carrierLabelSize(tpl)],CL_W=Z.w,CL_H=Z.h,part=Z.part;
+ const ctx=carrierLabelCtx(code),blocks=((tpl.parts[part]||{}).blocks||[]).filter(b=>formShow(b,ctx)).map((b,i)=>({b,i})).sort((a,c)=>(a.b.z||0)-(c.b.z||0)||a.i-c.i).map(x=>x.b);
+ const hit=b=>edit?' data-forms-hit="'+part+'|'+esc(b.id)+'" onpointerdown="formsPointerStart(event,\''+part+'\',\''+esc(b.id)+'\')"'+(edit.sel&&edit.sel.part===part&&edit.sel.id===b.id?' data-forms-sel':''):'';
+ const at=(b,w)=>b.place==='free'?{x:b.x||0,a:'start'}:b.place==='left'?{x:CL_MARGIN,a:'start'}:b.place==='right'?{x:CL_W-CL_MARGIN-(w||0),a:'end'}:{x:CL_W/2,a:'middle'};
+ const out=blocks.map(b=>{
+  if(b.type==='barcode'){const v=String(ctx.field(b.field||'code')||'');if(!v)return '';const mod=b.module||2.4,h=b.h||110,bars=barcode128Items(v,0,0,h,mod),bw=barcode128Width(v)*mod;
+   const x0=b.place==='free'?b.x||0:b.place==='left'?CL_MARGIN:b.place==='right'?CL_W-CL_MARGIN-bw:(CL_W-bw)/2;
+   return `<g transform="translate(${x0.toFixed(1)} ${b.y||0})"${hit(b)}>${bars.map(r=>`<rect x="${r.x.toFixed(2)}" y="0" width="${r.w.toFixed(2)}" height="${h}" fill="${/^#[0-9a-f]{3,6}$/i.test(b.color||'')?b.color:'#000'}"/>`).join('')}</g>`;}
+  if(b.type==='image'){const src=b.src||(b.field?ctx.field(b.field):'');if(!/^data:image\/jpeg;base64,/.test(src||''))return '';const h=b.h||40,w=b.w||h*3,p=at(b);
+   return `<image href="${esc(src)}" x="${(p.a==='middle'?p.x-w/2:p.a==='end'?CL_W-CL_MARGIN-w:p.x).toFixed(1)}" y="${b.y||0}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet"${hit(b)}/>`;}
+  const v=drawBlockText(b,ctx),p=at(b);if(!v&&!edit)return '';
+  /* Крупный номер — как прежняя наклейка: 800, длинный (больше 5 знаков) мельче. */
+  const big=b.field==='code'&&b.size>=40,size=big&&v.length>5?Math.round(b.size*.84):b.size||14,weight=b.bold?(big?800:700):0;
+  return `<text x="${p.x}" y="${b.y||0}" text-anchor="${p.a}" font-size="${size}"${weight?` font-weight="${weight}"`:''}${b.italic?' font-style="italic"':''}${b.font?` font-family="${b.font==='times'?'Times, serif':'Courier, monospace'}"`:''} fill="${/^#[0-9a-f]{3,6}$/i.test(b.color||'')?b.color:'#000'}"${hit(b)}>${esc((b.type==='field'&&b.prefix?b.prefix:'')+v)}</text>`;
+ }).join('\n  ');
+ return `<svg xmlns="http://www.w3.org/2000/svg" width="${Z.inW}in" height="${Z.inH}in" viewBox="0 0 ${CL_W} ${CL_H}" font-family="Helvetica, Arial, sans-serif">
+  <rect x="0" y="0" width="${CL_W}" height="${CL_H}" fill="#fff"/>
+  ${out}
+ </svg>`;
+}
+function carrierLabelSamples(){return (DB.carrier||[]).slice(0,60).map(c=>({id:c.code,label:c.code+' · '+((carrierType(c.code)||{}).label||'')}));}
+function carrierLabelSheetHTML(tpl,code,view){
+ code=code&&code!=='sample'?code:'SA-10';
+ /* Новый блок встаёт в раскладку того размера, что на экране. */
+ const s=formsState(),part=CL_SIZES[carrierLabelSize(tpl)].part;if(!view&&s.part!==part&&!s.sel)s.part=part;
+ return '<div class="cl-paper">'+carrierLabelSVGOf(tpl,code,view?null:{sel:s.sel})+'</div>';
+}
+function carrierLabelPage(tpl){const Z=CL_SIZES[carrierLabelSize(tpl)];return {w:Z.w,h:Z.h};}
+/* Панель части: размер наклейки — на экране и на печати. */
+function carrierLabelPanelHTML(part,tpl){
+ const cur=carrierLabelSize(tpl);
+ return `<div class="fm-h">Label size</div><div class="fm-seg" data-cl-size>${Object.keys(CL_SIZES).map(k=>`<button type="button" class="${cur===k?'on':''}" onclick="formsLabelSize('${k}')">${CL_SIZES[k].label}${k==='3x4'?' (landscape)':''}</button>`).join('')}</div>
+  <p class="fm-note">Prints on this size. Each size keeps its own layout.</p>`;
+}
+function formsLabelSize(k){if(!CL_SIZES[k])return;formsStyle('size',k);const s=formsState();s.sel=null;s.part=CL_SIZES[k].part;render();}
 
 /* ==== src/erp/finance/print.js ==== */
 /* =====================================================================
@@ -44307,12 +44570,23 @@ function formsDefs(){
      живой лист — настоящий чертёж строки заказа. */
   {k:'drawing',label:'Drawing',def:drawFormDefault,fields:()=>drawFormFields(),add:['text','field','image'],
   parts:{head:['Header','top line'],info:['Info','beside drawing'],drawing:['Drawing','units · colors'],route:['Route','bottom'],foot:['Footer','bottom line']},
-  samples:()=>drawFormSamples(),doc:id=>id,context:()=>drawFormContext(),columns:{},html:(tpl,id,view)=>drawFormSheetHTML(tpl,id,view),after:()=>drawFormOverlaps(),panel:(part,tpl)=>part==='drawing'?drawFormStyleHTML(tpl):part==='info'||part==='route'?drawFormShowHTML(part,tpl):''}]);
+  samples:()=>drawFormSamples(),doc:id=>id,context:()=>drawFormContext(),columns:{},html:(tpl,id,view)=>drawFormSheetHTML(tpl,id,view),after:()=>drawFormOverlaps(),panel:(part,tpl)=>part==='drawing'?drawFormStyleHTML(tpl):part==='info'||part==='route'?drawFormShowHTML(part,tpl):''},
+  /* Лист скида / долли (erp/documents/carrier-form): живой лист — тара с
+     стеклом; низ страницы — поля @page, на листе показан строкой внизу. */
+  {k:'carrierSheet',label:'Dolly / Skid sheet',def:carrierFormDefault,fields:()=>carrierFormFields(),add:['text','field','image'],sheetClass:'fm-csheet',
+  parts:{head:['Header','top'],strip:['Strip','station, since, weight'],customer:['Customer','one order'],table:['Table','glass on it'],total:['Total','under the table'],foot:['Page footer','every page']},
+  samples:()=>carrierFormSamples(),doc:id=>id,context:()=>carrierFormContext(),columns:{},html:(tpl,id,view)=>carrierFormSheetHTML(tpl,id,view),after:()=>drawFormOverlaps(),
+  panel:(part,tpl)=>part==='head'||part==='foot'?'':carrierFormPanelHTML(part,tpl)},
+  /* Наклейка тары 4 × 6 (erp/documents/carrier-form): живой лист — наклейка. */
+  {k:'carrierLabel',label:'Dolly / Skid label',def:carrierLabelDefault,fields:()=>carrierLabelFields(),add:['text','field','image','barcode'],sheetClass:tpl=>'fm-lsheet'+(carrierLabelSize(tpl)==='3x4'?' cl-small':''),
+  parts:{label:['Label 4 × 6','portrait'],small:['Label 3 × 4','landscape']},samples:()=>carrierLabelSamples(),doc:id=>id,context:id=>carrierLabelCtx(id&&id!=='sample'?id:'SA-10'),columns:{},
+  html:(tpl,id,view)=>carrierLabelSheetHTML(tpl,id,view),after:()=>drawFormOverlaps(),pageOf:tpl=>carrierLabelPage(tpl),panel:(part,tpl)=>carrierLabelPanelHTML(part,tpl)}]);
 }
 function formsPartLabel(k){const d=formsDef(formsState().form);return (d.parts&&d.parts[k])||FORMS_PARTS[k]||[k,''];}
 function formsDef(k){return formsDefs().find(x=>x.k===k)||formsDefs()[0];}
 function formsSaved(k){const def=formsDef(k);return formClean(DB.formTemplate&&DB.formTemplate[k],def.def());}
 function normalizeFormTemplates(){
+ if(typeof normalizeDrawingFrozen==='function')normalizeDrawingFrozen();
  const src=DB.formTemplate&&typeof DB.formTemplate==='object'&&!Array.isArray(DB.formTemplate)?DB.formTemplate:{},out={},defs=formsDefs();
  defs.forEach(d=>{if(src[d.k])out[d.k]=formClean(src[d.k],d.def());});
  DB.formTemplate=out;
@@ -44630,8 +44904,8 @@ function formsSheetsHTML(){
   setTimeout(()=>{document.querySelectorAll('[data-forms-stage] .print-sheet').forEach(el=>salesSheetFitDrawing(el));if(def.after)def.after();},0);
   /* Линейка и направляющие (владелец: «рулетку тоже, чтобы выравнивать»);
      поля — поля печати, их не тянут. */
-  const W=land?792:612,H=land?612:792,v=Object.assign({},tpl,{page:Object.assign({},tpl.page,{w:W,h:H})}),m=tpl.page.margin,pc=(x,of)=>(x/of*100).toFixed(4)+'%';
-  return `<div class="fm-sheet fm-dsheet${land?' land':''}" data-forms-page="0" data-w="${W}" data-h="${H}">${h}${formsRuler(false,W)+formsRuler(true,H)+formsRulerMarks(v,true)}<div class="fm-margin" style="left:${pc(m.left,W)};right:${pc(m.right,W)}"></div>${formsGuidesHTML(v)}</div>`;
+  const pg=def.pageOf?def.pageOf(tpl):tpl.page,W=land?pg.h:pg.w,H=land?pg.w:pg.h,v=Object.assign({},tpl,{page:Object.assign({},tpl.page,{w:W,h:H})}),m=tpl.page.margin,pc=(x,of)=>(x/of*100).toFixed(4)+'%';
+  return `<div class="fm-sheet fm-dsheet${land?' land':''}${def.sheetClass?' '+(typeof def.sheetClass==='function'?def.sheetClass(tpl):def.sheetClass):''}" data-forms-page="0" data-w="${W}" data-h="${H}">${h}${formsRuler(false,W)+formsRuler(true,H)+formsRulerMarks(v,true)}<div class="fm-margin" style="left:${pc(m.left,W)};right:${pc(m.right,W)}"></div>${formsGuidesHTML(v)}</div>`;
  }
  let pages;try{pages=def.pages(tpl,d,map);}catch(e){return `<p class="fm-note">Preview failed: ${esc(e.message)}</p>`;}
  const W=tpl.page.w,H=tpl.page.h,pc=(v,of)=>(v/of*100).toFixed(4)+'%',m=tpl.page.margin;
@@ -44710,7 +44984,7 @@ function formsSettingsHTML(tpl){
  return `<div class="fm-h fm-sel-h"><span>Selected · ${esc(formsTypeLabel(b))}</span><button type="button" class="fm-del" data-forms-delete onclick="formsDelete()">Delete</button></div>${what}
   ${sec?`<p class="fm-note">Drawn by the program.${formsDef(s.form).custom?' What it shows — ✎ Customize.':''}</p><div class="fm-h">Place on sheet</div><div class="fm-row">${num('y','Y, mm',mm(b.y),true)}</div>`
   :`<div class="fm-h">Place on sheet</div>${seg(b.place||'left',[['left','Left'],['center','Center'],['right','Right'],['free','Free']],'formsPlace')}
-  <div class="fm-row">${b.place==='free'?num('x','X, mm',mm(b.x),true):''}${num('y','Y, mm',mm(b.y),true)}${hl?'':num('w','Width, mm',mm(b.w),true)}${text?'':num('h','Height, mm',mm(b.h),true)}</div>`}${hl?drawLayerHTML(b):''}${look}${showIf}`;
+  <div class="fm-row">${b.place==='free'?num('x','X, mm',mm(b.x),true):''}${num('y','Y, mm',mm(b.y),true)}${hl?'':num('w','Width, mm',mm(b.w),true)}${text?'':num('h','Height, mm',mm(b.h),true)}</div>`}${hl?drawLayerHTML(b):''}${look}${showIf}${sec?'':`<button type="button" class="fm-wide-btn" data-forms-addto onclick="formsAddToOpen()">Add to other forms…</button>`}`;
 }
 function viewMdForms(){
  const s=formsState(),def=formsDef(s.form),d=formsDraft(),tpl=d.tpl,dirty=formsDirty(),samples=def.samples();
@@ -44726,7 +45000,54 @@ function viewMdForms(){
     <div class="fm-h">Parts of the sheet</div><div class="fm-tree">${formsTreeHTML(tpl)}</div></aside>
    <div class="fm-stage" data-forms-stage>${formsSheetsHTML()}</div>
    <aside class="fm-card fm-right" data-forms-settings>${formsSettingsHTML(tpl)}</aside>
-  </div>${formsModalHTML(ctx)}${formsVersionsHTML()}</div>`;
+  </div>${formsModalHTML(ctx)}${formsVersionsHTML()}${formsAddToHTML()}</div>`;
+}
+
+/* ------------------------ Добавить в другие формы -------------------- */
+/* Тот же блок (логотип, текст, поле) — сразу в другие бланки (задание
+   этапа 7, «добавить в другие формы»). Встаёт в часть с тем же именем, иначе
+   в первую часть бланка с блоками; бланк сохраняется сразу (своя версия в
+   History), его несохранённый черновик получает блок тоже. Поле, которого в
+   бланке нет, — бланк серым. */
+/* Имена полей одни во всех бланках (formCompanyFields, My fields). */
+function formsFieldIn(k,field){return !field||formsDef(k).fields().some(f=>f.k===field)?field:null;}
+function formsAddToTargets(b){
+ const s=formsState();
+ return formsDefs().filter(d=>d.k!==s.form).map(d=>{
+  const t=formsSaved(d.k),parts=Object.keys(t.parts),part=parts.includes(s.sel.part)&&t.parts[s.sel.part].blocks?s.sel.part:parts.find(p=>t.parts[p].blocks);
+  const field=b.field?formsFieldIn(d.k,b.field):'';
+  const why=!part?'no place for blocks':b.field&&!field?'no such field':'';
+  return {k:d.k,label:d.label,part,field,why};
+ });
+}
+function formsAddToOpen(){formsState().addTo={on:{}};render();}
+function formsAddToClose(){formsUi.addTo=null;render();}
+function formsAddToPick(k,on){formsUi.addTo.on[k]=!!on;render();}
+function formsPartLabelOf(k,part){const d=formsDef(k);return (d.parts&&d.parts[part])||FORMS_PARTS[part]||[part,''];}
+function formsAddToHTML(){
+ const s=formsState(),m=s.addTo;if(!m||!s.sel)return '';const b=formsFind(formsDraft().tpl,s.sel);if(!b)return '';
+ const list=formsAddToTargets(b),n=list.filter(x=>!x.why&&m.on[x.k]).length;
+ return `<div class="fm-modal-back" onclick="formsAddToClose()"></div><div class="fm-modal fm-addto" role="dialog" aria-modal="true" aria-label="Add to other forms" data-forms-addto-modal>
+  <div class="fm-modal-head"><b>Add “${esc(formsBlockLabel(b))}” to other forms</b><button type="button" class="fm-x" aria-label="Close" onclick="formsAddToClose()">×</button></div>
+  <div class="fm-addto-list">${list.map(x=>`<label class="fm-check${x.why?' off':''}"><input type="checkbox" data-forms-addto-form="${esc(x.k)}" ${x.why?'disabled':m.on[x.k]?'checked':''} onchange="formsAddToPick('${esc(x.k)}',this.checked)"><span>${esc(x.label)}</span><small>${x.why?esc(x.why):esc(formsPartLabelOf(x.k,x.part)[0])}</small></label>`).join('')}</div>
+  <p class="fm-note">Each form is saved at once and gets its own version in History.</p>
+  <div class="fm-modal-foot"><button type="button" onclick="formsAddToClose()">Cancel</button><button type="button" class="pri" data-forms-addto-apply ${n?'':'disabled'} onclick="formsAddToApply()">Add to ${n||''} ${n===1?'form':'forms'}</button></div></div>`;
+}
+function formsAddToApply(){
+ const s=formsState(),m=s.addTo,src=formsFind(formsDraft().tpl,s.sel);if(!m||!src)return;
+ const from=formsDef(s.form).label,me=typeof signinUser==='function'?signinUser():null,done=[];
+ formsAddToTargets(src).filter(x=>!x.why&&m.on[x.k]).forEach(x=>{
+  const d=formsDef(x.k),def=d.def(),put=t=>{const p=t.parts[x.part],b=formsClone(src);b.id='b'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+   if(x.field)b.field=x.field;delete b.show;delete b.z;if(b.place!=='free')b.y=d.html?0:p.h||0;
+   p.blocks=(p.blocks||[]).concat([b]);if(!d.html&&b.place!=='free')p.h=(p.h||0)+(b.type==='line'?6:(b.h||14)+4);};
+  const tpl=formsClone(formsSaved(x.k));put(tpl);const clean=formClean(tpl,def);
+  DB.formVersion=(DB.formVersion||[]).concat([{id:salesUid('FV'),form:x.k,at:new Date().toISOString(),by:me?me.name:'',note:'Block added from '+from,tpl:formsClone(clean)}]);
+  const mine=DB.formVersion.filter(v=>v.form===x.k);if(mine.length>FORMS_VERSIONS){const drop=new Set(mine.slice(0,mine.length-FORMS_VERSIONS).map(v=>v.id));DB.formVersion=DB.formVersion.filter(v=>!drop.has(v.id));}
+  DB.formTemplate=Object.assign({},DB.formTemplate,{[x.k]:clean});
+  const dr=s.drafts[x.k];if(dr){if(JSON.stringify(dr.tpl)!==dr.saved)put(dr.tpl);else dr.tpl=formsClone(clean);dr.saved=JSON.stringify(clean);}
+  done.push(d.label);
+ });
+ s.addTo=null;s.notice=done.length?'Added to '+done.join(', '):'';touch();render();
 }
 
 /* ==== src/erp/views/cut-layout-ui.js ==== */
@@ -48989,7 +49310,7 @@ const DELIVERY_FORM_FIELDS=[
  {k:'trip.stops',g:'Totals',label:'Stops',v:d=>String(d.stops.length)},
  {k:'trip.skids',g:'Totals',label:'Skids',v:d=>String(d.stops.reduce((n,s)=>n+deliveryLoad(s).skids.length,0))},
  {k:'trip.weight',g:'Totals',label:'Weight',v:d=>{const l=d.stops.map(deliveryLoad);return (l.every(x=>x.exact)?'':'~')+docNum(l.reduce((n,x)=>n+x.kg,0),0)+' kg';}}];
-function deliveryFormFields(){return DELIVERY_FORM_FIELDS.concat(formMyFields());}
+function deliveryFormFields(){return formWithCompany(DELIVERY_FORM_FIELDS).concat(formMyFields());}
 function deliveryFormContext(d){const by=new Map(deliveryFormFields().map(x=>[x.k,x]));return {field:k=>{const x=by.get(k);return x?x.v(d):undefined;}};}
 function deliveryFormTemplate(){return formClean(DB.formTemplate&&DB.formTemplate.tripSheet,deliveryFormDefault());}
 function deliveryPages(date,truckId,tpl,map){
@@ -49525,7 +49846,10 @@ function carrierEmptyBack(){
 function carrierPick(code,on){if(on)carrierSel.add(code);else carrierSel.delete(code);render();}
 /* Этикетка 4 × 6″ стоя: крупный код — его видно через цех, тип словами,
    штрихкод Code 128 с тем же текстом — сканер вводит ровно код тары. */
-function carrierLabelSVG(code){
+/* Вид наклейки — форма Dolly / Skid label (erp/documents/carrier-form);
+   по умолчанию — прежняя (carrierLabelLegacySVG — эталон проверки). */
+function carrierLabelSVG(code){return carrierLabelSVGOf(carrierLabelTpl(),code,null);}
+function carrierLabelLegacySVG(code){
  const t=carrierType(code)||{label:''},W=288,H=432,bars=barcode128Items(code,0,0,110,2.4),bw=barcode128Width(code)*2.4,x0=(W-bw)/2;
  return `<svg xmlns="http://www.w3.org/2000/svg" width="4in" height="6in" viewBox="0 0 ${W} ${H}" font-family="Helvetica, Arial, sans-serif">
   <rect x="0" y="0" width="${W}" height="${H}" fill="#fff"/>
@@ -49538,8 +49862,10 @@ function carrierLabelSVG(code){
 function carrierPrintLabels(codes){
  const list=(codes||[]).map(carrierFind).filter(Boolean);if(!list.length)return false;
  let st=document.getElementById('stkPageStyle');if(!st){st=document.createElement('style');st.id='stkPageStyle';document.head.appendChild(st);}
- st.textContent='@page stk{size:4in 6in;margin:0}';
- stkPrintHost().innerHTML=list.map(c=>`<div class="stk-print-page" style="width:4in;height:6in" data-carrier-label="${esc(c.code)}">${carrierLabelSVG(c.code)}</div>`).join('');
+ /* Размер наклейки — из формы Dolly / Skid label (4 × 6 или 3 × 4). */
+ const Z=CL_SIZES[carrierLabelSize(carrierLabelTpl())];
+ st.textContent='@page stk{size:'+Z.inW+'in '+Z.inH+'in;margin:0}';
+ stkPrintHost().innerHTML=list.map(c=>`<div class="stk-print-page" style="width:${Z.inW}in;height:${Z.inH}in" data-carrier-label="${esc(c.code)}">${carrierLabelSVG(c.code)}</div>`).join('');
  document.body.classList.add('stk-printing');
  window.addEventListener('afterprint',stkPrintCleanup,{once:true});setTimeout(stkPrintCleanup,60000);
  try{window.print();}catch(e){stkPrintCleanup();return false;}
@@ -49842,13 +50168,22 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&carrierWin&&!(typeo
 const CARRIER_NOWRAP=['pos','line','size','id','next','due','weight'];
 function carrierStamp(iso){return iso?docDate(finLocalDate(iso))+' · '+stationTime(iso):'—';}
 function carrierSheetKind(m){return m.code?(carrierWord(m.code)==='skid'?'Skid contents':'Dolly contents'):'Not on a '+(m.word==='No skid'?'skid':'dolly');}
+/* «Printed … by … at …» — строка низа страницы листа. */
+let carrierPrintWhere='';
+function carrierPrintedLine(who,where){return 'Printed '+carrierStamp(new Date().toISOString())+(who&&who.name?' by '+who.name:'')+(where?' at '+where:'');}
 function carrierSheetHTML(m,cols,who){
  const C=DOC_COLOR,co=docCompanyBlock(),me=who||carrierMe(),loaded=m.items.length>0,rows=loaded?m.items:m.gone,orders=carrierOrders(rows),one=orders.length===1?orders[0].o:null;
  const use=cols.filter(c=>!['order','customer','po'].includes(c.k));carrierWeightMemo=new Map();
  const kgs=rows.map(carrierKg),kg=kgs.reduce((n,w)=>n+(w?w.kg:0),0),kgExact=kgs.every(w=>w&&w.exact);
  const where=[...new Set(m.items.map(i=>i.place&&i.place.waiting).filter(Boolean))].join(', ')||(m.out?salesCustomerDisplay(m.out.customerId):'');
  const prio=o=>o.priority==='critical'?'<span class="cs-prio bad">Critical</span>':o.priority==='rush'?'<span class="cs-prio warn">Rush</span>':'';
- const cells=[['Station',where||'—'],[loaded?'Since':'Shipped',carrierStamp(loaded?m.list.map(x=>x.scan.at).filter(Boolean).sort()[0]:m.out&&m.out.since)],['On it',carrierCountText(rows)+(orders.length>1?' · '+orders.length+' orders':'')],kg>0?['Weight',(kgExact?'':'~')+docNum(kg,1)+' kg']:null,['Printed by',me.name||'—']].filter(Boolean);
+ const cells=[['Station',where||'—','station'],[loaded?'Since':'Shipped',carrierStamp(loaded?m.list.map(x=>x.scan.at).filter(Boolean).sort()[0]:m.out&&m.out.since),'since'],['On it',carrierCountText(rows)+(orders.length>1?' · '+orders.length+' orders':''),'onit'],kg>0?['Weight',(kgExact?'':'~')+docNum(kg,1)+' kg','weight']:null,['Printed by',me.name||'—','printedby']].filter(Boolean);
+ /* Шапка, цвета и что показывать — из формы Dolly / Skid sheet (erp/documents/carrier-form). */
+ const tpl=carrierFormTpl(),st=carrierFormStyle(tpl),cell=k=>{const c=cells.find(x=>x[2]===k);return c?c[1]:'';};
+ const fields=carrierSheetLastFields={companyBlockData:co,kind:carrierSheetKind(m),code:m.code||m.station,type:m.type?m.type.label:'',station:cell('station'),since:cell('since'),onIt:cell('onit'),weight:cell('weight'),
+  printedBy:me.name||'',printedLine:carrierPrintedLine(me,carrierPrintWhere),date:new Date().toISOString().slice(0,10),customer:one?salesCustomerDisplay(one.customerId):'',order:one?one.businessNumber||'':'',customerPo:one?one.customerPo||'':''};
+ formCompanyFields().concat(formMyFields()).forEach(f=>{fields[f.k]=f.v;});
+ const ctx={field:k=>{let v=fields[k];if(typeof v==='function')v=fields[k]=v();return v==null?'':v;},defs:carrierFormFields},edit=carrierFormPreview&&carrierFormPreview.edit;
  let customer='';
  if(one){
   const c=salesFindCustomer(one.customerId)||{},a=typeof shippingDefaultAddress==='function'?shippingDefaultAddress(c):{};
@@ -49862,10 +50197,11 @@ function carrierSheetHTML(m,cols,who){
      лежит последний поставленный, как на самом скиде. */
   return head+g.items.map(it=>`<tr>${use.map(c=>`<td class="${CARRIER_NOWRAP.includes(c.k)?'cs-nw':''}${c.k==='size'||c.k==='id'?' cs-b':''}${c.k==='weight'?' cs-n':''}" data-raw>${cell(it,c)}</td>`).join('')}</tr>`).join('');
  }).join('');
- const style=`--cs-ink:${C.ink};--cs-mut:${C.mut};--cs-line:${C.line};--cs-bar:${C.bar};--cs-box:${C.box};--cs-navy:${C.navy};--cs-due:${C.due};--cs-warn:${C.warn};--cs-paper:#ffffff`;
- return `<div class="cs-sheet" style="${style}" data-carrier-sheet="${esc(m.code||m.station)}">
-  <div class="cs-head"><div class="cs-co"><b data-raw>${esc(co.name||'')}</b>${co.lines.slice(0,2).map(t=>`<div data-raw>${esc(t)}</div>`).join('')}</div><div class="cs-code"><small>${esc(carrierSheetKind(m).toUpperCase())}</small><b>${esc(m.code||m.station)}</b>${m.type?`<span>${esc(m.type.label)}</span>`:''}</div></div>
-  <div class="cs-strip">${cells.map(([l,v])=>`<div><small>${esc(l)}</small><b data-raw>${esc(v)}</b></div>`).join('')}</div>
+ const K=(k,tok)=>carrierFormColor(st,k,tok);
+ const style=`--cs-ink:${K('csInk','ink')};--cs-mut:${K('csMut','mut')};--cs-line:${K('csLine','line')};--cs-bar:${K('csBar','bar')};--cs-box:${K('csBox','box')};--cs-navy:${K('csNavy','navy')};--cs-due:${C.due};--cs-warn:${C.warn};--cs-paper:#ffffff`;
+ return `<div class="cs-sheet${carrierFormClasses(st)}" style="${style}" data-carrier-sheet="${esc(m.code||m.station)}">
+  ${carrierHeadHTML(tpl,ctx,edit)}
+  <div class="cs-strip">${cells.map(([l,v,k])=>`<div class="cs-c-${k}"><small>${esc(l)}</small><b data-raw>${esc(v)}</b></div>`).join('')}</div>
   ${customer}
   <table class="cs-table"><thead><tr>${use.map(c=>`<th${c.k==='weight'?' class="cs-n"':''}>${esc(c.label)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>
   <div class="cs-total">Total: ${esc(carrierCountText(rows))} · ${stationPlural(orders.length,'order','orders')}${loaded&&rows.length>1?' · #1 went on first':''}</div>
@@ -49878,10 +50214,10 @@ function carrierPrintCleanup(){document.body.classList.remove('carrier-printing'
 function carrierPrintSheet(m,cols,who,where){
  if(!m||!(m.items.length||m.gone.length))return false;
  let host=document.getElementById('carrierPrintHost');if(!host){host=document.createElement('div');host.id='carrierPrintHost';document.body.appendChild(host);}
- who=who||carrierMe();host.innerHTML=carrierSheetHTML(m,cols,who);
- const q=t=>'"'+String(t).replace(/["\\]/g,'')+'"',foot='font:8px Helvetica,Arial,sans-serif;color:'+DOC_COLOR.mut;
+ who=who||carrierMe();carrierPrintWhere=where||'';host.innerHTML=carrierSheetHTML(m,cols,who);
  let st=document.getElementById('carrierPageStyle');if(!st){st=document.createElement('style');st.id='carrierPageStyle';document.head.appendChild(st);}
- st.textContent='@page carriersheet{margin:10mm 10mm 12mm;@bottom-left{content:'+q('Printed '+carrierStamp(new Date().toISOString())+(who.name?' by '+who.name:'')+(where?' at '+where:''))+';'+foot+'}@bottom-right{content:'+q(carrierSheetKind(m)+' · '+(m.code||m.station)+' · ')+' counter(page) " / " counter(pages);'+foot+'}}@media print{html,body.carrier-printing{background:#ffffff!important}}';
+ /* Низ страницы — блоки формы Dolly / Skid sheet (по умолчанию прежние строки). */
+ st.textContent='@page carriersheet{margin:10mm 10mm 12mm;'+carrierFootCss(carrierFormTpl(),carrierFormContext())+'}@media print{html,body.carrier-printing{background:#ffffff!important}}';carrierPrintWhere='';
  document.body.classList.add('carrier-printing');
  window.addEventListener('afterprint',carrierPrintCleanup,{once:true});setTimeout(carrierPrintCleanup,60000);
  try{window.print();}catch(e){carrierPrintCleanup();return false;}
@@ -51040,7 +51376,7 @@ function shippingFormTotals(){
   {k:'total.lines',g:'Totals',label:'Lines',v:d=>String(rows(d).filter(r=>r.now).length)},
   {k:'total.skids',g:'Totals',label:'Skids',v:d=>String((d.skids||[]).length)}];
 }
-function shippingFormFields(){return SHIPPING_FORM_FIELDS.concat(shippingFormTotals(),formMyFields());}
+function shippingFormFields(){return formWithCompany(SHIPPING_FORM_FIELDS).concat(shippingFormTotals(),formMyFields());}
 function shippingFormContext(d){
  const by=new Map(shippingFormFields().map(x=>[x.k,x]));
  return {field:k=>{const x=by.get(k);return x?x.v(d):undefined;},type:k=>(by.get(k)||{}).t||''};
@@ -55462,6 +55798,8 @@ function archiveRun(day,opts){
   const ids=new Set(due);if(!ids.size)return {orders:0,records:0};
   const set=archiveCollect(ids),ctx=archiveContext();
   const rows=readScope(()=>(DB.salesOrder||[]).filter(o=>ids.has(o.id)).map(o=>[o.id,archiveRowOf(o,archiveDayOf(o,ctx),now)]));
+  /* Вид чертежа на день ухода — заказ в архиве печатается им (erp/documents/drawing-form). */
+  if(typeof drawFrozenKeep==='function'){const dk=drawFrozenKeep();rows.forEach(([,row])=>{row.drawing=dk;});}
   const num=(v,re)=>{const m=re.exec(String(v||''));return m?+m[1]:0;};
   set.forEach(x=>{
    if(x.tbl==='salesOrder'){if(salesIsQuote(x.row))archiveFloorRaise('quote',num(x.row.businessNumber,/^Q-(\d+)/));else archiveFloorRaise('order',+String(x.row.businessNumber||'').replace(/\D/g,'')||0);
@@ -57455,7 +57793,8 @@ function printSheetPrepare(svg,caption,after){
   printOthersCleanup();
   var h=printSheetHost();
   /* Бумага листа чертежа — книжная или альбомная (Data → Forms → Drawing). */
-  var paper=typeof drawStyle==='function'&&list.some(function(x){return String(x).indexOf('print-shape-sheet')>=0;})?'<style>@media print{@page{size:'+drawStyle().paper+'}}</style>':'';
+  /* Ориентация — по самому листу (dw-land): у заказа из архива она своя. */
+  var paper=list.some(function(x){return String(x).indexOf('print-shape-sheet')>=0;})?'<style>@media print{@page{size:'+(list.some(function(x){return /class="print-shape-sheet[^"]*\bdw-land\b/.test(String(x));})?'landscape':'portrait')+'}}</style>':'';
   h.innerHTML=paper+list.map(function(x){return '<div class="print-sheet">'+printSheetUniqueIds(x)+(caption?'<div class="print-caption">'+esc(caption)+'</div>':'')+'</div>';}).join('');
   document.body.classList.add('printing');
   /* Доводка выполняется ПОСЛЕ вставки: чертёж подгоняется под отведённое место
