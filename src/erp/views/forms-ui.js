@@ -51,7 +51,7 @@ function formsDefs(){
   context:d=>deliveryFormContext(d),columns:{},pages:(tpl,d,map)=>deliveryPages(d.date,d.truckId,tpl,map)},
   /* Лист чертежа (erp/documents/drawing-form) — HTML-лист, а не docPage:
      живой лист — настоящий чертёж строки заказа. */
-  {k:'drawing',label:'Drawing',def:drawFormDefault,fields:()=>drawFormFields(),add:['text','field'],
+  {k:'drawing',label:'Drawing',def:drawFormDefault,fields:()=>drawFormFields(),add:['text','field','image'],
   parts:{head:['Header','top line'],info:['Info','beside drawing'],drawing:['Drawing','units · colors'],route:['Route','bottom'],foot:['Footer','bottom line']},
   samples:()=>drawFormSamples(),doc:id=>id,context:()=>drawFormContext(),columns:{},html:(tpl,id)=>drawFormSheetHTML(tpl,id),after:()=>drawFormOverlaps(),panel:(part,tpl)=>part==='drawing'?drawFormStyleHTML(tpl):''}]);
 }
@@ -143,7 +143,7 @@ function formsAddBlock(make){
 }
 function formsAdd(type){
  if(type==='field'){formsOpenField('add');return;}
- if(type==='image'){const el=document.querySelector('[data-forms-picture]');if(el)el.click();return;}
+ if(type==='image'){if(formsState().form==='drawing'&&drawFormAddPicture())return;const el=document.querySelector('[data-forms-picture]');if(el)el.click();return;}
  const C=DOC_COLOR,make={
   text:()=>({type:'text',text:'Text',place:'left',w:240,h:14,size:9,lh:14,wrap:true}),
   line:()=>({type:'line',place:'left',w:540,h:0,lw:.6,color:C.line}),

@@ -22,6 +22,12 @@
    вида нужна»). */
 const DRAW_STYLE_DEFAULT={paper:'portrait',size:100,units:'in16',alt:'',dimSize:18,noteSize:16,bg:true,
  edge:'',line:'',arrow:'',feature:'',text:'',label:'',ftext:'',altColor:'',edgeW:0,lineW:0,featureW:0,labelSize:0,serviceSize:0};
+/* + Picture у листа чертежа — логотип из Data → Company, если он есть;
+   иначе выбор файла, как в других бланках. */
+function drawFormAddPicture(){
+ if(!(DB.company&&DB.company.logo))return false;
+ formsAddBlock(()=>({type:'image',field:'companyLogo',place:'left',w:120,h:28}));return true;
+}
 const DRAW_UNITS=[['in16','Inches · 1/16'],['in','Decimal inches'],['mm','mm']];
 /* Что на чертеже красится отдельно: ключ стиля, подпись, цвет как сейчас
    (переменная CSS листа), ключ толщины линии, ключ кегля подписи. Сервисы —
@@ -59,12 +65,13 @@ function drawFormDefault(){
 }
 function drawFormFields(){
  const f=(g,k,label)=>({g,k,label});
- return [f('Order','customer','Customer'),f('Order','po','PO'),f('Order','order','Order Number'),f('Order','date','Date printed'),
+ const d=(g,k,label)=>({g,k,label,t:'date'});
+ return [f('Order','customer','Customer'),f('Order','po','PO'),f('Order','order','Order Number'),d('Order','dueDate','Due date'),d('Order','date','Date printed'),
   f('Line','line','Line'),f('Line','glass','Glass / Makeup'),f('Line','spec','Makeup spec'),f('Line','qty','Qty'),
   f('Line','finished','Finished size'),f('Line','mass','sq ft · kg'),f('Line','note','Note'),f('Line','tag','Glass tag (batch)'),
   f('Prices','unitPrice','Unit price'),f('Prices','linePrice','Line total'),f('Prices','materialsPrice','Materials'),
   f('Company','company','Company name'),f('Company','companyLine','Company details, one line'),f('Company','companyAddress','Address'),
-  f('Company','companyPhone','Phone'),f('Company','companyEmail','Email'),f('Company','companyWebsite','Website'),f('Company','companyHst','HST number')].concat(formMyFields());
+  f('Company','companyPhone','Phone'),f('Company','companyEmail','Email'),f('Company','companyWebsite','Website'),f('Company','companyHst','HST number'),f('Company','companyLogo','Company logo')].concat(formMyFields());
 }
 /* Черновик конструктора — на время живого листа; иначе сохранённый. */
 let drawFormPreview=null,drawSheetLastFields={};
@@ -130,19 +137,27 @@ function drawBlockAttrs(part,b,st,edit){
  return a;
 }
 function drawBlockText(b,ctx){
- const v=b.type==='text'?formFill(b.text,ctx).replace(/\{page\}/g,'1').replace(/\{pages\}/g,'1'):ctx.field(b.field);
+ let v=b.type==='text'?formFill(b.text,ctx).replace(/\{page\}/g,'1').replace(/\{pages\}/g,'1'):ctx.field(b.field);
+ /* Дата — в виде, выбранном в окне Insert field (Mon d, yyyy …). */
+ const f=b.type==='field'&&drawFormFields().find(x=>x.k===b.field);if(f&&f.t)v=formFormat(v,f.t,b.format);
  return Array.isArray(v)?v.join(', '):String(v==null?'':v);
+}
+/* Картинка (логотип компании или своя): высота блока, ширина по картинке. */
+function drawImageHTML(b,ctx){
+ const src=b.src||(b.field?ctx.field(b.field):'');
+ return /^data:image\/jpeg;base64,/.test(src||'')?'<img src="'+esc(src)+'" alt="" style="display:inline-block;vertical-align:middle;height:'+(b.h||28)+'pt;width:auto">':'';
 }
 function drawColumns(tpl,part,ctx){
  const p=tpl.parts[part]||{},cols={left:[],center:[],right:[]},free=[];
- (p.blocks||[]).filter(b=>formIsText(b)&&formShow(b,ctx)).forEach(b=>(b.place==='free'?free:cols[b.place]||cols.left).push(b));
+ (p.blocks||[]).filter(b=>(formIsText(b)||b.type==='image')&&formShow(b,ctx)).forEach(b=>(b.place==='free'?free:cols[b.place]||cols.left).push(b));
  Object.keys(cols).forEach(k=>cols[k].sort((a,b)=>(a.y||0)-(b.y||0)));
  return {cols,free};
 }
 /* Строка над чертежом: три опоры листа — заказчик, PO, номер заказа. */
 function drawHeadHTML(tpl,ctx,edit){
  const {cols,free}=drawColumns(tpl,'head',ctx),cls={left:'sheet-id-c',center:'sheet-id-p',right:'sheet-id-o'};
- const inner=b=>{const st=drawBlockStyle(b,DRAW_HEAD_SIZE,'head'),pre=b.type==='field'&&b.prefix?'<span'+(st.some(x=>/^font-size/.test(x))?' style="font-size:'+(b.size*13.5/16).toFixed(2)+'pt"':'')+'>'+esc(b.prefix)+'</span>':'';
+ const inner=b=>{if(b.type==='image'){const st=drawBlockStyle(b,DRAW_HEAD_SIZE,'head').filter(x=>/^(position|left|top|z-index)/.test(x));return {st,html:drawImageHTML(b,ctx)};}
+  const st=drawBlockStyle(b,DRAW_HEAD_SIZE,'head'),pre=b.type==='field'&&b.prefix?'<span'+(st.some(x=>/^font-size/.test(x))?' style="font-size:'+(b.size*13.5/16).toFixed(2)+'pt"':'')+'>'+esc(b.prefix)+'</span>':'';
   return {st,html:pre+'<b'+(st.length?' style="'+st.filter(x=>!/^(position|left|top|z-index)/.test(x)).join(';')+'"':'')+'>'+esc(drawBlockText(b,ctx))+'</b>'};};
  const col=k=>{const list=cols[k];
   if(list.length===1){const b=list[0],x=inner(b),pos=x.st.filter(s=>/^(position|top|z-index)/.test(s));return '<div class="'+cls[k]+'"'+drawBlockAttrs('head',b,pos,edit)+'>'+x.html+'</div>';}
@@ -155,7 +170,7 @@ function drawHeadHTML(tpl,ctx,edit){
 function drawFootHTML(tpl,ctx,edit){
  const {cols,free}=drawColumns(tpl,'foot',ctx);
  const one=b=>{const st=drawBlockStyle(b,b.field==='tag'?DRAW_TAG_SIZE:DRAW_FOOT_SIZE,'foot');
-  return '<span'+drawBlockAttrs('foot',b,st,edit)+'>'+(b.field==='tag'?'<!--sheet-tag-->':esc(drawBlockText(b,ctx)))+'</span>';};
+  return '<span'+drawBlockAttrs('foot',b,st,edit)+'>'+(b.type==='image'?drawImageHTML(b,ctx):b.field==='tag'?'<!--sheet-tag-->':esc(drawBlockText(b,ctx)))+'</span>';};
  const col=k=>{const list=cols[k];return !list.length?'<span></span>':list.length===1?one(list[0]):'<span class="sheet-foot-g">'+list.map(one).join('')+'</span>';};
  return '<div class="sheet-foot"'+(free.length?' style="position:relative"':'')+'>'+col('left')+(cols.center.length?col('center'):'')+col('right')+free.map(one).join('')+'</div>';
 }

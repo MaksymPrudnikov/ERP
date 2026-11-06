@@ -343,7 +343,7 @@ function salesShapeSheetHTML(shape,result,svg,kind,opts){
   var priced=function(){if(!price&&line&&order)try{price=salesLineCommercialPrice(line,order);}catch(e){price={};}return price||{};};
   var address=function(){return [[co.address1,co.address2].filter(Boolean).join(', '),[co.city,[co.province,co.postalCode].filter(Boolean).join(' ')].filter(Boolean).join(', ')].filter(Boolean).join(', ');};
   Object.assign(fields,{companyAddress:address,
-    companyPhone:co.phone||'',companyEmail:co.email||'',companyWebsite:co.website||'',companyHst:co.hstNumber?'HST # '+co.hstNumber:'',
+    companyPhone:co.phone||'',companyEmail:co.email||'',companyWebsite:co.website||'',companyHst:co.hstNumber?'HST # '+co.hstNumber:'',companyLogo:co.logo||'',dueDate:order&&order.dueDate||'',
     companyLine:function(){return [co.legalName,address(),co.phone,co.email,co.website].filter(Boolean).join(' · ');},
     unitPrice:function(){return money(priced().unit);},linePrice:function(){return money(priced().line);},
     materialsPrice:function(){var p=priced();return p.missingMaterials||p.unsupportedCurrency?'':money(p.materials);}});

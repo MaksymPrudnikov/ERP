@@ -27,7 +27,7 @@
 - Конструктор: форма с `html` — живой лист HTML (`drawFormSheetHTML`, бумага 8.5×11 in и поля 9 мм, pt как на печати),
   линейка и направляющие (поля `DRAW_MARGIN` — поля печати, не тянутся; x блока Free — от края бумаги), `panel` —
   правая панель части (`drawFormStyleHTML`: Paper, Drawing size, Units с примером, Text size и Lines с − / +, наборы
-  Thinner / As now / Bolder и As now / All black), `add` — только Text и Field; `formClean` хранит `style`.
+  Thinner / As now / Bolder и As now / All black), `add` — Text, Field, Picture; `formClean` хранит `style`.
 - Маршрут (CUT …) в единицах не меняется: `salesPrintRoute` общий со стикерами, документами и отчётами.
 - Сверка (старый dist main против сборки ветки, печать листа, PNG попиксельно): выгрузка владельца 117 / 117, с подписью
   батча 40 / 40, audit-2m 400 / 400 — 0 расхождений (7 и 2 листа в первом прогоне — шум растра: старый dist против себя
@@ -38,8 +38,9 @@
   «без кирпичей»).
 - Поля листа (окно Insert field): Order, Line, Prices (Unit price, Line total, Materials — ячейки строки
   в Sales, `salesLineCommercialPrice`; владелец: «цену брать с ячейки по линии»; считается, только если поле на листе), Company (имя, строка реквизитов, адрес,
-  телефон, email, сайт, HST), My fields. Владелец 06.11: «добавить данные компании в самый низ листа или вверх».
-- Проверки: `test/drawing-form.js` (10), `test/forms-editor.js` — в строке форм Drawing. Руководство
+  телефон, email, сайт, HST, логотип), Due date (формат даты — как в других бланках), My fields. **+ Picture** —
+  логотип из Data → Company (`drawFormAddPicture`, блок image с полем `companyLogo`), иначе файл. Владелец 06.11: «добавить данные компании в самый низ листа или вверх».
+- Проверки: `test/drawing-form.js` (11), `test/forms-editor.js` — в строке форм Drawing. Руководство
   `docs/manual/forms.*` — «Drawing — лист чертежа стекла».
 
 ## Все бланки на конструкторе форм (этап 7) · 6 ноября 2026

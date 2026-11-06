@@ -58,7 +58,7 @@ module.exports=async function({page,eq}){
   document.querySelector('[data-forms-save]').click();
   const printed=[...dfDoc(dfSheet(o)).querySelectorAll('.sheet-field svg text')].some(e=>e.textContent==='939.8');
   return {parts,add,live,hits,panel,liveMm,dirty,saved:DB.formTemplate.drawing.style.units,printed,sample:s.sample.startsWith(o.id+'|')};
- }),{parts:['Header','Info','Drawing','Route','Footer'],add:['+ Text','+ Field'],live:true,hits:['head|customer','head|po','head|order','foot|tag','foot|date'],panel:true,liveMm:true,dirty:true,saved:'mm',printed:true,sample:true});
+ }),{parts:['Header','Info','Drawing','Route','Footer'],add:['+ Text','+ Field','+ Picture'],live:true,hits:['head|customer','head|po','head|order','foot|tag','foot|date'],panel:true,liveMm:true,dirty:true,saved:'mm',printed:true,sample:true});
  eq('Drawing form: Lines — Thinner / As now / Bolder for all lines, − and + per line; Colors — All black; the ruler and guides on the sheet',await t.p.evaluate(()=>{
   dfOrder();dfOpen();formsSelect('drawing','');const btn=(sel,txt)=>[...document.querySelectorAll(sel+' button')].find(b=>b.textContent===txt);
   btn('[data-draw-lines]','Bolder').click();const st=()=>drawStyle(formsDraft().tpl),bold=['edgeW','lineW','featureW'].map(k=>st()[k]);
@@ -87,6 +87,15 @@ module.exports=async function({page,eq}){
   return {foot:d.querySelector('.sheet-foot').children[1].textContent,price:[d.querySelector('.sheet-id-o').children[1].textContent===('Line total:'+docMoney(p.line)),docMoney(p.line)===inv],has:!!p.line,
    fields:drawFormFields().filter(f=>f.g==='Prices'||f.g==='Company').map(f=>f.k)};
  }),{foot:'Infinity Glass · 200 Shop Rd, Vaughan, ON L4K 2Z9 · 905-555-0100 · office@example.com',price:[true,true],has:true,
-  fields:['unitPrice','linePrice','materialsPrice','company','companyLine','companyAddress','companyPhone','companyEmail','companyWebsite','companyHst']});
+  fields:['unitPrice','linePrice','materialsPrice','company','companyLine','companyAddress','companyPhone','companyEmail','companyWebsite','companyHst','companyLogo']});
+ eq('Drawing form: + Picture puts the company logo from Data → Company (its height on the sheet); Due date prints in the chosen date format',await t.p.evaluate(()=>{
+  const o=dfOrder();o.dueDate='2026-11-20';
+  const c=document.createElement('canvas');c.width=40;c.height=20;c.getContext('2d').fillRect(0,0,40,20);DB.company=Object.assign({},DB.company,{logo:c.toDataURL('image/jpeg',.8)});
+  dfOpen();formsSelect('foot','');document.querySelector('[data-forms-add="image"]').click();const b=formsFind(formsDraft().tpl,formsUi.sel);
+  formsEdit(t=>{t.parts.head.blocks.push({id:'due',type:'field',field:'dueDate',prefix:'Due:',format:'mdy',place:'right'});});
+  const img=document.querySelector('[data-forms-stage] .sheet-foot img');document.querySelector('[data-forms-save]').click();
+  const d=dfDoc(dfSheet(o));
+  return {block:[b.type,b.field,b.h],live:!!img,printed:!!d.querySelector('.sheet-foot img[src^="data:image/jpeg"]'),h:d.querySelector('.sheet-foot img').style.height,due:d.querySelector('.sheet-id-o').children[1].textContent};
+ }),{block:['image','companyLogo',28],live:true,printed:true,h:'28pt',due:'Due:Nov 20, 2026'});
  eq('Drawing form browser errors',t.errs,[]);await t.c.close();
 };
