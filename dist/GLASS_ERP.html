@@ -4178,7 +4178,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='1f261e487fc3';
+var ERP_BUILD='8caba61a4da3';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -16783,46 +16783,95 @@ function purDocRowValues(p,l,i,opt){
   qty:(l.qty==null?'Not set':l.qty)+(l.unit?' '+mdUnitName(l.unit):''),
   price:l.price==null?'Not set':docNum(l.price,2)+(l.priceUnit||l.unit?' / '+mdUnitName(l.priceUnit||l.unit):''),amount:amount==null?'Not complete':docNum(amount,2)};
 }
-function purDocPages(p,raw,title){
- const opt=purDocOptions(raw),pages=[],W=DOC_PAGE,C=DOC_COLOR,cols=purDocColumns(p,opt);let P,y,tableOn=false;
- const tableHead=()=>{cols.forEach(c=>docLabel(P,c.right?c.x+c.w-6:c.x+6,y+8,c.label,{align:c.right?'right':'left'}));P.line(W.left,y+14,W.right,y+14,{stroke:C.navy,lw:1.3});y+=20;};
- const start=()=>{
-  P=docPage();pages.push(P);y=W.top;
-  P.text(W.left,y+12,title||'PURCHASE ORDER',{size:14,bold:true,color:C.navy});
-  P.text(W.right,y+12,p.number||'Draft',{size:12,bold:true,align:'right'});y+=28;
-  P.line(W.left,y,W.right,y);y+=12;if(tableOn)tableHead();
- };
- const room=h=>{if(y+h>W.bottom)start();};
+/* Шаблон бланка PO (этап 7, конструктор форм): шапка каждой страницы,
+   реквизиты и поля поставщика, итог и заметки — блоки; позиции рисует код,
+   как раньше. Числа — места прежней раскладки; строка текста — size + 4,
+   пустая строка — рамка без контура (10 pt). Delivery request — тот же бланк
+   со своим заголовком. */
+function purFormDefault(){
+ let c=0;
+ const T=(id,field,size,bold,opt,extra)=>{const b=Object.assign({id,type:'field',field,place:'left',y:c+size,w:540,h:size+4,lh:size+4,lead:size,size,wrap:true},bold?{bold:true}:{},opt?{opt}:{},extra||{});c+=size+4;return b;};
+ const G=(id,opt,show)=>{const b=Object.assign({id,type:'box',place:'left',y:c,w:540,h:10,color:''},opt?{opt}:{},show?{show:{when:'filled',field:show}}:{});c+=10;return b;};
+ const first=[{id:'logo',type:'image',field:'company.logo',place:'left',y:0,w:100,h:36,sa:6,opt:'company'}];c=42;
+ first.push(T('company','company.name',11,true,'company',{empty:''}),T('companyLines','company.lines',8,false,'company'),G('gapCompany','company'),
+  T('date','po.date',8,false,'date',{prefix:'Date: '}),T('expected','po.expected',8,false,'expected',{prefix:'Expected: '}),T('currency','po.currency',8,false,'currency',{prefix:'Currency: '}),T('createdBy','po.createdBy',8,false,'createdBy',{prefix:'Created by: '}),
+  G('gapSupplier','supplier'),T('supplier','supplier.name',8,false,'supplier',{prefix:'Supplier: '}),T('supplierAddress','supplier.address',8,false,'supplier'),
+  T('contact','supplier.contact',8,false,'contact',{prefix:'Contact: '}),T('phone','supplier.phone',8,false,'contact',{prefix:'Phone: '}),T('email','po.to',8,false,'contact',{prefix:'Email: '}),T('cc','po.cc',8,false,'contact',{prefix:'CC: '}),
+  T('accountNo','supplier.account',8,false,'account',{prefix:'Our account: '}),T('taxNo','supplier.tax',8,false,'account',{prefix:'Tax number: '}),T('website','supplier.website',8,false,'account',{prefix:'Website: '}),
+  T('payTerms','supplier.terms',8,false,'terms',{prefix:'Payment terms: '}),T('payMethod','supplier.method',8,false,'terms',{prefix:'Payment method: '}),G('gapTable'));
+ const firstH=c;c=0;
+ const totals=[T('total','po.total',11,true,'totals'),T('missing','po.missing',8,false,'totals'),G('gapTotals','totals'),
+  T('notesTitle','po.notesTitle',9,true,'notes',{show:{when:'filled',field:'po.note'}}),T('note','po.note',8,false,'notes'),
+  G('gapInvoices','invoices'),T('invoices','po.invoices',8,false,'invoices'),G('gapPayments','payments'),T('payments','po.payments',8,false,'payments'),
+  G('gapTerms','companyTerms','company.terms'),T('companyTerms','company.terms',8,false,'companyTerms'),G('gapFooter','footer','company.footer'),T('footer','company.footer',8,false,'footer')];
+ return {form:'purchaseOrder',page:{w:612,h:792,margin:{top:34,right:36,bottom:44,left:36}},parts:{
+  every:{h:40,blocks:[
+   {id:'title',type:'field',field:'title',place:'left',y:12,w:300,h:14,lh:14,size:14,bold:true,color:DOC_COLOR.navy},
+   {id:'number',type:'field',field:'number.draft',place:'right',pin:true,y:12,w:200,h:12,lh:12,size:12,bold:true,align:'right'},
+   {id:'rule',type:'line',place:'left',y:28,w:540,h:0}]},
+  first:{h:firstH,keep:0,blocks:first},
+  table:{lines:true},
+  totals:{h:c,keep:0,blocks:totals},
+  bottom:{h:44,blocks:[
+   {id:'footLine',type:'line',place:'left',y:7,w:540,h:0},
+   {id:'pageNo',type:'text',text:'{number} · Page {page} of {pages}',place:'right',pin:true,y:16,w:300,h:9,lh:9,size:7,color:DOC_COLOR.mut,align:'right'}]}}};
+}
+/* Поля бланка PO (окно Insert field); d = {p, opt, title}. */
+const PUR_FORM_FIELDS=[
+ {k:'company.name',g:'Company',label:'Company name',v:()=>docCompanyBlock().name},
+ {k:'company.lines',g:'Company',label:'Address and contacts',v:()=>docCompanyBlock().lines},
+ {k:'company.logo',g:'Company',label:'Logo',v:()=>docCompanyBlock().logo||''},
+ {k:'company.terms',g:'Company',label:'Company terms',v:()=>(DB.company||{}).termsText||''},
+ {k:'company.footer',g:'Company',label:'Company footer',v:()=>(DB.company||{}).footerText||''},
+ {k:'title',g:'Purchase order',label:'Title',v:d=>d.title||'PURCHASE ORDER'},
+ {k:'number',g:'Purchase order',label:'PO No.',v:d=>d.p.number},
+ {k:'number.draft',g:'Purchase order',label:'PO No. or Draft',v:d=>d.p.number||'Draft'},
+ {k:'po.date',g:'Purchase order',label:'Order date',v:d=>docDate(d.p.date)},
+ {k:'po.expected',g:'Purchase order',label:'Expected date',v:d=>docDate(d.p.expectedDate)},
+ {k:'po.currency',g:'Purchase order',label:'Currency',v:d=>d.p.currency},
+ {k:'po.createdBy',g:'Purchase order',label:'Created by',v:d=>d.p.createdBy},
+ {k:'po.to',g:'Purchase order',label:'Email to',v:d=>d.p.to},
+ {k:'po.cc',g:'Purchase order',label:'CC',v:d=>d.p.cc},
+ {k:'po.note',g:'Purchase order',label:'PO notes',v:d=>d.p.note},
+ {k:'po.notesTitle',g:'Purchase order',label:'Notes heading',v:d=>d.title?'Notes':'PO notes'},
+ {k:'po.total',g:'Totals',label:'Total line',v:d=>{const t=purOrderTotals(d.p);return (t.complete?'TOTAL':'KNOWN SUBTOTAL')+': '+docNum(t.known,2)+' '+d.p.currency;}},
+ {k:'po.missing',g:'Totals',label:'Lines without price',v:d=>{const t=purOrderTotals(d.p);return t.missing?t.missing+' line(s) need price, quantity or conversion.':'';}},
+ {k:'po.invoices',g:'Totals',label:'Supplier invoices',v:d=>d.p.id?purInvoicePrintLines(d.p.id):[]},
+ {k:'po.payments',g:'Totals',label:'Supplier payments',v:d=>d.p.id?purPaymentPrintLines(d.p.id):[]},
+ {k:'supplier.name',g:'Supplier',label:'Supplier',v:d=>d.p.supplierName},
+ {k:'supplier.address',g:'Supplier',label:'Address',v:d=>(d.p.supplier||{}).address||''},
+ {k:'supplier.contact',g:'Supplier',label:'Contact',v:d=>(d.p.supplier||{}).contact},
+ {k:'supplier.phone',g:'Supplier',label:'Phone',v:d=>(d.p.supplier||{}).phone},
+ {k:'supplier.account',g:'Supplier',label:'Our account',v:d=>(d.p.supplier||{}).accountNumber},
+ {k:'supplier.tax',g:'Supplier',label:'Tax number',v:d=>(d.p.supplier||{}).taxNumber},
+ {k:'supplier.website',g:'Supplier',label:'Website',v:d=>(d.p.supplier||{}).website},
+ {k:'supplier.terms',g:'Supplier',label:'Payment terms',v:d=>{const s=d.p.supplier||{};return s.paymentDays!=null?'Net '+s.paymentDays+' days':'';}},
+ {k:'supplier.method',g:'Supplier',label:'Payment method',v:d=>(d.p.supplier||{}).paymentMethod}];
+function purFormFields(){return PUR_FORM_FIELDS.concat(formMyFields());}
+function purFormContext(d){const by=new Map(purFormFields().map(x=>[x.k,x]));return {field:k=>{const x=by.get(k);return x?x.v(d):undefined;},off:b=>!!b.opt&&!d.opt[b.opt]};}
+function purFormTemplate(){return formClean(DB.formTemplate&&DB.formTemplate.purchaseOrder,purFormDefault());}
+function purDocPages(p,raw,title,tpl,map){
+ const opt=purDocOptions(raw),W=DOC_PAGE,C=DOC_COLOR,cols=purDocColumns(p,opt);let tableOn=false;
+ tpl=tpl||purFormTemplate();const f=formFlow(tpl,purFormContext({p,opt,title}),map);
+ const tableHead=()=>{cols.forEach(c=>docLabel(f.P,c.right?c.x+c.w-6:c.x+6,f.y+8,c.label,{align:c.right?'right':'left'}));f.P.line(W.left,f.y+14,W.right,f.y+14,{stroke:C.navy,lw:1.3});f.y+=20;};
+ /* Шапка таблицы — и на листах после неё (итог, заметки), как раньше. */
+ f.onPage=()=>{if(tableOn)tableHead();};const start=()=>f.page();
+ const room=h=>{if(f.y+h>f.bottom)start();};
  const text=(s,size,bold,indent)=>{
   size=size||8;indent=indent||0;
-  docWrap(s,size,!!bold,W.right-W.left-indent).forEach(line=>{room(size+4);P.text(W.left+indent,y+size,line,{size,bold:!!bold});y+=size+4;});
+  docWrap(s,size,!!bold,W.right-W.left-indent).forEach(line=>{room(size+4);f.P.text(W.left+indent,f.y+size,line,{size,bold:!!bold});f.y+=size+4;});
  };
  const field=(label,value)=>{if(value!=null&&value!=='')text(label+': '+value);};
- const gap=()=>{room(10);y+=10;};
- start();
- if(opt.company){
-  const c=docCompanyBlock(),logo=c.logo&&docJpegInfo(c.logo);
-  if(logo){P.img(W.left,y,100,36,c.logo);y+=42;}
-  text(c.name,11,true);c.lines.forEach(s=>text(s));gap();
- }
- if(opt.date)field('Date',docDate(p.date));
- if(opt.expected)field('Expected',docDate(p.expectedDate));
- if(opt.currency)field('Currency',p.currency);
- if(opt.createdBy)field('Created by',p.createdBy);
- const s=p.supplier||{};
- if(opt.supplier){gap();field('Supplier',p.supplierName);if(s.address)text(s.address);}
- if(opt.contact)[['Contact',s.contact],['Phone',s.phone],['Email',p.to],['CC',p.cc]].forEach(([k,v])=>field(k,v));
- if(opt.account)[['Our account',s.accountNumber],['Tax number',s.taxNumber],['Website',s.website]].forEach(([k,v])=>field(k,v));
- if(opt.terms){if(s.paymentDays!=null)field('Payment terms','Net '+s.paymentDays+' days');field('Payment method',s.paymentMethod);}
- gap();room(50);tableOn=true;tableHead();
+ f.page();f.flow('first');
+ room(50);tableOn=true;tableHead();
  p.lines.forEach((l,i)=>{
   const values=purDocRowValues(p,l,i,opt),cells=cols.map(c=>({c,lines:docWrap(values[c.k],8,c.k==='amount',c.w-12)})),count=Math.max(...cells.map(c=>c.lines.length));
   let pos=0;
   while(pos<count){
-   room(24);const n=Math.min(count-pos,Math.max(1,Math.floor((W.bottom-y-10)/11))),height=n*11+10;
-   P.rect(W.left,y,W.right-W.left,height,{fill:C.bar,r:3});
-   cells.forEach(({c,lines})=>lines.slice(pos,pos+n).forEach((s,k)=>P.text(c.right?c.x+c.w-6:c.x+6,y+13+k*11,s,{size:8,bold:c.k==='amount'||c.k==='n',align:c.right?'right':'left'})));
-   y+=height+5;pos+=n;
+   room(24);const n=Math.min(count-pos,Math.max(1,Math.floor((f.bottom-f.y-10)/11))),height=n*11+10;
+   f.P.rect(W.left,f.y,W.right-W.left,height,{fill:C.bar,r:3});
+   cells.forEach(({c,lines})=>lines.slice(pos,pos+n).forEach((s,k)=>f.P.text(c.right?c.x+c.w-6:c.x+6,f.y+13+k*11,s,{size:8,bold:c.k==='amount'||c.k==='n',align:c.right?'right':'left'})));
+   f.y+=height+5;pos+=n;
   }
   if(opt.productCode)field('Glass code',l.productCode);
   if(opt.sheetSize&&l.sheetsPerBlock!=null)field('Sheets per block',l.sheetsPerBlock);
@@ -16833,24 +16882,18 @@ function purDocPages(p,raw,title){
    const shape=part.shape,pts=shape.points;if(!pts||pts.length<3)return;
    room(135);text(part.label+' · finished shape',8,true);
    const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
-   const scale=Math.min(220/Math.max(maxX-minX,1),100/Math.max(maxY-minY,1)),map=q=>[W.left+20+(q[0]-minX)*scale,y+(maxY-q[1])*scale];
-   P.poly(pts.map(map),{stroke:C.navy,lw:.8});
-   (shape.polys||[]).forEach(ps=>P.poly(ps.map(map),{stroke:C.navy,lw:.6}));
-   (shape.holes||[]).forEach(h=>P.poly(Array.from({length:48},(_,i)=>map([h.x+Math.cos(i*Math.PI/24)*h.d/2,h.y+Math.sin(i*Math.PI/24)*h.d/2])),{stroke:C.navy,lw:.6}));
-   y+=110;
+   const scale=Math.min(220/Math.max(maxX-minX,1),100/Math.max(maxY-minY,1)),y0=f.y,map=q=>[W.left+20+(q[0]-minX)*scale,y0+(maxY-q[1])*scale];
+   f.P.poly(pts.map(map),{stroke:C.navy,lw:.8});
+   (shape.polys||[]).forEach(ps=>f.P.poly(ps.map(map),{stroke:C.navy,lw:.6}));
+   (shape.holes||[]).forEach(h=>f.P.poly(Array.from({length:48},(_,i)=>map([h.x+Math.cos(i*Math.PI/24)*h.d/2,h.y+Math.sin(i*Math.PI/24)*h.d/2])),{stroke:C.navy,lw:.6}));
+   f.y+=110;
    (shape.holes||[]).forEach(h=>text('Hole diameter '+h.d+' in · X '+h.x+' · Y '+h.y));
   });
   if(opt.receiving||opt.damage){const b=purReceived(p,l);if(opt.receiving)field(l.held?'Held at supplier':'Delivery','Purchased '+(b.ordered??'Unknown')+' · received '+b.received+' · remaining '+(b.remaining??'Unknown')+' '+l.unit+(b.unknown?' · Review units / quantities':''));if(opt.damage)field('Recorded damage',b.damaged+' '+l.unit+' · '+b.damagedSheets+' sheets');}
-  if(opt.notes&&l.note)field('Note',l.note);gap();
+  if(opt.notes&&l.note)field('Note',l.note);room(10);f.y+=10;
  });
- if(opt.totals){const t=purOrderTotals(p);text((t.complete?'TOTAL':'KNOWN SUBTOTAL')+': '+docNum(t.known,2)+' '+p.currency,11,true);if(t.missing)text(t.missing+' line(s) need price, quantity or conversion.');gap();}
- if(opt.notes&&p.note){text(title?'Notes':'PO notes',9,true);text(p.note);}
- if(opt.invoices){gap();purInvoicePrintLines(p.id).forEach(s=>text(s));}
- if(opt.payments){gap();purPaymentPrintLines(p.id).forEach(s=>text(s));}
- if(opt.companyTerms&&(DB.company||{}).termsText){gap();text(DB.company.termsText);}
- if(opt.footer&&(DB.company||{}).footerText){gap();text(DB.company.footerText);}
- pages.forEach((page,i)=>{page.line(W.left,W.footer-9,W.right,W.footer-9);page.text(W.right,W.footer,p.number+' · Page '+(i+1)+' of '+pages.length,{size:7,align:'right',color:C.mut});});
- return pages;
+ f.flow('totals');
+ return f.finish();
 }
 
 /* ==== src/erp/icons.js ==== */
@@ -24693,7 +24736,7 @@ function formLines(b,ctx,w){
 function formShift(done,y){
  const above=done.filter(a=>a.nb<=y+1e-9);if(!above.length)return 0;
  const nb=Math.max(...above.map(a=>a.nb));
- const anchor=Math.max(...above.filter(a=>a.nb===nb).map(a=>a.off+a.e-(a.b.h||0)));
+ const anchor=Math.max(...above.filter(a=>a.nb===nb).map(a=>a.off+a.e-(a.nh!=null?a.nh:a.b.h||0)));
  return Math.max(anchor,Math.max(...above.map(a=>a.top+a.e))-y);
 }
 /* Картинка с fit — по своим пропорциям, не шире w (логотип бланка). */
@@ -24707,7 +24750,8 @@ function formSection(b,ctx){const s=ctx.section?ctx.section(b.k):null;return s&&
 function formLayout(tpl,part,ctx){
  /* Скрытый (Show if) блок — как пустое поле: места не занимает, блоки ниже
     поднимаются. */
- const bs=(part.blocks||[]).map((b,i)=>{const sec=b.type==='section'?formSection(b,ctx):null,hide=!formShow(b,ctx)||b.type==='section'&&!sec,yt=b.y-(b.lead||0);return {b,i,sec,hide,yt,nb:yt+(b.h||0)};});
+ /* Картинка без файла (нет логотипа) места не занимает. */
+ const bs=(part.blocks||[]).map((b,i)=>{const sec=b.type==='section'?formSection(b,ctx):null,hide=!formShow(b,ctx)||b.type==='section'&&!sec||b.type==='image'&&!formImage(b,ctx),yt=b.y-(b.lead||0),nh=(b.h||0)+(b.sa||0);return {b,i,sec,hide,yt,nh,nb:yt+nh};});
  const text=x=>{x.lines=formIsText(x.b)?(x.hide?[]:formLines(x.b,ctx,x.aw)):null;};
  bs.forEach(x=>{if(!x.b.after&&!x.b.before)text(x);});
  /* after — блок стоит на той же строке сразу за первой строкой другого
@@ -24725,8 +24769,8 @@ function formLayout(tpl,part,ctx){
   }
   if(b.after||b.before)text(x);
  });
- /* sa — интервал после текста (только у непустого). */
- bs.forEach(x=>{x.e=x.lines?(x.lines.length?x.lines.length*formLh(x.b)+(x.b.sa||0):0):x.hide?0:x.sec?x.sec.h:x.b.h||0;});
+ /* sa — интервал после блока (у текста — только у непустого). */
+ bs.forEach(x=>{x.e=x.lines?(x.lines.length?x.lines.length*formLh(x.b)+(x.b.sa||0):0):x.hide?0:(x.sec?x.sec.h:x.b.h||0)+(x.b.sa||0);});
  /* pin — место закреплено: блок не ходит за блоками выше (шапка справа). */
  const done=[];
  bs.slice().sort((p,q)=>p.yt-q.yt||p.i-q.i).forEach(x=>{x.off=x.b.pin?0:formShift(done,x.yt);x.top=x.yt+x.off;done.push(x);});
@@ -24749,7 +24793,8 @@ function formDrawBlock(P,tpl,x,ctx,top,late){
  /* Цвет '' у рамки — без контура (только заливка). */
  const stroke=b.color==null?DOC_COLOR.line:b.color;
  if(b.type==='line')P.line(bx,top,bx+w,top+h,{stroke:stroke||DOC_COLOR.line,lw:b.lw||.6});
- else if(b.type==='box')P.rect(bx,top,w,h,{stroke,fill:b.fill||'',lw:b.lw||.6,r:b.r||0});
+ /* Рамка без контура и заливки — просто отступ (лист PO: пустая строка). */
+ else if(b.type==='box'){if(stroke||b.fill)P.rect(bx,top,w,h,{stroke,fill:b.fill||'',lw:b.lw||.6,r:b.r||0});}
  else if(b.type==='image'){const im=formImage(b,ctx);if(im)P.img(bx,top,im.w,h,im.src);}
  else if(b.type==='barcode'){
   const v=String(ctx.field(b.field)||'');if(!v)return;
@@ -24791,7 +24836,9 @@ function formFlow(tpl,ctx,map){
  f.page=function(over,top){
   if(arguments.length){f.over=over||null;f.topKey=top||'every';}
   f.P=docPage();f.pages.push(f.P);
-  f.y=m.top+formDrawPart(f.P,tpl,tpl.parts[f.topKey],f.ctx(),m.top,late,mark(f.topKey));f.top=f.y;return f;
+  f.y=m.top+formDrawPart(f.P,tpl,tpl.parts[f.topKey],f.ctx(),m.top,late,mark(f.topKey));
+  /* onPage — код бланка дорисовывает свой верх листа (шапка таблицы PO). */
+  if(f.onPage)f.onPage();f.top=f.y;return f;
  };
  f.ensure=h=>{if(f.y+h>f.bottom)f.page();};
  /* Часть в потоке (верх первой, итоги): начинается на этом листе, если на
@@ -24922,7 +24969,11 @@ function formClean(src,def){
 
 /* Бланки, которые печатаются из шаблона. Остальные — прежней раскладкой,
    пока их сверка «печатает то же» не сделана. */
-const DOC_FORM_KINDS=['quote'];
+const DOC_FORM_KINDS=['quote','proforma','confirmation','invoice','workOrder'];
+/* Квитанция и выписка (erp/finance/print) — тот же шаблон бланка, их
+   таблицы рисует finDocTable. */
+const DOC_FORM_FIN=['receipt','statement'];
+function docFormLabel(k){return {receipt:'Receipt',statement:'Statement'}[k]||docKindLabel(k);}
 const DOC_SECTIONS={meta:'Header cells',boxes:'Addresses',end:'Totals and payment',summary:'Order summary',signature:'Customer approval'};
 
 /* Шаблон по умолчанию. Числа — места прежней раскладки (layout.js): y —
@@ -24936,7 +24987,7 @@ function docFormDefault(kind){
    {id:'companyLines',type:'field',field:'company.lines',place:'left',after:'logo',gap:10,y:22,w:330,h:18.8,lh:9.4,sa:8,size:7.4,color:C.mut,fit:true,opt:'company'},
    {id:'title',type:'field',field:'title',place:'right',pin:true,y:15,w:300,h:15,lh:15,size:18,bold:true,color:C.navy,align:'right'},
    {id:'number',type:'field',field:'number',place:'right',pin:true,y:30,w:300,h:11,lh:11,size:10.5,bold:true,align:'right'},
-   {id:'numberLabel',type:'text',text:'No.',place:'right',pin:true,before:'number',gap:3,y:30,w:40,h:11,lh:11,size:8,align:'right'},
+   {id:'numberLabel',type:'field',field:'number.label',place:'right',pin:true,before:'number',gap:3,y:30,w:40,h:11,lh:11,size:8,align:'right'},
    {id:'pageNo',type:'text',text:'Page {page} of {pages}',place:'right',pin:true,y:41,w:150,h:10,lh:10,size:7,color:C.faint,align:'right'},
    /* Оплаченный счёт — отметка PAID рамкой слева от заголовка. */
    {id:'stamp',type:'box',place:'free',pin:true,x:376,y:3,w:92,h:38,color:C.paid,lw:2,r:4,show:{when:'filled',field:'stamp'}},
@@ -24961,7 +25012,7 @@ function docFormDefault(kind){
   bottom:{h:44,blocks:[
    {id:'footLine',type:'line',place:'left',y:7,w:540,h:0,color:C.line,lw:.5},
    {id:'footLeft',type:'field',field:'footer.left',place:'left',y:16,w:240,h:9,lh:9,size:6.8,color:C.faint,fit:true},
-   {id:'footRight',type:'text',text:'{footer.right} · Page {page} of {pages}',place:'right',pin:true,y:16,w:400,h:9,lh:9,size:6.8,color:C.faint,align:'right'}]}
+   {id:'footRight',type:'text',text:(kind==='receipt'?'':'{footer.right} · ')+'Page {page} of {pages}',place:'right',pin:true,y:16,w:400,h:9,lh:9,size:6.8,color:C.faint,align:'right'}]}
  }};
 }
 /* Поля бланка заказа (окно Insert field); m — модель docBuildModel. */
@@ -24972,6 +25023,7 @@ const DOC_FORM_FIELDS=[
  {k:'title',g:'Document',label:'Title',v:m=>m.title},
  {k:'docName',g:'Document',label:'Document name',v:m=>m.docName},
  {k:'number',g:'Document',label:'Number',v:m=>m.number},
+ {k:'number.label',g:'Document',label:'Number label',v:m=>m.numberLabel!=null?m.numberLabel:'No.'},
  {k:'header.short',g:'Document',label:'Document, customer and PO',v:m=>[m.docName+' '+m.number,m.customerName,m.po?'PO '+m.po:''].filter(Boolean).join(' · ')},
  {k:'date',g:'Document',label:'Date',t:'date',v:m=>m.data.date},
  {k:'dueDate',g:'Document',label:'Due date',t:'date',v:m=>m.data.dueDate},
@@ -25001,7 +25053,9 @@ const DOC_FORM_FIELDS=[
  {k:'total.grand',g:'Totals',label:'Total',v:m=>m.data.grand},
  {k:'total.paid',g:'Totals',label:'Paid to date',v:m=>m.data.paid},
  {k:'total.balance',g:'Totals',label:'Balance',v:m=>m.data.balance}];
-function docFormFields(){return DOC_FORM_FIELDS.concat(formMyFields());}
+/* Квитанция и выписка — без полей заказа (даты, условия, итоги заказа). */
+const DOC_FORM_FIN_FIELDS=['company.name','company.lines','company.logo','title','docName','number','number.label','header.short','footer.left','footer.right','customer'];
+function docFormFields(kind){return (DOC_FORM_FIN.includes(kind)?DOC_FORM_FIELDS.filter(f=>DOC_FORM_FIN_FIELDS.includes(f.k)):DOC_FORM_FIELDS).concat(formMyFields());}
 /* Блоки, которых нет в шаблоне по умолчанию, — свои галочки в ✎ Customize
    (ключ b:<id>, по умолчанию стоит). */
 function docFormAdded(kind,tpl){
@@ -25009,7 +25063,8 @@ function docFormAdded(kind,tpl){
  return Object.keys(tpl.parts).flatMap(k=>(tpl.parts[k].blocks||[]).filter(b=>!ids.has(k+'|'+b.id)).map(b=>({part:k,b})));
 }
 function docFormContext(m,tpl){
- const by=new Map(docFormFields().map(x=>[x.k,x])),added=new Set(docFormAdded(m.kind,tpl||docFormTemplate(m.kind)).map(x=>x.b.id)),cache=new Map();
+ if(!m.data)m=Object.assign({},m,{data:{}});
+ const opts=m.opts||{company:true},by=new Map(docFormFields(m.kind).map(x=>[x.k,x])),added=new Set(docFormAdded(m.kind,tpl||docFormTemplate(m.kind)).map(x=>x.b.id)),cache=new Map();
  const sec={
   meta:()=>m.meta.length?{h:38,draw(P,y){docCells(P,m.meta,y,28,7.8);}}:null,
   boxes:()=>{if(!m.boxes.length)return null;const L=docBoxesLay(m.boxes);return {h:L.h+12,draw:L.draw};},
@@ -25020,7 +25075,7 @@ function docFormContext(m,tpl){
   section:k=>{if(!cache.has(k))cache.set(k,sec[k]?sec[k]():null);return cache.get(k);},
   /* Галочки ✎ Customize: opt — поле набора (Company logo and details),
      свой блок — b:<id>. */
-  off:b=>b.opt?!m.opts[b.opt]:added.has(b.id)&&m.opts['b:'+b.id]===false};
+  off:b=>b.opt?!opts[b.opt]:added.has(b.id)&&opts['b:'+b.id]===false};
 }
 function docFormTemplate(kind){return formClean(DB.formTemplate&&DB.formTemplate[kind],docFormDefault(kind));}
 /* Строки заказа рисуются как раньше (docItemParts): лист кончается только
@@ -25032,7 +25087,8 @@ function docFormPages(m,tpl,map){
  const fits=h=>f.y+h<=f.bottom,room=h=>{if(!fits(h)&&f.y>f.top+1)start();};
  const flow=(parts,onBreak)=>parts.forEach((part,i)=>{if(!fits(part.h)&&f.y>f.top+1){start();if(i&&onBreak)f.y=onBreak(f.P,f.y);}part.draw(f.P,f.y);f.y+=part.h;});
  f.page(null,'head');f.topKey='every';
- if(tpl.parts.table&&(m.items.length||m.extra)){
+ if(!m.items){finDocTable(f,m);f.flow('totals');return f.finish();}
+ if(m.items.length||m.extra){
   inTable=true;f.y=docTableHead(f.P,m,f.y);f.top=f.y;
   m.items.forEach(it=>{
    const parts=docItemParts(m,it);
@@ -25075,6 +25131,22 @@ function docFormSample(kind,id){
  if(o)try{return finWithOrder(o,()=>docBuildModel(kind,o,docDefaultOptions(kind)));}catch(e){}
  const s={id:'sample',businessNumber:kind==='quote'?'Q-1001':'1001',customerId:'',customerPo:'PO-1',lines:[],extraItems:[],adjustments:[],cancellations:[],currency:'CAD',delivery:'pickup',priority:'normal',createdAt:finToday(),dueDate:finToday(),notes:''};
  return finWithOrder(s,()=>docBuildModel(kind,s,docDefaultOptions(kind)));
+}
+/* Конструктор: квитанция и выписка — живой лист на последних квитанциях и
+   клиентах (выписка — за этот месяц); без данных — пустой образец. */
+function docFormFinSamples(kind){
+ if(kind==='receipt')return (DB.receipt||[]).slice().sort((a,b)=>String(b.number).localeCompare(String(a.number),undefined,{numeric:true})).slice(0,100).map(r=>({id:r.id,label:r.number+' · '+salesCustomerDisplay(r.customerId)}));
+ return (DB.customer||[]).filter(c=>c&&!c.deletedAt).slice(0,100).map(c=>({id:c.id,label:(c.code?c.code+' · ':'')+(c.legalName||c.displayName||'')}));
+}
+function docFormFinSample(kind,id){
+ let m=null;
+ try{if(kind==='receipt')m=id&&finReceiptModel(id);else if(id){const r=finMonthRange(0);m=finStatementModel(id,r.from,r.to);}}catch(e){m=null;}
+ if(m)return m;
+ m=finDocBase(kind==='receipt'?'PAYMENT RECEIPT':'STATEMENT',kind==='receipt'?'Receipt':'Statement',kind==='receipt'?'R-0001':'C-001',null);m.kind=kind;
+ if(kind==='statement')m.numberLabel='Account';
+ m.cols=[{label:'Order',x:36,w:80,bold:true},{label:'Amount',x:576,w:90,align:'right'}];m.rows=[];m.empty='No rows.';
+ m.end={left:[],rows:[],grand:{label:kind==='receipt'?'Amount received':'Balance due',value:docMoney(0)}};
+ return m;
 }
 
 /* ==== src/erp/finance/print.js ==== */
@@ -25126,6 +25198,29 @@ function finDocLayout(m){
  });
  return pages;
 }
+/* Таблицы квитанции и выписки на листах шаблона формы (erp/documents/
+   order-form): те же места, что у finDocLayout; шапка, итоги и низ — из
+   шаблона. */
+function finDocTable(f,m){
+ const W=DOC_PAGE,C=DOC_COLOR;let cur=null;
+ const sections=m.sections||[{cols:m.cols,rows:m.rows,empty:m.empty}];
+ const head=()=>{if(!cur||!cur.cols.length)return;cur.cols.forEach(c=>docLabel(f.P,c.x,f.y+6,c.label,{align:c.align||'left'}));f.P.line(W.left,f.y+11,W.right,f.y+11,{stroke:C.navy,lw:1.3});f.y+=16;};
+ const start=()=>{f.page();head();f.top=f.y;};
+ sections.forEach((sec,si)=>{
+  cur=null;if(f.y+(sec.title?22:0)+31>f.bottom&&f.y>f.top+1)start();
+  if(sec.title){f.y+=si?10:0;f.P.text(W.left,f.y+11,sec.title,{size:9,bold:true,color:C.navy});f.y+=18;}
+  cur=sec;head();
+  sec.rows.forEach(r=>{
+   const h=15;if(f.y+h>f.bottom)start();
+   r.cells.forEach((v,i)=>{const c=sec.cols[i];if(!c)return;f.P.text(c.x,f.y+10.5,docFit(String(v==null?'':v),7.8,!!(c.bold||r.bold),c.w),{size:7.8,bold:!!(c.bold||r.bold),align:c.align||'left',color:r.due&&c.due?C.due:r.mut?C.mut:C.ink});});
+   f.P.line(W.left,f.y+h,W.right,f.y+h,{stroke:C.line,lw:.5});f.y+=h;
+  });
+  if(!sec.rows.length&&sec.empty){f.P.text(W.left,f.y+12,sec.empty,{size:7.8,color:C.mut});f.y+=18;}
+ });
+}
+/* Квитанция и выписка — из шаблона формы (Data → Company & print → Forms),
+   внутренние списки — прежней раскладкой. */
+function finDocPages(m){return DOC_FORM_FIN.includes(m.kind)?docFormPages(m):finDocLayout(m);}
 function finDocText(pages){return (pages||[]).flatMap(p=>p.items.filter(x=>x.t==='text').map(x=>x.s)).join(' ');}
 
 /* Оплачено по заказу на момент этой квитанции: более поздние оплаты в её
@@ -25135,10 +25230,11 @@ function finOrderPaidThrough(orderId,receipt){
  return finMoney((DB.receipt||[]).filter(r=>(!r.voided||r.id===receipt.id)&&finCurrency(r)===finCurrency(receipt)&&key(r)<=upTo)
   .reduce((s,r)=>s+r.allocations.filter(a=>a.orderId===orderId).reduce((t,a)=>t+a.amount,0),0));
 }
-function finReceiptDoc(id){
- const r=(DB.receipt||[]).find(x=>x.id===id);if(!r)return [];
+function finReceiptDoc(id){const m=finReceiptModel(id);return m?finDocPages(m):[];}
+function finReceiptModel(id){
+ const r=(DB.receipt||[]).find(x=>x.id===id);if(!r)return null;
  const c=salesFindCustomer(r.customerId),refunded=finRefunded(r.id),money=docMoney;
- const m=finDocBase(r.voided?'VOID RECEIPT':'PAYMENT RECEIPT','Receipt',r.number,c);
+ const m=finDocBase(r.voided?'VOID RECEIPT':'PAYMENT RECEIPT','Receipt',r.number,c);m.kind='receipt';
  m.meta=[{label:'Date',value:docDate(r.date)},{label:'Method',value:finMethodLabel(r.method)},{label:'Reference',value:r.reference||'—'},{label:'Account',value:c&&c.code||'—'},{label:'Currency',value:finCurrency(r)}];
  m.boxes=[{label:'Received from',title:m.customerName||'—',lines:[finDocAddress(c)].filter(Boolean)}];
  m.cols=[{label:'Order',x:36,w:80,bold:true},{label:'Customer PO',x:124,w:150},{label:'Order total',x:372,w:90,align:'right'},{label:'This payment',x:474,w:90,align:'right'},{label:'Balance after',x:576,w:90,align:'right'}];
@@ -25151,7 +25247,7 @@ function finReceiptDoc(id){
  if(refunded>0)rows.push({label:'Refunded',value:money(refunded)});
  if(!r.voided)rows.push({label:'Kept on account',value:money(finReceiptOnAccount(r))});
  m.end={left:[r.voided?{label:'Void',text:r.voidReason||'Void'}:null,r.note?{label:'Note',text:r.note}:null].filter(Boolean),rows,grand:{label:'Amount received',value:money(r.amount)}};
- return finDocLayout(m);
+ return m;
 }
 /* Срок для клиента — без внутренних пометок вроде «Customer on hold». */
 function finDueText(f){
@@ -25179,10 +25275,11 @@ function finStatementOrders(customerId,from,to,today){
 }
 /* Выписка за период — клиенту раз в месяц для его учёта: какие заказы и на
    сколько, что он заплатил, остаток на начало и на конец периода. */
-function finStatementDoc(customerId,from,to,today){
- const c=salesFindCustomer(customerId);if(!c)return [];
+function finStatementDoc(customerId,from,to,today){const m=finStatementModel(customerId,from,to,today);return m?finDocPages(m):[];}
+function finStatementModel(customerId,from,to,today){
+ const c=salesFindCustomer(customerId);if(!c)return null;
  const day=today||finToday(),money=docMoney,company=DB.company||{},d=finStatementData(c.id,from,to);
- const m=finDocBase('STATEMENT','Statement',c.code||'—',c);m.numberLabel='Account';
+ const m=finDocBase('STATEMENT','Statement',c.code||'—',c);m.numberLabel='Account';m.kind='statement';
  m.meta=[{label:'Period',value:finPeriodText(from,to)},{label:'Statement date',value:docDate(day)},{label:'Terms',value:paymentTermsLabel(paymentTermsFrom(c))},{label:'Currency',value:'CAD'}];
  const limit=finCustomerAccount(c).creditLimit;if(limit!=null)m.meta.push({label:'Credit limit',value:money(limit)});
  m.boxes=[{label:'Bill to',title:m.customerName||'—',lines:[finDocAddress(c)].filter(Boolean)}];
@@ -25201,7 +25298,7 @@ function finStatementDoc(customerId,from,to,today){
  if(d.refunded>0)rows.push({label:'Refunds',value:money(d.refunded)});
  m.end={left,rows,grand:review&&d.closing<0?{label:'Review required',value:finSigned(d.closing)}:d.closing>=0?{label:'Balance due',value:money(d.closing)}:{label:'Credit balance',value:money(-d.closing)},paid:d.overdue>0?[{label:'Overdue now',value:money(d.overdue),tone:'due'}]:null};
  m.footerRight=finPeriodText(from,to);
- return finDocLayout(m);
+ return m;
 }
 /* То же для учёта клиента в таблице: движение денег с остатком. */
 function finStatementCSV(customerId,from,to){
@@ -43782,10 +43879,26 @@ function formsDefs(){
   pages:(tpl,d,map)=>shippingPages(d,null,tpl,map)}]
  /* Бланки заказа (erp/documents/order-form): живой лист — заказ с набором
     галочек ✎ Customize по умолчанию. */
- .concat(DOC_FORM_KINDS.map(k=>({k,label:docKindLabel(k),def:()=>docFormDefault(k),fields:()=>docFormFields(),
+ .concat(DOC_FORM_KINDS.map(k=>({k,label:docKindLabel(k),custom:true,def:()=>docFormDefault(k),fields:()=>docFormFields(),
   parts:{head:['Page 1 header','page 1'],every:['Page header','page 2 on'],table:['Lines table','grows'],totals:['After lines','totals, notes']},
   samples:()=>docFormSamples(k),doc:id=>docFormSample(k,id),context:m=>docFormContext(m),columns:{},
-  pages:(tpl,m,map)=>docFormPages(m,tpl,map)})));
+  pages:(tpl,m,map)=>docFormPages(m,tpl,map)})))
+ .concat(DOC_FORM_FIN.map(k=>({k,label:docFormLabel(k),def:()=>docFormDefault(k),fields:()=>docFormFields(k),
+  parts:{head:['Page 1 header','page 1'],every:['Page header','page 2 on'],table:['Table','grows'],totals:['After table','totals']},
+  samples:()=>docFormFinSamples(k),doc:id=>docFormFinSample(k,id),context:m=>docFormContext(m),columns:{},
+  pages:(tpl,m,map)=>docFormPages(m,tpl,map)})))
+ /* PO — живой лист на последних PO с набором галочек Customize PO; лист
+    рейса — на последних днях с машинами. */
+ .concat([{k:'purchaseOrder',label:'Purchase order',custom:true,def:purFormDefault,fields:()=>purFormFields(),
+  parts:{every:['Page header','every page'],first:['First page','page 1'],table:['Lines table','grows'],totals:['After lines','totals, notes']},
+  samples:()=>(DB.purchaseOrder||[]).filter(p=>!p.deletedAt).slice().sort((a,b)=>String(b.number).localeCompare(String(a.number),undefined,{numeric:true})).slice(0,100).map(p=>({id:p.id,label:(p.number||'Draft')+' · '+(p.supplierName||'')})),
+  doc:id=>({p:(id&&purOrderFind(id))||purOrderClean({number:'PO-0001',supplierName:'Sample supplier',currency:'CAD',date:finToday(),lines:[]}),opt:purDocOptions(DB.purchaseDocumentOptions),title:''}),
+  context:d=>purFormContext(d),columns:{},pages:(tpl,d,map)=>purDocPages(d.p,d.opt,d.title,tpl,map)},
+  {k:'tripSheet',label:'Trip sheet',def:deliveryFormDefault,fields:()=>deliveryFormFields(),
+  parts:{every:['Page header','every page'],table:['Stops','grows']},
+  samples:()=>[...new Map((DB.shipment||[]).filter(s=>s.method==='delivery'&&s.truckId&&s.date).sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(s=>[s.date+'|'+s.truckId,s])).values()].slice(0,100).map(s=>({id:s.date+'|'+s.truckId,label:docDate(s.date)+' · '+((truckFind(s.truckId)||{}).name||'Truck')})),
+  doc:id=>{const [date,truckId]=String(id||'').split('|'),day=date||finToday();return {date:day,truckId:truckId||'',t:truckFind(truckId),driver:deliveryDriver(day,truckId),stops:deliveryStops(day,truckId)};},
+  context:d=>deliveryFormContext(d),columns:{},pages:(tpl,d,map)=>deliveryPages(d.date,d.truckId,tpl,map)}]);
 }
 function formsPartLabel(k){const d=formsDef(formsState().form);return (d.parts&&d.parts[k])||FORMS_PARTS[k]||[k,''];}
 function formsDef(k){return formsDefs().find(x=>x.k===k)||formsDefs()[0];}
@@ -43863,7 +43976,7 @@ function formsTypeLabel(b){return {text:'Text',field:'Field',line:'Line',box:'Fr
 /* Новый блок встаёт под части и раздвигает её — ничего не налезает. */
 function formsAddBlock(make){
  const s=formsState();let part=s.sel?s.sel.part:s.part||'every';
- const pp=formsDraft().tpl.parts[part];if(!pp||pp.columns||pp.lines)part='totals';
+ const ps=formsDraft().tpl.parts,pp=ps[part];if(!pp||pp.columns||pp.lines)part=ps.totals?'totals':'every';
  formsEdit(t=>{
   const p=t.parts[part],b=make(),id='b'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
   b.id=id;b.y=p.h||0;p.blocks=(p.blocks||[]).concat([b]);p.h=(p.h||0)+(b.type==='line'?6:(b.h||14)+4);
@@ -44145,7 +44258,7 @@ function formsTreeHTML(tpl){
  const s=formsState();
  return Object.keys(tpl.parts).map(k=>{const p=tpl.parts[k],lab=formsPartLabel(k);
   /* Строки бланка заказа рисует код: их вид — в окне ✎ Customize. */
-  const kids=p.lines?'<span class="fm-node c fm-node-note" data-forms-lines>Set in ✎ Customize</span>':p.columns?`<button type="button" class="fm-node c${s.cols&&s.cols.part===k?' sel':''}" data-forms-columns="${esc(k)}" onclick="formsColumns('${esc(k)}','')">Columns (${p.columns.filter(c=>!c.hide).length})</button>`:(p.blocks||[]).map(b=>`<button type="button" class="fm-node c${s.sel&&s.sel.part===k&&s.sel.id===b.id?' sel':''}" data-forms-node="${esc(k)}|${esc(b.id)}" onclick="formsSelect('${esc(k)}','${esc(b.id)}')">${esc(formsBlockLabel(b))}</button>`).join('');
+  const kids=p.lines?`<span class="fm-node c fm-node-note" data-forms-lines>${formsDef(s.form).custom?'Set in ✎ Customize':'Drawn by the program'}</span>`:p.columns?`<button type="button" class="fm-node c${s.cols&&s.cols.part===k?' sel':''}" data-forms-columns="${esc(k)}" onclick="formsColumns('${esc(k)}','')">Columns (${p.columns.filter(c=>!c.hide).length})</button>`:(p.blocks||[]).map(b=>`<button type="button" class="fm-node c${s.sel&&s.sel.part===k&&s.sel.id===b.id?' sel':''}" data-forms-node="${esc(k)}|${esc(b.id)}" onclick="formsSelect('${esc(k)}','${esc(b.id)}')">${esc(formsBlockLabel(b))}</button>`).join('');
   return `<button type="button" class="fm-node p${!s.sel&&s.part===k?' sel':''}" data-forms-part="${esc(k)}" onclick="formsSelect('${esc(k)}','')"><span>${esc(lab[0])}</span><small>${esc(lab[1])}</small></button>${kids}`;}).join('');
 }
 function formsSettingsHTML(tpl){
@@ -44167,7 +44280,7 @@ function formsSettingsHTML(tpl){
  const showIf=`<div class="fm-h">Show if</div><select class="fm-in" data-forms-show onchange="formsShow('when',this.value)">${[['','Always'],['filled','A field is filled'],['is','A field is…'],['not','A field is not…']].map(([k,l])=>`<option value="${k}" ${(sh.when||'')===k?'selected':''}>${l}</option>`).join('')}</select>
   ${sh.when?`<select class="fm-in fm-gap" data-forms-show-field onchange="formsShow('field',this.value)">${fl.map(f=>`<option value="${esc(f.k)}" ${sh.field===f.k?'selected':''}>${esc(f.g+' · '+f.label)}</option>`).join('')}</select>${sh.when!=='filled'?`<input class="fm-in fm-gap" data-forms-show-value placeholder="Value, e.g. Delivery" value="${esc(sh.value||'')}" onchange="formsShow('value',this.value)">`:''}`:''}`;
  return `<div class="fm-h fm-sel-h"><span>Selected · ${esc(formsTypeLabel(b))}</span><button type="button" class="fm-del" data-forms-delete onclick="formsDelete()">Delete</button></div>${what}
-  ${sec?`<p class="fm-note">Drawn by the program. What it shows — ✎ Customize.</p><div class="fm-h">Place on sheet</div><div class="fm-row">${num('y','Y, mm',mm(b.y),true)}</div>`
+  ${sec?`<p class="fm-note">Drawn by the program.${formsDef(s.form).custom?' What it shows — ✎ Customize.':''}</p><div class="fm-h">Place on sheet</div><div class="fm-row">${num('y','Y, mm',mm(b.y),true)}</div>`
   :`<div class="fm-h">Place on sheet</div>${seg(b.place||'left',[['left','Left'],['center','Center'],['right','Right'],['free','Free']],'formsPlace')}
   <div class="fm-row">${b.place==='free'?num('x','X, mm',mm(b.x),true):''}${num('y','Y, mm',mm(b.y),true)}${num('w','Width, mm',mm(b.w),true)}${text?'':num('h','Height, mm',mm(b.h),true)}</div>`}${look}${showIf}`;
 }
@@ -48421,28 +48534,57 @@ function deliveryHTML(){
  const none=!active.length?'No trucks yet. Add them in Master Data → Trucks.':'No packing slips for this day.';
  return (deliveryNotice?`<div class="shipping-notice bad" role="alert">${esc(deliveryNotice)}</div>`:'')+`<div class="card sales-list-card sl-foot-pin delivery-list">${bar}${shippingTabs()}${pills}${salesListTableHTML({infos,rows:list,cell,row,cls:'delivery-table',noun:r=>r.length+' packing slip'+(r.length===1?'':'s'),empty:rows.length?'No packing slips match.':none})}</div>`;
 }
-function deliveryPages(date,truckId){
- const t=truckFind(truckId),stops=deliveryStops(date,truckId),company=docCompanyBlock(),driver=deliveryDriver(date,truckId),pages=[];let P,y;
+/* Лист рейса на шаблоне конструктора форм (этап 7): шапка каждой страницы и
+   низ — блоки, остановки и итог рисует код, как раньше (места те же). */
+function deliveryFormDefault(){
+ const mut=DOC_COLOR.mut;
+ return {form:'tripSheet',page:{w:612,h:792,margin:{top:30,right:36,bottom:72,left:36}},parts:{
+  every:{h:74,blocks:[
+   {id:'company',type:'field',field:'company.name',place:'left',y:14,w:320,h:13,lh:13,size:13,bold:true,fit:true,empty:'Glass Farm'},
+   {id:'title',type:'text',text:'TRIP SHEET',place:'right',pin:true,y:14,w:300,h:17,lh:17,size:17,bold:true,align:'right'},
+   {id:'date',type:'field',field:'trip.date',place:'right',pin:true,y:34,w:300,h:13,lh:13,size:13,bold:true,align:'right'},
+   {id:'truck',type:'field',field:'trip.truck',place:'left',pin:true,y:40,w:380,h:12,lh:12,size:12,bold:true,fit:true}]},
+  table:{lines:true},
+  bottom:{h:72,blocks:[
+   {id:'pageNo',type:'text',text:'Trip sheet · {page} / {pages}',place:'right',pin:true,y:46,w:300,h:8,lh:8,size:8,color:mut,align:'right'}]}}};
+}
+/* Поля листа рейса (окно Insert field); d = {date, t, driver, stops}. */
+const DELIVERY_FORM_FIELDS=[
+ {k:'company.name',g:'Company',label:'Company name',v:()=>docCompanyBlock().name},
+ {k:'company.lines',g:'Company',label:'Address and contacts',v:()=>docCompanyBlock().lines},
+ {k:'company.logo',g:'Company',label:'Logo',v:()=>docCompanyBlock().logo||''},
+ {k:'trip.date',g:'Trip',label:'Date',v:d=>docDate(d.date)},
+ {k:'trip.truck',g:'Trip',label:'Truck and driver',v:d=>(d.t?d.t.name:'Truck')+' · Driver: '+(d.driver?d.driver.name:'not set')},
+ {k:'trip.truckName',g:'Trip',label:'Truck',v:d=>d.t?d.t.name:''},
+ {k:'trip.driver',g:'Trip',label:'Driver',v:d=>d.driver?d.driver.name:''},
+ {k:'trip.stops',g:'Totals',label:'Stops',v:d=>String(d.stops.length)},
+ {k:'trip.skids',g:'Totals',label:'Skids',v:d=>String(d.stops.reduce((n,s)=>n+deliveryLoad(s).skids.length,0))},
+ {k:'trip.weight',g:'Totals',label:'Weight',v:d=>{const l=d.stops.map(deliveryLoad);return (l.every(x=>x.exact)?'':'~')+docNum(l.reduce((n,x)=>n+x.kg,0),0)+' kg';}}];
+function deliveryFormFields(){return DELIVERY_FORM_FIELDS.concat(formMyFields());}
+function deliveryFormContext(d){const by=new Map(deliveryFormFields().map(x=>[x.k,x]));return {field:k=>{const x=by.get(k);return x?x.v(d):undefined;}};}
+function deliveryFormTemplate(){return formClean(DB.formTemplate&&DB.formTemplate.tripSheet,deliveryFormDefault());}
+function deliveryPages(date,truckId,tpl,map){
+ const t=truckFind(truckId),stops=deliveryStops(date,truckId),driver=deliveryDriver(date,truckId);
+ tpl=tpl||deliveryFormTemplate();const f=formFlow(tpl,deliveryFormContext({date,t,driver,stops}),map);
  const header=()=>{
-  P=docPage();pages.push(P);P.text(36,44,docFit(company.name||'Glass Farm',13,true,320),{size:13,bold:true});
-  P.text(576,44,'TRIP SHEET',{size:17,bold:true,align:'right'});P.text(576,64,docDate(date),{size:13,bold:true,align:'right'});
-  P.text(36,70,docFit((t?t.name:'Truck')+' · Driver: '+(driver?driver.name:'not set'),12,true,380),{size:12,bold:true});y=104;
-  P.rect(36,y-11,540,21,{fill:DOC_COLOR.bar});['#','Departs','Customer / address','Packing slip','Skids','Weight'].forEach((h,n)=>P.text([41,62,122,372,452,571][n],y+2,h,{size:7,bold:true,align:n===5?'right':'left'}));y+=25;
+  f.page();const P=f.P,y=f.y;
+  P.rect(36,y-11,540,21,{fill:DOC_COLOR.bar});['#','Departs','Customer / address','Packing slip','Skids','Weight'].forEach((h,n)=>P.text([41,62,122,372,452,571][n],y+2,h,{size:7,bold:true,align:n===5?'right':'left'}));f.y+=25;
  };
  header();let total=0,exact=true,skids=0;
  stops.forEach((s,i)=>{
   const load=deliveryLoad(s),a=s.shipTo,place=docWrap([a.addressee,docAddressText(a)].filter(Boolean).join(' · ')||'No address',8,false,240),contact=[a.contact,a.phone].filter(Boolean).join(' · ');
   const lines=[salesCustomerDisplay(s.customerId)].concat(place,contact?[contact]:[]),sk=docWrap(load.skids.join(', ')||'—',8,false,70),h=Math.max(lines.length,sk.length,2)*11+14;
-  if(y+h>720)header();
+  if(f.y+h>f.bottom)header();
+  const P=f.P,y=f.y;
   P.text(41,y,String(i+1),{size:9,bold:true});P.text(62,y,deliveryTime(s.departAt),{size:9,bold:true});
   lines.forEach((text,k)=>P.text(122,y+k*11,docFit(text,k?8:9,!k,240),{size:k?8:9,bold:!k}));
   P.text(372,y,s.number,{size:9,bold:true});P.text(372,y+11,shippingCount(load.units,'unit'),{size:8,color:DOC_COLOR.mut});
   sk.forEach((text,k)=>P.text(452,y+k*11,text,{size:8}));P.text(571,y,deliveryWeight(load),{size:9,align:'right'});
-  y+=h;P.line(36,y-6,576,y-6);total+=load.kg;exact=exact&&load.exact;skids+=load.skids.length;
+  f.y+=h;P.line(36,f.y-6,576,f.y-6);total+=load.kg;exact=exact&&load.exact;skids+=load.skids.length;
  });
- if(!stops.length){P.text(41,y,'No stops',{size:9});y+=20;}
- P.text(576,y+10,shippingCount(stops.length,'stop')+' · '+shippingCount(skids,'skid')+' · '+(exact?'':'~')+docNum(total,0)+' kg',{size:10,bold:true,align:'right'});
- pages.forEach((p,n)=>p.text(576,766,'Trip sheet · '+(n+1)+' / '+pages.length,{size:8,align:'right',color:DOC_COLOR.mut}));return pages;
+ if(!stops.length){f.P.text(41,f.y,'No stops',{size:9});f.y+=20;}
+ f.P.text(576,f.y+10,shippingCount(stops.length,'stop')+' · '+shippingCount(skids,'skid')+' · '+(exact?'':'~')+docNum(total,0)+' kg',{size:10,bold:true,align:'right'});
+ return f.finish();
 }
 /* withPS — лист рейса и PS всех остановок одной пачкой; долг проверяется,
    как при печати каждого PS. Один лист ничего не записывает и не проверяет. */
