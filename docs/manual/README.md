@@ -15,6 +15,7 @@ they appear on screen.
 | Optimization | [optimization.ru.md](optimization.ru.md) | [optimization.en.md](optimization.en.md) |
 | Shipping | [shipping.ru.md](shipping.ru.md) | [shipping.en.md](shipping.en.md) |
 | Forms · Бланки | [forms.ru.md](forms.ru.md) | [forms.en.md](forms.en.md) |
+| Finance | [finance.ru.md](finance.ru.md) | [finance.en.md](finance.en.md) |
 
 Правило (владелец, 03.11.2026): кто меняет раздел, тот в том же PR обновляет его руководство на обоих языках —
 «тот, кто делал, знает больше контекста».

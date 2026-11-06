@@ -2,6 +2,28 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Finance: окно Allocate payments как в Spiel · 6 ноября 2026
+
+Владелец 06.11.2026: бухгалтер привыкла к экрану разнесения Spiel (Debit | Credit Transactions). Вид выбран по
+картинкам — вариант D (`~/Documents/ERP_PLAN/spiel-samples/allocation/`): две половины как в A, из C — итог одной
+строкой у кнопок и раскрытие связей.
+
+- Finance → Accounts → клиент → **Allocate** (`finOpenAllocate`, views/finance-allocate). Слева Orders & invoices
+  (Type Order / Invoice по `finInvoiceDate`, дата — счёта или заказа, со старого), справа Receipts & credits (активные
+  CAD-квитанции клиента, Allocated / Outstanding = `finReceiptApplied` / `finReceiptOnAccount`). Фильтры Unpaid / Part
+  paid / Fully paid у каждой половины, по умолчанию Fully paid скрыт. Заказы без полной цены не показываются («N not
+  priced» внизу), пустые — тоже.
+- **Allocate selected** — `finAllocate(customerId, orderIds, receiptIds, cap)`: заказы по порядку, каждому
+  `finApplyDeposit(..., receiptIds)` — у него новый необязательный аргумент «только эти квитанции» (без него — как
+  было, все квитанции клиента). **Ask amount** — `prompt` суммы, она потолок.
+- **Unallocate selected** — `finUnallocate(customerId, pairs)`, пара {receiptId, orderId} снимается целиком, событие
+  `released` «Allocation released from order …». Пары: связи между отмеченными; отмечена одна сторона — все её связи.
+  Связь с заказом, которого нет в базе (архив), не снимается из окна.
+- Строка «что будет» (`finAllocPlan`) — тот же жадный порядок: итог = min(долг отмеченных, остаток отмеченных, потолок).
+- Ссылки уводят из окна (заказ в Sales, форма квитанции); + Receipt возвращает в окно после Save / Cancel
+  (`finAlloc.back` в `finCloseReceipt`). Уход из Finance и открытие другой карточки клиента окно закрывают.
+- Сторож: test/finance-allocate.js. Руководство: docs/manual/finance.*.md (раздел Finance заведён этим PR).
+
 ## Бланк Spiel: Invoice по ответам бухгалтера и свои формы · 6 ноября 2026
 
 Владелец 06.11.2026: «наш бланк лучше Spiel — доделывать наш»; бухгалтер: Credits раздельно, Balance — по заказу.
