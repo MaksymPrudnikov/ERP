@@ -2,6 +2,27 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Лист скида / долли на конструкторе, Add to other forms, один набор полей · 6 ноября 2026
+
+Владелец 06.11.2026: «положим и шаблон скидов доллей и что мы ещё забыли»; «везде должно быть одно название, нам не
+нужно плодить разные наборы».
+
+- `src/erp/documents/carrier-form.js`: форма `carrierSheet` (Dolly / Skid sheet). Части: head — блоки (свои составные
+  поля `companyBlock` — прежний `.cs-co`, `codeBlock` — прежний `.cs-code`; text, field, image), strip / customer /
+  table / total — рисует `carrierSheetHTML` (галочки `CS_SHOW` → классы `cs-no-*`, ячейки полосы `cs-c-*`), foot —
+  блоки в полях `@page` (`carrierFootCss`: Left / Center / Right, `{page}` / `{pages}` → `counter()`); цвета `CS_LOOK`
+  → `--cs-*`. В конструкторе низ страницы виден строкой (`cs-foot-preview`).
+- Общие помощники листа (`drawBlockStyle` с полем `ml`, `drawColumns`, `drawImageHTML`, `drawBlockText` с `ctx.defs`,
+  слои, наложения) — из `drawing-form.js`.
+- **Add to other forms…** (forms-ui, `formsAddTo*`): блок — в часть с тем же именем или в первую часть с блоками,
+  бланк сохраняется сразу (версия «Block added from …»), его черновик получает блок; бланк без поля — серым.
+- **Один набор полей компании** — `formCompanyFields(src)` / `formWithCompany(list)` (erp/documents/forms): все бланки,
+  одни имена `company.*`; `docCompanyBlock(src)`. Прежние имена листа чертежа (`company`, `companyLogo`, …, `po`) —
+  `FORM_FIELD_RENAMED` в `formCleanBlock`: сохранённый шаблон получает общие имена при чтении.
+- Сверка по умолчанию (старый dist main против ветки, печать, PNG + строка `@page`): листы скида / долли 15 + 17 + 1 — 0
+  расхождений; чертежи 117 — 0.
+- Проверки: `test/carrier-form.js` (4), `test/drawing-form.js` — один набор полей во всех бланках. README 2446.
+
 ## Архивный заказ — чертёж на день ухода в архив · 6 ноября 2026
 
 Владелец 06.11.2026: «в заказе, который заархивирован, чертёж не меняется, чтобы случайно ничего не изменить».

@@ -80,14 +80,15 @@ module.exports=async function({page,eq}){
   document.querySelector('[data-draw-layer="back"]').click();const none=formsDraft().tpl.parts.head.blocks.find(b=>b.id==='over').z;
   return {note:!!note&&note.textContent.includes('Save works'),marked,save,back,front,none:none==null};
  }),{note:true,marked:['head|customer','head|over'],save:true,back:[-1,true,true],front:1,none:true});
- eq('Drawing form: company details and prices as fields — top or bottom of the sheet; prices are the line cells (Unit Price, Line Total), as on the Invoice',await t.p.evaluate(()=>{
+ eq('Drawing form: company details and prices as fields — top or bottom of the sheet; the company fields are one set with one name in every form, an old name is renamed; prices are the line cells (Unit Price, Line Total), as on the Invoice',await t.p.evaluate(()=>{
   const o=dfOrder();DB.company=Object.assign({},DB.company,{legalName:'Infinity Glass',address1:'200 Shop Rd',city:'Vaughan',province:'ON',postalCode:'L4K 2Z9',phone:'905-555-0100',email:'office@example.com',website:''});
   dfSave({},t=>{t.parts.foot.blocks.push({id:'co',type:'field',field:'companyLine',place:'center'});t.parts.head.blocks.push({id:'pr',type:'field',field:'linePrice',prefix:'Line total:',place:'right'});});
   const d=dfDoc(dfSheet(o)),p=finWithOrder(o,()=>salesLineCommercialPrice(o.lines[0],o)),inv=finWithOrder(o,()=>docBuildModel('invoice',o,docDefaultOptions('invoice'))).items[0].amount;
   return {foot:d.querySelector('.sheet-foot').children[1].textContent,price:[d.querySelector('.sheet-id-o').children[1].textContent===('Line total:'+docMoney(p.line)),docMoney(p.line)===inv],has:!!p.line,
-   fields:drawFormFields().filter(f=>f.g==='Prices'||f.g==='Company').map(f=>f.k)};
+   fields:drawFormFields().filter(f=>f.g==='Prices'||f.g==='Company').map(f=>f.k),saved:DB.formTemplate.drawing.parts.foot.blocks.find(b=>b.id==='co').field,
+   same:['packingSlip','invoice','purchaseOrder','tripSheet','carrierSheet'].map(k=>formsDef(k).fields().filter(f=>f.g==='Company'&&!['company.terms','company.footer'].includes(f.k)).map(f=>f.k).join()===formCompanyFields().map(f=>f.k).join())};
  }),{foot:'Infinity Glass · 200 Shop Rd, Vaughan, ON L4K 2Z9 · 905-555-0100 · office@example.com',price:[true,true],has:true,
-  fields:['unitPrice','linePrice','materialsPrice','company','companyLine','companyAddress','companyPhone','companyEmail','companyWebsite','companyHst','companyLogo']});
+  fields:['unitPrice','linePrice','materialsPrice','company.name','company.lines','company.logo','company.line','company.address','company.phone','company.email','company.website','company.hst'],saved:'company.line',same:[true,true,true,true,true]});
  eq('Drawing form: + Picture puts the company logo from Data → Company (its height on the sheet); Due date prints in the chosen date format',await t.p.evaluate(()=>{
   const o=dfOrder();o.dueDate='2026-11-20';
   const c=document.createElement('canvas');c.width=40;c.height=20;c.getContext('2d').fillRect(0,0,40,20);DB.company=Object.assign({},DB.company,{logo:c.toDataURL('image/jpeg',.8)});
@@ -96,7 +97,7 @@ module.exports=async function({page,eq}){
   const img=document.querySelector('[data-forms-stage] .sheet-foot img');document.querySelector('[data-forms-save]').click();
   const d=dfDoc(dfSheet(o));
   return {block:[b.type,b.field,b.h],live:!!img,printed:!!d.querySelector('.sheet-foot img[src^="data:image/jpeg"]'),h:d.querySelector('.sheet-foot img').style.height,due:d.querySelector('.sheet-id-o').children[1].textContent};
- }),{block:['image','companyLogo',28],live:true,printed:true,h:'28pt',due:'Due:Nov 20, 2026'});
+ }),{block:['image','company.logo',28],live:true,printed:true,h:'28pt',due:'Due:Nov 20, 2026'});
  eq('Drawing form: Info and Route — ticks hide sq ft · kg, NOTE and the route; the panel opens from the sheet; History shows a version on the drawing',await t.p.evaluate(async()=>{
   const o=dfOrder();dfSave({showMass:false,showNote:false,showRoute:false});printSheetPrepare([dfSheet(o)],'',salesSheetFitDrawing);
   const h=document.getElementById('printSheetHost'),vis=sel=>[...h.querySelectorAll(sel)].map(e=>getComputedStyle(e).display!=='none');

@@ -166,7 +166,7 @@ function shippingFormTotals(){
   {k:'total.lines',g:'Totals',label:'Lines',v:d=>String(rows(d).filter(r=>r.now).length)},
   {k:'total.skids',g:'Totals',label:'Skids',v:d=>String((d.skids||[]).length)}];
 }
-function shippingFormFields(){return SHIPPING_FORM_FIELDS.concat(shippingFormTotals(),formMyFields());}
+function shippingFormFields(){return formWithCompany(SHIPPING_FORM_FIELDS).concat(shippingFormTotals(),formMyFields());}
 function shippingFormContext(d){
  const by=new Map(shippingFormFields().map(x=>[x.k,x]));
  return {field:k=>{const x=by.get(k);return x?x.v(d):undefined;},type:k=>(by.get(k)||{}).t||''};

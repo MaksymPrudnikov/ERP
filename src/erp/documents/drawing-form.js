@@ -32,7 +32,7 @@ const DRAW_SHOW=[['showQty','Qty','dw-no-qty','info'],['showFinished','Finished 
    иначе выбор файла, как в других бланках. */
 function drawFormAddPicture(){
  if(!(DB.company&&DB.company.logo))return false;
- formsAddBlock(()=>({type:'image',field:'companyLogo',place:'left',w:120,h:28}));return true;
+ formsAddBlock(()=>({type:'image',field:'company.logo',place:'left',w:120,h:28}));return true;
 }
 const DRAW_UNITS=[['in16','Inches · 1/16'],['in','Decimal inches'],['mm','mm']];
 /* Что на чертеже красится отдельно: ключ стиля, подпись, цвет как сейчас
@@ -60,7 +60,7 @@ function drawFormDefault(){
  return {form:'drawing',page:{w:612,h:792,margin:{top:m,right:m,bottom:m,left:m}},style:Object.assign({},DRAW_STYLE_DEFAULT),parts:{
   head:{h:0,blocks:[
    {id:'customer',type:'field',field:'customer',prefix:'Customer:',place:'left',y:0,size:DRAW_HEAD_SIZE,bold:true},
-   {id:'po',type:'field',field:'po',prefix:'PO:',place:'center',y:0,size:DRAW_HEAD_SIZE,bold:true},
+   {id:'po',type:'field',field:'customerPo',prefix:'PO:',place:'center',y:0,size:DRAW_HEAD_SIZE,bold:true},
    {id:'order',type:'field',field:'order',prefix:'Order Number:',place:'right',y:0,size:DRAW_HEAD_SIZE,bold:true}]},
   info:{lines:true},
   drawing:{},
@@ -72,12 +72,10 @@ function drawFormDefault(){
 function drawFormFields(){
  const f=(g,k,label)=>({g,k,label});
  const d=(g,k,label)=>({g,k,label,t:'date'});
- return [f('Order','customer','Customer'),f('Order','po','PO'),f('Order','order','Order Number'),d('Order','dueDate','Due date'),d('Order','date','Date printed'),
+ return [f('Order','customer','Customer'),f('Order','customerPo','PO'),f('Order','order','Order Number'),d('Order','dueDate','Due date'),d('Order','date','Date printed'),
   f('Line','line','Line'),f('Line','glass','Glass / Makeup'),f('Line','spec','Makeup spec'),f('Line','qty','Qty'),
   f('Line','finished','Finished size'),f('Line','mass','sq ft · kg'),f('Line','note','Note'),f('Line','tag','Glass tag (batch)'),
-  f('Prices','unitPrice','Unit price'),f('Prices','linePrice','Line total'),f('Prices','materialsPrice','Materials'),
-  f('Company','company','Company name'),f('Company','companyLine','Company details, one line'),f('Company','companyAddress','Address'),
-  f('Company','companyPhone','Phone'),f('Company','companyEmail','Email'),f('Company','companyWebsite','Website'),f('Company','companyHst','HST number'),f('Company','companyLogo','Company logo')].concat(formMyFields());
+  f('Prices','unitPrice','Unit price'),f('Prices','linePrice','Line total'),f('Prices','materialsPrice','Materials')].concat(formCompanyFields(),formMyFields());
 }
 /* Черновик конструктора — на время живого листа; у заказа из архива — вид
    на день его ухода (drawFrozenOf); иначе сохранённый. Заказ — по умолчанию
@@ -154,7 +152,9 @@ function drawWithStyle(fn){
  try{return fn(st);}finally{DIM_PRINT=keep.p;SHAPE_DIM_FONT=keep.d;SHAPE_NOTE_FONT=keep.n;}
 }
 /* ------------------------- Шапка и низ листа ------------------------- */
-function drawBlockStyle(b,base,kind){
+/* ml — поле листа слева (x блока Free — от края бумаги): у чертежа 9 мм,
+   у листа скида свои (erp/documents/carrier-form). */
+function drawBlockStyle(b,base,kind,ml){
  const st=[];
  if(b.size!=null&&Math.abs(b.size-base)>.01)st.push('font-size:'+b.size+'pt');
  if(kind==='head'&&!b.bold)st.push('font-weight:400');
@@ -162,7 +162,7 @@ function drawBlockStyle(b,base,kind){
  if(b.italic)st.push('font-style:italic');
  if(b.font)st.push('font-family:'+(b.font==='times'?'Times,serif':'Courier,monospace'));
  if(/^#[0-9a-f]{3,6}$/i.test(b.color||''))st.push('color:'+b.color);
- if(b.place==='free')st.push('position:absolute','left:'+Math.round(((b.x||0)-DRAW_MARGIN)*100)/100+'pt','top:'+(b.y||0)+'pt');
+ if(b.place==='free')st.push('position:absolute','left:'+Math.round(((b.x||0)-(ml==null?DRAW_MARGIN:ml))*100)/100+'pt','top:'+(b.y||0)+'pt');
  else if(b.y)st.push('position:relative','top:'+b.y+'pt');
  /* Слой (как в Figma: To front / To back): выше нуля — поверх чертежа,
     ниже — под ним. */
@@ -178,7 +178,7 @@ function drawBlockAttrs(part,b,st,edit){
 function drawBlockText(b,ctx){
  let v=b.type==='text'?formFill(b.text,ctx).replace(/\{page\}/g,'1').replace(/\{pages\}/g,'1'):ctx.field(b.field);
  /* Дата — в виде, выбранном в окне Insert field (Mon d, yyyy …). */
- const f=b.type==='field'&&drawFormFields().find(x=>x.k===b.field);if(f&&f.t)v=formFormat(v,f.t,b.format);
+ const f=b.type==='field'&&(ctx.defs||drawFormFields)().find(x=>x.k===b.field);if(f&&f.t)v=formFormat(v,f.t,b.format);
  return Array.isArray(v)?v.join(', '):String(v==null?'':v);
 }
 /* Картинка (логотип компании или своя): высота блока, ширина по картинке. */
@@ -269,7 +269,7 @@ function drawFormStyleHTML(tpl){
    ${DRAW_LOOK.map(([k,label,was])=>row(label,`<input type="color" class="fm-in fm-color" data-draw-color="${k}" value="${st[k]||was}" title="Pick a color" onchange="${set(k,'this.value')}">`,st[k]?`<button type="button" class="fm-dreset" title="As now" onclick="${set(k,"''")}">×</button>`:'')).join('')}</div>
   <p class="fm-note">The sheet shows every change at once. Save — all prints.</p>`;
 }
-function formsStyle(k,v){formsEdit(t=>{t.style=Object.assign({},DRAW_STYLE_DEFAULT,t.style,{[k]:v});});}
+function formsStyle(k,v){const def=formsDef(formsState().form).def().style||{};formsEdit(t=>{t.style=Object.assign({},def,t.style,{[k]:v});});}
 /* − / +: от сохранённого или прежнего значения, шаг 1 px у текста, 0.2 px у линий. */
 function formsStyleStep(k,d,now){
  const st=drawStyle(formsDraft().tpl),line=DRAW_LINES.some(x=>x[0]===k),lo=line?.2:6,hi=line?12:40;

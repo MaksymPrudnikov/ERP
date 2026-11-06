@@ -118,6 +118,26 @@ Helvetica, Times и Courier — стандартные шрифты PDF: в фа
 - Кнопка Metric detail в редакторе формы — свой подробный мм-вид (углы, сотые): пока она включена на компьютере, этот
   компьютер печатает чертежи в нём, как раньше. Выключена — печать по Drawing.
 
+## Dolly / Skid sheet — лист скида и долли
+
+Тот же лист печатают окно тары, Shipping → Skid sheet и станции (Print what is on …). По умолчанию — прежний лист.
+
+- **Header** — название компании с адресом слева, вид и номер тары (SKID CONTENTS · SA-10) справа; это блоки: их
+  двигают, меняют кегль, убирают, рядом ставят свой текст, поле, логотип (+ Text, + Field, + Picture).
+- **Strip, Customer, Total** рисует программа — клик по части: галочки, что показывать (Station, Since / Shipped, On
+  it, Weight, Printed by, клиент и заказ, итог), и цвета листа (As now, Black text или любой).
+- **Table** — колонки по-прежнему у станции (Production → Stations) или ⚙ Columns в окне тары.
+- **Page footer** — низ каждой страницы: «Printed … by … at …» слева и номер страницы справа; блоки Left / Center /
+  Right, `{page}` и `{pages}` — номер страницы и их число.
+
+## Add to other forms и один набор полей
+
+- В настройках блока — **Add to other forms…**: тот же блок (логотип, текст, поле) сразу в другие бланки. Бланк, где
+  такого поля нет, серый. Каждый бланк сохраняется сразу и получает свою версию в History.
+- Поля компании — один набор с одними названиями во всех бланках: Company name, Address and contacts, Logo, Company
+  details one line, Address one line, Phone, Email, Website, HST number. Customer, PO (`customerPo`), Due date — тоже
+  одни имена.
+
 ## Свои поля, суммы и Show if
 
 - **My fields** — внизу Data → Company: название и значение (WSIB No., Warranty…), **+ Add field**, × убирает. В окне

@@ -112,7 +112,7 @@ const PUR_FORM_FIELDS=[
  {k:'supplier.website',g:'Supplier',label:'Website',v:d=>(d.p.supplier||{}).website},
  {k:'supplier.terms',g:'Supplier',label:'Payment terms',v:d=>{const s=d.p.supplier||{};return s.paymentDays!=null?'Net '+s.paymentDays+' days':'';}},
  {k:'supplier.method',g:'Supplier',label:'Payment method',v:d=>(d.p.supplier||{}).paymentMethod}];
-function purFormFields(){return PUR_FORM_FIELDS.concat(formMyFields());}
+function purFormFields(){return formWithCompany(PUR_FORM_FIELDS).concat(formMyFields());}
 function purFormContext(d){const by=new Map(purFormFields().map(x=>[x.k,x]));return {field:k=>{const x=by.get(k);return x?x.v(d):undefined;},off:b=>!!b.opt&&!d.opt[b.opt]};}
 function purFormTemplate(){return formClean(DB.formTemplate&&DB.formTemplate.purchaseOrder,purFormDefault());}
 function purDocPages(p,raw,title,tpl,map){

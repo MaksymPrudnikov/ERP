@@ -114,6 +114,7 @@
   "src/erp/documents/forms.js",
   "src/erp/documents/order-form.js",
   "src/erp/documents/drawing-form.js",
+  "src/erp/documents/carrier-form.js",
   "src/erp/finance/print.js",
   "src/erp/views/col-widths.js",
   "src/erp/views/sales.js",

@@ -122,6 +122,29 @@ batch print. One setting works everywhere; by default the sheet is exactly what 
 - The Metric detail button in the shape editor is its own detailed mm view (angles, hundredths): while it is on on a
   computer, that computer prints drawings in it, as before. Off — prints follow Drawing.
 
+## Dolly / Skid sheet
+
+The same sheet is printed from the dolly window, Shipping → Skid sheet and the stations (Print what is on …). By default
+it is the sheet as before.
+
+- **Header** — the company name and address on the left, the kind and number (SKID CONTENTS · SA-10) on the right;
+  these are blocks: move them, change the size, remove them, add your own text, field or logo (+ Text, + Field,
+  + Picture).
+- **Strip, Customer, Total** are drawn by the program — click a part: ticks for what to show (Station, Since /
+  Shipped, On it, Weight, Printed by, the customer and order, the total) and the sheet colors (As now, Black text or
+  any).
+- **Table** — the columns are still set per station (Production → Stations) or with ⚙ Columns in the dolly window.
+- **Page footer** — the bottom of every page: "Printed … by … at …" on the left and the page number on the right;
+  blocks Left / Center / Right, `{page}` and `{pages}` are the page number and the page count.
+
+## Add to other forms and one set of fields
+
+- In the block settings — **Add to other forms…**: the same block (logo, text, field) into other forms at once. A form
+  without that field is gray. Each form is saved at once and gets its own version in History.
+- The company fields are one set with one name in every form: Company name, Address and contacts, Logo, Company
+  details one line, Address one line, Phone, Email, Website, HST number. Customer, PO (`customerPo`), Due date have
+  one name too.
+
 ## My fields, totals and Show if
 
 - **My fields** — at the bottom of Data → Company: a name and a value (WSIB No., Warranty…), **+ Add field**, × removes.

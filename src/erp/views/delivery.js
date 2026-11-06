@@ -95,7 +95,7 @@ const DELIVERY_FORM_FIELDS=[
  {k:'trip.stops',g:'Totals',label:'Stops',v:d=>String(d.stops.length)},
  {k:'trip.skids',g:'Totals',label:'Skids',v:d=>String(d.stops.reduce((n,s)=>n+deliveryLoad(s).skids.length,0))},
  {k:'trip.weight',g:'Totals',label:'Weight',v:d=>{const l=d.stops.map(deliveryLoad);return (l.every(x=>x.exact)?'':'~')+docNum(l.reduce((n,x)=>n+x.kg,0),0)+' kg';}}];
-function deliveryFormFields(){return DELIVERY_FORM_FIELDS.concat(formMyFields());}
+function deliveryFormFields(){return formWithCompany(DELIVERY_FORM_FIELDS).concat(formMyFields());}
 function deliveryFormContext(d){const by=new Map(deliveryFormFields().map(x=>[x.k,x]));return {field:k=>{const x=by.get(k);return x?x.v(d):undefined;}};}
 function deliveryFormTemplate(){return formClean(DB.formTemplate&&DB.formTemplate.tripSheet,deliveryFormDefault());}
 function deliveryPages(date,truckId,tpl,map){

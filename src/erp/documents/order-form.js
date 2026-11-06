@@ -101,7 +101,7 @@ const DOC_FORM_FIELDS=[
  {k:'total.balance',g:'Totals',label:'Balance',v:m=>m.data.balance}];
 /* Квитанция и выписка — без полей заказа (даты, условия, итоги заказа). */
 const DOC_FORM_FIN_FIELDS=['company.name','company.lines','company.logo','title','docName','number','number.label','header.short','footer.left','footer.right','customer'];
-function docFormFields(kind){return (DOC_FORM_FIN.includes(kind)?DOC_FORM_FIELDS.filter(f=>DOC_FORM_FIN_FIELDS.includes(f.k)):DOC_FORM_FIELDS).concat(formMyFields());}
+function docFormFields(kind){return formWithCompany(DOC_FORM_FIN.includes(kind)?DOC_FORM_FIELDS.filter(f=>DOC_FORM_FIN_FIELDS.includes(f.k)):DOC_FORM_FIELDS).concat(formMyFields());}
 /* Блоки, которых нет в шаблоне по умолчанию, — свои галочки в ✎ Customize
    (ключ b:<id>, по умолчанию стоит). */
 function docFormAdded(kind,tpl){
@@ -163,7 +163,7 @@ function docFormHas(tpl,k){
 }
 function docFormBlockLabel(b){
  if(b.type==='text'){const t=String(b.text||'').replace(/\{[\w.]+(\|[^}]*)?\}/g,'…').replace(/\s+/g,' ').trim();return t.length>34?t.slice(0,33)+'…':t||'Text';}
- if(b.type==='field'){const f=DOC_FORM_FIELDS.find(x=>x.k===b.field)||formMyFields().find(x=>x.k===b.field);return (b.prefix||'')+(f?f.label:b.field);}
+ if(b.type==='field'){const f=formWithCompany(DOC_FORM_FIELDS).find(x=>x.k===b.field)||formMyFields().find(x=>x.k===b.field);return (b.prefix||'')+(f?f.label:b.field);}
  if(b.type==='section')return DOC_SECTIONS[b.k]||'Section';
  return {line:'Line',box:'Frame',image:'Picture',barcode:'Barcode'}[b.type]||'Block';
 }

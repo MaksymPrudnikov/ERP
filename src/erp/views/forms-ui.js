@@ -53,7 +53,13 @@ function formsDefs(){
      живой лист — настоящий чертёж строки заказа. */
   {k:'drawing',label:'Drawing',def:drawFormDefault,fields:()=>drawFormFields(),add:['text','field','image'],
   parts:{head:['Header','top line'],info:['Info','beside drawing'],drawing:['Drawing','units · colors'],route:['Route','bottom'],foot:['Footer','bottom line']},
-  samples:()=>drawFormSamples(),doc:id=>id,context:()=>drawFormContext(),columns:{},html:(tpl,id,view)=>drawFormSheetHTML(tpl,id,view),after:()=>drawFormOverlaps(),panel:(part,tpl)=>part==='drawing'?drawFormStyleHTML(tpl):part==='info'||part==='route'?drawFormShowHTML(part,tpl):''}]);
+  samples:()=>drawFormSamples(),doc:id=>id,context:()=>drawFormContext(),columns:{},html:(tpl,id,view)=>drawFormSheetHTML(tpl,id,view),after:()=>drawFormOverlaps(),panel:(part,tpl)=>part==='drawing'?drawFormStyleHTML(tpl):part==='info'||part==='route'?drawFormShowHTML(part,tpl):''},
+  /* Лист скида / долли (erp/documents/carrier-form): живой лист — тара с
+     стеклом; низ страницы — поля @page, на листе показан строкой внизу. */
+  {k:'carrierSheet',label:'Dolly / Skid sheet',def:carrierFormDefault,fields:()=>carrierFormFields(),add:['text','field','image'],sheetClass:'fm-csheet',
+  parts:{head:['Header','top'],strip:['Strip','station, since, weight'],customer:['Customer','one order'],table:['Table','glass on it'],total:['Total','under the table'],foot:['Page footer','every page']},
+  samples:()=>carrierFormSamples(),doc:id=>id,context:()=>carrierFormContext(),columns:{},html:(tpl,id,view)=>carrierFormSheetHTML(tpl,id,view),after:()=>drawFormOverlaps(),
+  panel:(part,tpl)=>part==='head'||part==='foot'?'':carrierFormPanelHTML(part,tpl)}]);
 }
 function formsPartLabel(k){const d=formsDef(formsState().form);return (d.parts&&d.parts[k])||FORMS_PARTS[k]||[k,''];}
 function formsDef(k){return formsDefs().find(x=>x.k===k)||formsDefs()[0];}
@@ -378,7 +384,7 @@ function formsSheetsHTML(){
   /* Линейка и направляющие (владелец: «рулетку тоже, чтобы выравнивать»);
      поля — поля печати, их не тянут. */
   const W=land?792:612,H=land?612:792,v=Object.assign({},tpl,{page:Object.assign({},tpl.page,{w:W,h:H})}),m=tpl.page.margin,pc=(x,of)=>(x/of*100).toFixed(4)+'%';
-  return `<div class="fm-sheet fm-dsheet${land?' land':''}" data-forms-page="0" data-w="${W}" data-h="${H}">${h}${formsRuler(false,W)+formsRuler(true,H)+formsRulerMarks(v,true)}<div class="fm-margin" style="left:${pc(m.left,W)};right:${pc(m.right,W)}"></div>${formsGuidesHTML(v)}</div>`;
+  return `<div class="fm-sheet fm-dsheet${land?' land':''}${def.sheetClass?' '+def.sheetClass:''}" data-forms-page="0" data-w="${W}" data-h="${H}">${h}${formsRuler(false,W)+formsRuler(true,H)+formsRulerMarks(v,true)}<div class="fm-margin" style="left:${pc(m.left,W)};right:${pc(m.right,W)}"></div>${formsGuidesHTML(v)}</div>`;
  }
  let pages;try{pages=def.pages(tpl,d,map);}catch(e){return `<p class="fm-note">Preview failed: ${esc(e.message)}</p>`;}
  const W=tpl.page.w,H=tpl.page.h,pc=(v,of)=>(v/of*100).toFixed(4)+'%',m=tpl.page.margin;
@@ -457,7 +463,7 @@ function formsSettingsHTML(tpl){
  return `<div class="fm-h fm-sel-h"><span>Selected · ${esc(formsTypeLabel(b))}</span><button type="button" class="fm-del" data-forms-delete onclick="formsDelete()">Delete</button></div>${what}
   ${sec?`<p class="fm-note">Drawn by the program.${formsDef(s.form).custom?' What it shows — ✎ Customize.':''}</p><div class="fm-h">Place on sheet</div><div class="fm-row">${num('y','Y, mm',mm(b.y),true)}</div>`
   :`<div class="fm-h">Place on sheet</div>${seg(b.place||'left',[['left','Left'],['center','Center'],['right','Right'],['free','Free']],'formsPlace')}
-  <div class="fm-row">${b.place==='free'?num('x','X, mm',mm(b.x),true):''}${num('y','Y, mm',mm(b.y),true)}${hl?'':num('w','Width, mm',mm(b.w),true)}${text?'':num('h','Height, mm',mm(b.h),true)}</div>`}${hl?drawLayerHTML(b):''}${look}${showIf}`;
+  <div class="fm-row">${b.place==='free'?num('x','X, mm',mm(b.x),true):''}${num('y','Y, mm',mm(b.y),true)}${hl?'':num('w','Width, mm',mm(b.w),true)}${text?'':num('h','Height, mm',mm(b.h),true)}</div>`}${hl?drawLayerHTML(b):''}${look}${showIf}${sec?'':`<button type="button" class="fm-wide-btn" data-forms-addto onclick="formsAddToOpen()">Add to other forms…</button>`}`;
 }
 function viewMdForms(){
  const s=formsState(),def=formsDef(s.form),d=formsDraft(),tpl=d.tpl,dirty=formsDirty(),samples=def.samples();
@@ -473,5 +479,52 @@ function viewMdForms(){
     <div class="fm-h">Parts of the sheet</div><div class="fm-tree">${formsTreeHTML(tpl)}</div></aside>
    <div class="fm-stage" data-forms-stage>${formsSheetsHTML()}</div>
    <aside class="fm-card fm-right" data-forms-settings>${formsSettingsHTML(tpl)}</aside>
-  </div>${formsModalHTML(ctx)}${formsVersionsHTML()}</div>`;
+  </div>${formsModalHTML(ctx)}${formsVersionsHTML()}${formsAddToHTML()}</div>`;
+}
+
+/* ------------------------ Добавить в другие формы -------------------- */
+/* Тот же блок (логотип, текст, поле) — сразу в другие бланки (задание
+   этапа 7, «добавить в другие формы»). Встаёт в часть с тем же именем, иначе
+   в первую часть бланка с блоками; бланк сохраняется сразу (своя версия в
+   History), его несохранённый черновик получает блок тоже. Поле, которого в
+   бланке нет, — бланк серым. */
+/* Имена полей одни во всех бланках (formCompanyFields, My fields). */
+function formsFieldIn(k,field){return !field||formsDef(k).fields().some(f=>f.k===field)?field:null;}
+function formsAddToTargets(b){
+ const s=formsState();
+ return formsDefs().filter(d=>d.k!==s.form).map(d=>{
+  const t=formsSaved(d.k),parts=Object.keys(t.parts),part=parts.includes(s.sel.part)&&t.parts[s.sel.part].blocks?s.sel.part:parts.find(p=>t.parts[p].blocks);
+  const field=b.field?formsFieldIn(d.k,b.field):'';
+  const why=!part?'no place for blocks':b.field&&!field?'no such field':'';
+  return {k:d.k,label:d.label,part,field,why};
+ });
+}
+function formsAddToOpen(){formsState().addTo={on:{}};render();}
+function formsAddToClose(){formsUi.addTo=null;render();}
+function formsAddToPick(k,on){formsUi.addTo.on[k]=!!on;render();}
+function formsPartLabelOf(k,part){const d=formsDef(k);return (d.parts&&d.parts[part])||FORMS_PARTS[part]||[part,''];}
+function formsAddToHTML(){
+ const s=formsState(),m=s.addTo;if(!m||!s.sel)return '';const b=formsFind(formsDraft().tpl,s.sel);if(!b)return '';
+ const list=formsAddToTargets(b),n=list.filter(x=>!x.why&&m.on[x.k]).length;
+ return `<div class="fm-modal-back" onclick="formsAddToClose()"></div><div class="fm-modal fm-addto" role="dialog" aria-modal="true" aria-label="Add to other forms" data-forms-addto-modal>
+  <div class="fm-modal-head"><b>Add “${esc(formsBlockLabel(b))}” to other forms</b><button type="button" class="fm-x" aria-label="Close" onclick="formsAddToClose()">×</button></div>
+  <div class="fm-addto-list">${list.map(x=>`<label class="fm-check${x.why?' off':''}"><input type="checkbox" data-forms-addto-form="${esc(x.k)}" ${x.why?'disabled':m.on[x.k]?'checked':''} onchange="formsAddToPick('${esc(x.k)}',this.checked)"><span>${esc(x.label)}</span><small>${x.why?esc(x.why):esc(formsPartLabelOf(x.k,x.part)[0])}</small></label>`).join('')}</div>
+  <p class="fm-note">Each form is saved at once and gets its own version in History.</p>
+  <div class="fm-modal-foot"><button type="button" onclick="formsAddToClose()">Cancel</button><button type="button" class="pri" data-forms-addto-apply ${n?'':'disabled'} onclick="formsAddToApply()">Add to ${n||''} ${n===1?'form':'forms'}</button></div></div>`;
+}
+function formsAddToApply(){
+ const s=formsState(),m=s.addTo,src=formsFind(formsDraft().tpl,s.sel);if(!m||!src)return;
+ const from=formsDef(s.form).label,me=typeof signinUser==='function'?signinUser():null,done=[];
+ formsAddToTargets(src).filter(x=>!x.why&&m.on[x.k]).forEach(x=>{
+  const d=formsDef(x.k),def=d.def(),put=t=>{const p=t.parts[x.part],b=formsClone(src);b.id='b'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+   if(x.field)b.field=x.field;delete b.show;delete b.z;if(b.place!=='free')b.y=d.html?0:p.h||0;
+   p.blocks=(p.blocks||[]).concat([b]);if(!d.html&&b.place!=='free')p.h=(p.h||0)+(b.type==='line'?6:(b.h||14)+4);};
+  const tpl=formsClone(formsSaved(x.k));put(tpl);const clean=formClean(tpl,def);
+  DB.formVersion=(DB.formVersion||[]).concat([{id:salesUid('FV'),form:x.k,at:new Date().toISOString(),by:me?me.name:'',note:'Block added from '+from,tpl:formsClone(clean)}]);
+  const mine=DB.formVersion.filter(v=>v.form===x.k);if(mine.length>FORMS_VERSIONS){const drop=new Set(mine.slice(0,mine.length-FORMS_VERSIONS).map(v=>v.id));DB.formVersion=DB.formVersion.filter(v=>!drop.has(v.id));}
+  DB.formTemplate=Object.assign({},DB.formTemplate,{[x.k]:clean});
+  const dr=s.drafts[x.k];if(dr){if(JSON.stringify(dr.tpl)!==dr.saved)put(dr.tpl);else dr.tpl=formsClone(clean);dr.saved=JSON.stringify(clean);}
+  done.push(d.label);
+ });
+ s.addTo=null;s.notice=done.length?'Added to '+done.join(', '):'';touch();render();
 }
