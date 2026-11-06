@@ -81,6 +81,22 @@ Work order сам показывает, где каждое стекло: под
   юниты, стёкла, ft² и кг строк до этого листа.
 - ✎ Customize: Status from station scans (снять — маршрут без статуса), Entered by.
 
+## Invoice: оплаты, Balance и строка итогов
+
+- Под Total — каждая оплата своей строкой (Deposit до дня счёта, Payment после), номер квитанции и дата; ниже
+  Credits total. Остаток по этому заказу — в рамке «Balance · this order». Нет оплат — нет и строк.
+- На первой странице под адресами — строка итогов: Total, Credits, Balance due, Quantity, Weight, Area (Proforma,
+  Order confirmation, Invoice). Убрать — галочка Totals strip в ✎ Customize или блок в конструкторе.
+- В строке товара — вес: «17.2 kg × 2 = 34.5 kg». Галочка Weight in lb — в фунтах.
+- Внизу слева — условия (Data → Company, Terms) и GST/HST No. (Data → Company, HST number).
+- Поля для своих бланков: Credits, Payments one per line, Total weight lb (окно Insert field, группа Totals).
+
+## Новая форма — с нуля или копией
+
++ New form в строке форм: имя, Prints with — с каким бланком заказа печатается (его данные и ✎ Customize), Start
+from — Blank sheet (чистый лист, только строки заказа) или Copy of готовой формы. Форма появляется в строке форм и
+вкладкой в окне Documents заказа рядом со своим бланком. У своей формы есть Rename и Delete form.
+
 ## Receipt, Statement, Purchase order, Trip sheet
 
 - **Receipt** и **Statement** — та же шапка, ячейки, адреса и итоги, что у бланков заказа; таблицу (заказы, движение
