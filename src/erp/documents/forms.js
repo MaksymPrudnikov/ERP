@@ -46,6 +46,17 @@ function formFormat(v,type,fmt){
  const f=(list.find(x=>x.k===fmt)||list[0]).f,one=x=>/^\d{4}-\d{2}-\d{2}/.test(String(x))?f(String(x).slice(0,10)):x;
  return Array.isArray(v)?v.map(one):v==null||v===''?v:one(v);
 }
+/* Свои поля из Data → Company (My fields) — одинаковы для всех бланков. */
+function formMyFields(){return ((DB.company&&DB.company.myFields)||[]).map(f=>({k:'my.'+f.id,g:'My fields',label:f.name||'Untitled field',v:()=>f.value}));}
+/* Show if: блок печатается, только если условие верно. show = {when:
+   filled | is | not, field, value}; нет show — всегда. Сравнение без учёта
+   регистра и пробелов по краям. */
+function formShow(b,ctx){
+ const s=b.show;if(!s||!s.when||!s.field)return true;
+ let v=ctx.field(s.field);v=Array.isArray(v)?v.join(', '):String(v==null?'':v);
+ const a=v.trim().toLowerCase(),want=String(s.value==null?'':s.value).trim().toLowerCase();
+ return s.when==='filled'?!!a:s.when==='is'?a===want:s.when==='not'?a!==want:true;
+}
 function formLines(b,ctx){
  let v=b.type==='text'?formFill(b.text,ctx):ctx.field(b.field);
  if(b.type==='field'&&ctx.type)v=formFormat(v,ctx.type(b.field),b.format);
@@ -68,7 +79,9 @@ function formShift(done,y){
  return Math.max(anchor,Math.max(...above.map(a=>a.top+a.e))-y);
 }
 function formLayout(tpl,part,ctx){
- const bs=(part.blocks||[]).map((b,i)=>{const lines=formIsText(b)?formLines(b,ctx):null;return {b,i,lines,e:lines?lines.length*formLh(b):b.h||0,nb:b.y+(b.h||0)};});
+ /* Скрытый (Show if) блок — как пустое поле: места не занимает, блоки ниже
+    поднимаются. */
+ const bs=(part.blocks||[]).map((b,i)=>{const hide=!formShow(b,ctx),lines=formIsText(b)?(hide?[]:formLines(b,ctx)):null;return {b,i,lines,hide,e:lines?lines.length*formLh(b):hide?0:b.h||0,nb:b.y+(b.h||0)};});
  /* after — блок стоит на той же строке сразу за первой строкой другого
     блока (вес рядом с кодом скида любой длины); gap — зазор. */
  bs.forEach(x=>{
@@ -90,7 +103,7 @@ function formDrawLine(P,tpl,b,line,k,top,late,ax){
  formText(P,align==='right'?x+w:align==='center'?x+w/2:x,top+k*formLh(b),line,{size:b.size||9,bold:!!b.bold,color:b.color||DOC_COLOR.ink,align,ls:b.ls||0,face:formFace(b)},late);
 }
 function formDrawBlock(P,tpl,x,ctx,top,late){
- const b=x.b,bx=formBlockX(tpl,b),w=b.w||0,h=b.h||0;
+ const b=x.b,bx=formBlockX(tpl,b),w=b.w||0,h=b.h||0;if(x.hide)return;
  if(x.lines){x.lines.forEach((l,k)=>formDrawLine(P,tpl,b,l,k,top,late,x.ax));return;}
  /* Цвет '' у рамки — без контура (только заливка). */
  const stroke=b.color==null?DOC_COLOR.line:b.color;
@@ -214,6 +227,7 @@ function formCleanBlock(b){
  if(['left','center','right'].includes(b.align))o.align=b.align;
  ['bold','italic','wrap','fit'].forEach(k=>{if(b[k])o[k]=true;});
  if(b.font==='times'||b.font==='courier')o.font=b.font;
+ if(b.show&&typeof b.show==='object'&&['filled','is','not'].includes(b.show.when)&&typeof b.show.field==='string')o.show={when:b.show.when,field:b.show.field.slice(0,60),value:String(b.show.value==null?'':b.show.value).slice(0,200)};
  if(b.type==='image'&&typeof b.src==='string'&&/^data:image\/jpeg;base64,/.test(b.src)&&b.src.length<3e6)o.src=b.src;
  if(o.y===undefined)o.y=0;
  return o;

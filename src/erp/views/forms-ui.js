@@ -20,7 +20,7 @@ const FORMS_VERSIONS=20;
 /* Формы на шаблоне. Остальные бланки переходят сюда по одному, после
    сверки «печатает то же». */
 function formsDefs(){
- return [{k:'packingSlip',label:'Packing slip',def:shippingFormDefault,fields:()=>SHIPPING_FORM_FIELDS,
+ return [{k:'packingSlip',label:'Packing slip',def:shippingFormDefault,fields:()=>shippingFormFields(),
   samples:()=>(DB.shipment||[]).slice().sort((a,b)=>String(b.number).localeCompare(String(a.number),undefined,{numeric:true})).slice(0,100).map(s=>({id:s.id,label:s.number+' · '+salesCustomerDisplay(s.customerId)})),
   doc:id=>{const s=id&&shippingFind(id);if(s)try{return shippingDocument(s);}catch(e){}return shippingFormSample();},
   context:d=>shippingFormContext(d),
@@ -145,6 +145,14 @@ function formsNum(k,v,mm){
  const n=Number(String(v).replace(',','.'));if(!Number.isFinite(n))return render();
  formsSet(k,Math.round((mm?n/FORMS_PT_MM:n)*100)/100);
 }
+/* Show if (вид «ТОП» 02.11.2026): Always / поле заполнено / поле равно /
+   поле не равно. */
+function formsShow(k,v){
+ const s=formsState();if(!s.sel)return;
+ formsEdit(t=>{const b=formsFind(t,s.sel);if(!b)return;
+  if(k==='when'&&!v){delete b.show;return;}
+  const sh=Object.assign({when:'filled',field:formsDef(s.form).fields()[0].k,value:''},b.show);sh[k]=v;b.show=sh;});
+}
 function formsToggle(k){const b=formsFind(formsDraft().tpl,formsState().sel);if(b)formsSet(k,b[k]?'':true);}
 
 /* ---------------------------- Окно поля ------------------------------ */
@@ -164,17 +172,17 @@ function formsModalApply(){
 }
 function formsModalHTML(ctx){
  const s=formsState(),m=s.modal;if(!m)return '';
- const fields=formsDef(s.form).fields(),groups=[...new Set(fields.map(f=>f.g))].concat(['Page']);
+ const fields=formsDef(s.form).fields(),groups=[...new Set(fields.map(f=>f.g).concat(['My fields']))].concat(['Page']);
  const val=f=>{let v=ctx.field(f.k);if(f.t)v=formFormat(v,f.t,m.format);v=Array.isArray(v)?v.join(' · '):String(v==null?'':v);return v||'—';};
  const q=m.q.trim().toLowerCase(),list=q?fields.filter(f=>(f.label+' '+f.g).toLowerCase().includes(q)):m.group==='Page'?[]:fields.filter(f=>f.g===m.group);
- const rows=list.map(f=>`<button type="button" class="fm-pick${m.field===f.k?' on':''}" data-forms-field="${esc(f.k)}" onclick="formsModalSet('field','${esc(f.k)}')"><span>${esc(f.label)}</span><em>${esc(val(f))}</em></button>`).join('')+(!q&&m.group==='Page'?`<button type="button" class="fm-pick${m.field==='@page'?' on':''}" onclick="formsModalSet('field','@page')"><span>Page number</span><em>1 of 2</em></button>`:'');
+ const rows=list.map(f=>`<button type="button" class="fm-pick${m.field===f.k?' on':''}" data-forms-field="${esc(f.k)}" onclick="formsModalSet('field','${esc(f.k)}')"><span>${esc(f.label)}</span><em>${esc(val(f))}</em></button>`).join('')+(!q&&m.group==='Page'?`<button type="button" class="fm-pick${m.field==='@page'?' on':''}" onclick="formsModalSet('field','@page')"><span>Page number</span><em>1 of 2</em></button>`:'')+(!q&&m.group==='My fields'&&!list.length?'<p class="fm-note">Add your fields in Data → Company → My fields.</p>':'');
  const f=fields.find(x=>x.k===m.field),formats=f&&f.t?FORM_FORMATS[f.t]:null,sample=f?ctx.field(f.k):'';
  const fmt=formats?formats.map((x,i)=>`<button type="button" class="fm-fmt${(m.format||formats[0].k)===x.k?' on':''}" onclick="formsModalSet('format','${x.k}')"><span>${esc(String(formFormat(sample||finToday(),f.t,x.k)))}</span><small>${esc(x.label)}</small></button>`).join(''):`<p class="fm-note">${f?'As is':'Choose a field'}</p>`;
  return `<div class="fm-modal-back" onclick="formsModalClose()"></div><div class="fm-modal" role="dialog" aria-modal="true" aria-label="Insert field" data-forms-modal>
   <div class="fm-modal-head"><b>${m.mode==='change'?'Change field':'Insert field'}</b><button type="button" class="fm-x" aria-label="Close" onclick="formsModalClose()">×</button></div>
   <input class="fm-search" data-forms-search placeholder="Search fields…" value="${esc(m.q)}" oninput="formsModalSet('q',this.value)">
   <div class="fm-cols3"><div class="fm-groups">${groups.map(g=>`<button type="button" class="fm-pick${!q&&m.group===g?' on':''}" onclick="formsModalSet('group','${esc(g)}')">${esc(g)}</button>`).join('')}</div>
-   <div class="fm-fields">${rows||'<p class="fm-note">No fields</p>'}</div>
+   <div class="fm-fields">${rows||(m.group==='My fields'?'':'<p class="fm-note">No fields</p>')}</div>
    <div><div class="fm-h">Format</div>${fmt}<div class="fm-h">Before the value</div><input class="fm-in" data-forms-prefix value="${esc(m.prefix)}" placeholder="Date: " onchange="formsUi.modal.prefix=this.value"></div></div>
   <div class="fm-modal-foot"><button type="button" onclick="formsModalClose()">Cancel</button><button type="button" class="pri" data-forms-insert ${m.field?'':'disabled'} onclick="formsModalApply()">${m.mode==='change'?'Apply':'Insert'}</button></div></div>`;
 }
@@ -393,9 +401,12 @@ function formsSettingsHTML(tpl){
    <div class="fm-seg"><button type="button" class="${b.bold?'on':''}" onclick="formsToggle('bold')"><b>B</b></button><button type="button" class="${b.italic?'on':''}" data-forms-italic onclick="formsToggle('italic')"><i>I</i></button>${['left','center','right'].map(a=>`<button type="button" class="${(b.align||'left')===a?'on':''}" onclick="formsSet('align','${a}')">${a[0].toUpperCase()+a.slice(1)}</button>`).join('')}</div>
    <div class="fm-row"><label><span>Color</span><input type="color" class="fm-in fm-color" value="${esc(b.color||DOC_COLOR.ink)}" onchange="formsSet('color',this.value)"></label><label class="fm-check"><input type="checkbox" ${b.wrap?'checked':''} onchange="formsToggle('wrap')"><span>Wrap lines</span></label></div>`
   :b.type==='line'||b.type==='box'?`<div class="fm-h">Line</div><div class="fm-row"><label><span>Color</span><input type="color" class="fm-in fm-color" value="${esc(b.color||DOC_COLOR.line)}" onchange="formsSet('color',this.value)"></label>${num('lw','Width, pt',b.lw||.6)}</div>${b.type==='box'?`<div class="fm-row"><label><span>Fill</span><input type="color" class="fm-in fm-color" value="${esc(b.fill||'#ffffff')}" onchange="formsSet('fill',this.value==='#ffffff'?'':this.value)"></label>${num('r','Corner, pt',b.r||0)}</div>`:''}`:'';
+ const sh=b.show||{},fl=formsDef(s.form).fields();
+ const showIf=`<div class="fm-h">Show if</div><select class="fm-in" data-forms-show onchange="formsShow('when',this.value)">${[['','Always'],['filled','A field is filled'],['is','A field is…'],['not','A field is not…']].map(([k,l])=>`<option value="${k}" ${(sh.when||'')===k?'selected':''}>${l}</option>`).join('')}</select>
+  ${sh.when?`<select class="fm-in fm-gap" data-forms-show-field onchange="formsShow('field',this.value)">${fl.map(f=>`<option value="${esc(f.k)}" ${sh.field===f.k?'selected':''}>${esc(f.g+' · '+f.label)}</option>`).join('')}</select>${sh.when!=='filled'?`<input class="fm-in fm-gap" data-forms-show-value placeholder="Value, e.g. Delivery" value="${esc(sh.value||'')}" onchange="formsShow('value',this.value)">`:''}`:''}`;
  return `<div class="fm-h fm-sel-h"><span>Selected · ${esc(formsTypeLabel(b))}</span><button type="button" class="fm-del" data-forms-delete onclick="formsDelete()">Delete</button></div>${what}
   <div class="fm-h">Place on sheet</div>${seg(b.place||'left',[['left','Left'],['center','Center'],['right','Right'],['free','Free']],'formsPlace')}
-  <div class="fm-row">${b.place==='free'?num('x','X, mm',mm(b.x),true):''}${num('y','Y, mm',mm(b.y),true)}${num('w','Width, mm',mm(b.w),true)}${text?'':num('h','Height, mm',mm(b.h),true)}</div>${look}`;
+  <div class="fm-row">${b.place==='free'?num('x','X, mm',mm(b.x),true):''}${num('y','Y, mm',mm(b.y),true)}${num('w','Width, mm',mm(b.w),true)}${text?'':num('h','Height, mm',mm(b.h),true)}</div>${look}${showIf}`;
 }
 function viewMdForms(){
  const s=formsState(),def=formsDef(s.form),d=formsDraft(),tpl=d.tpl,dirty=formsDirty(),samples=def.samples();

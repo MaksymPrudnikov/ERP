@@ -49,6 +49,14 @@ Helvetica, Times and Courier are the standard PDF fonts: they are not embedded, 
 no fee. Windows may show a look-alike of the same width instead of Helvetica — lines land the same. Line breaks are
 the same on screen, in print and in the PDF.
 
+## My fields, totals and Show if
+
+- **My fields** — at the bottom of Data → Company: a name and a value (WSIB No., Warranty…), **+ Add field**, × removes.
+  In the Insert field window they are in the **My fields** group; the form prints what Company holds now.
+- **Totals** — simple sums over the packing slip lines: Units on this slip, Ordered, Back order, Weight kg, Lines, Skids.
+- **Show if** in the block settings: Always, A field is filled, A field is… (e.g. Packing slip · Method = Delivery),
+  A field is not…. While the condition is false the block does not print and takes no room — blocks below move up.
+
 ## Saving
 
 **Save** — the form is stored in the database and prints this way from now on (Print in Shipments, the trip pack).

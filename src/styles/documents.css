@@ -71,6 +71,13 @@
 .doc-company-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .doc-company-grid textarea{width:100%;box-sizing:border-box}
 .doc-company-wide{grid-column:1/-1}
+/* Свои поля для бланков (05.11.2026): название, значение, ×. */
+.doc-myfields{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.doc-myfield{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr) 32px;gap:10px;width:100%;align-items:center}
+.doc-myfield input{width:100%;box-sizing:border-box}
+.doc-myfield button{border:0;background:none;color:var(--text-3);font-size:18px;cursor:pointer}
+.doc-myfield-add{border:1px dashed var(--line-strong);background:var(--surface);border-radius:8px;padding:7px 12px;font:inherit;cursor:pointer;color:var(--text-2)}
+.doc-myfields small{color:var(--text-3)}
 @media(max-width:900px){.doc-company,.doc-company-grid{grid-template-columns:minmax(0,1fr)}}
 
 /* Печать: на время печати в документе остаются только листы бланка. Именованная

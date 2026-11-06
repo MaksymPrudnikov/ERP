@@ -40,7 +40,10 @@ function normalizeCompany(){
   phone:s('phone',60),email:s('email',120),website:s('website',120),hstNumber:s('hstNumber',60),
   logo,depositPercent:companyPercent(c.depositPercent,COMPANY_DEFAULT.depositPercent),
   paymentInstructions:s('paymentInstructions',1200),termsText:s('termsText',4000),
-  footerText:s('footerText',160),quoteValidDays:companyDays(c.quoteValidDays,COMPANY_DEFAULT.quoteValidDays)
+  footerText:s('footerText',160),quoteValidDays:companyDays(c.quoteValidDays,COMPANY_DEFAULT.quoteValidDays),
+  /* Свои поля для бланков (владелец 05.11.2026, вариант А): WSIB No.,
+     Warranty… — в конструкторе форм группа My fields. */
+  myFields:(Array.isArray(c.myFields)?c.myFields:[]).filter(f=>f&&typeof f==='object'&&typeof f.id==='string'&&f.id).slice(0,30).map(f=>({id:f.id.slice(0,40),name:companyString(f.name,60),value:companyString(f.value,400)}))
  };
 }
 

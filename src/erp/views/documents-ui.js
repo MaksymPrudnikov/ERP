@@ -320,13 +320,18 @@ function viewMdCompany(){
   <div class="doc-company-logo"><label>Logo</label><div class="doc-logo-box">${c.logo?`<img src="${c.logo}" alt="Company logo">`:'<span>No logo</span>'}</div>
    <div class="doc-logo-actions"><button type="button" onclick="document.getElementById('docLogoFile').click()">${c.logo?'Replace logo':'Upload logo'}</button>${c.logo?'<button type="button" onclick="companyRemoveLogo()">Remove</button>':''}</div>
    <input type="file" id="docLogoFile" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="companyLogoUpload(this)"><small>PNG or JPEG.</small></div>
-  <div class="doc-company-grid">${f('legalName','Legal name *')}${f('hstNumber','HST number',{ph:'123456789 RT0001'})}${f('address1','Address line 1')}${f('address2','Address line 2')}${f('city','City')}${f('province','Province')}${f('postalCode','Postal code')}${f('country','Country')}${f('phone','Phone')}${f('email','Email',{type:'email'})}${f('website','Website')}${f('depositPercent','Deposit for cash customers, %',{type:'number'})}${f('quoteValidDays','Quote valid for, days',{type:'number'})}${f('paymentInstructions','Payment instructions',{area:true,wide:true,ph:'e-Transfer to … · Cheque payable to …'})}${f('termsText','Terms and conditions',{area:true,rows:6,wide:true})}${f('footerText','Footer line on customer documents',{wide:true,ph:'Thank you for your business'})}</div>
+  <div class="doc-company-grid">${f('legalName','Legal name *')}${f('hstNumber','HST number',{ph:'123456789 RT0001'})}${f('address1','Address line 1')}${f('address2','Address line 2')}${f('city','City')}${f('province','Province')}${f('postalCode','Postal code')}${f('country','Country')}${f('phone','Phone')}${f('email','Email',{type:'email'})}${f('website','Website')}${f('depositPercent','Deposit for cash customers, %',{type:'number'})}${f('quoteValidDays','Quote valid for, days',{type:'number'})}${f('paymentInstructions','Payment instructions',{area:true,wide:true,ph:'e-Transfer to … · Cheque payable to …'})}${f('termsText','Terms and conditions',{area:true,rows:6,wide:true})}${f('footerText','Footer line on customer documents',{wide:true,ph:'Thank you for your business'})}
+   <div class="doc-company-wide doc-myfields" data-company-myfields><label>My fields · for forms</label>${(c.myFields||[]).map(x=>`<div class="doc-myfield"><input data-myfield-name="${esc(x.id)}" value="${esc(x.name)}" placeholder="Name" onchange="companyMySet('${esc(x.id)}','name',this.value)"><input value="${esc(x.value)}" placeholder="Value" onchange="companyMySet('${esc(x.id)}','value',this.value)"><button type="button" aria-label="Remove field" onclick="companyMyRemove('${esc(x.id)}')">×</button></div>`).join('')}
+    <button type="button" class="doc-myfield-add" data-company-myfield-add onclick="companyMyAdd()">+ Add field</button><small>Each field is in Forms → Insert field → My fields.</small></div></div>
  </div>`;
 }
 function companySet(k,v){
  if(!DB.company||!Object.prototype.hasOwnProperty.call(COMPANY_DEFAULT,k)||k==='logo')return;
  DB.company[k]=v;normalizeCompany();touch();render();
 }
+function companyMyAdd(){DB.company.myFields=(DB.company.myFields||[]).concat([{id:salesUid('MF'),name:'',value:''}]);normalizeCompany();touch();render();const el=[...document.querySelectorAll('[data-myfield-name]')].pop();if(el)el.focus();}
+function companyMySet(id,k,v){const f=(DB.company.myFields||[]).find(x=>x.id===id);if(!f||(k!=='name'&&k!=='value'))return;f[k]=v;normalizeCompany();touch();render();}
+function companyMyRemove(id){DB.company.myFields=(DB.company.myFields||[]).filter(x=>x.id!==id);touch();render();}
 function companyRemoveLogo(){DB.company.logo='';touch();render();}
 /* Логотип приводится к JPEG не больше 900 × 300 точек на белом фоне: у PNG
    прозрачность в JPEG стала бы чёрной, а крупная фотография съела бы место
