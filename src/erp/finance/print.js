@@ -46,6 +46,29 @@ function finDocLayout(m){
  });
  return pages;
 }
+/* Таблицы квитанции и выписки на листах шаблона формы (erp/documents/
+   order-form): те же места, что у finDocLayout; шапка, итоги и низ — из
+   шаблона. */
+function finDocTable(f,m){
+ const W=DOC_PAGE,C=DOC_COLOR;let cur=null;
+ const sections=m.sections||[{cols:m.cols,rows:m.rows,empty:m.empty}];
+ const head=()=>{if(!cur||!cur.cols.length)return;cur.cols.forEach(c=>docLabel(f.P,c.x,f.y+6,c.label,{align:c.align||'left'}));f.P.line(W.left,f.y+11,W.right,f.y+11,{stroke:C.navy,lw:1.3});f.y+=16;};
+ const start=()=>{f.page();head();f.top=f.y;};
+ sections.forEach((sec,si)=>{
+  cur=null;if(f.y+(sec.title?22:0)+31>f.bottom&&f.y>f.top+1)start();
+  if(sec.title){f.y+=si?10:0;f.P.text(W.left,f.y+11,sec.title,{size:9,bold:true,color:C.navy});f.y+=18;}
+  cur=sec;head();
+  sec.rows.forEach(r=>{
+   const h=15;if(f.y+h>f.bottom)start();
+   r.cells.forEach((v,i)=>{const c=sec.cols[i];if(!c)return;f.P.text(c.x,f.y+10.5,docFit(String(v==null?'':v),7.8,!!(c.bold||r.bold),c.w),{size:7.8,bold:!!(c.bold||r.bold),align:c.align||'left',color:r.due&&c.due?C.due:r.mut?C.mut:C.ink});});
+   f.P.line(W.left,f.y+h,W.right,f.y+h,{stroke:C.line,lw:.5});f.y+=h;
+  });
+  if(!sec.rows.length&&sec.empty){f.P.text(W.left,f.y+12,sec.empty,{size:7.8,color:C.mut});f.y+=18;}
+ });
+}
+/* Квитанция и выписка — из шаблона формы (Data → Company & print → Forms),
+   внутренние списки — прежней раскладкой. */
+function finDocPages(m){return DOC_FORM_FIN.includes(m.kind)?docFormPages(m):finDocLayout(m);}
 function finDocText(pages){return (pages||[]).flatMap(p=>p.items.filter(x=>x.t==='text').map(x=>x.s)).join(' ');}
 
 /* Оплачено по заказу на момент этой квитанции: более поздние оплаты в её
@@ -55,10 +78,11 @@ function finOrderPaidThrough(orderId,receipt){
  return finMoney((DB.receipt||[]).filter(r=>(!r.voided||r.id===receipt.id)&&finCurrency(r)===finCurrency(receipt)&&key(r)<=upTo)
   .reduce((s,r)=>s+r.allocations.filter(a=>a.orderId===orderId).reduce((t,a)=>t+a.amount,0),0));
 }
-function finReceiptDoc(id){
- const r=(DB.receipt||[]).find(x=>x.id===id);if(!r)return [];
+function finReceiptDoc(id){const m=finReceiptModel(id);return m?finDocPages(m):[];}
+function finReceiptModel(id){
+ const r=(DB.receipt||[]).find(x=>x.id===id);if(!r)return null;
  const c=salesFindCustomer(r.customerId),refunded=finRefunded(r.id),money=docMoney;
- const m=finDocBase(r.voided?'VOID RECEIPT':'PAYMENT RECEIPT','Receipt',r.number,c);
+ const m=finDocBase(r.voided?'VOID RECEIPT':'PAYMENT RECEIPT','Receipt',r.number,c);m.kind='receipt';
  m.meta=[{label:'Date',value:docDate(r.date)},{label:'Method',value:finMethodLabel(r.method)},{label:'Reference',value:r.reference||'—'},{label:'Account',value:c&&c.code||'—'},{label:'Currency',value:finCurrency(r)}];
  m.boxes=[{label:'Received from',title:m.customerName||'—',lines:[finDocAddress(c)].filter(Boolean)}];
  m.cols=[{label:'Order',x:36,w:80,bold:true},{label:'Customer PO',x:124,w:150},{label:'Order total',x:372,w:90,align:'right'},{label:'This payment',x:474,w:90,align:'right'},{label:'Balance after',x:576,w:90,align:'right'}];
@@ -71,7 +95,7 @@ function finReceiptDoc(id){
  if(refunded>0)rows.push({label:'Refunded',value:money(refunded)});
  if(!r.voided)rows.push({label:'Kept on account',value:money(finReceiptOnAccount(r))});
  m.end={left:[r.voided?{label:'Void',text:r.voidReason||'Void'}:null,r.note?{label:'Note',text:r.note}:null].filter(Boolean),rows,grand:{label:'Amount received',value:money(r.amount)}};
- return finDocLayout(m);
+ return m;
 }
 /* Срок для клиента — без внутренних пометок вроде «Customer on hold». */
 function finDueText(f){
@@ -99,10 +123,11 @@ function finStatementOrders(customerId,from,to,today){
 }
 /* Выписка за период — клиенту раз в месяц для его учёта: какие заказы и на
    сколько, что он заплатил, остаток на начало и на конец периода. */
-function finStatementDoc(customerId,from,to,today){
- const c=salesFindCustomer(customerId);if(!c)return [];
+function finStatementDoc(customerId,from,to,today){const m=finStatementModel(customerId,from,to,today);return m?finDocPages(m):[];}
+function finStatementModel(customerId,from,to,today){
+ const c=salesFindCustomer(customerId);if(!c)return null;
  const day=today||finToday(),money=docMoney,company=DB.company||{},d=finStatementData(c.id,from,to);
- const m=finDocBase('STATEMENT','Statement',c.code||'—',c);m.numberLabel='Account';
+ const m=finDocBase('STATEMENT','Statement',c.code||'—',c);m.numberLabel='Account';m.kind='statement';
  m.meta=[{label:'Period',value:finPeriodText(from,to)},{label:'Statement date',value:docDate(day)},{label:'Terms',value:paymentTermsLabel(paymentTermsFrom(c))},{label:'Currency',value:'CAD'}];
  const limit=finCustomerAccount(c).creditLimit;if(limit!=null)m.meta.push({label:'Credit limit',value:money(limit)});
  m.boxes=[{label:'Bill to',title:m.customerName||'—',lines:[finDocAddress(c)].filter(Boolean)}];
@@ -121,7 +146,7 @@ function finStatementDoc(customerId,from,to,today){
  if(d.refunded>0)rows.push({label:'Refunds',value:money(d.refunded)});
  m.end={left,rows,grand:review&&d.closing<0?{label:'Review required',value:finSigned(d.closing)}:d.closing>=0?{label:'Balance due',value:money(d.closing)}:{label:'Credit balance',value:money(-d.closing)},paid:d.overdue>0?[{label:'Overdue now',value:money(d.overdue),tone:'due'}]:null};
  m.footerRight=finPeriodText(from,to);
- return finDocLayout(m);
+ return m;
 }
 /* То же для учёта клиента в таблице: движение денег с остатком. */
 function finStatementCSV(customerId,from,to){

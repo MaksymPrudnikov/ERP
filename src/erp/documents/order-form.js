@@ -16,6 +16,10 @@
 /* Бланки, которые печатаются из шаблона. Остальные — прежней раскладкой,
    пока их сверка «печатает то же» не сделана. */
 const DOC_FORM_KINDS=['quote','proforma','confirmation','invoice','workOrder'];
+/* Квитанция и выписка (erp/finance/print) — тот же шаблон бланка, их
+   таблицы рисует finDocTable. */
+const DOC_FORM_FIN=['receipt','statement'];
+function docFormLabel(k){return {receipt:'Receipt',statement:'Statement'}[k]||docKindLabel(k);}
 const DOC_SECTIONS={meta:'Header cells',boxes:'Addresses',end:'Totals and payment',summary:'Order summary',signature:'Customer approval'};
 
 /* Шаблон по умолчанию. Числа — места прежней раскладки (layout.js): y —
@@ -29,7 +33,7 @@ function docFormDefault(kind){
    {id:'companyLines',type:'field',field:'company.lines',place:'left',after:'logo',gap:10,y:22,w:330,h:18.8,lh:9.4,sa:8,size:7.4,color:C.mut,fit:true,opt:'company'},
    {id:'title',type:'field',field:'title',place:'right',pin:true,y:15,w:300,h:15,lh:15,size:18,bold:true,color:C.navy,align:'right'},
    {id:'number',type:'field',field:'number',place:'right',pin:true,y:30,w:300,h:11,lh:11,size:10.5,bold:true,align:'right'},
-   {id:'numberLabel',type:'text',text:'No.',place:'right',pin:true,before:'number',gap:3,y:30,w:40,h:11,lh:11,size:8,align:'right'},
+   {id:'numberLabel',type:'field',field:'number.label',place:'right',pin:true,before:'number',gap:3,y:30,w:40,h:11,lh:11,size:8,align:'right'},
    {id:'pageNo',type:'text',text:'Page {page} of {pages}',place:'right',pin:true,y:41,w:150,h:10,lh:10,size:7,color:C.faint,align:'right'},
    /* Оплаченный счёт — отметка PAID рамкой слева от заголовка. */
    {id:'stamp',type:'box',place:'free',pin:true,x:376,y:3,w:92,h:38,color:C.paid,lw:2,r:4,show:{when:'filled',field:'stamp'}},
@@ -54,7 +58,7 @@ function docFormDefault(kind){
   bottom:{h:44,blocks:[
    {id:'footLine',type:'line',place:'left',y:7,w:540,h:0,color:C.line,lw:.5},
    {id:'footLeft',type:'field',field:'footer.left',place:'left',y:16,w:240,h:9,lh:9,size:6.8,color:C.faint,fit:true},
-   {id:'footRight',type:'text',text:'{footer.right} · Page {page} of {pages}',place:'right',pin:true,y:16,w:400,h:9,lh:9,size:6.8,color:C.faint,align:'right'}]}
+   {id:'footRight',type:'text',text:(kind==='receipt'?'':'{footer.right} · ')+'Page {page} of {pages}',place:'right',pin:true,y:16,w:400,h:9,lh:9,size:6.8,color:C.faint,align:'right'}]}
  }};
 }
 /* Поля бланка заказа (окно Insert field); m — модель docBuildModel. */
@@ -65,6 +69,7 @@ const DOC_FORM_FIELDS=[
  {k:'title',g:'Document',label:'Title',v:m=>m.title},
  {k:'docName',g:'Document',label:'Document name',v:m=>m.docName},
  {k:'number',g:'Document',label:'Number',v:m=>m.number},
+ {k:'number.label',g:'Document',label:'Number label',v:m=>m.numberLabel!=null?m.numberLabel:'No.'},
  {k:'header.short',g:'Document',label:'Document, customer and PO',v:m=>[m.docName+' '+m.number,m.customerName,m.po?'PO '+m.po:''].filter(Boolean).join(' · ')},
  {k:'date',g:'Document',label:'Date',t:'date',v:m=>m.data.date},
  {k:'dueDate',g:'Document',label:'Due date',t:'date',v:m=>m.data.dueDate},
@@ -94,7 +99,9 @@ const DOC_FORM_FIELDS=[
  {k:'total.grand',g:'Totals',label:'Total',v:m=>m.data.grand},
  {k:'total.paid',g:'Totals',label:'Paid to date',v:m=>m.data.paid},
  {k:'total.balance',g:'Totals',label:'Balance',v:m=>m.data.balance}];
-function docFormFields(){return DOC_FORM_FIELDS.concat(formMyFields());}
+/* Квитанция и выписка — без полей заказа (даты, условия, итоги заказа). */
+const DOC_FORM_FIN_FIELDS=['company.name','company.lines','company.logo','title','docName','number','number.label','header.short','footer.left','footer.right','customer'];
+function docFormFields(kind){return (DOC_FORM_FIN.includes(kind)?DOC_FORM_FIELDS.filter(f=>DOC_FORM_FIN_FIELDS.includes(f.k)):DOC_FORM_FIELDS).concat(formMyFields());}
 /* Блоки, которых нет в шаблоне по умолчанию, — свои галочки в ✎ Customize
    (ключ b:<id>, по умолчанию стоит). */
 function docFormAdded(kind,tpl){
@@ -102,7 +109,8 @@ function docFormAdded(kind,tpl){
  return Object.keys(tpl.parts).flatMap(k=>(tpl.parts[k].blocks||[]).filter(b=>!ids.has(k+'|'+b.id)).map(b=>({part:k,b})));
 }
 function docFormContext(m,tpl){
- const by=new Map(docFormFields().map(x=>[x.k,x])),added=new Set(docFormAdded(m.kind,tpl||docFormTemplate(m.kind)).map(x=>x.b.id)),cache=new Map();
+ if(!m.data)m=Object.assign({},m,{data:{}});
+ const opts=m.opts||{company:true},by=new Map(docFormFields(m.kind).map(x=>[x.k,x])),added=new Set(docFormAdded(m.kind,tpl||docFormTemplate(m.kind)).map(x=>x.b.id)),cache=new Map();
  const sec={
   meta:()=>m.meta.length?{h:38,draw(P,y){docCells(P,m.meta,y,28,7.8);}}:null,
   boxes:()=>{if(!m.boxes.length)return null;const L=docBoxesLay(m.boxes);return {h:L.h+12,draw:L.draw};},
@@ -113,7 +121,7 @@ function docFormContext(m,tpl){
   section:k=>{if(!cache.has(k))cache.set(k,sec[k]?sec[k]():null);return cache.get(k);},
   /* Галочки ✎ Customize: opt — поле набора (Company logo and details),
      свой блок — b:<id>. */
-  off:b=>b.opt?!m.opts[b.opt]:added.has(b.id)&&m.opts['b:'+b.id]===false};
+  off:b=>b.opt?!opts[b.opt]:added.has(b.id)&&opts['b:'+b.id]===false};
 }
 function docFormTemplate(kind){return formClean(DB.formTemplate&&DB.formTemplate[kind],docFormDefault(kind));}
 /* Строки заказа рисуются как раньше (docItemParts): лист кончается только
@@ -125,7 +133,8 @@ function docFormPages(m,tpl,map){
  const fits=h=>f.y+h<=f.bottom,room=h=>{if(!fits(h)&&f.y>f.top+1)start();};
  const flow=(parts,onBreak)=>parts.forEach((part,i)=>{if(!fits(part.h)&&f.y>f.top+1){start();if(i&&onBreak)f.y=onBreak(f.P,f.y);}part.draw(f.P,f.y);f.y+=part.h;});
  f.page(null,'head');f.topKey='every';
- if(tpl.parts.table&&(m.items.length||m.extra)){
+ if(!m.items){finDocTable(f,m);f.flow('totals');return f.finish();}
+ if(m.items.length||m.extra){
   inTable=true;f.y=docTableHead(f.P,m,f.y);f.top=f.y;
   m.items.forEach(it=>{
    const parts=docItemParts(m,it);
@@ -168,4 +177,20 @@ function docFormSample(kind,id){
  if(o)try{return finWithOrder(o,()=>docBuildModel(kind,o,docDefaultOptions(kind)));}catch(e){}
  const s={id:'sample',businessNumber:kind==='quote'?'Q-1001':'1001',customerId:'',customerPo:'PO-1',lines:[],extraItems:[],adjustments:[],cancellations:[],currency:'CAD',delivery:'pickup',priority:'normal',createdAt:finToday(),dueDate:finToday(),notes:''};
  return finWithOrder(s,()=>docBuildModel(kind,s,docDefaultOptions(kind)));
+}
+/* Конструктор: квитанция и выписка — живой лист на последних квитанциях и
+   клиентах (выписка — за этот месяц); без данных — пустой образец. */
+function docFormFinSamples(kind){
+ if(kind==='receipt')return (DB.receipt||[]).slice().sort((a,b)=>String(b.number).localeCompare(String(a.number),undefined,{numeric:true})).slice(0,100).map(r=>({id:r.id,label:r.number+' · '+salesCustomerDisplay(r.customerId)}));
+ return (DB.customer||[]).filter(c=>c&&!c.deletedAt).slice(0,100).map(c=>({id:c.id,label:(c.code?c.code+' · ':'')+(c.legalName||c.displayName||'')}));
+}
+function docFormFinSample(kind,id){
+ let m=null;
+ try{if(kind==='receipt')m=id&&finReceiptModel(id);else if(id){const r=finMonthRange(0);m=finStatementModel(id,r.from,r.to);}}catch(e){m=null;}
+ if(m)return m;
+ m=finDocBase(kind==='receipt'?'PAYMENT RECEIPT':'STATEMENT',kind==='receipt'?'Receipt':'Statement',kind==='receipt'?'R-0001':'C-001',null);m.kind=kind;
+ if(kind==='statement')m.numberLabel='Account';
+ m.cols=[{label:'Order',x:36,w:80,bold:true},{label:'Amount',x:576,w:90,align:'right'}];m.rows=[];m.empty='No rows.';
+ m.end={left:[],rows:[],grand:{label:kind==='receipt'?'Amount received':'Balance due',value:docMoney(0)}};
+ return m;
 }

@@ -32,7 +32,23 @@ function formsDefs(){
  .concat(DOC_FORM_KINDS.map(k=>({k,label:docKindLabel(k),def:()=>docFormDefault(k),fields:()=>docFormFields(),
   parts:{head:['Page 1 header','page 1'],every:['Page header','page 2 on'],table:['Lines table','grows'],totals:['After lines','totals, notes']},
   samples:()=>docFormSamples(k),doc:id=>docFormSample(k,id),context:m=>docFormContext(m),columns:{},
-  pages:(tpl,m,map)=>docFormPages(m,tpl,map)})));
+  pages:(tpl,m,map)=>docFormPages(m,tpl,map)})))
+ .concat(DOC_FORM_FIN.map(k=>({k,label:docFormLabel(k),def:()=>docFormDefault(k),fields:()=>docFormFields(k),
+  parts:{head:['Page 1 header','page 1'],every:['Page header','page 2 on'],table:['Table','grows'],totals:['After table','totals']},
+  samples:()=>docFormFinSamples(k),doc:id=>docFormFinSample(k,id),context:m=>docFormContext(m),columns:{},
+  pages:(tpl,m,map)=>docFormPages(m,tpl,map)})))
+ /* PO — живой лист на последних PO с набором галочек Customize PO; лист
+    рейса — на последних днях с машинами. */
+ .concat([{k:'purchaseOrder',label:'Purchase order',def:purFormDefault,fields:()=>purFormFields(),
+  parts:{every:['Page header','every page'],first:['First page','page 1'],table:['Lines table','grows'],totals:['After lines','totals, notes']},
+  samples:()=>(DB.purchaseOrder||[]).filter(p=>!p.deletedAt).slice().sort((a,b)=>String(b.number).localeCompare(String(a.number),undefined,{numeric:true})).slice(0,100).map(p=>({id:p.id,label:(p.number||'Draft')+' · '+(p.supplierName||'')})),
+  doc:id=>({p:(id&&purOrderFind(id))||purOrderClean({number:'PO-0001',supplierName:'Sample supplier',currency:'CAD',date:finToday(),lines:[]}),opt:purDocOptions(DB.purchaseDocumentOptions),title:''}),
+  context:d=>purFormContext(d),columns:{},pages:(tpl,d,map)=>purDocPages(d.p,d.opt,d.title,tpl,map)},
+  {k:'tripSheet',label:'Trip sheet',def:deliveryFormDefault,fields:()=>deliveryFormFields(),
+  parts:{every:['Page header','every page'],table:['Stops','grows']},
+  samples:()=>[...new Map((DB.shipment||[]).filter(s=>s.method==='delivery'&&s.truckId&&s.date).sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(s=>[s.date+'|'+s.truckId,s])).values()].slice(0,100).map(s=>({id:s.date+'|'+s.truckId,label:docDate(s.date)+' · '+((truckFind(s.truckId)||{}).name||'Truck')})),
+  doc:id=>{const [date,truckId]=String(id||'').split('|'),day=date||finToday();return {date:day,truckId:truckId||'',t:truckFind(truckId),driver:deliveryDriver(day,truckId),stops:deliveryStops(day,truckId)};},
+  context:d=>deliveryFormContext(d),columns:{},pages:(tpl,d,map)=>deliveryPages(d.date,d.truckId,tpl,map)}]);
 }
 function formsPartLabel(k){const d=formsDef(formsState().form);return (d.parts&&d.parts[k])||FORMS_PARTS[k]||[k,''];}
 function formsDef(k){return formsDefs().find(x=>x.k===k)||formsDefs()[0];}
@@ -110,7 +126,7 @@ function formsTypeLabel(b){return {text:'Text',field:'Field',line:'Line',box:'Fr
 /* Новый блок встаёт под части и раздвигает её — ничего не налезает. */
 function formsAddBlock(make){
  const s=formsState();let part=s.sel?s.sel.part:s.part||'every';
- const pp=formsDraft().tpl.parts[part];if(!pp||pp.columns||pp.lines)part='totals';
+ const ps=formsDraft().tpl.parts,pp=ps[part];if(!pp||pp.columns||pp.lines)part=ps.totals?'totals':'every';
  formsEdit(t=>{
   const p=t.parts[part],b=make(),id='b'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
   b.id=id;b.y=p.h||0;p.blocks=(p.blocks||[]).concat([b]);p.h=(p.h||0)+(b.type==='line'?6:(b.h||14)+4);
