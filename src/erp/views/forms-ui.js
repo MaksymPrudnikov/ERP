@@ -59,6 +59,7 @@ function formsPartLabel(k){const d=formsDef(formsState().form);return (d.parts&&
 function formsDef(k){return formsDefs().find(x=>x.k===k)||formsDefs()[0];}
 function formsSaved(k){const def=formsDef(k);return formClean(DB.formTemplate&&DB.formTemplate[k],def.def());}
 function normalizeFormTemplates(){
+ if(typeof normalizeDrawingFrozen==='function')normalizeDrawingFrozen();
  const src=DB.formTemplate&&typeof DB.formTemplate==='object'&&!Array.isArray(DB.formTemplate)?DB.formTemplate:{},out={},defs=formsDefs();
  defs.forEach(d=>{if(src[d.k])out[d.k]=formClean(src[d.k],d.def());});
  DB.formTemplate=out;

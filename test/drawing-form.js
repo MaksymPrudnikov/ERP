@@ -114,5 +114,19 @@ module.exports=async function({page,eq}){
    order:['.sheet-id','.sheet-route','.sheet-field','.sheet-side','.sheet-foot'].map(s=>[s,y(s)]).sort((a,b)=>a[1]-b[1]).map(x=>x[0])};printSheetCleanup();
   DB.formTemplate={};dfOpen();formsSelect('route','');out.panel=[...document.querySelectorAll('[data-draw-place="route"] button')].map(b=>b.textContent);return out;
  }),{cls:'print-shape-sheet dw-info-bottom dw-route-top',order:['.sheet-id','.sheet-route','.sheet-field','.sheet-side','.sheet-foot'],panel:['Top (under header)','Bottom']});
+ eq('Drawing form: an archived order keeps the drawing look of its archive day — Drawing and Company change, its sheet does not; back in work — today\'s look',await t.p.evaluate(async()=>{
+  window.alert=()=>{};const o=dfOrder(),id=o.id;DB.company=Object.assign({},DB.company,{legalName:'Old Glass Co'});
+  dfSave({},t=>{t.parts.foot.blocks.push({id:'co',type:'field',field:'company',place:'center'});});
+  storageCommand(()=>{const x=salesRecord(id);x.status='done';x.statusDates=Object.assign({},x.statusDates,{done:'2026-01-10T12:00:00.000Z'});});
+  const x=salesRecord(id),total=finOrderTotals(x).grand;finPersist(()=>finSaveReceiptRecord({customerId:x.customerId,date:'2026-01-15',method:'cash',reference:'',note:'',amount:total,allocations:[{orderId:id,amount:total}],currency:'CAD'},'','',true));
+  await storageFlush();const run=archiveRun('2026-06-01');await storageFlush();
+  const key=(archiveIndex.get(id)||{}).drawing,stored=!!(key&&DB.drawingFrozen[key]);
+  dfSave({units:'mm',paper:'landscape'},t=>{t.parts.foot.blocks.push({id:'co',type:'field',field:'company',place:'center'});});DB.company=Object.assign({},DB.company,{legalName:'New Glass Co'});
+  const look=()=>{const h=finWithOrder(soDraft,()=>salesLineDrawing(soDraft.lines[0])).html,d=dfDoc(h);
+   return {mm:[...d.querySelectorAll('.sheet-field svg text')].some(e=>e.textContent==='939.8'),land:/dw-land/.test(d.querySelector('.print-shape-sheet').className),co:d.querySelector('.sheet-foot').children[1].textContent};};
+  await archiveOpen(id);const archived=look();salesOrderClose();archiveVisitEnd();
+  await archiveReturn(id);await storageFlush();salesOrderEdit(id);const back=look();salesDraftDrop();
+  return {run:run.ok!==false,key:/^D[0-9a-f]{16}$/.test(key||''),stored,archived,back};
+ }),{run:true,key:true,stored:true,archived:{mm:false,land:false,co:'Old Glass Co'},back:{mm:true,land:true,co:'New Glass Co'}});
  eq('Drawing form browser errors',t.errs,[]);await t.c.close();
 };

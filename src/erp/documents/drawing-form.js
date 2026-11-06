@@ -79,11 +79,40 @@ function drawFormFields(){
   f('Company','company','Company name'),f('Company','companyLine','Company details, one line'),f('Company','companyAddress','Address'),
   f('Company','companyPhone','Phone'),f('Company','companyEmail','Email'),f('Company','companyWebsite','Website'),f('Company','companyHst','HST number'),f('Company','companyLogo','Company logo')].concat(formMyFields());
 }
-/* Черновик конструктора — на время живого листа; иначе сохранённый. */
+/* Черновик конструктора — на время живого листа; у заказа из архива — вид
+   на день его ухода (drawFrozenOf); иначе сохранённый. Заказ — по умолчанию
+   открытый (soDraft): лист рисуется внутри finWithOrder. */
 let drawFormPreview=null,drawSheetLastFields={};
-function drawFormTpl(){
+function drawFormTpl(o){
  if(drawFormPreview)return drawFormPreview.tpl;
+ const f=drawFrozenOf(o===undefined?(typeof soDraft!=='undefined'?soDraft:null):o);if(f)return f.tpl;
  return formClean(DB.formTemplate&&DB.formTemplate.drawing,drawFormDefault());
+}
+/* ----------------------- Вид на день архивации ----------------------- */
+/* Владелец, 06.11.2026: «в заказе, который заархивирован, чертёж не
+   меняется, чтобы случайно ничего не изменить». При уходе в архив
+   (archiveRun) запоминаются шаблон Drawing и данные компании — одна запись
+   на каждый вид (ключ — хеш), строка указателя архива хранит ключ. Заказ,
+   ушедший раньше, печатается видом по умолчанию: другого у него не было.
+   Вернули в работу (archiveReturn) — снова нынешний вид. */
+DEFAULT.drawingFrozen={};
+function drawFrozenKeep(){
+ const v={tpl:formClean(DB.formTemplate&&DB.formTemplate.drawing,drawFormDefault()),company:JSON.parse(JSON.stringify(DB.company||{}))};
+ const key='D'+sha256Hex(JSON.stringify(v)).slice(0,16),all=DB.drawingFrozen&&typeof DB.drawingFrozen==='object'?DB.drawingFrozen:{};
+ if(!all[key])DB.drawingFrozen=Object.assign({},all,{[key]:v});
+ return key;
+}
+function drawFrozenOf(o){
+ if(!o||typeof archiveViewing!=='function'||!archiveViewing(o))return null;
+ const a=typeof archiveIndex!=='undefined'&&archiveIndex.get(o.id);if(!a)return null;
+ const f=a.drawing&&DB.drawingFrozen&&DB.drawingFrozen[a.drawing];
+ return f?{tpl:formClean(f.tpl,drawFormDefault()),company:f.company&&typeof f.company==='object'?f.company:{}}:{tpl:drawFormDefault(),company:null};
+}
+/* Записи вида — чистые: ключ D + 16 знаков, шаблон через formClean. */
+function normalizeDrawingFrozen(){
+ const src=DB.drawingFrozen&&typeof DB.drawingFrozen==='object'&&!Array.isArray(DB.drawingFrozen)?DB.drawingFrozen:{},out={};
+ Object.keys(src).forEach(k=>{const v=src[k];if(/^D[0-9a-f]{16}$/.test(k)&&v&&typeof v==='object')out[k]={tpl:formClean(v.tpl,drawFormDefault()),company:v.company&&typeof v.company==='object'&&!Array.isArray(v.company)?v.company:{}};});
+ DB.drawingFrozen=out;
 }
 /* Вид — чистый: перечисления, цвета #rrggbb, числа в пределах. */
 function drawStyle(tpl){

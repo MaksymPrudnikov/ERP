@@ -1101,7 +1101,8 @@ function printSheetPrepare(svg,caption,after){
   printOthersCleanup();
   var h=printSheetHost();
   /* Бумага листа чертежа — книжная или альбомная (Data → Forms → Drawing). */
-  var paper=typeof drawStyle==='function'&&list.some(function(x){return String(x).indexOf('print-shape-sheet')>=0;})?'<style>@media print{@page{size:'+drawStyle().paper+'}}</style>':'';
+  /* Ориентация — по самому листу (dw-land): у заказа из архива она своя. */
+  var paper=list.some(function(x){return String(x).indexOf('print-shape-sheet')>=0;})?'<style>@media print{@page{size:'+(list.some(function(x){return /class="print-shape-sheet[^"]*\bdw-land\b/.test(String(x));})?'landscape':'portrait')+'}}</style>':'';
   h.innerHTML=paper+list.map(function(x){return '<div class="print-sheet">'+printSheetUniqueIds(x)+(caption?'<div class="print-caption">'+esc(caption)+'</div>':'')+'</div>';}).join('');
   document.body.classList.add('printing');
   /* Доводка выполняется ПОСЛЕ вставки: чертёж подгоняется под отведённое место

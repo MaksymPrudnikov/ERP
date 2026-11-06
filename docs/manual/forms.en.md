@@ -116,6 +116,9 @@ batch print. One setting works everywhere; by default the sheet is exactly what 
   - **Colors** — As now or All black in one click; every element has its own color (any color, click it): edge,
     dimension lines, arrows, service marks, numbers, edge work, service labels, second units. × — as now.
   - Empty or × — as now (lines gray, text black).
+- **An archived order prints with the look of the day it went to the archive** (owner: "so nothing changes by
+  accident"): editing Drawing or the company details does not change its sheet. Archived before this setting — the
+  default look. Back in work (NCR) — today's look again.
 - The Metric detail button in the shape editor is its own detailed mm view (angles, hundredths): while it is on on a
   computer, that computer prints drawings in it, as before. Off — prints follow Drawing.
 
