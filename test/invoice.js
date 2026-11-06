@@ -27,7 +27,7 @@ module.exports=async function({page,eq,ok}){
   const id=ivOrder();ivShip(id,shippingAvailable(salesRecord(id)),'1450 Marine Dr');const m=ivModel(id),due=finAddDays(finToday(),30);
   const meta=Object.fromEntries(m.meta.map(x=>[x.label,x.value])),box=m.boxes.find(b=>b.label==='Shipped to'),dep=m.end.deposit[0];
   const out={title:m.title,number:m.number===salesRecord(id).businessNumber,date:meta['Invoice date']===docDate(finToday()),due:meta['Payment due']===docDate(due),box:box&&box.title+' | '+box.lines[0],
-   deposit:dep.label===('Payment due '+docDate(due)+' · Net 30 days'),value:dep.value===docMoney(finOrderBalance(salesRecord(id)).total),stamp:m.stamp||null,signature:m.signature,footer:m.footerRight.endsWith('Invoice '+salesRecord(id).businessNumber)};
+   deposit:dep.label==='Balance · this order'&&m.meta.some(c=>c.label==='Payment due'&&c.value===docDate(due)),value:dep.value===docMoney(finOrderBalance(salesRecord(id)).total),stamp:m.stamp||null,signature:m.signature,footer:m.footerRight.endsWith('Invoice '+salesRecord(id).businessNumber)};
   salesDraftDrop();tab='dashboard';render();return out;
  }),{title:'INVOICE',number:true,date:true,due:true,box:'Summit Builders · Tower B | 1450 Marine Dr, Toronto, ON M5H 1A1',deposit:true,value:true,stamp:null,signature:'',footer:true});
 

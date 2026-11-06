@@ -114,17 +114,17 @@ module.exports=async function({page,eq,ok}){
   const lines=finMovementsCSV(DB.receipt,DB.refund).split('\r\n');DB.refund=[];DB.financeEvent=[];
   return {head:lines[0],first:lines[1]===['2026-09-20','R-0001','Payment','"QA CSV, Ltd"','QACSV','Cheque','#1042','500.00','CAD',o.businessNumber+': 200.00','Active','',''].join(','),second:lines[2],third:lines[3]===['2026-09-22',refund.number,'Refund','"QA CSV, Ltd"','QACSV','Cheque','','-25.00','CAD','Payment R-0001','Active','Returned',''].join(',')};
  }),{head:'Date,Document,Type,Customer,Account,Method,Reference,Amount,Currency,Applied to orders,Status,Note,QuickBooks',first:true,second:'2026-09-21,R-0002,Payment,"QA CSV, Ltd",QACSV,Cash,,50.00,CAD,,Void,Duplicate,',third:true});
- eq('Proforma: «Paid to date» и «Balance due» в итогах, депозит к оплате уменьшается на внесённое',await t.p.evaluate(()=>{
+ eq('Proforma: каждая оплата строкой (Deposit · R-0001 · дата), Credits total и «Balance due» в итогах, депозит к оплате уменьшается на внесённое',await t.p.evaluate(()=>{
   finCleanup();const {cust,o,total}=finFixture(),part=finMoney(total*.2),dep=salesMoney(total*.5);
   DB.receipt.push(normalizeReceipt({number:'R-0001',customerId:cust.id,amount:part,allocations:[{orderId:o.id,amount:part}]}));
   salesOrderEdit(o.id);
   const m=docBuildModel('proforma',soDraft),paid=m.end.paid.map(x=>x.label+'='+x.value),deposit=m.end.deposit.map(x=>x.label+'='+x.value);
-  const printed=docLayout(m).some(p=>p.items.some(x=>x.t==='text'&&x.s==='Balance due'));
+  const printed=docLayout(m).some(p=>p.items.some(x=>x.t==='text'&&x.s==='Balance due')),strip=(m.strip||[]).map(c=>c.label);
   DB.receipt[0]=normalizeReceipt({number:'R-0001',customerId:cust.id,amount:dep,allocations:[{orderId:o.id,amount:dep}]});
   const received=docBuildModel('proforma',soDraft).end.deposit.map(x=>x.label),off=docBuildModel('proforma',soDraft,{receipts:false}).end.paid;
   soEdit=null;soDraft=null;
-  return {paid:paid[0]==='Paid to date · 1 receipt='+docMoney(part)&&paid[1]==='Balance due='+docMoney(salesMoney(total-part)),deposit:deposit[0]==='Deposit due now · 50%='+docMoney(salesMoney(dep-part)),printed,received,off};
- }),{paid:true,deposit:true,printed:true,received:['Deposit received · 50%'],off:null});
+  return {paid:/^Deposit · R-0001 · \w+ \d+, \d{4}=−/.test(paid[0])&&paid[0].endsWith(docMoney(part))&&paid[1]==='Credits total=−'+docMoney(part)&&paid[2]==='Balance due='+docMoney(salesMoney(total-part)),deposit:deposit[0]==='Deposit due now · 50%='+docMoney(salesMoney(dep-part)),printed,received,off,strip};
+ }),{paid:true,deposit:true,printed:true,received:['Deposit received · 50%'],off:null,strip:['Total CAD','Credits','Balance due','Quantity','Weight','Area']});
 
  eq('Export/Import JSON несёт квитанции, не массив — понятная ошибка; клиента с оплатами не удалить',await t.p.evaluate(()=>{
   finCleanup();const {cust,o}=finFixture();

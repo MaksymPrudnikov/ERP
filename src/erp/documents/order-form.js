@@ -20,14 +20,14 @@ const DOC_FORM_KINDS=['quote','proforma','confirmation','invoice','workOrder'];
    таблицы рисует finDocTable. */
 const DOC_FORM_FIN=['receipt','statement'];
 function docFormLabel(k){return {receipt:'Receipt',statement:'Statement'}[k]||docKindLabel(k);}
-const DOC_SECTIONS={meta:'Header cells',boxes:'Addresses',end:'Totals and payment',summary:'Order summary',signature:'Customer approval'};
+const DOC_SECTIONS={strip:'Totals strip',meta:'Header cells',boxes:'Addresses',end:'Totals and payment',summary:'Order summary',signature:'Customer approval'};
 
 /* Шаблон по умолчанию. Числа — места прежней раскладки (layout.js): y —
    от верха части, у текста — линия букв; поля листа 34 / 36 / 44 / 36. */
 function docFormDefault(kind){
- const wo=kind==='workOrder',C=DOC_COLOR,label=(id,text,y,keep,field)=>({id,type:'text',text,place:'left',y,w:540,h:16,lh:16,lead:13,keep,size:5.8,bold:true,color:C.mut,ls:.6,show:{when:'filled',field}});
+ const wo=kind==='workOrder',strip=DOC_ORDER_SALE.includes(kind),C=DOC_COLOR,label=(id,text,y,keep,field)=>({id,type:'text',text,place:'left',y,w:540,h:16,lh:16,lead:13,keep,size:5.8,bold:true,color:C.mut,ls:.6,show:{when:'filled',field}});
  return {form:kind,page:{w:612,h:792,margin:{top:34,right:36,bottom:44,left:36}},parts:{
-  head:{h:wo?152:134,blocks:[
+  head:{h:wo?152:strip?176:134,blocks:[
    {id:'logo',type:'image',field:'company.logo',place:'left',y:0,w:130,h:42,fit:true,opt:'company'},
    {id:'company',type:'field',field:'company.name',place:'left',after:'logo',gap:10,y:11,w:330,h:11,lh:11,size:11.5,bold:true,color:C.navy,fit:true,empty:'',opt:'company'},
    {id:'companyLines',type:'field',field:'company.lines',place:'left',after:'logo',gap:10,y:22,w:330,h:18.8,lh:9.4,sa:8,size:7.4,color:C.mut,fit:true,opt:'company'},
@@ -44,7 +44,10 @@ function docFormDefault(kind){
    {id:'stampText',type:'field',field:'stamp',place:'free',pin:true,x:376,y:25,w:92,h:20,lh:20,size:20,bold:true,color:C.paid,align:'center',ls:2},
    {id:'stampDate',type:'field',field:'stamp.date',place:'free',pin:true,x:376,y:36,w:92,h:9,lh:9,size:7,bold:true,color:C.paid,align:'center'},
    {id:'meta',type:'section',k:'meta',place:'left',y:wo?74:56,w:540,h:38},
-   {id:'boxes',type:'section',k:'boxes',place:'left',y:wo?112:94,w:540,h:40}])},
+   {id:'boxes',type:'section',k:'boxes',place:'left',y:wo?112:94,w:540,h:40}]).concat(strip?[
+   /* Строка итогов под адресами (владелец 06.11.2026): адреса выросли —
+      она ниже. */
+   {id:'strip',type:'section',k:'strip',place:'left',y:134,w:540,h:32,sa:10}]:[])},
   every:{h:36,blocks:[
    {id:'company',type:'field',field:'company.name',place:'left',y:10,w:300,h:11,lh:11,size:10.5,bold:true,color:C.navy,fit:true,opt:'company'},
    {id:'docLine',type:'field',field:'header.short',place:'left',y:21,w:330,h:11,lh:11,size:7.4,color:C.mut,fit:true,empty:''},
@@ -104,10 +107,13 @@ const DOC_FORM_FIELDS=[
  {k:'total.lines',g:'Totals',label:'Lines',v:m=>m.data.lines},
  {k:'total.area',g:'Totals',label:'Total area',v:m=>m.data.area},
  {k:'total.weight',g:'Totals',label:'Total weight',v:m=>m.data.weight},
+ {k:'total.weight.lb',g:'Totals',label:'Total weight, lb',v:m=>m.data.weightLb},
  {k:'total.subtotal',g:'Totals',label:'Subtotal',v:m=>m.data.subtotal},
  {k:'total.hst',g:'Totals',label:'HST',v:m=>m.data.hst},
  {k:'total.grand',g:'Totals',label:'Total',v:m=>m.data.grand},
  {k:'total.paid',g:'Totals',label:'Paid to date',v:m=>m.data.paid},
+ {k:'total.credits',g:'Totals',label:'Credits',v:m=>m.data.credits},
+ {k:'credits',g:'Totals',label:'Payments, one per line',v:m=>m.data.creditLines},
  {k:'total.balance',g:'Totals',label:'Balance',v:m=>m.data.balance},
  /* Итоги «до этой страницы» — значение своё у каждого листа (pageFields). */
  {k:'page.upto',g:'Totals',label:'Up to this page',v:()=>''}];
@@ -124,6 +130,7 @@ function docFormContext(m,tpl){
  if(!m.data)m=Object.assign({},m,{data:{}});
  const opts=m.opts||{company:true},by=new Map(docFormFields(m.kind).map(x=>[x.k,x])),added=new Set(docFormAdded(m.kind,tpl||docFormTemplate(m.kind,m.form)).map(x=>x.b.id)),cache=new Map();
  const sec={
+  strip:()=>m.strip&&m.strip.length?{h:32,draw(P,y){docCells(P,m.strip,y,32,10.5);}}:null,
   meta:()=>m.meta.length?{h:38,draw(P,y){docCells(P,m.meta,y,28,7.8);}}:null,
   boxes:()=>{if(!m.boxes.length)return null;const L=docBoxesLay(m.boxes);return {h:L.h+12,draw:L.draw};},
   end:()=>m.end?docEndBlock(m):null,
@@ -184,7 +191,7 @@ function docPages(m){return DOC_FORM_KINDS.includes(m.kind)?docFormPages(m):docL
 /* ✎ Customize: галочки строятся из блоков шаблона. Поле набора видно, если
    в шаблоне есть его блок или секция; строки (Lines, Prices on lines) —
    всегда. */
-const DOC_FORM_OPT_BLOCK={company:'opt',date:'meta',enteredBy:'meta',validUntil:'meta',customerPo:'meta',dueDate:'meta',terms:'meta',currency:'meta',priority:'meta',delivery:'meta',accountCode:'meta',taxNumber:'meta',
+const DOC_FORM_OPT_BLOCK={company:'opt',totalsTop:'strip',date:'meta',enteredBy:'meta',validUntil:'meta',customerPo:'meta',dueDate:'meta',terms:'meta',currency:'meta',priority:'meta',delivery:'meta',accountCode:'meta',taxNumber:'meta',
  billTo:'boxes',contact:'boxes',shipTo:'boxes',groupTotals:'end',totals:'end',receipts:'end',payment:'end',paymentInstructions:'end',notes:'end notes',orderSummary:'summary',termsText:'terms',signature:'signature'};
 function docFormHas(tpl,k){
  const want=DOC_FORM_OPT_BLOCK[k];if(!want)return true;

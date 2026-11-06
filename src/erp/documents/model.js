@@ -169,7 +169,7 @@ function docSaleItem(model,line,index,order){
  const bits=[];
  if(opts.billableArea&&a.valid)bits.push('Billable '+docNum(a.billable,1)+' ft²'+(q>1?' × '+q+' = '+areaAll:''));
  /* Галочка Weight per unit / per line предлагается и бланкам продаж (пункт 14). */
- if(opts.weight)bits.push('Weight '+docUnitWeightText(salesLineWeight(line,order),'kg per unit'));
+ if(opts.weight)bits.push('Weight '+docLineWeightText(salesLineWeight(line,order),q,opts));
  if(opts.perFt2&&['split','glass','unit'].includes(mode)&&!p.missingMaterials&&a.valid)bits.push('glass '+docMoney(p.materialRate)+'/ft²');
  if(bits.length)it.sub.push({text:bits.join(' · ')});
  docItemDetails(it,opts,line,m,order);
@@ -229,6 +229,25 @@ function docItemDetails(it,opts,line,m,order){
 /* Владелец 06.11.2026: вес на бумаге всегда; клиенту и цеху — примерный «≈»,
    без Partial и без «что не учтено» (лишнее путает); Partial — только офису на
    экранах. */
+/* Вес на бланке продаж: кг, галочка Weight in lb — фунты; неполный — «≈»
+   (на бумаге «~»). */
+function docWeightText(kg,opts,approx,dec){const lb=opts&&opts.weightLb,v=lb?kg*2.20462:kg,d=dec!=null?dec:v<10?1:0;return (approx?'≈ ':'')+docNum(v,d)+(lb?' lb':' kg');}
+/* Вес строки: штука × количество = строка (владелец 06.11.2026: «вес
+   каждого и потом сумма»). */
+function docLineWeightText(w,q,opts){
+ const kg=w.complete?w.kg:w.knownKg>0?w.knownKg:null;if(kg==null)return '—';
+ const approx=!w.complete||!!w.estimated,one=docWeightText(kg,opts,approx,1);
+ return q>1?one+' × '+q+' = '+docWeightText(kg*q,opts,approx,1):one;
+}
+/* Оплаты заказа — каждая своей строкой (бухгалтер 06.11.2026: не одной
+   суммой). До дня счёта — Deposit, с него — Payment. */
+function docOrderCredits(order,billed){
+ if(typeof finActiveReceipts!=='function')return [];
+ const cur=finCurrency(order);
+ return finActiveReceipts().filter(r=>finCurrency(r)===cur).map(r=>({r,a:finMoney((r.allocations||[]).filter(x=>x.orderId===order.id).reduce((s,x)=>s+x.amount,0))})).filter(x=>x.a>0)
+  .sort((a,b)=>String(a.r.date).localeCompare(String(b.r.date))||String(a.r.number).localeCompare(String(b.r.number),undefined,{numeric:true}))
+  .map(x=>({label:(billed&&x.r.date>=billed?'Payment':'Deposit')+' · '+x.r.number+' · '+docDate(x.r.date),amount:x.a}));
+}
 function docUnitWeightText(w,unit){
  return w.complete?(w.estimated?'≈ ':'')+docNum(w.kg,1)+' '+unit:w.knownKg>0?'≈ '+docNum(w.knownKg,1)+' '+unit:'— kg';
 }
@@ -423,7 +442,9 @@ function docBuildModel(kind,order,opts){
   let paid=null;
   if(opts.receipts&&rows&&got.paid>0){
    const rest=salesMoney(t.grand-got.paid);
-   paid=[{label:'Paid to date · '+got.receipts+' receipt'+(got.receipts>1?'s':''),value:docMoney(got.paid)},{label:review?'Review required':rest>0?'Balance due':rest<0?'Overpaid':'Paid in full',value:t.complete?docMoney(review?rest:Math.abs(rest)):'—',tone:rest>0?'due':''}];
+   paid=docOrderCredits(order,billed).map(c=>({label:c.label,value:'−'+docMoney(c.amount)})).concat([{label:'Credits total',value:'−'+docMoney(got.paid)}]);
+   /* Счёт: остаток — в рамке «Balance · this order» ниже. */
+   if(!invoice||!opts.payment||review)paid.push({label:review?'Review required':rest>0?'Balance due':rest<0?'Overpaid':'Paid in full',value:t.complete?docMoney(review?rest:Math.abs(rest)):'—',tone:rest>0?'due':''});
   }
   /* Счёт: к оплате — остаток и срок; оплачено полностью — отметка PAID
      (владелец: «у нас маленький штамп, но если будет PAID на бумаге — топ»). */
@@ -432,7 +453,7 @@ function docBuildModel(kind,order,opts){
   if(review&&opts.payment)deposit=[{label:'Review required',value:money(t.grand),strong:true}];
   else if(invoice&&opts.payment){
    deposit=rest!=null&&rest<=0?[{label:'Paid in full · thank you',value:docMoney(0),strong:true}]
-    :[{label:payDue&&terms.paymentMode==='credit'?'Payment due '+docDate(payDue)+' · '+paymentTermsLabel(terms):'Due on receipt',value:money(rest),strong:true}];
+    :[{label:'Balance · this order',value:money(rest),strong:true}];
   }else if(opts.payment){
    const pct=paymentDepositPercent(terms);
    if(terms.paymentMode==='credit')deposit=[{label:'Payment terms · '+paymentTermsLabel(terms),value:money(t.grand),strong:true},{label:terms.creditDays!=null?'Due within '+terms.creditDays+' days of invoice · no deposit':'On credit · no deposit',value:''}];
@@ -444,7 +465,12 @@ function docBuildModel(kind,order,opts){
    else deposit=[{label:'Payment due on completion',value:money(t.grand),strong:true}];
   }
   if(left.length||rows||deposit)model.end={left,rows,grand,paid,deposit,missing:t.complete?'':t.missing+(t.missing>1?' items need pricing':' item needs pricing')};
-  if(opts.termsText&&company.termsText)model.terms=company.termsText;
+  /* Бланки заказа с ценами: условия и GST/HST — внизу слева, рядом с итогами
+     (владелец 06.11.2026, как у Spiel). */
+  if(DOC_ORDER_SALE.includes(kind)&&model.end){
+   if(opts.termsText&&company.termsText)model.end.left.push({label:'Terms and conditions',text:company.termsText});
+   if(opts.totals&&company.hstNumber)model.end.left.push({label:'GST/HST No.',text:company.hstNumber});
+  }else if(opts.termsText&&company.termsText)model.terms=company.termsText;
   const depositFirst=terms.paymentMode==='cash'&&paymentDepositPercent(terms)>0;
  if(opts.signature)model.signature=kind==='quote'
   ?'Prices are valid until '+docDate(salesQuoteValidUntil(order))+'. To accept, reply to the email or sign and return this quote. Production starts after the order is confirmed'+(depositFirst?' and the deposit is received.':'.')
@@ -465,6 +491,12 @@ function docBuildModel(kind,order,opts){
   model.summary=kind==='workOrder'?docShopSummary(order,w,weightText):[{label:'Glass units',value:String(units)},{label:'Total area',value:docNum(area,1)+' ft²'},{label:'Total weight',value:weightText},{label:'Due date',value:docDate(order.dueDate)||'—'}];
 
  }
+ /* Строка итогов на первой странице: сколько к оплате видно сразу. */
+ if(sale&&opts.totalsTop&&DOC_ORDER_SALE.includes(kind)){
+  const st=salesOrderCommercialTotals(order),pd=typeof finOrderPaid==='function'?finOrderPaid(order.id).paid:0,cash=v=>st.complete?docMoney(v):'—';
+  model.strip=[{label:'Total '+order.currency,value:cash(st.grand)}].concat(pd>0?[{label:'Credits',value:'−'+docMoney(pd)}]:[],
+   [{label:'Balance due',value:cash(salesMoney(st.grand-pd))},{label:'Quantity',value:String(units)},{label:'Weight',value:w.kg==null?'—':docWeightText(w.kg,opts,w.estimated||!w.complete)},{label:'Area',value:docNum(area,0)+' ft²'}]);
+ }
  model.footerRight=[company.legalName,docName+' '+number].filter(Boolean).join(' · ');
  if(kind==='workOrder')model.lineTotals=(order.lines||[]).map(l=>docLineTotals(l,order));
  /* Значения полей для конструктора форм (окно Insert field): дни —
@@ -478,6 +510,8 @@ function docBuildModel(kind,order,opts){
   account:C&&C.code||'',billTo:C?docAddressText(customerAddressByType(C,'billing')):'',contact:pc?[pc.name,pc.phone,pc.email].filter(Boolean).join(' · '):'',
   shipTo:went?[went.title||model.customerName,went.text].filter(Boolean):order.delivery==='delivery'?[(ship&&ship.addressee)||model.customerName,docAddressText(ship)].filter(Boolean):['Customer pickup'],
   units:String(units),area:docNum(area,1)+' ft²',weight:weightText,lines:String((order.lines||[]).length),
+  weightLb:w.kg==null?'':docWeightText(w.kg,{weightLb:true},w.estimated||!w.complete),credits:tt&&paid>0?'−'+docMoney(paid):'',
+  creditLines:sale?docOrderCredits(order,billed).map(c=>c.label+' · '+docMoney(c.amount)):[],
   subtotal:tt?cash(tt.subtotal):'',hst:tt&&tt.charges.hst.enabled?cash(tt.hst):'',grand:tt?cash(tt.grand):'',paid:tt&&paid>0?cash(paid):'',balance:tt?cash(salesMoney(tt.grand-paid)):''};
  return model;
 }

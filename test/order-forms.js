@@ -38,7 +38,7 @@ module.exports=async function({page,eq}){
   const out={};
   DOC_FORM_KINDS.filter(k=>k!=='workOrder').forEach(kind=>[1,14].forEach(n=>{const o=ofOrder(n);['full','split','glass','unit','none'].forEach(mode=>{
    const all=Object.fromEntries(docFieldsFor(kind).map(f=>[f.k,true]));
-   [docBaseOptions(kind),Object.assign(all,{priceMode:mode})].forEach((opts,i)=>{const m=docBuildModel(kind,o,opts),a=ofSer(docLayout(m)),b=ofSer(docPages(m));out[kind+n+mode+i]=a===b?JSON.parse(a).length:'differs';});
+   [docBaseOptions(kind),Object.assign(all,{priceMode:mode})].forEach((opts,i)=>{const m=docBuildModel(kind,o,Object.assign({},opts,{totalsTop:false})),a=ofSer(docLayout(m)),b=ofSer(docPages(m));out[kind+n+mode+i]=a===b?JSON.parse(a).length:'differs';});
   });}));
   const v=Object.values(out);DB.company=keep;
   return {cases:v.length,differ:v.filter(x=>x==='differs').length,many:Math.max(...v)>1,kinds:DOC_FORM_KINDS};
