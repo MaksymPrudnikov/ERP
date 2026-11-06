@@ -312,7 +312,8 @@ function salesShapeSheetHTML(shape,result,svg,kind,opts){
   var areaFt2=stepLite?stepLite.area/144:ok?result.area/144:0;
   var w=salesSheetWeight(line,order,stepLite?liteIndex:null),weight=salesSheetWeightText(w);
 
-  var finished=stepLite?dimIn16(stepLite.w)+' × '+dimIn16(stepLite.h):ok?dimIn16(result.width)+' × '+dimIn16(result.height):'';
+  /* Единицы листа — из настройки чертежа (Data → Forms → Drawing). */
+  var finished=drawWithStyle(function(){var u=dimPrintText;return stepLite?u(stepLite.w)+' × '+u(stepLite.h):ok?u(result.width)+' × '+u(result.height):'';});
   var size=finished?'Finished '+finished:'';
   var mass=[areaFt2?areaFt2.toFixed(2)+' sq ft':'',weight?weight:''].filter(Boolean).join(' · ');
   var lineText=salesSheetLineNumber(line);
@@ -329,17 +330,29 @@ function salesShapeSheetHTML(shape,result,svg,kind,opts){
   /* Метка строки — это примечание цеху, поэтому она стоит в NOTE, а не рядом с
      номером: владелец «Note это и есть d2». Свободный текст строки идёт следом. */
   var note=[line&&line.mark,line&&line.notes].filter(Boolean).join(' · ');
-  return '<div class="print-shape-sheet">'+
+  /* Шапка и низ — из шаблона формы Drawing (erp/documents/drawing-form);
+     по умолчанию это прежние строки листа. Поля листа — его же числа. */
+  var tpl=drawFormTpl(),st=drawStyle(tpl),root=drawSheetRootAttrs(st,tpl),edit=drawFormPreview&&drawFormPreview.edit;
+  var fields=drawSheetLastFields={customer:order?salesCustomerDisplay(order.customerId):'',po:order&&order.customerPo||'',order:order&&order.businessNumber||'',
+    date:new Date().toISOString().slice(0,10),line:lineText,glass:t.name,spec:t.spec||'',qty:qty,finished:finished,mass:mass,note:note,tag:'',
+    company:DB.company&&DB.company.legalName||''};
+  /* Данные компании и цены — по запросу поля (функцией): лист без них их не
+     считает. Цены — ячейки строки в Sales (salesMetricCell): Unit Price,
+     Line Total, Materials; ручная цена строки — тоже оттуда. */
+  var co=DB.company||{},price=null,money=function(v){return v==null||!isFinite(v)?'':docMoney(v);};
+  var priced=function(){if(!price&&line&&order)try{price=salesLineCommercialPrice(line,order);}catch(e){price={};}return price||{};};
+  var address=function(){return [[co.address1,co.address2].filter(Boolean).join(', '),[co.city,[co.province,co.postalCode].filter(Boolean).join(' ')].filter(Boolean).join(', ')].filter(Boolean).join(', ');};
+  Object.assign(fields,{companyAddress:address,
+    companyPhone:co.phone||'',companyEmail:co.email||'',companyWebsite:co.website||'',companyHst:co.hstNumber?'HST # '+co.hstNumber:'',companyLogo:co.logo||'',dueDate:order&&order.dueDate||'',
+    companyLine:function(){return [co.legalName,address(),co.phone,co.email,co.website].filter(Boolean).join(' · ');},
+    unitPrice:function(){return money(priced().unit);},linePrice:function(){return money(priced().line);},
+    materialsPrice:function(){var p=priced();return p.missingMaterials||p.unsupportedCurrency?'':money(p.materials);}});
+  formMyFields().forEach(function(f){fields[f.k]=f.v();});
+  var ctx={field:function(k){var v=fields[k];if(typeof v==='function')v=fields[k]=v();return v==null?'':v;}};
+  return '<div class="print-shape-sheet'+root.cls+'"'+root.style+'>'+
     /* Три опоры, по которым лист опознают, — одной строкой поверх всего:
        заказчик слева, PO по центру, номер заказа справа. */
-    '<div class="sheet-id">'+
-      '<div class="sheet-id-c"><span>Customer:</span><b>'+
-        esc(order?salesCustomerDisplay(order.customerId):'')+'</b></div>'+
-      '<div class="sheet-id-p"><span>PO:</span><b>'+
-        esc(order&&order.customerPo||'')+'</b></div>'+
-      '<div class="sheet-id-o"><span>Order Number:</span><b>'+
-        esc(order&&order.businessNumber||'')+'</b></div>'+
-    '</div>'+
+    drawHeadHTML(tpl,ctx,edit)+
     /* Чертёж слева во всю высоту, состав и числа — колонкой справа. */
     '<div class="sheet-body">'+
       '<div class="sheet-field">'+svg+'</div>'+
@@ -363,15 +376,15 @@ function salesShapeSheetHTML(shape,result,svg,kind,opts){
       '</div>'+
     '</div>'+
     salesSheetRouteHTML(route)+
-    '<div class="sheet-foot"><span></span>'+
-      '<span>'+esc(new Date().toISOString().slice(0,10))+' · 1 / 1</span></div>'+
+    drawFootHTML(tpl,ctx,edit)+
   '</div>';
 }
 /* Подпись стекла слева в подвале (там пусто): печать чертежей из батча —
    «каждое стекло — стикер, к нему бумажка» (владелец, 4 октября 2026).
    Лист строки строится один раз, подпись дописывается на каждое стекло. */
+/* Место подписи задаёт шаблон формы Drawing (блок Glass tag). */
 function salesSheetFoot(html,text){
-  return text?String(html).replace('<div class="sheet-foot"><span></span>','<div class="sheet-foot"><span class="sheet-tag">'+esc(text)+'</span>'):html;
+  return text?String(html).replace(/<span([^>]*)><!--sheet-tag--><\/span>/,function(m,a){return '<span class="sheet-tag"'+a+'>'+esc(text)+'</span>';}):html;
 }
 /* Лист чертежа строки без открытия редактора — окно Drawings и печать
    нескольких чертежей сразу. Владелец, 26.09.2026: после батча чертёж было не

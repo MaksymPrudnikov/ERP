@@ -79,6 +79,46 @@ quotes (Quote) or orders (the rest).
 - **Trip sheet** — the top of every page (company, TRIP SHEET, date, truck and driver) and the bottom; the program draws
   the stops and the total. The live sheet — the latest days with trucks.
 
+## Drawing — the glass drawing sheet
+
+The **Drawing** form is the drawing sheet printed from Sales (Print / PDF), the Drawings window, the stations and the
+batch print. One setting works everywhere; by default the sheet is exactly what it was. The office or the owner sets it
+— the shop has no access to Data. The live sheet is a real drawing of an order line (Preview: order · line · shape).
+
+- **Header** — the line above the drawing: Customer left, PO center, Order Number right. **+ Text** and **+ Field**
+  blocks, places Left / Center / Right (a column of the line, blocks in it go top down; Y moves down) and Free (its own
+  place, drag with the mouse). Size, B, I, font, color, Show if — as in other forms. A ruler in inches runs along the
+  sheet, the dashed lines are the 9 mm print margins; drag a guide off the ruler, a Free block snaps to it. **Layer** —
+  To back / Back / Forward / To front, as in Figma: what is on top; To back puts the block under the drawing. Blocks
+  that overlap get an orange frame and a note above the sheet; Save still works, the sheet prints as set.
+- **Footer** — the bottom of the sheet: Glass tag (the glass label in a batch print) and the date. The Glass tag block can
+  be moved or removed.
+- **+ Picture** — the company logo from Data → Company (height in the block settings); no logo — your own file.
+- **+ Field** in Header or Footer (pick the part on the left) — a field of the sheet: the order (Customer, PO, number,
+  Due date, date), the line (glass, qty, Finished, weight, NOTE), **Prices** (Unit price, Line total, Materials — the same numbers as the line
+  cells in Sales), **Company** (name, details in one line, address, phone, email, website, HST) and My fields. A price on
+  the sheet is seen by the shop too — add it only when needed.
+- **Info** and **Route** are drawn by the program (makeup, Finished, weight, LINE, NOTE; the route by stations). Click
+  them on the sheet or in the list — **Place** (Info above or under the drawing, Route at the bottom or right under the
+  header) and ticks for what to show: Qty, Finished size, sq ft · kg, LINE, NOTE, Makeup scheme, Route. They are not
+  dragged with the mouse: the drawing always takes the rest of the sheet.
+- **Drawing** — click the drawing or the part in the list to open the drawing look on the right:
+  - **Paper** — Portrait (default) or Landscape: the print dialog opens this way on every computer.
+  - **Units** — inches in 1/16 fractions (as before), decimal inches (hundredths) or mm (tenths: 844.6).
+    **Second units** — a second smaller gray label next to the number: "844.6 (33 1/4″)". The Finished line uses these
+    units too. The route (CUT …) stays in inches — the sticker prints the same route.
+  - **Drawing size** — 75 %, 90 % or Fill (all the room, as before).
+  - Under the units — an example number in the chosen units.
+  - **Text size** — dimensions (18), slope labels (16), edge work and radius, service labels and sizes (holes,
+    hinges, clamps, cutouts); − and + or a number. **White under numbers** — the white patch under a number.
+  - **Lines** — Thinner / As now / Bolder for all lines at once, then − and + for the glass edge, dimension lines and
+    service marks (px).
+  - **Colors** — As now or All black in one click; every element has its own color (any color, click it): edge,
+    dimension lines, arrows, service marks, numbers, edge work, service labels, second units. × — as now.
+  - Empty or × — as now (lines gray, text black).
+- The Metric detail button in the shape editor is its own detailed mm view (angles, hundredths): while it is on on a
+  computer, that computer prints drawings in it, as before. Off — prints follow Drawing.
+
 ## My fields, totals and Show if
 
 - **My fields** — at the bottom of Data → Company: a name and a value (WSIB No., Warranty…), **+ Add field**, × removes.

@@ -1100,7 +1100,9 @@ function printSheetPrepare(svg,caption,after){
   if(!list.length)return false;
   printOthersCleanup();
   var h=printSheetHost();
-  h.innerHTML=list.map(function(x){return '<div class="print-sheet">'+printSheetUniqueIds(x)+(caption?'<div class="print-caption">'+esc(caption)+'</div>':'')+'</div>';}).join('');
+  /* Бумага листа чертежа — книжная или альбомная (Data → Forms → Drawing). */
+  var paper=typeof drawStyle==='function'&&list.some(function(x){return String(x).indexOf('print-shape-sheet')>=0;})?'<style>@media print{@page{size:'+drawStyle().paper+'}}</style>':'';
+  h.innerHTML=paper+list.map(function(x){return '<div class="print-sheet">'+printSheetUniqueIds(x)+(caption?'<div class="print-caption">'+esc(caption)+'</div>':'')+'</div>';}).join('');
   document.body.classList.add('printing');
   /* Доводка выполняется ПОСЛЕ вставки: чертёж подгоняется под отведённое место
      по фактическому содержимому, а его можно измерить только в документе. */

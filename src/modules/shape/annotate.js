@@ -21,7 +21,7 @@
 
 /* ---------- формат размера: 9 15/16 → 9-15/16, как на чертежах цеха ---------- */
 function shapeAnnDim(v){
-  try{return String(dimIn16(Math.abs(+v||0))).replace(/[″”"]/g,'').trim().replace(/^(\d+)\s+(\d+\/\d+)$/,'$1-$2');}
+  try{var a=Math.abs(+v||0);return dimPrint(a,String(dimIn16(a)).replace(/[″”"]/g,'').trim().replace(/^(\d+)\s+(\d+\/\d+)$/,'$1-$2'));}
   catch(e){return String(v==null?'':v);}
 }
 /* Кегль чертежа (владелец, 28.09.2026: «размеры чуточку увеличить», выбран
@@ -712,7 +712,7 @@ function shapeAnnContour(r,DP,active,mono){
   edges.forEach(function(e){
     var a=DP(e.p1),b=DP(e.p2),sel=active&&active===e.id;
     var col=mono?'#101828':e.id.indexOf('R:')===0?'#101828':shapeEdgeColor(names[e.id]||e.id),w=mono?(sel?4.6:1.9):(sel?4.6:1.3);
-    out+='<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+b[0]+'" y2="'+b[1]+'" stroke="'+col+'" stroke-width="'+w+'"'+(sel?' stroke-linecap="square"':'')+'/>';
+    out+='<line class="shape-edge" x1="'+a[0]+'" y1="'+a[1]+'" x2="'+b[0]+'" y2="'+b[1]+'" stroke="'+col+'" stroke-width="'+w+'"'+(sel?' stroke-linecap="square"':'')+'/>';
   });
   return out;
 }

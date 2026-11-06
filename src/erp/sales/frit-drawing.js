@@ -105,8 +105,8 @@ function salesFritSampleSvg(record,x,y,note){
   body+=salesFritSvgText(80,86,'CUSTOM',11,'middle')+salesFritSvgText(80,103,'See silk screen sheet',9,'middle');
  }
  lines.push((mdById('fritProduct',f.productId)||{}).name||'Frit',f.pattern, f.color+' · Ø '+f.dotMm+' mm');
- if(p)lines.push('Pitch '+dimIn16(p.dx)+' × '+dimIn16(p.dy)+(p.stag?' · staggered':''));
- lines.push('W '+dimIn16(f.marginW16/16)+' / H '+dimIn16(f.marginH16/16),f.marginFrom+' → dot centre');
+ if(p)lines.push('Pitch '+dimPrintText(p.dx)+' × '+dimPrintText(p.dy)+(p.stag?' · staggered':''));
+ lines.push('W '+dimPrintText(f.marginW16/16)+' / H '+dimPrintText(f.marginH16/16),f.marginFrom+' → dot centre');
  if(f.marking)lines.push('Mark: '+f.marking);
  if(note)lines.push(note);
  var yy=165;
@@ -133,8 +133,8 @@ function salesFritSetoutSvg(dot,T,ids){
  var out=line(ex,y,ex,hY+dy*5,true)+line(x,y,x,hY+dy*5,true)+arrow(ex,hY,x,hY)+
   line(x,ey,vX+dx*5,ey,true)+line(x,y,vX+dx*5,y,true)+arrow(vX,ey,vX,y);
  // Labels sit beyond the short 1-inch segments, so text cannot collide with arrows.
- out+=salesFritSvgText(x+dx*8,hY+dy*13,'W '+dimIn16(dot.w),10,dx<0?'end':'start');
- out+=salesFritSvgText(vX+dx*8,y+dy*13,'H '+dimIn16(dot.h),10,dx<0?'end':'start');
+ out+=salesFritSvgText(x+dx*8,hY+dy*13,'W '+dimPrintText(dot.w),10,dx<0?'end':'start');
+ out+=salesFritSvgText(vX+dx*8,y+dy*13,'H '+dimPrintText(dot.h),10,dx<0?'end':'start');
  out+='<circle class="frit-first-dot" data-x="'+dot.x+'" data-y="'+dot.y+'" cx="'+x+'" cy="'+y+'" r="2.5" fill="#fff" stroke="#111" stroke-width="0.8"/>';
  out+=line(x-5,y,x+5,y,false)+line(x,y-5,x,y+5,false);
  out+=salesFritSvgText(x+dx*8,y-dy*9,ids,10,dx<0?'end':'start');

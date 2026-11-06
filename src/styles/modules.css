@@ -658,7 +658,19 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
    становится чёрным: сторону называет буква, а метку — её значок и подпись.
    Обводка текста остаётся белой — это подложка, без неё цифры сливаются с
    линиями. */
-.print-shape-sheet .sheet-field svg *:not(text):not(tspan){stroke:var(--text-3)!important}
+.print-shape-sheet .sheet-field svg *:not(text):not(tspan){stroke:var(--dw-line,var(--text-3))!important}
+/* Вид чертежа из Data → Forms → Drawing (владелец, 06.11.2026: «что чёрного
+   цвета, а что серого», «цвет оставь за мной»). Переменную ставит лист
+   (salesSheetStyleAttr) только для того, что поменяли; нет её — прежний
+   цвет. Толщину — только класс dw-w-*: без значения CSS сбросил бы её. */
+.print-shape-sheet .sheet-field svg :is(.shape-edge,.shape-sheet-glass){stroke:var(--dw-edge,var(--dw-line,var(--text-3)))!important}
+.print-shape-sheet .sheet-field svg :is(.shape-feature,.shape-feature *){stroke:var(--dw-feature,var(--dw-line,var(--text-3)))!important}
+.print-shape-sheet.dw-w-line .sheet-field svg *:not(text):not(tspan){stroke-width:var(--dw-line-w)!important}
+.print-shape-sheet.dw-w-edge .sheet-field svg :is(.shape-edge,.shape-sheet-glass){stroke-width:var(--dw-edge-w)!important}
+.print-shape-sheet.dw-w-feature .sheet-field svg :is(.shape-feature,.shape-feature *){stroke-width:var(--dw-feature-w)!important}
+.print-shape-sheet.dw-nobg .sheet-field svg .shape-ann-bg{display:none}
+.print-shape-sheet.dw-fs-label .sheet-field svg :is(.shape-edge-label-outside,.shape-radius-callout text){font-size:var(--dw-label-fs)!important}
+.print-shape-sheet.dw-fs-ftext .sheet-field svg :is(.shape-feature-text,.shape-mi-marker text){font-size:var(--dw-ftext-fs)!important}
 /* Подложка под подписью на линии — белая и без обводки: иначе печать дала бы
    ей чёрную рамку. */
 .print-shape-sheet .sheet-field svg .shape-ann-bg{stroke:none!important;fill:var(--surface)!important}
@@ -667,8 +679,11 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
    прямоугольники в корне чертежа, и когда salesSheetFitDrawing убирает фон,
    первым становится бар: белый бар терял обводку (владелец, 27.09.2026). */
 .print-shape-sheet .sheet-field svg>rect:first-of-type:not([x]):not([y]){stroke:none!important}
-.print-shape-sheet .sheet-field svg marker path{fill:var(--inverse)!important}
-.print-shape-sheet .sheet-field svg text{fill:var(--text)!important}
+.print-shape-sheet .sheet-field svg marker path{fill:var(--dw-arrow,var(--inverse))!important}
+.print-shape-sheet .sheet-field svg text{fill:var(--dw-text,var(--text))!important}
+.print-shape-sheet .sheet-field svg :is(.shape-edge-label-outside,.shape-radius-callout text){fill:var(--dw-label,var(--dw-text,var(--text)))!important}
+.print-shape-sheet .sheet-field svg :is(.shape-feature-text,.shape-mi-marker text){fill:var(--dw-ftext,var(--dw-text,var(--text)))!important}
+.print-shape-sheet .sheet-field svg .shape-alt-units{fill:var(--dw-alt,var(--text-3))!important}
 .print-shape-sheet .sheet-field svg .shape-inch-reference{fill:var(--inverse)!important}
 .sheet-route{flex:0 0 auto;border-top:1px solid var(--text-3);padding-top:3px}
 .sheet-route-t{font-size:7.5px;letter-spacing:.11em;color:var(--text-2);font-weight:600;margin-bottom:2px}
@@ -690,7 +705,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 /* Общее печатное правило .print-sheet svg растягивает ЛЮБОЙ svg на всю ширину
    листа — оно старше по специфичности, поэтому схема пакета раздувалась во весь
    верх. Обе картинки листа размеры задают себе сами. */
-.print-sheet .print-shape-sheet .sheet-field svg{width:100%!important;height:100%!important;max-height:none!important}
+.print-sheet .print-shape-sheet .sheet-field svg{width:var(--dw-size,100%)!important;height:var(--dw-size,100%)!important;max-height:none!important}
 @media print{
   .print-sheet .print-shape-sheet{height:96vh}
 }
@@ -880,3 +895,16 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 /* Stock item: вид и измерения (пункт 4). */
 .md-stock-kind{margin:0 0 14px}.md-stock-kind-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.md-stock-kind-row input{width:160px}
 .md-stock-measures{max-width:680px}.md-stock-measures input{width:100%}.md-stock-tiles{padding:0 0 10px;max-width:620px}
+/* Альбомный лист чертежа (Data → Forms → Drawing) и в окне Drawings лежит. */
+.doc-drawing:has(.dw-land){width:1100px;height:850px}
+.st-drawthumb-paper:has(.dw-land){width:242px;height:187px}
+.st-drawthumb-sheet:has(.dw-land){width:1100px;height:850px}
+.sheet-free{white-space:nowrap}
+/* Галочки Info / Route формы Drawing: что не показывать на листе. */
+.dw-no-qty .sheet-qty,.dw-no-finished .sheet-size,.dw-no-mass :is(.sheet-mass,.sheet-mass-note),.dw-no-scheme .sheet-mk,.dw-no-route .sheet-route{display:none}
+.dw-info-bottom .sheet-body{grid-template-rows:minmax(0,1fr) auto}
+.dw-info-bottom .sheet-side{grid-row:2}.dw-info-bottom .sheet-field{grid-row:1}
+.dw-route-top .sheet-id{order:-2}.dw-route-top .sheet-route{order:-1;border-top:0;border-bottom:1px solid var(--text-3);padding:3px 0}
+.dw-no-line .sheet-who>:is(span,b):nth-child(-n+2),.dw-no-note .sheet-who>:is(span,b):nth-child(n+3){display:none}
+.sheet-id-c>div+div,.sheet-id-p>div+div,.sheet-id-o>div+div{margin-top:1px}
+.sheet-foot-g>span+span{margin-left:12px}

@@ -2,6 +2,52 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Лист чертежа на конструкторе форм: Data → Forms → Drawing · 6 ноября 2026
+
+Владелец 06.11.2026: «шапки — текст, размеры и расположение, хэдер, футер; размер чертежа, толщину линий; мм или инчи —
+вдруг компания перейдёт на мм … или все чертежи с мм и инчами; что чёрного цвета, а что серого». Выбран вариант A
+(форма в Forms), цвета — любые («не ограничивай ч/б»), 1/32 не делаем («там код менять везде»), мм — до десятых,
+бумага Portrait по умолчанию + Landscape, «управление размеров сервисов тоже на чертеже», «рулетку тоже, чтобы
+выравнивать, и управление толщиной линий; интерфейс максимально дружелюбный».
+
+- `src/erp/documents/drawing-form.js`: `drawFormDefault()` — части head / foot (блоки text, field), info / route
+  (`lines`, рисует код), drawing (вид); `style` — `DRAW_STYLE_DEFAULT` (paper, size, units, alt, dimSize, noteSize, bg,
+  цвета `DRAW_LOOK`, толщины `*W`, кегли labelSize / serviceSize). `drawStyle()` чистит вид (перечисления, `#rrggbb`).
+  `drawHeadHTML` / `drawFootHTML` — та же разметка, что раньше (`.sheet-id-c/p/o`, `<span>…</span>` низа); подпись
+  батча — маркер `<!--sheet-tag-->` (`salesSheetFoot`). `drawWithStyle(fn)` ставит `DIM_PRINT`, `SHAPE_DIM_FONT`,
+  `SHAPE_NOTE_FONT` только на время отрисовки листа.
+- `core/dim.js`: `DIM_PRINT`, `dimPrint` (число размера на чертеже), `dimPrintText` (со знаком), `dimPrintAltSvg` —
+  вторые единицы `<tspan class="shape-alt-units">`. Через них идут `shapeDrawingDim`, `shapeAnnDim`,
+  `shapeDrawingDim16`, подписи фритты и Finished. Экран редактора — без изменений (`DIM_PRINT=null`).
+- Цвет и толщина — CSS листа (`modules.css`): переменные `--dw-*` с прежним цветом в запасе; толщина и кегль — только
+  классом `dw-w-*` / `dw-fs-*`. Классы `shape-edge` (контур), `shape-feature` / `shape-feature-text` (сервисы) —
+  разметка, на вид не влияют. Бумага — `<style>@page{size}` в `printSheetPrepare`; окно Drawings альбомное по `:has(.dw-land)`.
+- Включённый на компьютере Metric detail (localStorage) печатает, как раньше, свой подробный мм-вид — без настроек
+  Drawing (`shapeSheetSvg`): возможность сторожат проверки `test/step-unit.js` («в Metric detail — как был»).
+- Конструктор: форма с `html` — живой лист HTML (`drawFormSheetHTML`, бумага 8.5×11 in и поля 9 мм, pt как на печати),
+  линейка и направляющие (поля `DRAW_MARGIN` — поля печати, не тянутся; x блока Free — от края бумаги), `panel` —
+  правая панель части (`drawFormStyleHTML`: Paper, Drawing size, Units с примером, Text size и Lines с − / +, наборы
+  Thinner / As now / Bolder и As now / All black), `add` — Text, Field, Picture; `formClean` хранит `style`.
+- Маршрут (CUT …) в единицах не меняется: `salesPrintRoute` общий со стикерами, документами и отчётами.
+- Сверка (старый dist main против сборки ветки, печать листа, PNG попиксельно): выгрузка владельца 117 / 117, с подписью
+  батча 40 / 40, audit-2m 400 / 400 — 0 расхождений (7 и 2 листа в первом прогоне — шум растра: старый dist против себя
+  даёт то же, повтор — совпадение).
+- Слои (владелец: «как в Figma или Adobe»): `b.z` у блоков шапки и низа (−50…50, `z-index`; ниже нуля — под
+  чертежом, корень листа тогда `isolation:isolate`), кнопки Layer `drawLayerHTML` / `formsLayer`. Наложения —
+  `drawFormOverlaps`: пересёкшиеся тексты блоков — оранжевой рамкой и строкой над листом; Save не запрещён (правило
+  «без кирпичей»).
+- Поля листа (окно Insert field): Order, Line, Prices (Unit price, Line total, Materials — ячейки строки
+  в Sales, `salesLineCommercialPrice`; владелец: «цену брать с ячейки по линии»; считается, только если поле на листе), Company (имя, строка реквизитов, адрес,
+  телефон, email, сайт, HST, логотип), Due date (формат даты — как в других бланках), My fields. **+ Picture** —
+  логотип из Data → Company (`drawFormAddPicture`, блок image с полем `companyLogo`), иначе файл. Владелец 06.11: «добавить данные компании в самый низ листа или вверх».
+- Info и Route — галочки «показывать» (`DRAW_SHOW`: Qty, Finished, sq ft · kg, LINE, NOTE, схема пакета, маршрут;
+  классы `dw-no-*`, по умолчанию всё видно). History показывает версию на том же чертеже (`def.html(tpl, id, view)`).
+  Альбомный лист лежит и на экране станции (`stationDrawZoom`) и в миниатюрах.
+- Info и Route переносятся целиком: Place Top / Bottom (`infoPlace`, `routePlace`; классы `dw-info-bottom`,
+  `dw-route-top`). Свободно мышью — нет: чертёж берёт всё оставшееся место и подгоняется под него.
+- Проверки: `test/drawing-form.js` (13), `test/forms-editor.js` — в строке форм Drawing. Руководство
+  `docs/manual/forms.*` — «Drawing — лист чертежа стекла».
+
 ## Все бланки на конструкторе форм (этап 7) · 6 ноября 2026
 
 Владелец 06.11.2026: оставшиеся бланки — одним PR, prepush один раз в конце. Бланк Spiel пока не трогать (роль и поля

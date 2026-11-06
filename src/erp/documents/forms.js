@@ -271,7 +271,7 @@ function formCleanBlock(b){
  const num=(v,lo,hi)=>{const n=Number(v);return Number.isFinite(n)?Math.min(hi,Math.max(lo,Math.round(n*100)/100)):undefined;};
  const str=(v,max)=>typeof v==='string'?v.slice(0,max||2000):undefined;
  const o={id:str(b.id,40)||'b'+Math.random().toString(36).slice(2,9),type:b.type,place:FORM_PLACES.includes(b.place)?b.place:'left'};
- [['x',-200,800],['y',-200,800],['w',0,800],['h',0,800],['size',4,96],['lh',0,200],['max',0,200],['lw',0,20],['r',0,50],['ls',0,10],['gap',0,200],['module',.5,5],['sa',0,200],['lead',0,200],['keep',0,800]].forEach(([k,lo,hi])=>{const v=num(b[k],lo,hi);if(v!==undefined)o[k]=v;});
+ [['x',-200,800],['y',-200,800],['w',0,800],['h',0,800],['size',4,96],['lh',0,200],['max',0,200],['lw',0,20],['r',0,50],['ls',0,10],['gap',0,200],['module',.5,5],['sa',0,200],['lead',0,200],['keep',0,800],['z',-50,50]].forEach(([k,lo,hi])=>{const v=num(b[k],lo,hi);if(v!==undefined)o[k]=v;});
  ['text','field','color','fill','empty','prefix','format','after','before','k','opt'].forEach(k=>{const v=str(b[k]);if(v!==undefined)o[k]=v;});
  if(['left','center','right'].includes(b.align))o.align=b.align;
  ['bold','italic','wrap','fit','pin'].forEach(k=>{if(b[k])o[k]=true;});
@@ -288,6 +288,10 @@ function formClean(src,def){
  const out={form:def.form,page:{w:def.page.w,h:def.page.h,margin:m},parts:{}};
  const g=src.guides||{},gl=a=>(Array.isArray(a)?a:[]).map(Number).filter(v=>Number.isFinite(v)&&v>=0&&v<=800).slice(0,40).map(v=>Math.round(v*100)/100);
  if(gl(g.x).length||gl(g.y).length)out.guides={x:gl(g.x),y:gl(g.y)};
+ /* Вид листа (у чертежа — единицы, цвета, бумага): только ключи
+    умолчания и их типы; что значит значение, проверяет сам лист. */
+ if(def.style){const ss=src.style&&typeof src.style==='object'?src.style:{};out.style={};
+  Object.keys(def.style).forEach(k=>{const d=def.style[k],v=ss[k];out.style[k]=typeof v!==typeof d||typeof v==='number'&&!Number.isFinite(v)?d:typeof v==='string'?v.slice(0,40):v;});}
  Object.keys(def.parts).forEach(k=>{
   const d=def.parts[k],s=src.parts[k];
   if(d.columns){const c=s&&Array.isArray(s.columns)?s.columns.map(formCleanColumn).filter(Boolean):null;out.parts[k]=c&&c.length?Object.assign({},d,{columns:c}):d;return;}
