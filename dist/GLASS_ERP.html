@@ -1505,6 +1505,13 @@ table.cw-fixed tr[data-picked] td>select:has(+.line-locked-pill){width:calc(100%
 .doc-company-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .doc-company-grid textarea{width:100%;box-sizing:border-box}
 .doc-company-wide{grid-column:1/-1}
+/* Свои поля для бланков (05.11.2026): название, значение, ×. */
+.doc-myfields{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.doc-myfield{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr) 32px;gap:10px;width:100%;align-items:center}
+.doc-myfield input{width:100%;box-sizing:border-box}
+.doc-myfield button{border:0;background:none;color:var(--text-3);font-size:18px;cursor:pointer}
+.doc-myfield-add{border:1px dashed var(--line-strong);background:var(--surface);border-radius:8px;padding:7px 12px;font:inherit;cursor:pointer;color:var(--text-2)}
+.doc-myfields small{color:var(--text-3)}
 @media(max-width:900px){.doc-company,.doc-company-grid{grid-template-columns:minmax(0,1fr)}}
 
 /* Печать: на время печати в документе остаются только листы бланка. Именованная
@@ -2394,6 +2401,7 @@ textarea.fm-in{resize:vertical}
 .fm-guide{position:absolute;z-index:2}
 .fm-guide.x{top:0;bottom:0;width:7px;margin-left:-3px;border-left:3px solid transparent;border-right:3px solid transparent;background:var(--danger-line);background-clip:content-box;cursor:ew-resize}
 .fm-guide.y{left:0;right:0;height:7px;margin-top:-3px;border-top:3px solid transparent;border-bottom:3px solid transparent;background:var(--danger-line);background-clip:content-box;cursor:ns-resize}
+.fm-gap{margin-top:6px}
 
 /* ---- src/styles/cutting.css ---- */
 /* Раскрой: параметры реза в Master Data и экран раскладки у батча. */
@@ -4168,7 +4176,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='8a8bde6df926';
+var ERP_BUILD='497e24335142';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -15215,7 +15223,10 @@ function normalizeCompany(){
   phone:s('phone',60),email:s('email',120),website:s('website',120),hstNumber:s('hstNumber',60),
   logo,depositPercent:companyPercent(c.depositPercent,COMPANY_DEFAULT.depositPercent),
   paymentInstructions:s('paymentInstructions',1200),termsText:s('termsText',4000),
-  footerText:s('footerText',160),quoteValidDays:companyDays(c.quoteValidDays,COMPANY_DEFAULT.quoteValidDays)
+  footerText:s('footerText',160),quoteValidDays:companyDays(c.quoteValidDays,COMPANY_DEFAULT.quoteValidDays),
+  /* Свои поля для бланков (владелец 05.11.2026, вариант А): WSIB No.,
+     Warranty… — в конструкторе форм группа My fields. */
+  myFields:(Array.isArray(c.myFields)?c.myFields:[]).filter(f=>f&&typeof f==='object'&&typeof f.id==='string'&&f.id).slice(0,30).map(f=>({id:f.id.slice(0,40),name:companyString(f.name,60),value:companyString(f.value,400)}))
  };
 }
 
@@ -24625,6 +24636,17 @@ function formFormat(v,type,fmt){
  const f=(list.find(x=>x.k===fmt)||list[0]).f,one=x=>/^\d{4}-\d{2}-\d{2}/.test(String(x))?f(String(x).slice(0,10)):x;
  return Array.isArray(v)?v.map(one):v==null||v===''?v:one(v);
 }
+/* Свои поля из Data → Company (My fields) — одинаковы для всех бланков. */
+function formMyFields(){return ((DB.company&&DB.company.myFields)||[]).map(f=>({k:'my.'+f.id,g:'My fields',label:f.name||'Untitled field',v:()=>f.value}));}
+/* Show if: блок печатается, только если условие верно. show = {when:
+   filled | is | not, field, value}; нет show — всегда. Сравнение без учёта
+   регистра и пробелов по краям. */
+function formShow(b,ctx){
+ const s=b.show;if(!s||!s.when||!s.field)return true;
+ let v=ctx.field(s.field);v=Array.isArray(v)?v.join(', '):String(v==null?'':v);
+ const a=v.trim().toLowerCase(),want=String(s.value==null?'':s.value).trim().toLowerCase();
+ return s.when==='filled'?!!a:s.when==='is'?a===want:s.when==='not'?a!==want:true;
+}
 function formLines(b,ctx){
  let v=b.type==='text'?formFill(b.text,ctx):ctx.field(b.field);
  if(b.type==='field'&&ctx.type)v=formFormat(v,ctx.type(b.field),b.format);
@@ -24647,7 +24669,9 @@ function formShift(done,y){
  return Math.max(anchor,Math.max(...above.map(a=>a.top+a.e))-y);
 }
 function formLayout(tpl,part,ctx){
- const bs=(part.blocks||[]).map((b,i)=>{const lines=formIsText(b)?formLines(b,ctx):null;return {b,i,lines,e:lines?lines.length*formLh(b):b.h||0,nb:b.y+(b.h||0)};});
+ /* Скрытый (Show if) блок — как пустое поле: места не занимает, блоки ниже
+    поднимаются. */
+ const bs=(part.blocks||[]).map((b,i)=>{const hide=!formShow(b,ctx),lines=formIsText(b)?(hide?[]:formLines(b,ctx)):null;return {b,i,lines,hide,e:lines?lines.length*formLh(b):hide?0:b.h||0,nb:b.y+(b.h||0)};});
  /* after — блок стоит на той же строке сразу за первой строкой другого
     блока (вес рядом с кодом скида любой длины); gap — зазор. */
  bs.forEach(x=>{
@@ -24669,7 +24693,7 @@ function formDrawLine(P,tpl,b,line,k,top,late,ax){
  formText(P,align==='right'?x+w:align==='center'?x+w/2:x,top+k*formLh(b),line,{size:b.size||9,bold:!!b.bold,color:b.color||DOC_COLOR.ink,align,ls:b.ls||0,face:formFace(b)},late);
 }
 function formDrawBlock(P,tpl,x,ctx,top,late){
- const b=x.b,bx=formBlockX(tpl,b),w=b.w||0,h=b.h||0;
+ const b=x.b,bx=formBlockX(tpl,b),w=b.w||0,h=b.h||0;if(x.hide)return;
  if(x.lines){x.lines.forEach((l,k)=>formDrawLine(P,tpl,b,l,k,top,late,x.ax));return;}
  /* Цвет '' у рамки — без контура (только заливка). */
  const stroke=b.color==null?DOC_COLOR.line:b.color;
@@ -24793,6 +24817,7 @@ function formCleanBlock(b){
  if(['left','center','right'].includes(b.align))o.align=b.align;
  ['bold','italic','wrap','fit'].forEach(k=>{if(b[k])o[k]=true;});
  if(b.font==='times'||b.font==='courier')o.font=b.font;
+ if(b.show&&typeof b.show==='object'&&['filled','is','not'].includes(b.show.when)&&typeof b.show.field==='string')o.show={when:b.show.when,field:b.show.field.slice(0,60),value:String(b.show.value==null?'':b.show.value).slice(0,200)};
  if(b.type==='image'&&typeof b.src==='string'&&/^data:image\/jpeg;base64,/.test(b.src)&&b.src.length<3e6)o.src=b.src;
  if(o.y===undefined)o.y=0;
  return o;
@@ -32570,13 +32595,18 @@ function viewMdCompany(){
   <div class="doc-company-logo"><label>Logo</label><div class="doc-logo-box">${c.logo?`<img src="${c.logo}" alt="Company logo">`:'<span>No logo</span>'}</div>
    <div class="doc-logo-actions"><button type="button" onclick="document.getElementById('docLogoFile').click()">${c.logo?'Replace logo':'Upload logo'}</button>${c.logo?'<button type="button" onclick="companyRemoveLogo()">Remove</button>':''}</div>
    <input type="file" id="docLogoFile" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="companyLogoUpload(this)"><small>PNG or JPEG.</small></div>
-  <div class="doc-company-grid">${f('legalName','Legal name *')}${f('hstNumber','HST number',{ph:'123456789 RT0001'})}${f('address1','Address line 1')}${f('address2','Address line 2')}${f('city','City')}${f('province','Province')}${f('postalCode','Postal code')}${f('country','Country')}${f('phone','Phone')}${f('email','Email',{type:'email'})}${f('website','Website')}${f('depositPercent','Deposit for cash customers, %',{type:'number'})}${f('quoteValidDays','Quote valid for, days',{type:'number'})}${f('paymentInstructions','Payment instructions',{area:true,wide:true,ph:'e-Transfer to … · Cheque payable to …'})}${f('termsText','Terms and conditions',{area:true,rows:6,wide:true})}${f('footerText','Footer line on customer documents',{wide:true,ph:'Thank you for your business'})}</div>
+  <div class="doc-company-grid">${f('legalName','Legal name *')}${f('hstNumber','HST number',{ph:'123456789 RT0001'})}${f('address1','Address line 1')}${f('address2','Address line 2')}${f('city','City')}${f('province','Province')}${f('postalCode','Postal code')}${f('country','Country')}${f('phone','Phone')}${f('email','Email',{type:'email'})}${f('website','Website')}${f('depositPercent','Deposit for cash customers, %',{type:'number'})}${f('quoteValidDays','Quote valid for, days',{type:'number'})}${f('paymentInstructions','Payment instructions',{area:true,wide:true,ph:'e-Transfer to … · Cheque payable to …'})}${f('termsText','Terms and conditions',{area:true,rows:6,wide:true})}${f('footerText','Footer line on customer documents',{wide:true,ph:'Thank you for your business'})}
+   <div class="doc-company-wide doc-myfields" data-company-myfields><label>My fields · for forms</label>${(c.myFields||[]).map(x=>`<div class="doc-myfield"><input data-myfield-name="${esc(x.id)}" value="${esc(x.name)}" placeholder="Name" onchange="companyMySet('${esc(x.id)}','name',this.value)"><input value="${esc(x.value)}" placeholder="Value" onchange="companyMySet('${esc(x.id)}','value',this.value)"><button type="button" aria-label="Remove field" onclick="companyMyRemove('${esc(x.id)}')">×</button></div>`).join('')}
+    <button type="button" class="doc-myfield-add" data-company-myfield-add onclick="companyMyAdd()">+ Add field</button><small>Each field is in Forms → Insert field → My fields.</small></div></div>
  </div>`;
 }
 function companySet(k,v){
  if(!DB.company||!Object.prototype.hasOwnProperty.call(COMPANY_DEFAULT,k)||k==='logo')return;
  DB.company[k]=v;normalizeCompany();touch();render();
 }
+function companyMyAdd(){DB.company.myFields=(DB.company.myFields||[]).concat([{id:salesUid('MF'),name:'',value:''}]);normalizeCompany();touch();render();const el=[...document.querySelectorAll('[data-myfield-name]')].pop();if(el)el.focus();}
+function companyMySet(id,k,v){const f=(DB.company.myFields||[]).find(x=>x.id===id);if(!f||(k!=='name'&&k!=='value'))return;f[k]=v;normalizeCompany();touch();render();}
+function companyMyRemove(id){DB.company.myFields=(DB.company.myFields||[]).filter(x=>x.id!==id);touch();render();}
 function companyRemoveLogo(){DB.company.logo='';touch();render();}
 /* Логотип приводится к JPEG не больше 900 × 300 точек на белом фоне: у PNG
    прозрачность в JPEG стала бы чёрной, а крупная фотография съела бы место
@@ -43503,7 +43533,7 @@ const FORMS_VERSIONS=20;
 /* Формы на шаблоне. Остальные бланки переходят сюда по одному, после
    сверки «печатает то же». */
 function formsDefs(){
- return [{k:'packingSlip',label:'Packing slip',def:shippingFormDefault,fields:()=>SHIPPING_FORM_FIELDS,
+ return [{k:'packingSlip',label:'Packing slip',def:shippingFormDefault,fields:()=>shippingFormFields(),
   samples:()=>(DB.shipment||[]).slice().sort((a,b)=>String(b.number).localeCompare(String(a.number),undefined,{numeric:true})).slice(0,100).map(s=>({id:s.id,label:s.number+' · '+salesCustomerDisplay(s.customerId)})),
   doc:id=>{const s=id&&shippingFind(id);if(s)try{return shippingDocument(s);}catch(e){}return shippingFormSample();},
   context:d=>shippingFormContext(d),
@@ -43628,6 +43658,14 @@ function formsNum(k,v,mm){
  const n=Number(String(v).replace(',','.'));if(!Number.isFinite(n))return render();
  formsSet(k,Math.round((mm?n/FORMS_PT_MM:n)*100)/100);
 }
+/* Show if (вид «ТОП» 02.11.2026): Always / поле заполнено / поле равно /
+   поле не равно. */
+function formsShow(k,v){
+ const s=formsState();if(!s.sel)return;
+ formsEdit(t=>{const b=formsFind(t,s.sel);if(!b)return;
+  if(k==='when'&&!v){delete b.show;return;}
+  const sh=Object.assign({when:'filled',field:formsDef(s.form).fields()[0].k,value:''},b.show);sh[k]=v;b.show=sh;});
+}
 function formsToggle(k){const b=formsFind(formsDraft().tpl,formsState().sel);if(b)formsSet(k,b[k]?'':true);}
 
 /* ---------------------------- Окно поля ------------------------------ */
@@ -43647,17 +43685,17 @@ function formsModalApply(){
 }
 function formsModalHTML(ctx){
  const s=formsState(),m=s.modal;if(!m)return '';
- const fields=formsDef(s.form).fields(),groups=[...new Set(fields.map(f=>f.g))].concat(['Page']);
+ const fields=formsDef(s.form).fields(),groups=[...new Set(fields.map(f=>f.g).concat(['My fields']))].concat(['Page']);
  const val=f=>{let v=ctx.field(f.k);if(f.t)v=formFormat(v,f.t,m.format);v=Array.isArray(v)?v.join(' · '):String(v==null?'':v);return v||'—';};
  const q=m.q.trim().toLowerCase(),list=q?fields.filter(f=>(f.label+' '+f.g).toLowerCase().includes(q)):m.group==='Page'?[]:fields.filter(f=>f.g===m.group);
- const rows=list.map(f=>`<button type="button" class="fm-pick${m.field===f.k?' on':''}" data-forms-field="${esc(f.k)}" onclick="formsModalSet('field','${esc(f.k)}')"><span>${esc(f.label)}</span><em>${esc(val(f))}</em></button>`).join('')+(!q&&m.group==='Page'?`<button type="button" class="fm-pick${m.field==='@page'?' on':''}" onclick="formsModalSet('field','@page')"><span>Page number</span><em>1 of 2</em></button>`:'');
+ const rows=list.map(f=>`<button type="button" class="fm-pick${m.field===f.k?' on':''}" data-forms-field="${esc(f.k)}" onclick="formsModalSet('field','${esc(f.k)}')"><span>${esc(f.label)}</span><em>${esc(val(f))}</em></button>`).join('')+(!q&&m.group==='Page'?`<button type="button" class="fm-pick${m.field==='@page'?' on':''}" onclick="formsModalSet('field','@page')"><span>Page number</span><em>1 of 2</em></button>`:'')+(!q&&m.group==='My fields'&&!list.length?'<p class="fm-note">Add your fields in Data → Company → My fields.</p>':'');
  const f=fields.find(x=>x.k===m.field),formats=f&&f.t?FORM_FORMATS[f.t]:null,sample=f?ctx.field(f.k):'';
  const fmt=formats?formats.map((x,i)=>`<button type="button" class="fm-fmt${(m.format||formats[0].k)===x.k?' on':''}" onclick="formsModalSet('format','${x.k}')"><span>${esc(String(formFormat(sample||finToday(),f.t,x.k)))}</span><small>${esc(x.label)}</small></button>`).join(''):`<p class="fm-note">${f?'As is':'Choose a field'}</p>`;
  return `<div class="fm-modal-back" onclick="formsModalClose()"></div><div class="fm-modal" role="dialog" aria-modal="true" aria-label="Insert field" data-forms-modal>
   <div class="fm-modal-head"><b>${m.mode==='change'?'Change field':'Insert field'}</b><button type="button" class="fm-x" aria-label="Close" onclick="formsModalClose()">×</button></div>
   <input class="fm-search" data-forms-search placeholder="Search fields…" value="${esc(m.q)}" oninput="formsModalSet('q',this.value)">
   <div class="fm-cols3"><div class="fm-groups">${groups.map(g=>`<button type="button" class="fm-pick${!q&&m.group===g?' on':''}" onclick="formsModalSet('group','${esc(g)}')">${esc(g)}</button>`).join('')}</div>
-   <div class="fm-fields">${rows||'<p class="fm-note">No fields</p>'}</div>
+   <div class="fm-fields">${rows||(m.group==='My fields'?'':'<p class="fm-note">No fields</p>')}</div>
    <div><div class="fm-h">Format</div>${fmt}<div class="fm-h">Before the value</div><input class="fm-in" data-forms-prefix value="${esc(m.prefix)}" placeholder="Date: " onchange="formsUi.modal.prefix=this.value"></div></div>
   <div class="fm-modal-foot"><button type="button" onclick="formsModalClose()">Cancel</button><button type="button" class="pri" data-forms-insert ${m.field?'':'disabled'} onclick="formsModalApply()">${m.mode==='change'?'Apply':'Insert'}</button></div></div>`;
 }
@@ -43876,9 +43914,12 @@ function formsSettingsHTML(tpl){
    <div class="fm-seg"><button type="button" class="${b.bold?'on':''}" onclick="formsToggle('bold')"><b>B</b></button><button type="button" class="${b.italic?'on':''}" data-forms-italic onclick="formsToggle('italic')"><i>I</i></button>${['left','center','right'].map(a=>`<button type="button" class="${(b.align||'left')===a?'on':''}" onclick="formsSet('align','${a}')">${a[0].toUpperCase()+a.slice(1)}</button>`).join('')}</div>
    <div class="fm-row"><label><span>Color</span><input type="color" class="fm-in fm-color" value="${esc(b.color||DOC_COLOR.ink)}" onchange="formsSet('color',this.value)"></label><label class="fm-check"><input type="checkbox" ${b.wrap?'checked':''} onchange="formsToggle('wrap')"><span>Wrap lines</span></label></div>`
   :b.type==='line'||b.type==='box'?`<div class="fm-h">Line</div><div class="fm-row"><label><span>Color</span><input type="color" class="fm-in fm-color" value="${esc(b.color||DOC_COLOR.line)}" onchange="formsSet('color',this.value)"></label>${num('lw','Width, pt',b.lw||.6)}</div>${b.type==='box'?`<div class="fm-row"><label><span>Fill</span><input type="color" class="fm-in fm-color" value="${esc(b.fill||'#ffffff')}" onchange="formsSet('fill',this.value==='#ffffff'?'':this.value)"></label>${num('r','Corner, pt',b.r||0)}</div>`:''}`:'';
+ const sh=b.show||{},fl=formsDef(s.form).fields();
+ const showIf=`<div class="fm-h">Show if</div><select class="fm-in" data-forms-show onchange="formsShow('when',this.value)">${[['','Always'],['filled','A field is filled'],['is','A field is…'],['not','A field is not…']].map(([k,l])=>`<option value="${k}" ${(sh.when||'')===k?'selected':''}>${l}</option>`).join('')}</select>
+  ${sh.when?`<select class="fm-in fm-gap" data-forms-show-field onchange="formsShow('field',this.value)">${fl.map(f=>`<option value="${esc(f.k)}" ${sh.field===f.k?'selected':''}>${esc(f.g+' · '+f.label)}</option>`).join('')}</select>${sh.when!=='filled'?`<input class="fm-in fm-gap" data-forms-show-value placeholder="Value, e.g. Delivery" value="${esc(sh.value||'')}" onchange="formsShow('value',this.value)">`:''}`:''}`;
  return `<div class="fm-h fm-sel-h"><span>Selected · ${esc(formsTypeLabel(b))}</span><button type="button" class="fm-del" data-forms-delete onclick="formsDelete()">Delete</button></div>${what}
   <div class="fm-h">Place on sheet</div>${seg(b.place||'left',[['left','Left'],['center','Center'],['right','Right'],['free','Free']],'formsPlace')}
-  <div class="fm-row">${b.place==='free'?num('x','X, mm',mm(b.x),true):''}${num('y','Y, mm',mm(b.y),true)}${num('w','Width, mm',mm(b.w),true)}${text?'':num('h','Height, mm',mm(b.h),true)}</div>${look}`;
+  <div class="fm-row">${b.place==='free'?num('x','X, mm',mm(b.x),true):''}${num('y','Y, mm',mm(b.y),true)}${num('w','Width, mm',mm(b.w),true)}${text?'':num('h','Height, mm',mm(b.h),true)}</div>${look}${showIf}`;
 }
 function viewMdForms(){
  const s=formsState(),def=formsDef(s.form),d=formsDraft(),tpl=d.tpl,dirty=formsDirty(),samples=def.samples();
@@ -50166,8 +50207,21 @@ const SHIPPING_SKID_COLUMNS=[
  {k:'makeup',label:'Makeup',type:'text',v:r=>r.makeup},
  {k:'qty',label:'Qty',type:'num',v:r=>r.now},
  {k:'kg',label:'kg',type:'num',v:r=>docNum((r.kg==null?r.knownKg:r.kg)*r.now,1)}];
+/* Простой расчёт по строкам PS (группа Totals): сколько юнитов, заказано,
+   осталось, вес, строк, скидов. */
+function shippingFormTotals(){
+ const rows=d=>(d.orders||[]).flatMap(o=>o.rows||[]),sum=(d,f)=>rows(d).reduce((n,r)=>n+(Number(f(r))||0),0);
+ return [
+  {k:'total.units',g:'Totals',label:'Units on this slip',v:d=>String(sum(d,r=>r.now))},
+  {k:'total.ordered',g:'Totals',label:'Ordered',v:d=>String(sum(d,r=>r.ordered))},
+  {k:'total.back',g:'Totals',label:'Back order',v:d=>String(sum(d,r=>r.back))},
+  {k:'total.weight',g:'Totals',label:'Weight kg',v:d=>docNum(sum(d,r=>(r.kg==null?r.knownKg:r.kg)*r.now),1)},
+  {k:'total.lines',g:'Totals',label:'Lines',v:d=>String(rows(d).filter(r=>r.now).length)},
+  {k:'total.skids',g:'Totals',label:'Skids',v:d=>String((d.skids||[]).length)}];
+}
+function shippingFormFields(){return SHIPPING_FORM_FIELDS.concat(shippingFormTotals(),formMyFields());}
 function shippingFormContext(d){
- const by=new Map(SHIPPING_FORM_FIELDS.map(x=>[x.k,x]));
+ const by=new Map(shippingFormFields().map(x=>[x.k,x]));
  return {field:k=>{const x=by.get(k);return x?x.v(d):undefined;},type:k=>(by.get(k)||{}).t||''};
 }
 /* Шаблон для печати: сохранённый в конструкторе (Data → Company & print →
