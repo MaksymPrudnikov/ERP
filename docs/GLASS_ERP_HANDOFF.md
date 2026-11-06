@@ -26,8 +26,11 @@
   `formUseKey` в геттерах шаблонов). Выключили или удалили — снова обычный бланк.
 - Sales: колонка Invoice (Invoiced — Invoice напечатан или отправлен, по журналу заказа; Not invoiced — всё выдано,
   счёта не было; включается в списке колонок) и вкладка Not invoiced рядом с Needs attention (видна, когда такие есть).
+- Statement как таблица Spiel: Invoices — Invoice No · Date · Reference · Amount · Balance, каждый счёт один раз
+  (раньше заказ стоял и в Orders, и в Account activity); Account activity — галочкой в окне Statement.
 - Statement → Due now (бухгалтер делала в Excel): до даты (Last Monday, Last Friday, Today) и галочки по счёту;
-  выделенные строки жёлтым, внизу Due now · N invoices и Current (`finStatementDuePick`). Печать, PDF и email — с ним.
+  выбранные строки — красным (`DOC_COLOR.due`, без своих цветов); внизу ячейки Overdue 90+ days · Overdue 60+ days ·
+  Due now · Current — вместе весь долг по счетам (`finStatementDuePick`). Печать, PDF и email — с ним.
 - Finance → Payments: кнопки формы квитанции были под строкой статуса (`.app-foot`) — подняты (`bottom:46px`).
 
 ## Work order: статус стёкол по сканам в маршруте (вариант G) · 6 ноября 2026

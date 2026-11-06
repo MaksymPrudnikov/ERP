@@ -114,7 +114,7 @@ function finPreviewPages(){
  if(p.kind==='receipt')return finReceiptDoc(p.id);
  if(p.kind==='statement'){
   if(finPeriodError(p))return [];
-  const pages=finStatementDoc(p.id,p.from,p.to,undefined,finStatementDue(p));if(!p.invoices)return pages;
+  const pages=finStatementDoc(p.id,p.from,p.to,undefined,finStatementDue(p),!!p.activity);if(!p.invoices)return pages;
   const key=p.id+'|'+p.from+'|'+p.to;if(p.invoiceKey!==key){p.invoiceKey=key;p.invoicePages=null;setTimeout(()=>finStatementInvoiceBuild(p,key),0);}
   /* Пока счета собираются, Print и Email PDF ждут — иначе ушла бы одна выписка. */
   return p.invoicePages?pages.concat(p.invoicePages):[];
@@ -140,7 +140,7 @@ function finPreviewInfo(){
 }
 function finStatementControls(p){
  const err=finPeriodError(p),skipped=err?[]:finStatementData(p.id,p.from,p.to).skipped;
- return `<div class="sales-toolbar fin-preview-period">${finRangeButton('preview')}<label class="chk fin-statement-invoices" title="Invoices for the period after the statement"><input type="checkbox" data-statement-invoices ${p.invoices?'checked':''} onchange="finStatementInvoices(this.checked)"> Invoices</label><span class="sales-toolbar-sp"></span><button type="button" ${err?'disabled':''} onclick="finStatementExport()" title="Account activity for the customer's books">CSV</button></div>${err?'':finStatementDueHTML(p)}
+ return `<div class="sales-toolbar fin-preview-period">${finRangeButton('preview')}<label class="chk" title="Every charge and payment by date"><input type="checkbox" data-statement-activity ${p.activity?'checked':''} onchange="finPreview.activity=this.checked;render()"> Account activity</label><label class="chk fin-statement-invoices" title="Invoices for the period after the statement"><input type="checkbox" data-statement-invoices ${p.invoices?'checked':''} onchange="finStatementInvoices(this.checked)"> Invoices</label><span class="sales-toolbar-sp"></span><button type="button" ${err?'disabled':''} onclick="finStatementExport()" title="Account activity for the customer's books">CSV</button></div>${err?'':finStatementDueHTML(p)}
  ${err?`<p role="alert" class="fin-due fin-preview-note">${esc(err)}</p>`:''}${skipped.length?`<p class="fin-hint fin-preview-note">Not priced, left out: ${esc(skipped.map(o=>o.businessNumber).join(', '))}</p>`:''}${p.invoices&&!err?`<p class="fin-hint fin-preview-note" data-statement-invoices-note>${p.invoicePages?p.invoiceCount?p.invoiceCount+' invoice'+(p.invoiceCount===1?'':'s')+' after the statement':'No invoices in this period':'Preparing invoices…'}</p>`:''}`;
 }
 /* Счета за период к выписке (владелец, 22.10.2026: «выслать клиенту все

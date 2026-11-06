@@ -29,7 +29,7 @@ function finDocLayout(m){
   cur=sec;head();
   sec.rows.forEach(r=>{
    const h=15;if(y+h>W.bottom)start();
-   r.cells.forEach((v,i)=>{const c=sec.cols[i];if(!c)return;P.text(c.x,y+10.5,docFit(String(v==null?'':v),7.8,!!(c.bold||r.bold),c.w),{size:7.8,bold:!!(c.bold||r.bold),align:c.align||'left',color:r.due&&c.due?C.due:r.mut?C.mut:C.ink});});
+   r.cells.forEach((v,i)=>{const c=sec.cols[i];if(!c)return;P.text(c.x,y+10.5,docFit(String(v==null?'':v),7.8,!!(c.bold||r.bold),c.w),{size:7.8,bold:!!(c.bold||r.bold),align:c.align||'left',color:r.hi||r.due&&c.due?C.due:r.mut?C.mut:C.ink});});
    P.line(W.left,y+h,W.right,y+h,{stroke:C.line,lw:.5});y+=h;
   });
   if(!sec.rows.length&&sec.empty){P.text(W.left,y+12,sec.empty,{size:7.8,color:C.mut});y+=18;}
@@ -60,8 +60,7 @@ function finDocTable(f,m){
   cur=sec;head();
   sec.rows.forEach(r=>{
    const h=15;if(f.y+h>f.bottom)start();
-   if(r.hi)f.P.rect(W.left,f.y+.5,W.right-W.left,h-1,{fill:'#FFF1A6'});
-   r.cells.forEach((v,i)=>{const c=sec.cols[i];if(!c)return;f.P.text(c.x,f.y+10.5,docFit(String(v==null?'':v),7.8,!!(c.bold||r.bold),c.w),{size:7.8,bold:!!(c.bold||r.bold),align:c.align||'left',color:r.due&&c.due?C.due:r.mut?C.mut:C.ink});});
+   r.cells.forEach((v,i)=>{const c=sec.cols[i];if(!c)return;f.P.text(c.x,f.y+10.5,docFit(String(v==null?'':v),7.8,!!(c.bold||r.bold),c.w),{size:7.8,bold:!!(c.bold||r.bold),align:c.align||'left',color:r.hi||r.due&&c.due?C.due:r.mut?C.mut:C.ink});});
    f.P.line(W.left,f.y+h,W.right,f.y+h,{stroke:C.line,lw:.5});f.y+=h;
   });
   if(!sec.rows.length&&sec.empty){f.P.text(W.left,f.y+12,sec.empty,{size:7.8,color:C.mut});f.y+=18;}
@@ -124,13 +123,13 @@ function finStatementOrders(customerId,from,to,today){
 }
 /* Выписка за период — клиенту раз в месяц для его учёта: какие заказы и на
    сколько, что он заплатил, остаток на начало и на конец периода. */
-function finStatementDoc(customerId,from,to,today,due){const m=finStatementModel(customerId,from,to,today,due);return m?finDocPages(m):[];}
+function finStatementDoc(customerId,from,to,today,due,activity){const m=finStatementModel(customerId,from,to,today,due,activity);return m?finDocPages(m):[];}
 /* Due now (владелец 06.11.2026): бухгалтер выбирает, что выставить к оплате —
    счета до даты (неделя, понедельник…) и галочки по одному; выделены
    жёлтым, их сумма — Due now, остальное — Current. Было — в Excel руками. */
 function finStatementDueOpen(x){return !x.archived&&!!x.billed&&x.f.b.status!=='review'&&x.f.b.balance>0;}
 function finStatementDuePick(x,due){if(!due||!finStatementDueOpen(x))return false;const p=due.pick&&due.pick[x.o.id];return p!=null?!!p:!!due.by&&x.billed<=due.by;}
-function finStatementModel(customerId,from,to,today,due){
+function finStatementModel(customerId,from,to,today,due,activity){
  const c=salesFindCustomer(customerId);if(!c)return null;
  const day=today||finToday(),money=docMoney,company=DB.company||{},d=finStatementData(c.id,from,to);
  const m=finDocBase('STATEMENT','Statement',c.code||'—',c);m.numberLabel='Account';m.kind='statement';
@@ -139,11 +138,13 @@ function finStatementModel(customerId,from,to,today,due){
  m.boxes=[{label:'Bill to',title:m.customerName||'—',lines:[finDocAddress(c)].filter(Boolean)}];
  const orders=finStatementOrders(c.id,from,to,day);
  m.sections=[
-  {title:'Orders',empty:'No orders in this period.',cols:[{label:'Order',x:36,w:58,bold:true},{label:'Customer PO',x:98,w:96},{label:'Picked up',x:198,w:64},{label:'Due',x:266,w:100,due:true},{label:'Total',x:430,w:62,align:'right'},{label:'Paid',x:504,w:62,align:'right'},{label:'Balance',x:576,w:62,align:'right',bold:true,due:true}],
-   rows:orders.map(({o,f,billed},i)=>({hi:finStatementDuePick(orders[i],due),due:f.overdue>0,mut:!billed,cells:[o.businessNumber,o.customerPo||'—',billed?docDate(billed):'In work',f.b.status==='review'?'Review required':finDueText(f)+(f.overdue?' · overdue':''),money(f.b.total),money(f.b.paid),money(f.b.status==='review'?f.b.balance:Math.max(0,f.b.balance))]}))},
-  {title:'Account activity',empty:'',cols:[{label:'Date',x:36,w:58},{label:'Document',x:98,w:52,bold:true},{label:'Description',x:154,w:204},{label:'Charges',x:418,w:58,align:'right'},{label:'Payments',x:494,w:58,align:'right'},{label:'Balance',x:576,w:66,align:'right',bold:true}],
+  /* Счета как в таблице Spiel (владелец 06.11.2026): каждый один раз;
+     выбранные к оплате (Due now) — красным, сроки — в итогах внизу. */
+  {title:'Invoices',empty:'No invoices in this period.',cols:[{label:'Invoice No',x:36,w:70,bold:true},{label:'Date',x:112,w:74},{label:'Reference',x:192,w:220},{label:'Amount',x:486,w:80,align:'right'},{label:'Balance',x:576,w:80,align:'right',bold:true}],
+   rows:orders.map((x,i)=>({hi:finStatementDuePick(x,due),mut:!x.billed,cells:[x.o.businessNumber,x.billed?docDate(x.billed):'In work',x.o.customerPo||'—',money(x.f.b.total),x.f.b.status==='review'?'Review required':finSigned(x.f.b.balance)]}))},
+  activity&&{title:'Account activity',empty:'',cols:[{label:'Date',x:36,w:58},{label:'Document',x:98,w:52,bold:true},{label:'Description',x:154,w:204},{label:'Charges',x:418,w:58,align:'right'},{label:'Payments',x:494,w:58,align:'right'},{label:'Balance',x:576,w:66,align:'right',bold:true}],
    rows:[{mut:true,cells:[from?docDate(from):'','','Balance forward','','',finSigned(d.opening)]}].concat(d.rows.map(l=>({due:l.overdue,cells:[docDate(l.date),l.doc,l.text,l.charge?money(l.charge):'',l.payment?money(l.payment):'',finSigned(l.balance)]})))}
- ];
+ ].filter(Boolean);
  const left=[];if(company.paymentInstructions)left.push({label:'Payment',text:company.paymentInstructions});
  const review=orders.some(x=>x.f.b.status==='review');
  if(review)left.push({label:'Review required',text:'Negative order totals need review. Please contact us to resolve them.'});
@@ -151,10 +152,13 @@ function finStatementModel(customerId,from,to,today,due){
  const rows=[{label:'Balance forward',value:finSigned(d.opening)},{label:'Orders billed',value:money(d.billed)},{label:'Payments received',value:d.paid>0?'-'+money(d.paid):money(0)}];
  if(d.refunded>0)rows.push({label:'Refunds',value:money(d.refunded)});
  m.end={left,rows,grand:review&&d.closing<0?{label:'Review required',value:finSigned(d.closing)}:d.closing>=0?{label:'Balance due',value:money(d.closing)}:{label:'Credit balance',value:money(-d.closing)},paid:d.overdue>0?[{label:'Overdue now',value:money(d.overdue),tone:'due'}]:null};
- const picked=orders.filter(x=>finStatementDuePick(x,due));
- if(picked.length){
-  const now=finMoney(picked.reduce((s,x)=>s+x.f.b.balance,0)),rest=finMoney(orders.filter(x=>finStatementDueOpen(x)&&!finStatementDuePick(x,due)).reduce((s,x)=>s+x.f.b.balance,0));
-  m.end.paid=[{label:'Due now · '+picked.length+' invoice'+(picked.length===1?'':'s'),value:money(now),tone:'due'},{label:'Current',value:money(rest)}].concat(m.end.paid||[]);
+ /* Итоги по срокам (как у Spiel, вместе — весь долг по счетам): просрочка
+    90+ и 60+ дней; Due now — выбранное бухгалтером (без выбора — уже
+    просроченное); Current — остальное. */
+ const open=orders.filter(finStatementDueOpen),late=x=>x.f.dueOn&&x.f.dueOn<day?Math.floor((Date.parse(day)-Date.parse(x.f.dueOn))/864e5):0,sum=l=>money(finMoney(l.reduce((s,x)=>s+x.f.b.balance,0)));
+ if(open.length){
+  const o90=open.filter(x=>late(x)>=90),o60=open.filter(x=>late(x)>=60&&late(x)<90),young=open.filter(x=>late(x)<60),chosen=!!due,now=young.filter(x=>chosen?finStatementDuePick(x,due):late(x)>0);
+  m.summary=[{label:'Overdue 90+ days',value:sum(o90)},{label:'Overdue 60+ days',value:sum(o60)},{label:'Due now',value:sum(now)},{label:'Current',value:sum(young.filter(x=>!now.includes(x)))}];
  }
  m.footerRight=finPeriodText(from,to);
  return m;
