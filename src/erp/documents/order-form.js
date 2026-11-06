@@ -15,7 +15,7 @@
 
 /* Бланки, которые печатаются из шаблона. Остальные — прежней раскладкой,
    пока их сверка «печатает то же» не сделана. */
-const DOC_FORM_KINDS=['quote','proforma'];
+const DOC_FORM_KINDS=['quote','proforma','confirmation','invoice','workOrder'];
 const DOC_SECTIONS={meta:'Header cells',boxes:'Addresses',end:'Totals and payment',summary:'Order summary',signature:'Customer approval'};
 
 /* Шаблон по умолчанию. Числа — места прежней раскладки (layout.js): y —
