@@ -239,9 +239,83 @@ function docShopItem(model,line,index,order){
  if(opts.route){
   const r=docLineRoute(line,order);
   ((r&&r.lites)||[]).forEach(x=>it.lites.push({label:x.label||'Glass',glass:x.glass||'',chips:(x.stations||[]).map(s=>({code:s.code,text:docChipText(s,opts)}))}));
+  if(opts.scanStatus&&model.scan)docScanStatus(it,model.scan,order,line);
  }
  if(opts.cavities&&m)(m.cavities||[]).forEach((c,k)=>it.cavities.push({label:'Cavity '+(k+1),text:docCavityText(c)}));
  return it;
+}
+
+/* -------------------- Статус стёкол по сканам (Work order) --------------------
+   Владелец 06.11.2026, вариант G: «система сама должна распознавать, что done,
+   а что нет» — маршрут стекла и есть статус. По каждому лайту строки: станция
+   пройдена всеми его стёклами (done), стёкла стоят на ней сейчас (here — сколько
+   и на какой таре: on последнего скана, «—» — ни на чём; на скиде — ещё номер
+   PS, если стекло уже в packing slip), часть прошла (3/4). В конце маршрута —
+   Shipping ready и Ship. Recut — своей строкой под лайтом. Бумага — снимок на
+   момент печати. */
+function docScanIndex(order){
+ const out={lines:new Map(),ps:new Map()};
+ if(typeof stationPieceIndex!=='function'||!order||!order.id)return out;
+ stationPieceIndex().forEach((h,id)=>{
+  if(h.orderId!==order.id)return;const g=stationGlass(id);if(!g)return;
+  const scans=stationScansFor(id);let a=out.lines.get(h.lineId);if(!a)out.lines.set(h.lineId,a=[]);
+  a.push({id,g,unit:String(g.unit),place:stationPlace(g,scans),scans});
+ });
+ (DB.shipment||[]).forEach(s=>{if(s.status==='cancelled'||(typeof shippingSent==='function'&&shippingSent(s)))return;(s.items||[]).forEach(i=>(i.pieces||[]).forEach(p=>out.ps.set(p,s.number)));});
+ return out;
+}
+function docScanOn(p){let last=null;p.scans.forEach(s=>{if(!last||String(s.at)>String(last.at))last=s;});return last&&last.on||'—';}
+function docScanChip(ps,code,psOf){
+ const live=ps.filter(p=>!p.place.broken),on=live.filter(p=>p.place.route.includes(code));
+ const done=on.filter(p=>p.place.route.indexOf(code)<=p.place.far).length,here=new Map();
+ on.filter(p=>!p.place.shipped&&(p.place.far<0?p.place.route[0]:p.place.waiting)===code).forEach(p=>{const k=docScanOn(p)+(psOf.get(p.id)?' · '+psOf.get(p.id):'');here.set(k,(here.get(k)||0)+1);});
+ return {done:on.length>0&&done===on.length,tag:!here.size&&done&&done<on.length?done+'/'+on.length:'',here:[...here].map(([k,n])=>n+' · '+k).join(', ')};
+}
+function docScanStatus(it,index,order,line){
+ const ps=index.lines.get(line.id)||[],sh=typeof shippingStations==='function'?shippingStations():{},isR=p=>/^R/.test(p.unit),rows=[];
+ const mark=(x,list)=>{
+  const chips=x.chips.slice();if(list.length){[sh.ready,sh.ship].forEach(c=>{if(c&&!chips.some(ch=>ch.code===c))chips.push({code:c,text:''});});}
+  return Object.assign({},x,{chips:chips.map(ch=>Object.assign({},ch,list.length?docScanChip(list,ch.code,index.ps):{})),broken:list.filter(p=>p.place.broken).length,scanned:true});
+ };
+ it.lites.forEach((x,k)=>{
+  const mine=ps.filter(p=>p.g.c&&p.g.c.index===k);
+  rows.push(mark(x,mine.filter(p=>!isR(p))));
+  const rec=new Map();mine.filter(isR).forEach(p=>{const no=p.unit.split('.')[0].slice(1);if(!rec.has(no))rec.set(no,[]);rec.get(no).push(p);});
+  rec.forEach((list,no)=>rows.push(Object.assign(mark(x,list),{label:'Recut '+no,recut:true})));
+ });
+ /* Recut заведён, а стёкол ещё нет — не в батче. */
+ const have=new Set(ps.filter(isR).map(p=>p.unit.split('.')[0].slice(1)));
+ (typeof recutForOrder==='function'?recutForOrder(order.id):[]).filter(r=>r.lineId===line.id&&!have.has(String(r.no))).forEach(r=>rows.push({label:'Recut '+r.no,glass:'',chips:[],recut:true,pending:['Not in a batch yet',r.reason].filter(Boolean).join(' · ')}));
+ it.lites=rows;
+ const live=ps.filter(p=>!p.place.broken),prod=live.some(p=>!p.place.shipped&&p.place.waiting!==sh.ready&&p.place.waiting!==sh.ship);
+ const st=!ps.length?'Not in a batch':live.every(p=>p.place.shipped)?'Shipped':prod?'In work':'Made · waiting to ship';
+ it.info=[st,it.info].filter(Boolean).join(' · ');
+}
+/* Кто ввёл заказ — первая запись журнала заказа (без станции), и когда. */
+function docEnteredBy(order){
+ const ev=(DB.orderEvent||[]).filter(e=>e.orderId===order.id).sort((a,b)=>String(a.at).localeCompare(String(b.at)))[0];
+ const by=ev&&ev.by?String(ev.by).split(' · ')[0]:'';return [by,docDate(order.createdAt)].filter(Boolean).join(' · ')||'—';
+}
+/* Машина рейса, на который уже поставлен PS этого заказа. */
+function docTruckText(order){
+ const s=(DB.shipment||[]).find(x=>x.truckId&&x.status!=='cancelled'&&(x.items||[]).some(i=>i.orderId===order.id)),t=s&&typeof truckFind==='function'?truckFind(s.truckId):null;
+ return t?'Truck: '+t.name+' · '+docDate(s.date):'Truck: not planned yet';
+}
+/* Строка Work order в итогах: юниты, стёкла (Panels), ft², кг (владелец
+   06.11.2026: юниты и стёкла — раздельно, «в кашу» — баг Spiel). */
+function docLineTotals(l,order){
+ const q=salesPositiveInt(l.qty,1),m=salesMakeupById(order,l.makeupId),n=m?Math.max(1,(m.panes||[]).length):1,a=salesLineAreas(l,order),w=salesLineWeight(l,order);
+ return {units:q,igu:n>1?q:0,single:n>1?0:q,panels:q*n,area:a.valid?a.actual*q:0,kg:(w.kg==null?w.knownKg||0:w.kg)*q};
+}
+function docShopSummary(order,w,weightText){
+ const t=(order.lines||[]).map(l=>docLineTotals(l,order)).reduce((s,x)=>{Object.keys(x).forEach(k=>{s[k]=(s[k]||0)+x[k];});return s;},{});
+ const lb=w.kg==null?'':' · '+docNum(w.kg*2.20462,0)+' lb';
+ return [{label:'IGU units',value:String(t.igu||0)},{label:'Single lites',value:String(t.single||0)},{label:'Panels (glass)',value:String(t.panels||0)},{label:'Total area',value:docNum(t.area||0,1)+' ft²'},{label:'Total weight',value:weightText+lb},{label:'Required',value:docDateWeek(order.dueDate)||'—'}];
+}
+/* Дата с днём недели — Required на Work order: «Wed, Oct 7, 2026». */
+function docDateWeek(v){
+ const m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})/);if(!m)return docDate(v);
+ return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(+m[1],+m[2]-1,+m[3]).getDay()]+', '+docDate(m[0]);
 }
 
 /* ------------------------------ Бланк ------------------------------- */
@@ -262,10 +336,12 @@ function docBuildModel(kind,order,opts){
  if(kind==='quote')cell(opts.validUntil,'Valid until',docDate(salesQuoteValidUntil(order)));
  cell(opts.customerPo,'Customer PO',order.customerPo);
  if(invoice)cell(opts.dueDate,'Payment due',payDue?docDate(payDue):'On receipt');
+ else if(kind==='workOrder')cell(opts.dueDate,'Required',docDateWeek(order.dueDate));
  else cell(opts.dueDate,'Due date',docDate(order.dueDate));
  if(sale)cell(opts.terms,'Terms',paymentTermsLabel(terms));
  cell(opts.priority,'Priority',salesPriorityLabel(order.priority));
  cell(opts.delivery,'Delivery',salesDeliveryLabel(order.delivery));
+ if(kind==='workOrder')cell(opts.enteredBy,'Entered by',docEnteredBy(order));
  if(sale)cell(opts.currency,'Currency',order.currency);
  if(opts.accountCode&&C&&C.code)model.meta.push({label:'Account',value:C.code});
  if(sale&&opts.taxNumber&&C){const t=C.taxExempt?('Exempt '+(C.taxExemptionNumber||'')).trim():C.taxNumber;if(t)model.meta.push({label:C.taxExempt?'Tax status':'Customer tax #',value:t});}
@@ -279,10 +355,14 @@ function docBuildModel(kind,order,opts){
  if(opts.shipTo){
   const went=invoice?docInvoiceShipTo(order):null;
   if(went)model.boxes.push({label:'Shipped to',title:went.title||model.customerName||'Delivery',lines:[went.text||'Delivery address not set']});
-  else if(order.delivery==='delivery'){const ad=C?customerAddressByType(C,'delivery'):null,t=docAddressText(ad);model.boxes.push({label:'Ship to',title:(ad&&ad.addressee)||model.customerName||'Delivery',lines:[t||'Delivery address not set']});}
+  else if(order.delivery==='delivery'){const ad=C?customerAddressByType(C,'delivery'):null,t=docAddressText(ad),lines=[t||'Delivery address not set'];
+   /* Work order: контакт на месте и машина (как Delivery instructions у Spiel). */
+   if(kind==='workOrder'){const pc=C&&Array.isArray(C.contacts)?customerPrimaryContact(C):{},c=[pc.name,pc.phone].filter(Boolean).join(' · ');if(c)lines.push(c);lines.push(docTruckText(order));}
+   model.boxes.push({label:'Ship to',title:(ad&&ad.addressee)||model.customerName||'Delivery',lines});}
   else model.boxes.push({label:'Pickup',title:'Customer pickup',lines:[]});
  }
 
+ if(kind==='workOrder'&&opts.route&&opts.scanStatus)model.scan=docScanIndex(order);
  (order.lines||[]).forEach((l,i)=>model.items.push(sale?docSaleItem(model,l,i,order):docShopItem(model,l,i,order)));
  if(opts.extraItems&&(order.extraItems||[]).length){
   const priced=sale&&mode!=='none';
@@ -379,10 +459,11 @@ function docBuildModel(kind,order,opts){
  const w=salesOrderWeight(order),weightText=w.kg==null?'Weight unavailable':(w.complete&&w.estimated?'≈ ':'')+docNum(w.kg,w.kg<10?2:0)+' kg'+(w.complete?'':' · Partial');
  if(opts.orderSummary){
   const miss=salesWeightMissingText(w);
-  model.summary=[{label:'Glass units',value:String(units)},{label:'Total area',value:docNum(area,1)+' ft²'},{label:'Total weight',value:weightText},{label:'Due date',value:docDate(order.dueDate)||'—'}];
+  model.summary=kind==='workOrder'?docShopSummary(order,w,weightText):[{label:'Glass units',value:String(units)},{label:'Total area',value:docNum(area,1)+' ft²'},{label:'Total weight',value:weightText},{label:'Due date',value:docDate(order.dueDate)||'—'}];
   if(w.partial&&miss)model.summaryNote='Partial weight: '+miss.charAt(0).toLowerCase()+miss.slice(1)+'.';
  }
  model.footerRight=[company.legalName,docName+' '+number].filter(Boolean).join(' · ');
+ if(kind==='workOrder')model.lineTotals=(order.lines||[]).map(l=>docLineTotals(l,order));
  /* Значения полей для конструктора форм (окно Insert field): дни —
     YYYY-MM-DD (вид выбирает блок), остальное — как на бланке; деньги — только
     у бланков с ценами. */
