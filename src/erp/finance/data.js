@@ -183,15 +183,16 @@ function finCustomerAccount(c){
 }
 
 /* Зачёт депозита в заказ: деньги берутся из самых старых квитанций клиента, у
-   которых есть незачтённый остаток; в заказ ложится не больше его долга. */
-function finApplyDeposit(customerId,orderId,amount){
+   которых есть незачтённый остаток; в заказ ложится не больше его долга.
+   receiptIds — только из этих квитанций (окно Allocate payments). */
+function finApplyDeposit(customerId,orderId,amount,receiptIds){
  const order=(DB.salesOrder||[]).find(o=>o.id===orderId);
  if(!order||order.customerId!==customerId||!finOrderCounts(order)||finCurrency(order)!=='CAD')return 0;
  const b=finOrderBalance(order);if(b.status!=='due')return 0;
  let want=finMoney(Math.min(finMoney(amount),b.balance,finCustomerDeposit(customerId)));
  if(!(want>0))return 0;
  let done=0;const now=new Date().toISOString();
- finActiveReceipts().filter(r=>r.customerId===customerId&&finCurrency(r)===finCurrency(order)).sort((x,y)=>(x.date+x.number).localeCompare(y.date+y.number)).forEach(r=>{
+ finActiveReceipts().filter(r=>r.customerId===customerId&&finCurrency(r)===finCurrency(order)&&(!receiptIds||receiptIds.includes(r.id))).sort((x,y)=>(x.date+x.number).localeCompare(y.date+y.number)).forEach(r=>{
   const free=finReceiptOnAccount(r);if(want<=0||free<=0)return;
   finEnsureHistory(r);const before=finCopy(r);
   const take=finMoney(Math.min(free,want)),a=r.allocations.find(x=>x.orderId===orderId);
@@ -199,6 +200,32 @@ function finApplyDeposit(customerId,orderId,amount){
   r.updatedAt=now;want=finMoney(want-take);done=finMoney(done+take);finEvent('allocated',before,r,'Deposit applied to order '+finOrderNumber(orderId));
  });
  return done;
+}
+/* Окно Allocate payments: отмеченные квитанции (со старой) — в отмеченные
+   заказы по порядку orderIds, каждому не больше его долга. amount — потолок
+   (Ask amount); без него разносится сколько хватает. */
+function finAllocate(customerId,orderIds,receiptIds,amount){
+ let left=amount==null?Infinity:finMoney(amount),done=0;
+ (orderIds||[]).forEach(id=>{
+  const o=(DB.salesOrder||[]).find(x=>x.id===id);if(!o||!(left>0))return;
+  const b=finOrderBalance(o);if(b.status!=='due')return;
+  const got=finApplyDeposit(customerId,id,Math.min(left,b.balance),receiptIds||[]);
+  if(left!==Infinity)left=finMoney(left-got);done=finMoney(done+got);
+ });
+ return done;
+}
+/* Снять разнесение: деньги квитанции из заказа возвращаются на счёт клиента.
+   pairs — [{receiptId, orderId}], каждая пара снимается целиком. */
+function finUnallocate(customerId,pairs){
+ let moved=0;const now=new Date().toISOString();
+ (pairs||[]).forEach(p=>{
+  const r=(DB.receipt||[]).find(x=>x.id===p.receiptId),a=r&&r.allocations.find(x=>x.orderId===p.orderId);
+  if(!r||r.voided||r.customerId!==customerId||finCurrency(r)!=='CAD'||!a)return;
+  finEnsureHistory(r);const before=finCopy(r);
+  r.allocations=r.allocations.filter(x=>x!==a);r.updatedAt=now;moved=finMoney(moved+a.amount);
+  finEvent('released',before,r,'Allocation released from order '+finOrderNumber(p.orderId));
+ });
+ return moved;
 }
 /* Заказ подешевел после оплаты — лишнее уходит обратно на депозит, начиная с
    последних квитанций. */

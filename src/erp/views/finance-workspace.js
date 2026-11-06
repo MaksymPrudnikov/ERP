@@ -14,7 +14,7 @@ function finCanLeave(){return !finHasWork()||confirm('Discard unsaved finance ch
 (window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(finHasWork);
 (window.NAV_GUARDS=window.NAV_GUARDS||[]).push(function(k,go){
  if(tab!=='finance')return false;if(!finCanLeave())return true;
- finDraft=null;finEdit=null;finAction=null;finApply=null;finPreview=null;finStatements=null;finRangeMenu=null;return false;
+ finDraft=null;finEdit=null;finAction=null;finApply=null;finAlloc=null;finPreview=null;finStatements=null;finRangeMenu=null;return false;
 });
 window.addEventListener('beforeunload',function(e){if(!finHasWork())return;e.preventDefault();e.returnValue='';});
 function finResetFilters(){finCustomerFilter='';finOrderFilter='';render();}
@@ -53,13 +53,14 @@ function finListDescription(){
  const p=salesListLoadPrefs(),parts=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k])).map(k=>salesListFilterSummary(salesListColumn(k),p.filters[k]));
  return parts.join(' · ');
 }
-function finOpenAccount(id){if(!finCanLeave())return;finDraft=null;finEdit=null;finAction=null;tab='finance';finTab='accounts';finAccountId=id;finAccountPaid=false;render();}
+function finOpenAccount(id){if(!finCanLeave())return;finAlloc=null;finDraft=null;finEdit=null;finAction=null;tab='finance';finTab='accounts';finAccountId=id;finAccountPaid=false;render();}
 function finStatusPill(f){return `<span class="pill ${f.tone}">${esc(f.status)}</span>`;}
 function finAccountHTML(){
+ if(finAllocOn())return finAllocHTML();
  const c=salesFindCustomer(finAccountId);if(!c)return '<p>Customer not found.</p>';
  const m=finAccountMetrics(c),a=m.account,x=m.money,open=m.rows.filter(x=>x.f.b.balance!==0),paid=m.rows.length-open.length,rows=finAccountPaid?m.rows:open;
  const receipts=DB.receipt.filter(r=>r.customerId===c.id).sort((x,y)=>(y.date+y.number).localeCompare(x.date+x.number)),refunds=DB.refund.filter(r=>r.customerId===c.id).sort((x,y)=>(y.date+y.number).localeCompare(x.date+x.number)),events=DB.financeEvent.filter(e=>e.customerId===c.id);
- return `<div class="fin-account-head"><div><button class="sm" onclick="finAccountId='';render()">← Accounts</button><h3>${raw(finCustomerName(c))}</h3><span class="mut">${raw(c.code)} · ${esc(a.terms)}${c.status==='archived'?' · Archived':''}${c.onHold?' · <b class="fin-due">On hold</b>':''}</span></div><div class="row"><button onclick="finOpenStatement('${esc(c.id)}')">Statement</button><button class="pri" onclick="finNewReceipt('${esc(c.id)}')">+ Receipt</button></div></div>
+ return `<div class="fin-account-head"><div><button class="sm" onclick="finAccountId='';render()">← Accounts</button><h3>${raw(finCustomerName(c))}</h3><span class="mut">${raw(c.code)} · ${esc(a.terms)}${c.status==='archived'?' · Archived':''}${c.onHold?' · <b class="fin-due">On hold</b>':''}</span></div><div class="row"><button data-fin-open-allocate onclick="finOpenAllocate('${esc(c.id)}')">Allocate</button><button onclick="finOpenStatement('${esc(c.id)}')">Statement</button><button class="pri" onclick="finNewReceipt('${esc(c.id)}')">+ Receipt</button></div></div>
  <div class="fin-account-totals"><span>Balance <b>${finFmt(x.balance)}</b></span><span>Overdue <b class="${x.overdue>0?'fin-due':''}">${finFmt(x.overdue)}</b></span><span>Prepaid <b>${finFmt(x.prepaid)}</b></span><span>On account <b class="fin-deposit">${finFmt(x.deposit)}</b>${x.deposit>0&&x.balance>0?`<button class="sm" onclick="finOpenApply('${esc(c.id)}')">Apply</button>`:''}</span>${a.creditLimit!=null?`<span>Credit limit <b class="${a.overLimit?'fin-due':''}">${finFmt(a.creditLimit)}</b></span>`:''}</div>
  <h4>Orders</h4>${finStaticTable('finAccOrders',[['order','Order / PO'],['billed','Billed'],['due','Due'],['total','Total','n'],['paid','Paid','n'],['balance','Balance','n'],['status','Status'],['act','']],rows.map(({o,f})=>`<tr data-order="${esc(o.id)}"><td><button class="fin-link" onclick="finOpenSales('${esc(o.id)}')">${esc(o.businessNumber)}</button><div class="mut small">${raw(o.customerPo||'—')}</div></td><td>${esc(finBillingDate(o)?finShortDate(finBillingDate(o)):'—')}</td><td class="${f.overdue?'fin-due':''}">${esc(f.dueOn?finShortDate(f.dueOn):'—')}</td><td class="n">${finFmt(f.b.total)}</td><td class="n">${finFmt(f.b.paid)}</td><td class="n"><b>${finFmt(f.b.balance)}</b></td><td>${finStatusPill(f)}</td><td class="fin-actions">${finInvoiceDate(o)?`<button class="sm" data-fin-invoice="${esc(o.businessNumber)}" onclick="finOpenInvoice('${esc(o.id)}')">Invoice</button> `:''}<button class="sm" onclick="finEditTerms('${esc(o.id)}')">Terms</button></td></tr>`).join('')||`<tr><td colspan="8" class="empty">No open orders</td></tr>`)}
  ${paid?`<button class="sm fin-more" onclick="finAccountPaid=!finAccountPaid;render()">${finAccountPaid?'Hide paid orders':'Show paid orders ('+paid+')'}</button>`:''}
