@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 197 модулей, 27 стиля.
+  Состав сборки: 198 модулей, 27 стиля.
 -->
 <html lang="en">
 <head>
@@ -2318,6 +2318,8 @@ button.recut-btn{border-color:var(--warning);color:var(--warning)}
 .fm-node:disabled{cursor:default}
 .fm-node:not(:disabled):hover{background:var(--surface-2)}
 .fm-node.sel{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.fm-node.fm-node-note{cursor:default;color:var(--text-3);font-size:12px}
+.fm-node.fm-node-note:hover{background:none}
 .fm-stage{background:var(--surface-3);border-radius:12px;padding:22px 22px 22px 26px;display:flex;flex-direction:column;align-items:center;gap:18px;touch-action:none}
 .fm-sheet{position:relative;width:100%;max-width:760px;aspect-ratio:612/792;background:var(--on-solid);box-shadow:0 1px 4px rgba(0,0,0,.15)}
 .fm-sheet svg{position:absolute;inset:0;display:block}
@@ -4176,7 +4178,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='497e24335142';
+var ERP_BUILD='1f261e487fc3';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -15344,6 +15346,8 @@ function docCleanOptions(kind,raw){
   if(k==='priceMode')o[k]=DOC_PRICE_MODES.some(m=>m.k===src[k])?src[k]:base[k];
   else o[k]=typeof src[k]==='boolean'?src[k]:base[k];
  });
+ /* Свой блок шаблона формы — своя галочка b:<id> (erp/documents/order-form). */
+ Object.keys(src).forEach(k=>{if(/^b:[\w-]{1,40}$/.test(k)&&typeof src[k]==='boolean')o[k]=src[k];});
  return o;
 }
 DEFAULT.documentSettings={};
@@ -24057,14 +24061,27 @@ function docBuildModel(kind,order,opts){
  /* Order summary — в каждом бланке, где его отметили в Customize (пункт 14:
     раньше только в бланках без цен). Вес — известное и Partial с тем, что не
     учтено, строкой под блоком: на бумаге без наведения. */
+ let units=0,area=0;
+ (order.lines||[]).forEach(l=>{const q=salesPositiveInt(l.qty,1),a=salesLineAreas(l,order);units+=q;if(a.valid)area+=a.actual*q;});
+ const w=salesOrderWeight(order),weightText=w.kg==null?'Weight unavailable':(w.complete&&w.estimated?'≈ ':'')+docNum(w.kg,w.kg<10?2:0)+' kg'+(w.complete?'':' · Partial');
  if(opts.orderSummary){
-  let units=0,area=0;
-  (order.lines||[]).forEach(l=>{const q=salesPositiveInt(l.qty,1),a=salesLineAreas(l,order);units+=q;if(a.valid)area+=a.actual*q;});
-  const w=salesOrderWeight(order),miss=salesWeightMissingText(w);
-  model.summary=[{label:'Glass units',value:String(units)},{label:'Total area',value:docNum(area,1)+' ft²'},{label:'Total weight',value:w.kg==null?'Weight unavailable':(w.complete&&w.estimated?'≈ ':'')+docNum(w.kg,w.kg<10?2:0)+' kg'+(w.complete?'':' · Partial')},{label:'Due date',value:docDate(order.dueDate)||'—'}];
+  const miss=salesWeightMissingText(w);
+  model.summary=[{label:'Glass units',value:String(units)},{label:'Total area',value:docNum(area,1)+' ft²'},{label:'Total weight',value:weightText},{label:'Due date',value:docDate(order.dueDate)||'—'}];
   if(w.partial&&miss)model.summaryNote='Partial weight: '+miss.charAt(0).toLowerCase()+miss.slice(1)+'.';
  }
  model.footerRight=[company.legalName,docName+' '+number].filter(Boolean).join(' · ');
+ /* Значения полей для конструктора форм (окно Insert field): дни —
+    YYYY-MM-DD (вид выбирает блок), остальное — как на бланке; деньги — только
+    у бланков с ценами. */
+ const pc=C&&Array.isArray(C.contacts)?customerPrimaryContact(C):null,ship=C&&order.delivery==='delivery'?customerAddressByType(C,'delivery'):null,went=invoice?docInvoiceShipTo(order):null;
+ const tt=sale?salesOrderCommercialTotals(order):null,paid=sale&&typeof finOrderPaid==='function'?finOrderPaid(order.id).paid:0,cash=v=>tt&&tt.complete?docMoney(v):'';
+ const day=v=>String(v||'').slice(0,10);
+ model.data={date:day(invoice?billed:kind==='quote'&&order.sentAt||order.createdAt),dueDate:day(invoice?payDue:order.dueDate),validUntil:kind==='quote'?day(salesQuoteValidUntil(order)):'',
+  customerPo:order.customerPo||'',terms:sale?paymentTermsLabel(terms):'',currency:sale?order.currency||'':'',priority:salesPriorityLabel(order.priority),delivery:salesDeliveryLabel(order.delivery),
+  account:C&&C.code||'',billTo:C?docAddressText(customerAddressByType(C,'billing')):'',contact:pc?[pc.name,pc.phone,pc.email].filter(Boolean).join(' · '):'',
+  shipTo:went?[went.title||model.customerName,went.text].filter(Boolean):order.delivery==='delivery'?[(ship&&ship.addressee)||model.customerName,docAddressText(ship)].filter(Boolean):['Customer pickup'],
+  units:String(units),area:docNum(area,1)+' ft²',weight:weightText,lines:String((order.lines||[]).length),
+  subtotal:tt?cash(tt.subtotal):'',hst:tt&&tt.charges.hst.enabled?cash(tt.hst):'',grand:tt?cash(tt.grand):'',paid:tt&&paid>0?cash(paid):'',balance:tt?cash(salesMoney(tt.grand-paid)):''};
  return model;
 }
 
@@ -24240,19 +24257,22 @@ function docCells(P,cells,y,h,valueSize){
  });
  return y+h;
 }
-function docBoxes(P,boxes,y){
+/* Плашки адресов: высота известна до рисования (секция шаблона формы). */
+function docBoxesLay(boxes){
  const W=DOC_PAGE,C=DOC_COLOR,gap=10,w=(W.right-W.left-gap*(boxes.length-1))/boxes.length;
  const laid=boxes.map(b=>{const lines=[];b.lines.forEach(t=>docWrap(t,7.6,false,w-18).forEach(l=>lines.push(l)));return {b,lines:lines.slice(0,4),title:docFit(b.title,9,true,w-18)};});
  const h=Math.max(...laid.map(x=>28+x.lines.length*9.6));
- laid.forEach((x,i)=>{
-  const bx=W.left+i*(w+gap);
-  P.rect(bx,y,w,h,{fill:C.box,r:4});
-  docLabel(P,bx+9,y+10.5,x.b.label);
-  P.text(bx+9,y+22,x.title,{size:9,bold:true});
-  x.lines.forEach((l,k)=>P.text(bx+9,y+32+k*9.6,l,{size:7.6}));
- });
- return y+h;
+ return {h,draw(P,y){
+  laid.forEach((x,i)=>{
+   const bx=W.left+i*(w+gap);
+   P.rect(bx,y,w,h,{fill:C.box,r:4});
+   docLabel(P,bx+9,y+10.5,x.b.label);
+   P.text(bx+9,y+22,x.title,{size:9,bold:true});
+   x.lines.forEach((l,k)=>P.text(bx+9,y+32+k*9.6,l,{size:7.6}));
+  });
+ }};
 }
+function docBoxes(P,boxes,y){const L=docBoxesLay(boxes);L.draw(P,y);return y+L.h;}
 function docTableHead(P,m,y){
  const W=DOC_PAGE,C=DOC_COLOR;
  if(m.table.amount){
@@ -24604,6 +24624,11 @@ function docPdfBytes(pages,info){
    У текста y — линия букв первой строки, строки идут через lh, блок
    занимает строки × lh. Текст и поле растут и сжимаются по числу строк, и
    блоки ниже сдвигаются сами; остальные блоки всегда занимают свою h.
+   Для бланков заказа (erp/documents/order-form): sa — интервал после
+   текста, pin — место закреплено, after / before — за картинкой или перед
+   текстом другого блока, lead и keep — строка от своего верха и «держать со
+   следующим» в потоке, section — часть, которую рисует код бланка, opt —
+   галочка окна ✎ Customize.
    ===================================================================== */
 
 function formIsText(b){return b.type==='text'||b.type==='field';}
@@ -24642,21 +24667,24 @@ function formMyFields(){return ((DB.company&&DB.company.myFields)||[]).map(f=>({
    filled | is | not, field, value}; нет show — всегда. Сравнение без учёта
    регистра и пробелов по краям. */
 function formShow(b,ctx){
+ /* off — блок снят галочкой в окне Customize бланка заказа. */
+ if(ctx.off&&ctx.off(b))return false;
  const s=b.show;if(!s||!s.when||!s.field)return true;
  let v=ctx.field(s.field);v=Array.isArray(v)?v.join(', '):String(v==null?'':v);
  const a=v.trim().toLowerCase(),want=String(s.value==null?'':s.value).trim().toLowerCase();
  return s.when==='filled'?!!a:s.when==='is'?a===want:s.when==='not'?a!==want:true;
 }
-function formLines(b,ctx){
+function formLines(b,ctx,w){
  let v=b.type==='text'?formFill(b.text,ctx):ctx.field(b.field);
  if(b.type==='field'&&ctx.type)v=formFormat(v,ctx.type(b.field),b.format);
  let src=Array.isArray(v)?v.filter(x=>x!=null).map(String):v==null||v===''?[]:[String(v)];
- if(!src.length&&b.empty)src=[b.empty];
+ if(!src.length&&b.empty!=null)src=[b.empty];
  /* «Текст перед значением» (Date: …) — только у непустого поля. */
  else if(src.length&&b.prefix)src[0]=b.prefix+src[0];
  const size=b.size||9,out=[];
  const face=formFace(b);
- src.forEach(t=>{if(b.wrap)out.push(...docWrap(t,size,!!b.bold,b.w||0,face));else out.push(b.fit?docFit(t,size,!!b.bold,b.w||0,face):t);});
+ w=w!=null?w:b.w||0;
+ src.forEach(t=>{if(b.wrap)out.push(...docWrap(t,size,!!b.bold,w,face));else out.push(b.fit?docFit(t,size,!!b.bold,w,face):t);});
  return b.max?out.slice(0,b.max):out;
 }
 /* Сдвиг блока, который стоит на высоте y части: он держится за ближайший
@@ -24668,18 +24696,40 @@ function formShift(done,y){
  const anchor=Math.max(...above.filter(a=>a.nb===nb).map(a=>a.off+a.e-(a.b.h||0)));
  return Math.max(anchor,Math.max(...above.map(a=>a.top+a.e))-y);
 }
+/* Картинка с fit — по своим пропорциям, не шире w (логотип бланка). */
+function formImage(b,ctx){
+ const src=b.field?ctx.field(b.field):b.src,info=src&&docJpegInfo(src);if(!info)return null;
+ return {src,w:b.fit?Math.min(b.w||0,(b.h||0)*info.w/info.h):b.w||0};
+}
+/* Секция — часть бланка, которую рисует код бланка (ячейки шапки, адреса,
+   итоги, подпись): ctx.section(k) → {h, draw(P, y)}; h 0 — нечего печатать. */
+function formSection(b,ctx){const s=ctx.section?ctx.section(b.k):null;return s&&s.h>0?s:null;}
 function formLayout(tpl,part,ctx){
  /* Скрытый (Show if) блок — как пустое поле: места не занимает, блоки ниже
     поднимаются. */
- const bs=(part.blocks||[]).map((b,i)=>{const hide=!formShow(b,ctx),lines=formIsText(b)?(hide?[]:formLines(b,ctx)):null;return {b,i,lines,hide,e:lines?lines.length*formLh(b):hide?0:b.h||0,nb:b.y+(b.h||0)};});
+ const bs=(part.blocks||[]).map((b,i)=>{const sec=b.type==='section'?formSection(b,ctx):null,hide=!formShow(b,ctx)||b.type==='section'&&!sec,yt=b.y-(b.lead||0);return {b,i,sec,hide,yt,nb:yt+(b.h||0)};});
+ const text=x=>{x.lines=formIsText(x.b)?(x.hide?[]:formLines(x.b,ctx,x.aw)):null;};
+ bs.forEach(x=>{if(!x.b.after&&!x.b.before)text(x);});
  /* after — блок стоит на той же строке сразу за первой строкой другого
-    блока (вес рядом с кодом скида любой длины); gap — зазор. */
+    блока (вес рядом с кодом скида любой длины) или за картинкой (имя
+    компании за логотипом), правый край остаётся на месте; before — перед
+    текстом другого блока, вплотную справа («No.» перед номером); gap — зазор. */
  bs.forEach(x=>{
-  const ref=x.b.after&&bs.find(r=>r.b.id===x.b.after);
-  if(ref&&ref.lines&&ref.lines.length)x.ax=formBlockX(tpl,ref.b)+docTextWidth(ref.lines[0],ref.b.size||9,!!ref.b.bold,ref.b.ls,formFace(ref.b))+(x.b.gap!=null?x.b.gap:12);
+  const b=x.b,ref=(b.after||b.before)&&bs.find(r=>r.b.id===(b.after||b.before)),gap=b.gap!=null?b.gap:12,bx=formBlockX(tpl,b);
+  if(ref&&!ref.hide){
+   const rx=ref.ax!=null?ref.ax:formBlockX(tpl,ref.b),img=b.after&&ref.b.type==='image'?formImage(ref.b,ctx):null;
+   const tw=ref.lines&&ref.lines.length?docTextWidth(ref.lines[0],ref.b.size||9,!!ref.b.bold,ref.b.ls,formFace(ref.b)):null;
+   if(img){x.ax=rx+img.w+gap;x.aw=Math.max(0,(b.w||0)-(x.ax-bx));}
+   else if(b.after&&tw!=null){x.ax=rx+tw+gap;x.aw=Math.max(0,(b.w||0)-(x.ax-bx));}
+   else if(b.before&&tw!=null){const rw=ref.aw!=null?ref.aw:ref.b.w||0,al=ref.al||ref.b.align||'left';x.ax=(al==='right'?rx+rw-tw:al==='center'?rx+(rw-tw)/2:rx)-gap;x.al='right';}
+  }
+  if(b.after||b.before)text(x);
  });
+ /* sa — интервал после текста (только у непустого). */
+ bs.forEach(x=>{x.e=x.lines?(x.lines.length?x.lines.length*formLh(x.b)+(x.b.sa||0):0):x.hide?0:x.sec?x.sec.h:x.b.h||0;});
+ /* pin — место закреплено: блок не ходит за блоками выше (шапка справа). */
  const done=[];
- bs.slice().sort((p,q)=>p.b.y-q.b.y||p.i-q.i).forEach(x=>{x.off=formShift(done,x.b.y);x.top=x.b.y+x.off;done.push(x);});
+ bs.slice().sort((p,q)=>p.yt-q.yt||p.i-q.i).forEach(x=>{x.off=x.b.pin?0:formShift(done,x.yt);x.top=x.yt+x.off;done.push(x);});
  return {h:Math.max(0,(part.h||0)+formShift(done,part.h||0)),blocks:bs};
 }
 /* Текст с {page}/{pages} запоминается в late и дописывается в конце. */
@@ -24688,18 +24738,19 @@ function formText(P,x,y,s,o,late){
  if(late&&/\{pages?\}/.test(s))late.push({item:P.items[P.items.length-1],s});
 }
 /* ax — x блока, который стоит сразу за другим (after). */
-function formDrawLine(P,tpl,b,line,k,top,late,ax){
- const x=ax!=null?ax:formBlockX(tpl,b),w=b.w||0,align=ax!=null?'left':b.align||'left';
- formText(P,align==='right'?x+w:align==='center'?x+w/2:x,top+k*formLh(b),line,{size:b.size||9,bold:!!b.bold,color:b.color||DOC_COLOR.ink,align,ls:b.ls||0,face:formFace(b)},late);
+function formDrawLine(P,tpl,b,line,k,top,late,ax,al){
+ const x=ax!=null?ax:formBlockX(tpl,b),w=b.w||0,align=ax!=null?al||'left':b.align||'left';
+ formText(P,ax!=null?x:align==='right'?x+w:align==='center'?x+w/2:x,top+k*formLh(b),line,{size:b.size||9,bold:!!b.bold,color:b.color||DOC_COLOR.ink,align,ls:b.ls||0,face:formFace(b)},late);
 }
 function formDrawBlock(P,tpl,x,ctx,top,late){
  const b=x.b,bx=formBlockX(tpl,b),w=b.w||0,h=b.h||0;if(x.hide)return;
- if(x.lines){x.lines.forEach((l,k)=>formDrawLine(P,tpl,b,l,k,top,late,x.ax));return;}
+ if(x.lines){x.lines.forEach((l,k)=>formDrawLine(P,tpl,b,l,k,top,late,x.ax,x.al));return;}
+ if(x.sec){x.sec.draw(P,top);return;}
  /* Цвет '' у рамки — без контура (только заливка). */
  const stroke=b.color==null?DOC_COLOR.line:b.color;
  if(b.type==='line')P.line(bx,top,bx+w,top+h,{stroke:stroke||DOC_COLOR.line,lw:b.lw||.6});
  else if(b.type==='box')P.rect(bx,top,w,h,{stroke,fill:b.fill||'',lw:b.lw||.6,r:b.r||0});
- else if(b.type==='image'){const src=b.field?ctx.field(b.field):b.src;if(src&&docJpegInfo(src))P.img(bx,top,w,h,src);}
+ else if(b.type==='image'){const im=formImage(b,ctx);if(im)P.img(bx,top,im.w,h,im.src);}
  else if(b.type==='barcode'){
   const v=String(ctx.field(b.field)||'');if(!v)return;
   /* Полосы — по align внутри блока; тихая зона штрихкода — за краем блока. */
@@ -24712,8 +24763,8 @@ function formDrawBlock(P,tpl,x,ctx,top,late){
    — от верха букв; пустой текст всё равно занимает строку, чтобы его можно
    было выбрать мышью. */
 function formRect(tpl,x,top,lines){
- const b=x.b,text=formIsText(b),bx=x.ax!=null?x.ax:formBlockX(tpl,b);
- return {x:bx,y:text?top-(b.size||9):top,w:b.w||0,h:text?Math.max(lines==null?x.e:lines*formLh(b),formLh(b)):b.h||0};
+ const b=x.b,text=formIsText(b),w=x.aw!=null?x.aw:b.w||0,bx=x.ax!=null?(x.al==='right'?x.ax-w:x.ax):formBlockX(tpl,b);
+ return {x:bx,y:text?top-(b.size||9):top,w,h:text?Math.max(lines==null?x.e:lines*formLh(b),formLh(b)):x.sec?x.sec.h:b.h||0};
 }
 /* Часть целиком на одном листе (верх и низ страницы); блоки рисуются в
    порядке шаблона. Возвращает высоту части. mark(x, rect) — для
@@ -24721,10 +24772,10 @@ function formRect(tpl,x,top,lines){
 function formDrawPart(P,tpl,part,ctx,top,late,mark){
  if(!part)return 0;
  const lay=formLayout(tpl,part,ctx);
- lay.blocks.forEach(x=>{formDrawBlock(P,tpl,x,ctx,top+x.top,late);if(mark)mark(x,formRect(tpl,x,top+x.top));});
+ lay.blocks.forEach(x=>{const a=top+x.top+(x.b.lead||0);formDrawBlock(P,tpl,x,ctx,a,late);if(mark)mark(x,formRect(tpl,x,a));});
  return lay.h;
 }
-function formCtx(ctx,over){return over?{field:k=>Object.prototype.hasOwnProperty.call(over,k)?over[k]:ctx.field(k),type:ctx.type}:ctx;}
+function formCtx(ctx,over){return over?Object.assign({},ctx,{field:k=>Object.prototype.hasOwnProperty.call(over,k)?over[k]:ctx.field(k)}):ctx;}
 
 /* Ход по листам. Код бланка рисует таблицу сам (f.P, f.y, f.ensure,
    f.page), остальное — из шаблона. f.page(over, top): over — другие
@@ -24749,19 +24800,33 @@ function formFlow(tpl,ctx,map){
  f.flow=key=>{
   const part=tpl.parts[key];if(!part||!(part.blocks||[]).length)return f;
   const c=f.ctx(),lay=formLayout(tpl,part,c),keep=part.keep!=null?part.keep:lay.h;
-  if(f.y+Math.min(keep,f.bottom-f.top)>f.bottom&&f.y>f.top+1)f.page();
+  if(keep>0&&f.y+Math.min(keep,f.bottom-f.top)>f.bottom&&f.y>f.top+1)f.page();
   const units=[],mk=mark(key);
+  /* Строка текста занимает lh от верха строки; lead — от верха строки до
+     линии букв (0 — линия букв и есть верх, как у Packing slip). keep у
+     блока — «держать со следующим»: блок начинается на этом листе, только
+     если с ним помещаются keep первых строк следующего текста (подпись
+     раздела с его первыми строками). */
+  const order=lay.blocks.slice().sort((p,q)=>p.top-q.top||p.i-q.i);
   lay.blocks.forEach(x=>{
-   if(x.lines)x.lines.forEach((l,k)=>units.push({y:x.top+k*formLh(x.b),e:formLh(x.b),i:x.i,draw:(P,a)=>{formDrawLine(P,tpl,x.b,l,0,a,late,x.ax);if(mk)mk(x,formRect(tpl,x,a,1));}}));
-   else units.push({y:x.top,e:x.e,i:x.i,draw:(P,a)=>{formDrawBlock(P,tpl,x,c,a,late);if(mk)mk(x,formRect(tpl,x,a));}});
-   /* Пустое поле на листе не видно, но в конструкторе его можно выбрать. */
-   if(mk&&x.lines&&!x.lines.length)units.push({y:x.top,e:0,i:x.i,draw:(P,a)=>mk(x,formRect(tpl,x,a))});
+   const lead=x.b.lead||0,next=x.b.keep?order.slice(order.indexOf(x)+1).find(n=>n.lines&&n.lines.length):null;
+   const need=next?x.e+Math.min(x.b.keep,next.lines.length)*formLh(next.b):0;
+   if(x.lines)x.lines.forEach((l,k)=>units.push({y:x.top+k*formLh(x.b),e:formLh(x.b),need:k?0:need,i:x.i,draw:(P,a)=>{formDrawLine(P,tpl,x.b,l,0,a+lead,late,x.ax,x.al);if(mk)mk(x,formRect(tpl,x,a+lead,1));}}));
+   else if(!x.hide)units.push({y:x.top,e:x.e,need,i:x.i,draw:(P,a)=>{formDrawBlock(P,tpl,x,c,a,late);if(mk)mk(x,formRect(tpl,x,a));}});
+   /* Пустой или скрытый блок на листе не виден и листа не переносит, но в
+      конструкторе его можно выбрать. */
+   if(mk&&(x.lines?!x.lines.length:x.hide))units.push({y:x.top,e:0,skip:true,i:x.i,draw:(P,a)=>mk(x,formRect(tpl,x,a))});
   });
-  let off=f.y;
+  /* Строка вплотную под предыдущей ставится прибавлением её высоты, как
+     складывал прежний код бланка: строка ровно до края листа (738,6 + 9,4)
+     иначе решалась бы другой погрешностью дробных. */
+  let off=f.y,prev=null;
   units.sort((p,q)=>p.y-q.y||p.i-q.i).forEach(u=>{
    let a=u.y+off;
-   if(a+u.e>f.bottom&&a>f.top+1){f.page();off=f.y-u.y;a=f.y;}
+   if(prev&&!u.skip&&Math.abs(u.y-prev.y-prev.e)<1e-6)a=prev.a+prev.e;
+   if(!u.skip&&a+Math.max(u.e,u.need||0)>f.bottom&&a>f.top+1){f.page();off=f.y-u.y;a=f.y;}
    u.draw(f.P,a);
+   if(!u.skip)prev={y:u.y,e:u.e,a};
   });
   f.y=lay.h+off;return f;
  };
@@ -24805,17 +24870,17 @@ function formCleanColumn(c){
    добавил новую), берутся по умолчанию; колонки таблицы — сохранённые,
    если они есть. Поля страницы и направляющие (guides — только для
    конструктора, не печатаются) — из сохранённого, в разумных пределах. */
-const FORM_BLOCK_TYPES=['text','field','image','line','box','barcode'];
+const FORM_BLOCK_TYPES=['text','field','image','line','box','barcode','section'];
 const FORM_PLACES=['left','center','right','free'];
 function formCleanBlock(b){
  if(!b||typeof b!=='object'||!FORM_BLOCK_TYPES.includes(b.type))return null;
  const num=(v,lo,hi)=>{const n=Number(v);return Number.isFinite(n)?Math.min(hi,Math.max(lo,Math.round(n*100)/100)):undefined;};
  const str=(v,max)=>typeof v==='string'?v.slice(0,max||2000):undefined;
  const o={id:str(b.id,40)||'b'+Math.random().toString(36).slice(2,9),type:b.type,place:FORM_PLACES.includes(b.place)?b.place:'left'};
- [['x',-200,800],['y',-200,800],['w',0,800],['h',0,800],['size',4,96],['lh',0,200],['max',0,200],['lw',0,20],['r',0,50],['ls',0,10],['gap',0,200],['module',.5,5]].forEach(([k,lo,hi])=>{const v=num(b[k],lo,hi);if(v!==undefined)o[k]=v;});
- ['text','field','color','fill','empty','prefix','format','after'].forEach(k=>{const v=str(b[k]);if(v!==undefined)o[k]=v;});
+ [['x',-200,800],['y',-200,800],['w',0,800],['h',0,800],['size',4,96],['lh',0,200],['max',0,200],['lw',0,20],['r',0,50],['ls',0,10],['gap',0,200],['module',.5,5],['sa',0,200],['lead',0,200],['keep',0,800]].forEach(([k,lo,hi])=>{const v=num(b[k],lo,hi);if(v!==undefined)o[k]=v;});
+ ['text','field','color','fill','empty','prefix','format','after','before','k','opt'].forEach(k=>{const v=str(b[k]);if(v!==undefined)o[k]=v;});
  if(['left','center','right'].includes(b.align))o.align=b.align;
- ['bold','italic','wrap','fit'].forEach(k=>{if(b[k])o[k]=true;});
+ ['bold','italic','wrap','fit','pin'].forEach(k=>{if(b[k])o[k]=true;});
  if(b.font==='times'||b.font==='courier')o.font=b.font;
  if(b.show&&typeof b.show==='object'&&['filled','is','not'].includes(b.show.when)&&typeof b.show.field==='string')o.show={when:b.show.when,field:b.show.field.slice(0,60),value:String(b.show.value==null?'':b.show.value).slice(0,200)};
  if(b.type==='image'&&typeof b.src==='string'&&/^data:image\/jpeg;base64,/.test(b.src)&&b.src.length<3e6)o.src=b.src;
@@ -24837,6 +24902,179 @@ function formClean(src,def){
   out.parts[k]=Object.assign({},d,{h:Number.isFinite(h)?Math.max(0,Math.min(800,h)):d.h,blocks:s.blocks.map(formCleanBlock).filter(Boolean)});
  });
  return out;
+}
+
+/* ==== src/erp/documents/order-form.js ==== */
+/* =====================================================================
+   erp/documents/order-form  ·  forms-1.0
+   Бланки заказа (Quote, Proforma, Order confirmation, Invoice, Work order)
+   на шаблоне конструктора форм (этап 7). Шаблон по умолчанию печатает те же
+   листы, что прежняя раскладка docLayout (сверка «до / после» на выгрузках
+   владельца и симуляции цеха — 0 расхождений); бланки переходят по одному.
+   IN : модель бланка erp/documents/model (docBuildModel), шаблон формы
+   OUT: листы docPage
+   Части: head — верх первой страницы, every — верх следующих, table —
+   строки заказа (рисует код, как раньше; вид строк — в окне ✎ Customize),
+   totals — после строк, bottom — низ каждой страницы. Ячейки шапки,
+   адреса, итоги, сводка и подпись — секции: их рисует код бланка, в шаблоне
+   они ставятся и убираются как блоки.
+   ===================================================================== */
+
+/* Бланки, которые печатаются из шаблона. Остальные — прежней раскладкой,
+   пока их сверка «печатает то же» не сделана. */
+const DOC_FORM_KINDS=['quote'];
+const DOC_SECTIONS={meta:'Header cells',boxes:'Addresses',end:'Totals and payment',summary:'Order summary',signature:'Customer approval'};
+
+/* Шаблон по умолчанию. Числа — места прежней раскладки (layout.js): y —
+   от верха части, у текста — линия букв; поля листа 34 / 36 / 44 / 36. */
+function docFormDefault(kind){
+ const C=DOC_COLOR,label=(id,text,y,keep,field)=>({id,type:'text',text,place:'left',y,w:540,h:16,lh:16,lead:13,keep,size:5.8,bold:true,color:C.mut,ls:.6,show:{when:'filled',field}});
+ return {form:kind,page:{w:612,h:792,margin:{top:34,right:36,bottom:44,left:36}},parts:{
+  head:{h:134,blocks:[
+   {id:'logo',type:'image',field:'company.logo',place:'left',y:0,w:130,h:42,fit:true,opt:'company'},
+   {id:'company',type:'field',field:'company.name',place:'left',after:'logo',gap:10,y:11,w:330,h:11,lh:11,size:11.5,bold:true,color:C.navy,fit:true,empty:'',opt:'company'},
+   {id:'companyLines',type:'field',field:'company.lines',place:'left',after:'logo',gap:10,y:22,w:330,h:18.8,lh:9.4,sa:8,size:7.4,color:C.mut,fit:true,opt:'company'},
+   {id:'title',type:'field',field:'title',place:'right',pin:true,y:15,w:300,h:15,lh:15,size:18,bold:true,color:C.navy,align:'right'},
+   {id:'number',type:'field',field:'number',place:'right',pin:true,y:30,w:300,h:11,lh:11,size:10.5,bold:true,align:'right'},
+   {id:'numberLabel',type:'text',text:'No.',place:'right',pin:true,before:'number',gap:3,y:30,w:40,h:11,lh:11,size:8,align:'right'},
+   {id:'pageNo',type:'text',text:'Page {page} of {pages}',place:'right',pin:true,y:41,w:150,h:10,lh:10,size:7,color:C.faint,align:'right'},
+   /* Оплаченный счёт — отметка PAID рамкой слева от заголовка. */
+   {id:'stamp',type:'box',place:'free',pin:true,x:376,y:3,w:92,h:38,color:C.paid,lw:2,r:4,show:{when:'filled',field:'stamp'}},
+   {id:'stampText',type:'field',field:'stamp',place:'free',pin:true,x:376,y:25,w:92,h:20,lh:20,size:20,bold:true,color:C.paid,align:'center',ls:2},
+   {id:'stampDate',type:'field',field:'stamp.date',place:'free',pin:true,x:376,y:36,w:92,h:9,lh:9,size:7,bold:true,color:C.paid,align:'center'},
+   {id:'meta',type:'section',k:'meta',place:'left',y:56,w:540,h:38},
+   {id:'boxes',type:'section',k:'boxes',place:'left',y:94,w:540,h:40}]},
+  every:{h:36,blocks:[
+   {id:'company',type:'field',field:'company.name',place:'left',y:10,w:300,h:11,lh:11,size:10.5,bold:true,color:C.navy,fit:true,opt:'company'},
+   {id:'docLine',type:'field',field:'header.short',place:'left',y:21,w:330,h:11,lh:11,size:7.4,color:C.mut,fit:true,empty:''},
+   {id:'title',type:'field',field:'title',place:'right',pin:true,y:11,w:300,h:11,lh:11,size:12,bold:true,color:C.navy,align:'right'},
+   {id:'pageNo',type:'text',text:'Page {page} of {pages}',place:'right',pin:true,y:22,w:150,h:14,lh:14,size:7,color:C.faint,align:'right'}]},
+  table:{lines:true},
+  totals:{h:239.8,keep:0,blocks:[
+   {id:'end',type:'section',k:'end',place:'left',y:0,w:540,h:60},
+   {id:'summary',type:'section',k:'summary',place:'left',y:60,w:540,h:44},
+   label('notesLabel','ORDER NOTES',117,1,'notes'),
+   {id:'notes',type:'field',field:'notes',place:'left',y:127.8,w:540,h:10.4,lh:10.4,lead:7.8,size:7.8,wrap:true},
+   label('termsLabel','TERMS AND CONDITIONS',143.4,2,'terms'),
+   {id:'terms',type:'field',field:'terms',place:'left',y:153.2,w:540,h:9.4,lh:9.4,lead:6.8,size:6.8,color:C.mut,wrap:true},
+   {id:'signature',type:'section',k:'signature',place:'left',y:155.8,w:540,h:84}]},
+  bottom:{h:44,blocks:[
+   {id:'footLine',type:'line',place:'left',y:7,w:540,h:0,color:C.line,lw:.5},
+   {id:'footLeft',type:'field',field:'footer.left',place:'left',y:16,w:240,h:9,lh:9,size:6.8,color:C.faint,fit:true},
+   {id:'footRight',type:'text',text:'{footer.right} · Page {page} of {pages}',place:'right',pin:true,y:16,w:400,h:9,lh:9,size:6.8,color:C.faint,align:'right'}]}
+ }};
+}
+/* Поля бланка заказа (окно Insert field); m — модель docBuildModel. */
+const DOC_FORM_FIELDS=[
+ {k:'company.name',g:'Company',label:'Company name',v:m=>docCompanyBlock().name},
+ {k:'company.lines',g:'Company',label:'Address and contacts',v:m=>docCompanyBlock().lines},
+ {k:'company.logo',g:'Company',label:'Logo',v:m=>docCompanyBlock().logo||''},
+ {k:'title',g:'Document',label:'Title',v:m=>m.title},
+ {k:'docName',g:'Document',label:'Document name',v:m=>m.docName},
+ {k:'number',g:'Document',label:'Number',v:m=>m.number},
+ {k:'header.short',g:'Document',label:'Document, customer and PO',v:m=>[m.docName+' '+m.number,m.customerName,m.po?'PO '+m.po:''].filter(Boolean).join(' · ')},
+ {k:'date',g:'Document',label:'Date',t:'date',v:m=>m.data.date},
+ {k:'dueDate',g:'Document',label:'Due date',t:'date',v:m=>m.data.dueDate},
+ {k:'validUntil',g:'Document',label:'Valid until',t:'date',v:m=>m.data.validUntil},
+ {k:'stamp',g:'Document',label:'Paid stamp',v:m=>m.stamp?m.stamp.text:''},
+ {k:'stamp.date',g:'Document',label:'Paid on',v:m=>m.stamp?m.stamp.sub||'':''},
+ {k:'notes',g:'Document',label:'Order notes',v:m=>m.notes},
+ {k:'terms',g:'Document',label:'Terms and conditions',v:m=>m.terms},
+ {k:'footer.left',g:'Document',label:'Footer text',v:m=>m.footerLeft},
+ {k:'footer.right',g:'Document',label:'Company and number',v:m=>m.footerRight},
+ {k:'customerPo',g:'Order',label:'Customer PO',v:m=>m.data.customerPo},
+ {k:'paymentTerms',g:'Order',label:'Payment terms',v:m=>m.data.terms},
+ {k:'currency',g:'Order',label:'Currency',v:m=>m.data.currency},
+ {k:'priority',g:'Order',label:'Priority',v:m=>m.data.priority},
+ {k:'delivery',g:'Order',label:'Pickup / Delivery',v:m=>m.data.delivery},
+ {k:'customer',g:'Customer',label:'Customer',v:m=>m.customerName},
+ {k:'customer.code',g:'Customer',label:'Account code',v:m=>m.data.account},
+ {k:'billTo',g:'Customer',label:'Customer address',v:m=>m.data.billTo},
+ {k:'contact',g:'Customer',label:'Contact',v:m=>m.data.contact},
+ {k:'shipTo',g:'Customer',label:'Ship to',v:m=>m.data.shipTo},
+ {k:'total.units',g:'Totals',label:'Glass units',v:m=>m.data.units},
+ {k:'total.lines',g:'Totals',label:'Lines',v:m=>m.data.lines},
+ {k:'total.area',g:'Totals',label:'Total area',v:m=>m.data.area},
+ {k:'total.weight',g:'Totals',label:'Total weight',v:m=>m.data.weight},
+ {k:'total.subtotal',g:'Totals',label:'Subtotal',v:m=>m.data.subtotal},
+ {k:'total.hst',g:'Totals',label:'HST',v:m=>m.data.hst},
+ {k:'total.grand',g:'Totals',label:'Total',v:m=>m.data.grand},
+ {k:'total.paid',g:'Totals',label:'Paid to date',v:m=>m.data.paid},
+ {k:'total.balance',g:'Totals',label:'Balance',v:m=>m.data.balance}];
+function docFormFields(){return DOC_FORM_FIELDS.concat(formMyFields());}
+/* Блоки, которых нет в шаблоне по умолчанию, — свои галочки в ✎ Customize
+   (ключ b:<id>, по умолчанию стоит). */
+function docFormAdded(kind,tpl){
+ const def=docFormDefault(kind),ids=new Set(Object.keys(def.parts).flatMap(k=>(def.parts[k].blocks||[]).map(b=>k+'|'+b.id)));
+ return Object.keys(tpl.parts).flatMap(k=>(tpl.parts[k].blocks||[]).filter(b=>!ids.has(k+'|'+b.id)).map(b=>({part:k,b})));
+}
+function docFormContext(m,tpl){
+ const by=new Map(docFormFields().map(x=>[x.k,x])),added=new Set(docFormAdded(m.kind,tpl||docFormTemplate(m.kind)).map(x=>x.b.id)),cache=new Map();
+ const sec={
+  meta:()=>m.meta.length?{h:38,draw(P,y){docCells(P,m.meta,y,28,7.8);}}:null,
+  boxes:()=>{if(!m.boxes.length)return null;const L=docBoxesLay(m.boxes);return {h:L.h+12,draw:L.draw};},
+  end:()=>m.end?docEndBlock(m):null,
+  summary:()=>m.summary?{h:m.summaryNote?58:44,draw(P,y){docCells(P,m.summary,y+12,32,10.5);if(m.summaryNote)P.text(DOC_PAGE.left,y+55,docFit(m.summaryNote,7.6,false,DOC_PAGE.right-DOC_PAGE.left),{size:7.6});}}:null,
+  signature:()=>m.signature?docSignatureBlock(m):null};
+ return {field:k=>{const x=by.get(k);return x?x.v(m):undefined;},type:k=>(by.get(k)||{}).t||'',
+  section:k=>{if(!cache.has(k))cache.set(k,sec[k]?sec[k]():null);return cache.get(k);},
+  /* Галочки ✎ Customize: opt — поле набора (Company logo and details),
+     свой блок — b:<id>. */
+  off:b=>b.opt?!m.opts[b.opt]:added.has(b.id)&&m.opts['b:'+b.id]===false};
+}
+function docFormTemplate(kind){return formClean(DB.formTemplate&&DB.formTemplate[kind],docFormDefault(kind));}
+/* Строки заказа рисуются как раньше (docItemParts): лист кончается только
+   между частями строки, шапка таблицы повторяется на каждом листе. */
+function docFormPages(m,tpl,map){
+ tpl=tpl||docFormTemplate(m.kind);
+ const f=formFlow(tpl,docFormContext(m,tpl),map);let inTable=false;
+ const start=()=>{f.page();if(inTable){f.y=docTableHead(f.P,m,f.y);f.top=f.y;}};
+ const fits=h=>f.y+h<=f.bottom,room=h=>{if(!fits(h)&&f.y>f.top+1)start();};
+ const flow=(parts,onBreak)=>parts.forEach((part,i)=>{if(!fits(part.h)&&f.y>f.top+1){start();if(i&&onBreak)f.y=onBreak(f.P,f.y);}part.draw(f.P,f.y);f.y+=part.h;});
+ f.page(null,'head');f.topKey='every';
+ if(tpl.parts.table&&(m.items.length||m.extra)){
+  inTable=true;f.y=docTableHead(f.P,m,f.y);f.top=f.y;
+  m.items.forEach(it=>{
+   const parts=docItemParts(m,it);
+   room(parts.slice(0,3).reduce((s,p)=>s+p.h,0));
+   flow(parts,(pg,yy)=>{pg.text(DOC_COL.item,yy+9,'Line '+it.n+(it.mark?' · '+it.mark:'')+' (continued)',{size:7.4,color:DOC_COLOR.mut});return yy+13;});
+  });
+  if(m.extra){const parts=docExtraParts(m);room(parts.slice(0,2).reduce((s,p)=>s+p.h,0));flow(parts);}
+  inTable=false;
+ }
+ f.flow('totals');
+ return f.finish();
+}
+/* Листы бланка: из шаблона — у бланков, которые уже перешли, иначе прежней
+   раскладкой. */
+function docPages(m){return DOC_FORM_KINDS.includes(m.kind)?docFormPages(m):docLayout(m);}
+/* ✎ Customize: галочки строятся из блоков шаблона. Поле набора видно, если
+   в шаблоне есть его блок или секция; строки (Lines, Prices on lines) —
+   всегда. */
+const DOC_FORM_OPT_BLOCK={company:'opt',date:'meta',validUntil:'meta',customerPo:'meta',dueDate:'meta',terms:'meta',currency:'meta',priority:'meta',delivery:'meta',accountCode:'meta',taxNumber:'meta',
+ billTo:'boxes',contact:'boxes',shipTo:'boxes',groupTotals:'end',totals:'end',receipts:'end',payment:'end',paymentInstructions:'end',notes:'end notes',orderSummary:'summary',termsText:'terms',signature:'signature'};
+function docFormHas(tpl,k){
+ const want=DOC_FORM_OPT_BLOCK[k];if(!want)return true;
+ const all=Object.keys(tpl.parts).flatMap(p=>tpl.parts[p].blocks||[]);
+ if(want==='opt')return all.some(b=>b.opt===k);
+ return want.split(' ').some(id=>all.some(b=>b.type==='section'?b.k===id:b.id===id));
+}
+function docFormBlockLabel(b){
+ if(b.type==='text'){const t=String(b.text||'').replace(/\{[\w.]+(\|[^}]*)?\}/g,'…').replace(/\s+/g,' ').trim();return t.length>34?t.slice(0,33)+'…':t||'Text';}
+ if(b.type==='field'){const f=DOC_FORM_FIELDS.find(x=>x.k===b.field)||formMyFields().find(x=>x.k===b.field);return (b.prefix||'')+(f?f.label:b.field);}
+ if(b.type==='section')return DOC_SECTIONS[b.k]||'Section';
+ return {line:'Line',box:'Frame',image:'Picture',barcode:'Barcode'}[b.type]||'Block';
+}
+/* Конструктор: последние заказы (у Quote — квоты) для живого листа. */
+function docFormSamples(kind){
+ return (DB.salesOrder||[]).filter(o=>o&&o.businessNumber&&(kind==='quote')===!!salesIsQuote(o)).sort((a,b)=>String(b.businessNumber).localeCompare(String(a.businessNumber),undefined,{numeric:true})).slice(0,100)
+  .map(o=>({id:o.id,label:o.businessNumber+' · '+salesCustomerDisplay(o.customerId)}));
+}
+function docFormSample(kind,id){
+ const o=id&&(DB.salesOrder||[]).find(x=>x.id===id);
+ if(o)try{return finWithOrder(o,()=>docBuildModel(kind,o,docDefaultOptions(kind)));}catch(e){}
+ const s={id:'sample',businessNumber:kind==='quote'?'Q-1001':'1001',customerId:'',customerPo:'PO-1',lines:[],extraItems:[],adjustments:[],cancellations:[],currency:'CAD',delivery:'pickup',priority:'normal',createdAt:finToday(),dueDate:finToday(),notes:''};
+ return finWithOrder(s,()=>docBuildModel(kind,s,docDefaultOptions(kind)));
 }
 
 /* ==== src/erp/finance/print.js ==== */
@@ -32333,8 +32571,8 @@ function docToggleRev(id,on){
  docState.revs=[...s];docState.status='';render();
 }
 function docCurrentPages(){
- if(docState.kind!=='quote')return docLayout(docBuildModel(docState.kind,soDraft,docState.opts));
- return docQuoteRecords().flatMap(r=>finWithOrder(r,()=>docLayout(docBuildModel('quote',r,docState.opts))));
+ if(docState.kind!=='quote')return docPages(docBuildModel(docState.kind,soDraft,docState.opts));
+ return docQuoteRecords().flatMap(r=>finWithOrder(r,()=>docPages(docBuildModel('quote',r,docState.opts))));
 }
 function docRevisionPicker(){
  if(!docState||docState.kind!=='quote')return '';
@@ -32453,10 +32691,12 @@ function docDrawingsPrint(which){
  if(printSheet(sheets,'',salesSheetFitDrawing)&&soDraft&&typeof orderLogAdd==='function')orderLogAdd(soDraft.id,'Printed','Drawings'+(sheets.length>1?' · '+sheets.length:''));
 }
 function docPanel(){
- const kind=docState.kind,o=docState.opts,groups=[];
- docFieldsFor(kind).forEach(f=>{let g=groups.find(x=>x.name===f.g);if(!g){g={name:f.g,fields:[]};groups.push(g);}g.fields.push(f);});
+ const kind=docState.kind,o=docState.opts,groups=[],tpl=DOC_FORM_KINDS.includes(kind)?docFormTemplate(kind):null;
+ /* Бланк на шаблоне формы: галочки — из его блоков; свой блок — своя
+    галочка (по умолчанию стоит). */
+ docFieldsFor(kind).filter(f=>!tpl||docFormHas(tpl,f.k)).concat(tpl?docFormAdded(kind,tpl).map(x=>({k:'b:'+x.b.id,g:'Added blocks',label:docFormBlockLabel(x.b),on:true})):[]).forEach(f=>{let g=groups.find(x=>x.name===f.g);if(!g){g={name:f.g,fields:[]};groups.push(g);}g.fields.push(f);});
  const hint=h=>h?'<small>'+h+'</small>':'';
- const box=f=>`<label class="doc-opt"><input type="checkbox" data-doc-field="${f.k}" ${o[f.k]?'checked':''} onchange="docSetOption('${f.k}',this.checked)"><span>${f.label}${hint(f.hint)}</span></label>`;
+ const box=f=>`<label class="doc-opt"><input type="checkbox" data-doc-field="${esc(f.k)}" ${(/^b:/.test(f.k)?o[f.k]!==false:o[f.k])?'checked':''} onchange="docSetOption('${esc(f.k)}',this.checked)"><span>${esc(f.label)}${hint(f.hint)}</span></label>`;
  const body=groups.map(g=>{
   if(g.name!=='Prices on lines')return `<h4>${g.name}</h4>${g.fields.map(box).join('')}`;
   const modes=DOC_PRICE_MODES.map(m=>`<label class="doc-opt"><input type="radio" name="docPriceMode" data-doc-price="${m.k}" ${o.priceMode===m.k?'checked':''} onchange="docSetOption('priceMode','${m.k}')"><span>${m.label}${hint(m.hint)}</span></label>`).join('');
@@ -32572,7 +32812,7 @@ function docEmailQuote(){
  if(before!==cur)ids=ids.filter(id=>id!==before).concat(cur);
  if(!ids.length)ids=[cur];
  const recs=ids.map(id=>DB.salesOrder.find(o=>o.id===id)).sort((a,b)=>(a.quoteRev||0)-(b.quoteRev||0)),files=[];
- try{recs.forEach(r=>{const pages=finWithOrder(r,()=>docLayout(docBuildModel('quote',r,docState.opts)));files.push({name:docFileName('quote',r),bytes:docPdfBytes(pages,{title:'Quote '+r.businessNumber})});});}
+ try{recs.forEach(r=>{const pages=finWithOrder(r,()=>docPages(docBuildModel('quote',r,docState.opts)));files.push({name:docFileName('quote',r),bytes:docPdfBytes(pages,{title:'Quote '+r.businessNumber})});});}
  catch(e){alert('The PDF could not be prepared: '+(e&&e.message||e));return;}
  const C=salesFindCustomer(recs[0].customerId),to=C?(C.invoiceEmail||customerPrimaryContact(C).email||''):'';
  const url=docGmailUrl(to,docQuoteEmailSubject(recs),docQuoteEmailBody(recs));
@@ -33002,7 +33242,7 @@ function finStatementControls(p){
 function finStatementInvoices(on){const p=finPreview;if(!p)return;p.invoices=!!on;p.status='';render();}
 async function finStatementInvoiceBuild(p,key){
  const inPeriod=d=>!!d&&(!p.from||d>=p.from)&&(!p.to||d<=p.to),list=finStatementOrders(p.id,p.from,p.to).filter(x=>inPeriod(x.billed)),old=list.filter(x=>x.archived).map(x=>x.o.id);
- const build=()=>list.flatMap(x=>{const o=salesRecord(x.o.id);return o?finWithOrder(o,()=>docLayout(docBuildModel('invoice',o,docDefaultOptions('invoice')))):[];});
+ const build=()=>list.flatMap(x=>{const o=salesRecord(x.o.id);return o?finWithOrder(o,()=>docPages(docBuildModel('invoice',o,docDefaultOptions('invoice')))):[];});
  let pages=[];try{pages=old.length&&typeof archiveWith==='function'?await archiveWith(old,build):build();}catch(e){if(finPreview===p)p.status='Invoices could not be prepared: '+(e&&e.message||e);}
  if(finPreview!==p||p.invoiceKey!==key)return;
  p.invoicePages=pages;p.invoiceCount=list.length;render();
@@ -43539,8 +43779,15 @@ function formsDefs(){
   context:d=>shippingFormContext(d),
   /* Что может стоять в колонках таблиц (Shows, + Column). */
   columns:{table:SHIPPING_TABLE_COLUMNS,skidTable:SHIPPING_SKID_COLUMNS},
-  pages:(tpl,d,map)=>shippingPages(d,null,tpl,map)}];
+  pages:(tpl,d,map)=>shippingPages(d,null,tpl,map)}]
+ /* Бланки заказа (erp/documents/order-form): живой лист — заказ с набором
+    галочек ✎ Customize по умолчанию. */
+ .concat(DOC_FORM_KINDS.map(k=>({k,label:docKindLabel(k),def:()=>docFormDefault(k),fields:()=>docFormFields(),
+  parts:{head:['Page 1 header','page 1'],every:['Page header','page 2 on'],table:['Lines table','grows'],totals:['After lines','totals, notes']},
+  samples:()=>docFormSamples(k),doc:id=>docFormSample(k,id),context:m=>docFormContext(m),columns:{},
+  pages:(tpl,m,map)=>docFormPages(m,tpl,map)})));
 }
+function formsPartLabel(k){const d=formsDef(formsState().form);return (d.parts&&d.parts[k])||FORMS_PARTS[k]||[k,''];}
 function formsDef(k){return formsDefs().find(x=>x.k===k)||formsDefs()[0];}
 function formsSaved(k){const def=formsDef(k);return formClean(DB.formTemplate&&DB.formTemplate[k],def.def());}
 function normalizeFormTemplates(){
@@ -43556,7 +43803,7 @@ function validateFormTemplatePayload(src){
  if(src.formVersion!=null&&!Array.isArray(src.formVersion))throw new Error('Form versions must be a list.');
 }
 
-const FORMS_PARTS={every:['Page header','every page'],first:['First page','page 1'],table:['Lines table','grows'],totals:['Totals','after table'],skidTop:['Skid sheet','per skid'],skidTable:['Skid table','per skid'],bottom:['Page footer','bottom']};
+const FORMS_PARTS={head:['Page 1 header','page 1'],every:['Page header','every page'],first:['First page','page 1'],table:['Lines table','grows'],totals:['Totals','after table'],skidTop:['Skid sheet','per skid'],skidTable:['Skid table','per skid'],bottom:['Page footer','bottom']};
 const FORMS_PT_MM=25.4/72;
 let formsUi=null,formsPointer=null,formsClickUntil=0;
 function formsState(){
@@ -43599,23 +43846,24 @@ function formsReset(){
  if(!confirm('Back to the default form? Nothing changes until Save.'))return;
  const def=formsDef(formsState().form).def();formsUi.sel=null;formsEdit(t=>{Object.keys(t).forEach(k=>delete t[k]);Object.assign(t,formsClone(def));});
 }
-function formsSetForm(k){const s=formsState();if(s.form===k)return;s.form=k;s.sample='';s.sel=null;s.part='every';s.modal=null;formsState();render();}
+function formsSetForm(k){const s=formsState();if(s.form===k)return;s.form=k;s.sample='';s.sel=null;s.cols=null;s.part=Object.keys(formsDef(k).def().parts)[0];s.modal=null;formsState();render();}
 function formsSetSample(id){formsState().sample=id;render();}
 function formsSelect(part,id){const s=formsState();s.sel=id?{part,id}:null;s.part=part;s.cols=null;render();}
 
 /* ------------------------------ Блоки -------------------------------- */
 function formsFieldDef(k){return formsDef(formsState().form).fields().find(x=>x.k===k);}
 function formsBlockLabel(b){
+ if(b.type==='section')return DOC_SECTIONS[b.k]||'Section';
  if(b.type==='text'){const t=String(b.text||'').replace(/\s+/g,' ').trim();return t.length>34?t.slice(0,33)+'…':t||'Text';}
  if(b.type==='field'){const f=formsFieldDef(b.field);return (b.prefix||'')+(f?f.label:b.field);}
  if(b.type==='barcode'){const f=formsFieldDef(b.field);return b.field==='barcode'?'Barcode':'Barcode · '+(f?f.label:b.field);}
  return {line:'Line',box:'Frame',image:'Picture'}[b.type]||b.type;
 }
-function formsTypeLabel(b){return {text:'Text',field:'Field',line:'Line',box:'Frame',image:'Picture',barcode:'Barcode'}[b.type]||'Block';}
+function formsTypeLabel(b){return {text:'Text',field:'Field',line:'Line',box:'Frame',image:'Picture',barcode:'Barcode',section:'Section'}[b.type]||'Block';}
 /* Новый блок встаёт под части и раздвигает её — ничего не налезает. */
 function formsAddBlock(make){
  const s=formsState();let part=s.sel?s.sel.part:s.part||'every';
- if(!formsDraft().tpl.parts[part]||formsDraft().tpl.parts[part].columns)part='totals';
+ const pp=formsDraft().tpl.parts[part];if(!pp||pp.columns||pp.lines)part='totals';
  formsEdit(t=>{
   const p=t.parts[part],b=make(),id='b'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
   b.id=id;b.y=p.h||0;p.blocks=(p.blocks||[]).concat([b]);p.h=(p.h||0)+(b.type==='line'?6:(b.h||14)+4);
@@ -43774,7 +44022,7 @@ function formsColShows(part,k,key){
 }
 let formsColDrag='';
 function formsColsHTML(tpl){
- const s=formsState(),part=s.cols.part,p=tpl.parts[part],cat=formsColCatalog(part),lab=FORMS_PARTS[part]||[part,''];if(!p||!p.columns)return '';
+ const s=formsState(),part=s.cols.part,p=tpl.parts[part],cat=formsColCatalog(part),lab=formsPartLabel(part);if(!p||!p.columns)return '';
  const mm=v=>Math.round((v||0)*FORMS_PT_MM),c=p.columns.find(x=>x.k===s.cols.k),free=cat.filter(x=>!p.columns.some(y=>y.k===x.k));
  if(c){const x=cat.find(y=>y.k===c.k),others=cat.filter(y=>y.k===c.k||!p.columns.some(z=>z.k===y.k)),al=c.align||(c.type==='num'?'right':'left');
   return `<button type="button" class="fm-back" onclick="formsColumns('${part}','')">‹ Columns</button><div class="fm-h">Selected · Column</div>
@@ -43856,7 +44104,7 @@ function formsSheetsHTML(){
    if(String(r.id).startsWith('col:')){const k=r.id.slice(4),on=s.cols&&s.cols.part===r.part&&s.cols.k===k;
     return `<div class="fm-hit fm-colhit${on?' sel':''}" data-forms-hit="${esc(r.part)}|${esc(r.id)}" title="Column" style="left:${pc(r.x,W)};top:${pc(r.y,H)};width:${pc(Math.max(r.w,4),W)};height:${pc(r.h,H)}" onpointerdown="event.preventDefault();formsColumns('${esc(r.part)}','${esc(k)}')"></div>`;}
    const sel=s.sel&&s.sel.part===r.part&&s.sel.id===r.id,b=formsFind(tpl,r);if(!b)return '';
-   const handles=sel?'<span class="fm-rs e" data-forms-resize="e"></span>'+(formIsText(b)?'':'<span class="fm-rs s" data-forms-resize="s"></span>'):'';
+   const handles=sel&&b.type!=='section'?'<span class="fm-rs e" data-forms-resize="e"></span>'+(formIsText(b)?'':'<span class="fm-rs s" data-forms-resize="s"></span>'):'';
    return `<div class="fm-hit${sel?' sel':''}" data-forms-hit="${esc(r.part)}|${esc(r.id)}" title="${esc(formsBlockLabel(b))}" style="left:${pc(r.x,W)};top:${pc(r.y,H)};width:${pc(Math.max(r.w,4),W)};height:${pc(Math.max(r.h,4),H)}" onpointerdown="formsPointerStart(event,'${esc(r.part)}','${esc(r.id)}')">${handles}</div>`;}).join('');
   return `<div class="fm-sheet" data-forms-page="${i}" data-w="${W}" data-h="${H}">${docPageSVG(pg).replace('width="612" height="792"','width="100%" height="100%"')}${i?'':formsRuler(false,W)+formsRuler(true,H)+formsRulerMarks(tpl)}<div class="fm-margin" style="left:${pc(m.left,W)};right:${pc(m.right,W)}"></div>${formsGuidesHTML(tpl)}${hits}</div>`;
  }).join('');
@@ -43895,13 +44143,14 @@ function formsPointerEnd(e,cancel){
 /* ---------------------------- Панели --------------------------------- */
 function formsTreeHTML(tpl){
  const s=formsState();
- return Object.keys(tpl.parts).map(k=>{const p=tpl.parts[k],lab=FORMS_PARTS[k]||[k,''];
-  const kids=p.columns?`<button type="button" class="fm-node c${s.cols&&s.cols.part===k?' sel':''}" data-forms-columns="${esc(k)}" onclick="formsColumns('${esc(k)}','')">Columns (${p.columns.filter(c=>!c.hide).length})</button>`:(p.blocks||[]).map(b=>`<button type="button" class="fm-node c${s.sel&&s.sel.part===k&&s.sel.id===b.id?' sel':''}" data-forms-node="${esc(k)}|${esc(b.id)}" onclick="formsSelect('${esc(k)}','${esc(b.id)}')">${esc(formsBlockLabel(b))}</button>`).join('');
+ return Object.keys(tpl.parts).map(k=>{const p=tpl.parts[k],lab=formsPartLabel(k);
+  /* Строки бланка заказа рисует код: их вид — в окне ✎ Customize. */
+  const kids=p.lines?'<span class="fm-node c fm-node-note" data-forms-lines>Set in ✎ Customize</span>':p.columns?`<button type="button" class="fm-node c${s.cols&&s.cols.part===k?' sel':''}" data-forms-columns="${esc(k)}" onclick="formsColumns('${esc(k)}','')">Columns (${p.columns.filter(c=>!c.hide).length})</button>`:(p.blocks||[]).map(b=>`<button type="button" class="fm-node c${s.sel&&s.sel.part===k&&s.sel.id===b.id?' sel':''}" data-forms-node="${esc(k)}|${esc(b.id)}" onclick="formsSelect('${esc(k)}','${esc(b.id)}')">${esc(formsBlockLabel(b))}</button>`).join('');
   return `<button type="button" class="fm-node p${!s.sel&&s.part===k?' sel':''}" data-forms-part="${esc(k)}" onclick="formsSelect('${esc(k)}','')"><span>${esc(lab[0])}</span><small>${esc(lab[1])}</small></button>${kids}`;}).join('');
 }
 function formsSettingsHTML(tpl){
  const s=formsState();if(s.cols)return formsColsHTML(tpl);const b=formsFind(tpl,s.sel);
- if(!b){const lab=FORMS_PARTS[s.part]||[s.part,''];return `<div class="fm-h">Part · ${esc(lab[0])}</div><p class="fm-note">Click a block on the sheet or in the list. Add puts a new block here.</p>`;}
+ if(!b){const lab=formsPartLabel(s.part);return `<div class="fm-h">Part · ${esc(lab[0])}</div><p class="fm-note">Click a block on the sheet or in the list. Add puts a new block here.</p>`;}
  const mm=v=>v==null?'':Math.round(v*FORMS_PT_MM*10)/10,f=b.type==='field'||b.type==='barcode'?formsFieldDef(b.field):null,text=formIsText(b);
  const seg=(cur,list,fn)=>`<div class="fm-seg">${list.map(([k,l])=>`<button type="button" class="${cur===k?'on':''}" onclick="${fn}('${k}')">${l}</button>`).join('')}</div>`;
  const num=(k,label,v,isMm)=>`<label><span>${label}</span><input class="fm-in" data-forms-num="${k}" inputmode="decimal" value="${esc(String(v))}" onchange="formsNum('${k}',this.value,${isMm?'true':'false'})"></label>`;
@@ -43914,12 +44163,13 @@ function formsSettingsHTML(tpl){
    <div class="fm-seg"><button type="button" class="${b.bold?'on':''}" onclick="formsToggle('bold')"><b>B</b></button><button type="button" class="${b.italic?'on':''}" data-forms-italic onclick="formsToggle('italic')"><i>I</i></button>${['left','center','right'].map(a=>`<button type="button" class="${(b.align||'left')===a?'on':''}" onclick="formsSet('align','${a}')">${a[0].toUpperCase()+a.slice(1)}</button>`).join('')}</div>
    <div class="fm-row"><label><span>Color</span><input type="color" class="fm-in fm-color" value="${esc(b.color||DOC_COLOR.ink)}" onchange="formsSet('color',this.value)"></label><label class="fm-check"><input type="checkbox" ${b.wrap?'checked':''} onchange="formsToggle('wrap')"><span>Wrap lines</span></label></div>`
   :b.type==='line'||b.type==='box'?`<div class="fm-h">Line</div><div class="fm-row"><label><span>Color</span><input type="color" class="fm-in fm-color" value="${esc(b.color||DOC_COLOR.line)}" onchange="formsSet('color',this.value)"></label>${num('lw','Width, pt',b.lw||.6)}</div>${b.type==='box'?`<div class="fm-row"><label><span>Fill</span><input type="color" class="fm-in fm-color" value="${esc(b.fill||'#ffffff')}" onchange="formsSet('fill',this.value==='#ffffff'?'':this.value)"></label>${num('r','Corner, pt',b.r||0)}</div>`:''}`:'';
- const sh=b.show||{},fl=formsDef(s.form).fields();
+ const sh=b.show||{},fl=formsDef(s.form).fields(),sec=b.type==='section';
  const showIf=`<div class="fm-h">Show if</div><select class="fm-in" data-forms-show onchange="formsShow('when',this.value)">${[['','Always'],['filled','A field is filled'],['is','A field is…'],['not','A field is not…']].map(([k,l])=>`<option value="${k}" ${(sh.when||'')===k?'selected':''}>${l}</option>`).join('')}</select>
   ${sh.when?`<select class="fm-in fm-gap" data-forms-show-field onchange="formsShow('field',this.value)">${fl.map(f=>`<option value="${esc(f.k)}" ${sh.field===f.k?'selected':''}>${esc(f.g+' · '+f.label)}</option>`).join('')}</select>${sh.when!=='filled'?`<input class="fm-in fm-gap" data-forms-show-value placeholder="Value, e.g. Delivery" value="${esc(sh.value||'')}" onchange="formsShow('value',this.value)">`:''}`:''}`;
  return `<div class="fm-h fm-sel-h"><span>Selected · ${esc(formsTypeLabel(b))}</span><button type="button" class="fm-del" data-forms-delete onclick="formsDelete()">Delete</button></div>${what}
-  <div class="fm-h">Place on sheet</div>${seg(b.place||'left',[['left','Left'],['center','Center'],['right','Right'],['free','Free']],'formsPlace')}
-  <div class="fm-row">${b.place==='free'?num('x','X, mm',mm(b.x),true):''}${num('y','Y, mm',mm(b.y),true)}${num('w','Width, mm',mm(b.w),true)}${text?'':num('h','Height, mm',mm(b.h),true)}</div>${look}${showIf}`;
+  ${sec?`<p class="fm-note">Drawn by the program. What it shows — ✎ Customize.</p><div class="fm-h">Place on sheet</div><div class="fm-row">${num('y','Y, mm',mm(b.y),true)}</div>`
+  :`<div class="fm-h">Place on sheet</div>${seg(b.place||'left',[['left','Left'],['center','Center'],['right','Right'],['free','Free']],'formsPlace')}
+  <div class="fm-row">${b.place==='free'?num('x','X, mm',mm(b.x),true):''}${num('y','Y, mm',mm(b.y),true)}${num('w','Width, mm',mm(b.w),true)}${text?'':num('h','Height, mm',mm(b.h),true)}</div>`}${look}${showIf}`;
 }
 function viewMdForms(){
  const s=formsState(),def=formsDef(s.form),d=formsDraft(),tpl=d.tpl,dirty=formsDirty(),samples=def.samples();
