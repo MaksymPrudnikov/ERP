@@ -116,7 +116,7 @@ module.exports=async function({page,eq}){
   try{
    tab='masterdata';mdSetTab('materials');mdMatSwitch('lamination','interlayerProduct');mdCatEditRow('INT-EVA-UC');render();
    document.getElementById('md_filmThick').value='0.76, 1.52';
-   document.querySelector('[data-md-film-supplies] button').click();
+   document.querySelector('[data-md-film-add]').click();
    const tr=document.querySelector('[data-md-film-supply]');tr.querySelector('[data-k=supplier]').value='Kuraray';tr.querySelector('[data-k=widthIn]').value='63';tr.querySelector('[data-k=thicknessMm]').value='0.76';tr.querySelector('[data-k=price]').value='120';
    mdCatSave();const card=mdById('interlayerProduct','INT-EVA-UC');
    const f=normalizeSalesInterlayer({productId:'INT-EVA-UC',layers:1,thicknessMm:0.38});

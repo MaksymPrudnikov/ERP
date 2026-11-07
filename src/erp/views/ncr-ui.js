@@ -65,7 +65,7 @@ function ncrFormHTML(){
   <div class="sales-service-modal-head"><h3>${recut?'Recut':'New NCR'} · Order ${esc(o.businessNumber)}</h3><button type="button" aria-label="Close" onclick="ncrFormClose()">×</button></div>
   <div class="sales-dialog-body ncr-form">
    <p class="mut">${esc([salesCustomerDisplay(o.customerId),o.customerPo,salesStatusLabel(o)].filter(Boolean).join(' · '))}</p>
-   <div><div class="ncr-label">AFFECTED GLASS</div><div class="ncr-lines-wrap"><table class="ncr-lines"><thead><tr><th></th><th>Line</th><th>Size</th><th>Glass</th><th class="n">Qty</th><th>Affected</th><th>Which glass</th></tr></thead><tbody>${rows}</tbody></table></div></div>
+   <div><div class="ncr-label">AFFECTED GLASS</div><div class="ncr-lines-wrap">${slFromTable('ncrLines',`<table class="ncr-lines"><thead><tr><th></th><th>Line</th><th>Size</th><th>Glass</th><th class="n">Qty</th><th>Affected</th><th>Which glass</th></tr></thead><tbody>${rows}</tbody></table>`)}</div></div>
    <div class="ncr-pick${recut?' ncr-pick-two':''}">
     <label><span class="ncr-label">WHERE</span><select data-ncr-where-select onchange="ncrFormSet('where',this.value)"><option value="">Choose…</option>${places.map(w=>`<option value="${esc(w.code)}" ${f.where===w.code?'selected':''}>${esc(w.code===NCR_OFFICE?'Office':w.code+' · '+w.name)}</option>`).join('')}</select></label>
     <label><span class="ncr-label">WHAT HAPPENED</span><select data-ncr-reason-select ${f.where?'':'disabled'} onchange="ncrFormSet('reasonId',this.value)"><option value="">${f.where?'Choose…':'Choose where first'}</option>${reasons.map(r=>`<option value="${esc(r.id)}" ${f.reasonId===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}</select></label>
@@ -86,7 +86,7 @@ function ncrViewHTML(){
   <div class="sales-service-modal-head"><h3>${esc(n.number)}${o?' · Order '+esc(o.businessNumber):''} <span class="pill ${status==='Open'?'ncr-st-open':'ncr-st-done'}" data-ncr-status>${esc(status)}</span></h3><button type="button" aria-label="Close" onclick="ncrViewClose()">×</button></div>
   <div class="sales-dialog-body ncr-form">
    <div class="sales-dialog-rows">${row('Created',salesShortDate(n.createdAt))}${row('Customer',o?salesCustomerDisplay(o.customerId):'—')}${row('Source',n.source)}${row('Where',n.where===NCR_OFFICE?'Office':n.where+' · '+ncrWhereName(n.where))}${row('What happened',n.reason)}${row('Action',n.action)}</div>
-   <div class="ncr-lines-wrap"><table class="ncr-lines"><thead><tr><th>Line</th><th>Which glass</th><th class="n">Affected</th></tr></thead><tbody>${n.glass.map(g=>`<tr><td>Line ${g.line}${g.mark?' · '+esc(g.mark):''}</td><td>${esc(g.lite)}</td><td class="n">${g.qty}</td></tr>`).join('')}</tbody></table></div>
+   <div class="ncr-lines-wrap">${slFromTable('ncrAffected',`<table class="ncr-lines"><thead><tr><th>Line</th><th>Which glass</th><th class="n">Affected</th></tr></thead><tbody>${n.glass.map(g=>`<tr><td>Line ${g.line}${g.mark?' · '+esc(g.mark):''}</td><td>${esc(g.lite)}</td><td class="n">${g.qty}</td></tr>`).join('')}</tbody></table>`)}</div>
    ${n.note?`<p class="ncr-note">${esc(n.note)}</p>`:''}
    ${n.action===NCR_REMAKE?`<div class="sales-quote-note">${r?'Remake order '+esc(r.businessNumber)+' · '+esc(salesStatusLabel(r)):'Remake order deleted'}</div>`:''}
   </div>

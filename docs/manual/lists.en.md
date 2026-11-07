@@ -35,8 +35,16 @@ Customers, Agents, Users and Data.
 - **Every table works like Sales** (owner, 7 Nov 2026): settings in Data too (Trucks, NCR, Stock reasons, Dollies &
   Skids, Setup, Prices, Stations, Data overview), the catalog (glass, Works, Hardware), Production → Stations and
   Terminals, Inventory → Sheet sizes and Consumables, Users. Fields in rows are edited as before. ⚙ Columns also has
-  columns the screen did not show (e.g. Manufacturer for glass, Status and At customer for dollies). Cutting keeps its
-  table for now.
+  columns the screen did not show (e.g. Manufacturer for glass, Status and At customer for dollies). Windows too (part 2, 7 Nov
+  2026): the Packing slip window lines, the dolly / skid window (filter, sort, quick filter; its columns and widths
+  stay its own, shared with Columns and the printed sheet), Activity log, the customer card in Finance and Customers,
+  Allocate (link rows ▸ under their row), the person tables in Agents, Cut preview, NCR, Skip, Unbatch and sticker
+  lines, supplier order and receiving lines, tables in Data cards, Data → Cutting (view only). ⚙ and row checkboxes sit
+  in the middle of the first column.
+- **Shipping → Ready** is a flat list: a row is an order line with ready units; Customer, Order, PO, Line / Mark,
+  Size, Makeup, Skid are columns; the row checkbox ticks its units, Select qty — how many; Create packing slip as
+  before. The skid is the Skid column (the link opens the skid window).
+- **Sales → ⚙ Columns** also has Account, Contact, Currency, Picked up, Payment due, Days late, Hold reason, Notes.
 - Boards and windows keep what they do (the dolly board, the truck day, the window of a dolly or skid); only their
   header follows this look.
 

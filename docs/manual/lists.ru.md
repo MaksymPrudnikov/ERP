@@ -34,7 +34,15 @@ Customers, Agents, Users и Data.
 - **Все таблицы — как Sales** (владелец 07.11.2026): и настройки в Data (Trucks, NCR, Stock reasons, Dollies & Skids,
   Setup, Prices, Stations, Data overview), каталог (стекло, Works, Hardware), Production → Stations и Terminals,
   Inventory → Sheet sizes и Consumables, Users. Поля в строках правятся как раньше. В ⚙ Columns — и колонки, которых
-  на экране не было (например, Manufacturer у стекла, Status и At customer у тары). Cutting — пока прежняя таблица.
+  на экране не было (например, Manufacturer у стекла, Status и At customer у тары). Окна тоже (часть 2, 07.11.2026): строки окна Packing slip, окно
+  долли / скида (фильтр, сортировка, быстрый фильтр; колонки и ширины — свои, общие с Columns и листом на печать),
+  Activity log, карточка клиента в Finance и в Customers, Allocate (связи ▸ под своей строкой), таблицы человека в
+  Agents, Cut preview, строки NCR, Skip, Unbatch и стикеров, строки заказа поставщику и приёмки, таблицы в карточках
+  Data, Data → Cutting (только вид). ⚙ и галочки строк — по центру первой колонки.
+- **Shipping → Ready** — плоский список: строка — строка заказа с готовыми юнитами; Customer, Order, PO, Line / Mark,
+  Size, Makeup, Skid — колонки; галочка строки отмечает её юниты, Select qty — сколько; Create packing slip как
+  раньше. Скид — колонка Skid (ссылка открывает окно скида).
+- **Sales → ⚙ Columns**: ещё Account, Contact, Currency, Picked up, Payment due, Days late, Hold reason, Notes.
 - Доски и окна делают то же, что раньше (доска долли, день доставки, окно долли или скида); по виду Sales меняется
   только их шапка.
 

@@ -61,7 +61,7 @@ module.exports=async function({page,eq,ok}){
   document.querySelector(`[data-com-row="${comOfCustomer(north.id).id}"]`).click();const orders=[...document.querySelectorAll('[data-com-order]')].map(x=>x.dataset.comOrder);
   const before=document.querySelector('[data-com-topay]').textContent;document.querySelector('[data-com-pay]').click();
   const checked=[...document.querySelectorAll('[data-com-pay-order]')].map(x=>x.checked),total=document.querySelector('[data-com-pay-total]').textContent;document.querySelector('[data-com-pay-save]').click();
-  const after=document.querySelector('[data-com-topay]').textContent,due=document.querySelector('[data-com-due]').textContent,payouts=[...document.querySelectorAll('[data-com-payouts] tbody tr td:nth-child(3)')].map(x=>x.textContent);
+  const after=document.querySelector('[data-com-topay]').textContent,due=document.querySelector('[data-com-due]').textContent,payouts=[...document.querySelectorAll('[data-com-payouts] tbody tr td:nth-child(4)')].map(x=>x.textContent);
   document.querySelector('[data-com-pay]').click();const nothing=/Nothing to pay/.test(document.querySelector('[data-com-pay-form]').textContent)&&document.querySelector('[data-com-pay-save]').disabled;
   comPayDraft=null;comHst=false;tab='dashboard';render();
   return {h1,people,h2,orders:orders.length===1&&orders[0]===salesRecord(b).businessNumber,checked,total:total===before,after,due,payouts:payouts.length===1&&payouts[0].startsWith(salesRecord(b).businessNumber+' '),nothing};

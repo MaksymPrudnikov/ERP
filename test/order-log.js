@@ -173,7 +173,7 @@ module.exports=async function({page,eq,ok}){
   oqReset();DB.orderEvent=[];const id=oqOrder(oqCustomer());salesDraftDrop();soDraft=null;soEdit=null;tab='sales';render();
   document.querySelector(`[data-order-row="${id}"]`).dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,clientX:200,clientY:200}));
   const item=document.querySelector('.sl-ctx [data-menu="log"]');const label=item&&item.textContent;item.click();
-  const dialog=document.querySelector('[data-order-log]'),head=[...dialog.querySelectorAll('th')].map(x=>x.textContent),rows=dialog.querySelectorAll('[data-order-log-row]').length;
+  const dialog=document.querySelector('[data-order-log]'),head=[...dialog.querySelectorAll('th')].map(x=>x.textContent).filter(Boolean),rows=dialog.querySelectorAll('[data-order-log-row]').length;
   document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}));
   return {label,head,rows,closed:!document.querySelector('[data-order-log]')};
  }),{label:'Activity log',head:['When','Who','What'],rows:1,closed:true});

@@ -203,7 +203,7 @@ function viewShapeSkill(){
   var presetOptions=shapePresetChoices().map(function(p){return `<option value='${esc(p.id)}'>${esc(p.code+' · '+p.label)}</option>`;}).join('');
   return `${sEdit!==null?'':`<div class='real-module-note'><b>Shape schema v2</b><span>Finished Geometry, Production Drawing and Cutting Geometry come from one revision. For a Fusion 360 DXF, ERP stores metadata, a lightweight 2D preview contour and bounding dimensions; the original DXF contents are not stored in localStorage.</span></div>`}
     ${sEdit!==null?shapeForm():''}
-    <table><thead><tr><th>Name / type</th><th>Size</th><th>Edges</th><th>Features</th><th>Status</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">empty</td></tr>'}</tbody></table>
+    ${slFromTable('shapeList',`<table><thead><tr><th>Name / type</th><th>Size</th><th>Edges</th><th>Features</th><th>Status</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">empty</td></tr>'}</tbody></table>`)}
     ${sEdit===null?`<div class='shape-new-row'><select id='s_new_type'>${presetOptions}</select><button class='pri' onclick='openShapeNew(document.getElementById("s_new_type").value)'>New Production Shape</button></div>`:''}`;
 }
 

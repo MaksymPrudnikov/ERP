@@ -34,11 +34,11 @@ function mdRecipeCard(r){
    <div><label>PIB per side, mm</label><input type="number" min="0" step="any" value="${r.pibPerSideMm==null?'':r.pibPerSideMm}" placeholder="unknown" onchange="mdRecipeSet('${esc(r.id)}','pibPerSideMm',this.value)"><div class="hint">Adds to unit thickness on both sides of the spacer.</div></div>
    <div><label>Used by</label><div>${users.length} spacer${users.length===1?'':'s'}${missing?` <span class="pill warn">${missing} without norm</span>`:''}</div></div>
   </div>
-  <div class="customer-table-wrap"><table><thead><tr><th>Part</th><th>Norm, g</th><th>Per</th><th>Waste, %</th><th></th></tr></thead><tbody>
+  <div class="customer-table-wrap">${slFromTable('mdSurroundParts',`<table><thead><tr><th>Part</th><th>Norm, g</th><th>Per</th><th>Waste, %</th><th></th></tr></thead><tbody>
   ${r.rows.map((x,i)=>`<tr><td><select onchange="mdRecipeRowSet('${esc(r.id)}',${i},'part',this.value)">${mdRecipePartOptions(x.part)}</select></td>${cell(x,i)}
    <td><input type="number" min="0" step="any" style="width:70px" value="${x.wastePct==null?'':x.wastePct}" placeholder="0" onchange="mdRecipeRowSet('${esc(r.id)}',${i},'wastePct',this.value)"></td>
    <td><button class="sm dl" onclick="mdRecipeRowDelete('${esc(r.id)}',${i})">×</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">no parts</td></tr>'}
-  </tbody></table></div>
+  </tbody></table>`)}</div>
   <div class="row"><button class="sm" onclick="mdRecipeRowAdd('${esc(r.id)}')">+ Part</button><button class="sm dl" onclick="mdRecipeDelete('${esc(r.id)}')">Delete recipe</button></div>
  </div>`;
 }
@@ -82,12 +82,12 @@ function mdRecipeDelete(id){
 function mdSpacerSystemsTable(){
  const rows=DB.spacerSystem||[],used=name=>(DB.spacerVariant||[]).filter(sp=>sp&&sp.system===name).length;
  return `<h4 style="margin-top:22px">Spacer systems</h4>
-  <div class="customer-table-wrap"><table data-spacer-systems><thead><tr><th>Name</th><th>Code</th><th>Family</th><th>Spacers</th><th></th></tr></thead><tbody>
+  <div class="customer-table-wrap">${slFromTable('mdSpacerSystems',`<table data-spacer-systems><thead><tr><th>Name</th><th>Code</th><th>Family</th><th>Spacers</th><th></th></tr></thead><tbody>
   ${rows.map(x=>`<tr><td><input value="${esc(x.name)}" onchange="mdSpacerSystemSet('${esc(x.id)}','name',this.value)"></td>
    <td><input style="width:80px" value="${esc(x.code)}" onchange="mdSpacerSystemSet('${esc(x.id)}','code',this.value)"></td>
    <td><input value="${esc(x.family)}" onchange="mdSpacerSystemSet('${esc(x.id)}','family',this.value)"></td>
    <td class="mono">${used(x.name)}</td><td><button class="sm dl" onclick="mdSpacerSystemDelete('${esc(x.id)}')">×</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">no systems</td></tr>'}
-  </tbody></table></div>
+  </tbody></table>`)}</div>
   <div class="row"><button class="sm" onclick="mdSpacerSystemNew()">+ New system</button></div>`;
 }
 function mdSpacerSystemNew(){

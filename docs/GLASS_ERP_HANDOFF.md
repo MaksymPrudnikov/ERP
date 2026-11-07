@@ -2,6 +2,27 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Все таблицы как Sales, часть 2: окна, Ready, Cutting · 7 ноября 2026
+
+- Адаптер `views/sl-generic.js`: `slHtmlTable(scope, head, body, o)` — заголовки `[[k, label, cls]]` и строки
+  HTML; `slFromTable(scope, '<table>…</table>', o)` — готовая таблица целиком (пустой заголовок слева — галочка,
+  справа — кнопки, `o.sub` — подстроки под своей строкой, tfoot — `tail`). Ключ колонки — `slug_индекс`.
+  `slTable` + `lead` (ширина первой колонки), `acts` (кнопки), `firstTh` (галочка «все» у ⚙), `tail(cols)` (итог
+  под списком). `cwStaticTable` убран — его таблицы на движке.
+- Shipping → Ready — плоский список (`shippingReadyHTML`, вариант Б владельца); `shippingSelectCustomer` убран.
+- Окно тары (`carrierWinHTML`): фильтр / сортировка / быстрый фильтр — scope `carrierWinList`; колонки, порядок и
+  ширины — прежние (`carrierColPrefs`, `CARRIER_CW`), общие с меню Columns и листом на печать.
+- Переведены окна и карточки: Activity log, Finance (карточка, Allocate — `sub:'.fin-alloc-link'`, список выписок,
+  разнесение квитанции), Agents, Customers (заказы), Cut preview, NCR, Skip, Unbatch, стикеры, PO и приёмка
+  (строки в одинарных кавычках — `'+slFromTable(…)+'`), Data-карточки, Surround, Users Cloud, Shipping lookup и
+  окно PS, Supply points, вес строки. Data → Cutting — только вид (владелец разрешил), раскрой не тронут.
+- Первая колонка: ⚙ по центру и на высоте названий, галочки строк под ней (CSS — только где в шапке нет «выбрать
+  все»; в Sales не менялось). Владелец 07.11: «тут выровнено отлично, так и надо».
+- Sales → ⚙: Account, Contact, Currency, Picked up, Payment due, Days late, Hold reason, Notes.
+- Не переведены: список стикеров батча (`stk-batch-list` — группы «лист → стёкла», как был Ready; нужен выбор
+  владельца), «Last movements» в карточке Stock item (таблица без заголовков), лист тары на экране
+  (`carriers-board` `cs-table` — вид бумаги), Reports (свой движок), экраны станций цеха, бланки.
+
 ## Все таблицы как Sales и быстрый фильтр в заголовке · 7 ноября 2026
 
 Владелец 07.11.2026: «все таблицы должны быть одинакового формата, все до одной» — фильтр, сортировка, ширина,

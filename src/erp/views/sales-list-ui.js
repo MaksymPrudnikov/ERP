@@ -56,7 +56,17 @@ const SALES_LIST_COLUMNS=[
  {k:'validUntil',label:'Valid until',type:'date'},
  {k:'revisions',label:'Revisions',type:'number'},
  {k:'fromQuote',label:'From quote',type:'text'},
- {k:'updated',label:'Updated',type:'date'}
+ {k:'updated',label:'Updated',type:'date'},
+ /* Поля заказа, которых не было на экране (владелец 07.11.2026: «если где-то
+    не хватает данных в колонках, даже в Sales — добавь»): в ⚙ Columns. */
+ {k:'account',label:'Account',type:'text'},
+ {k:'contact',label:'Contact',type:'text'},
+ {k:'currency',label:'Currency',type:'list'},
+ {k:'billed',label:'Picked up',type:'date'},
+ {k:'payDue',label:'Payment due',type:'date'},
+ {k:'daysLate',label:'Days late',type:'number'},
+ {k:'holdReason',label:'Hold reason',type:'text'},
+ {k:'notes',label:'Notes',type:'text'}
 ];
 const SALES_LIST_OPS={
  text:[['contains','Contains'],['notContains','Does not contain'],['startsWith','Starts with'],['endsWith','Ends with'],['equals','Equals'],['notEqual','Not equal'],['empty','Is empty'],['notEmpty','Is not empty']],
@@ -277,6 +287,14 @@ function salesListValue(info,k){
   case 'hold':v=!q&&o.onHold?'On Hold':'Not on hold';break;
   case 'delivery':v=o.delivery==='delivery'?'Delivery':'Pickup';break;
   case 'rep':v=c.salesRep||'';break;
+  case 'account':v=c.code||'';break;
+  case 'contact':{const p=(c.contacts||[]).find(x=>x.id===o.customerContactId);v=p?p.name||p.email||'':'';break;}
+  case 'currency':v=o.currency||'';break;
+  case 'billed':v=q||typeof finBillingDate!=='function'?'':finBillingDate(o)||'';break;
+  case 'payDue':v=q||typeof finOrderFinancial!=='function'?'':finOrderFinancial(o).dueOn||'';break;
+  case 'daysLate':{if(q||typeof finOrderFinancial!=='function'){v=null;break;}const f=finOrderFinancial(o),d=f.dueOn&&f.b.balance>0&&f.dueOn<finToday()?Math.floor((Date.parse(finToday())-Date.parse(f.dueOn))/864e5):0;v=d||null;break;}
+  case 'holdReason':v=o.onHold?o.holdReason||'':'';break;
+  case 'notes':v=o.notes||'';break;
   case 'createdBy':{const e=orderCreatedBy(o.id);v=e?e.by:'';break;}
   case 'terms':v=finTermsFor(o).paymentMode==='credit'?'Credit':'Cash';break;
   case 'invoice':v=q?'':!finInvoiceDate(o)?'In work':salesInvoicedSet().has(o.id)?'Invoiced':'Not invoiced';break;
@@ -497,11 +515,12 @@ function salesListCell(info,col){
   case 'type':return `<td><span class="pill ${q?'kind-quote':'kind-order'}">${q?'Quote':'Order'}</span></td>`;
   case 'number':{const from=!q&&o.fromQuoteId?salesListValue(info,'fromQuote'):'';return `<td><b class="mono">${raw(v||'Auto Number')}</b>${from?` <span class="mut small">from ${raw(from)}</span>`:''}</td>`;}
   case 'customer':return `<td><b>${raw(v||'—')}</b></td>`;
-  case 'created':case 'due':case 'validUntil':case 'updated':return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;
+  case 'created':case 'due':case 'validUntil':case 'updated':case 'billed':case 'payDue':return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;
   case 'status':return `<td>${q?salesQuoteGroupPill(o):salesStatusPill(o)}${!q&&o.onHold?' <span class="pill hold">On Hold</span>':''}</td>`;
   case 'invoice':return `<td>${salesInvoicePill(o,v)}</td>`;
   case 'glass':case 'orderItems':return `<td><span class="sl-glass" title="${esc(v)}">${raw(v||'—')}</span></td>`;
   case 'weight':return salesListWeightCell(v,info.memo.weightInfo);
+  case 'daysLate':return `<td class="n">${v?`<b class="fin-due">${v} d</b>`:'<span class="mut">—</span>'}</td>`;
   case 'units':case 'pcs':case 'lines':case 'shapes':case 'revisions':return `<td class="n">${salesListNum(v)}</td>`;
   case 'area':return `<td class="n">${salesListNum(v,1)}</td>`;
   case 'total':return `<td class="n${!q&&finOrderCounts(o)?'':' mut'}">${finFmt(v)}</td>`;
@@ -746,15 +765,6 @@ function salesListCwTable(keys,lead,trail,defs){
   min:()=>CW_MIN,move:salesListMoveColumnTo,lead:lead||[],trail:trail||0,fill:['customer','glass','item'].find(k=>keys.includes(k))||''});
  return {cls:cwTableClass(id),attrs:cwTableAttrs(id,keys),col:cwColgroup(id,keys)};
 }
-/* Таблица с постоянными колонками (окна, Ready): ширина тянется за край
-   заголовка и хранится в этом браузере; порядок у таких таблиц постоянный.
-   head — [[ключ, подпись, класс]]. Возвращает {head, cls, attrs, col}. */
-function cwStaticTable(id,head,lead){
- const key='glass_erp_cw_'+id,read=()=>{try{const v=JSON.parse(localStorage.getItem(key)||'{}');return v&&typeof v==='object'?v:{};}catch(e){return {};}};
- if(!CW_TABLES[id])cwRegister(id,{widths:read,save:w=>{try{if(Object.keys(w).length)localStorage.setItem(key,JSON.stringify(w));else localStorage.removeItem(key);}catch(e){}render();},def:()=>110,min:()=>CW_MIN,move:()=>{},lead:lead||[],trail:0,fill:''});
- const keys=head.map(h=>h[0]);
- return {head:head.map(([k,l,c])=>`<th${c?` class="${c}"`:''} data-cw-key="${k}"><span data-cw-label>${l}</span>${cwGrip()}</th>`).join(''),cls:cwTableClass(id),attrs:cwTableAttrs(id,keys),col:cwColgroup(id,keys)};
-}
 /* Таблица списка вида Sales для вкладок со своими строками (Skids, Backorders,
    Delivery): шестерёнка Columns, фильтр и сортировка в заголовке, ширина и
    порядок перетаскиванием, итог внизу. o: {infos, rows, cell(info,col,prev),
@@ -764,7 +774,7 @@ function salesListTableHTML(o){
  const th=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th"><span data-cw-label>${c.label}</span><button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span>${cwGrip()}</th>`;};
  const body=rows.map((i,k)=>{const r=o.row(i,k);return `<tr${r.attrs||''}>${r.first||'<td class="sl-check"></td>'}${cols.map(c=>o.cell(i,c,rows[k-1])).join('')}${r.last!=null?`<td class="sl-row-acts">${r.last}</td>`:'<td></td>'}</tr>${r.after?r.after(cols.length+2):''}`;}).join('');
  const lead=Math.max(0,cols.findIndex(c=>salesListCalc(c)!=='none')),foot=rows.length?`<tfoot><tr class="sl-foot"><td colspan="${lead+1}" class="sl-foot-head"><b>${o.noun(rows)}</b></td>${cols.slice(lead).map(c=>salesListCalcCell(c,rows)).join('')}<td></td></tr></tfoot>`:'';
- return `${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${o.cls?' '+o.cls:''}${cwTableClass(cwId)}"${cwTableAttrs(cwId,keys)}>${cwColgroup(cwId,keys)}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">${o.empty}</td></tr>`}</tbody>${foot}</table></div>${salesListMenuHTML(o.infos)}`;
+ return `${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${o.cls?' '+o.cls:''}${cwTableClass(cwId)}"${cwTableAttrs(cwId,keys)}>${cwColgroup(cwId,keys)}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button>${o.firstTh||''}</span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">${o.empty}</td></tr>`}${o.tail?o.tail(cols):''}</tbody>${foot}</table></div>${salesListMenuHTML(o.infos)}`;
 }
 
 /* ------------------------------ Выбор строк ---------------------------- */

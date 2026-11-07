@@ -55,6 +55,22 @@ module.exports=async function({page,eq}){
   navGo('users');subtab='office';render();seen.push(...at());subtab='production';render();seen.push(...at());
   return seen;
  }),['mdTrucks','mdNcrReasons','mdStockReasons','mdCarriers','mdSetupCharges','mdSetupCards','plGroups','mdStations','mdGlass','mdHwModels','mdHwKinds','invSizes','invConsumables','usersOffice','usersProduction']);
+ eq('a ready-made table on the engine (slFromTable): header ▾ per column, checkbox column kept, buttons on the right, link rows stay under their row, filter by Amount',await t.p.evaluate(()=>{
+  ['tlFrom'].forEach(s=>{localStorage.removeItem('glass_erp_'+s+'_list_v1');delete salesQueuePrefs[s];});
+  const html=`<table class="x" data-tl-x><thead><tr><th></th><th>Item</th><th class="n">Amount</th><th></th></tr></thead><tbody>
+   <tr data-r="a"><td><input type="checkbox"></td><td>Alpha</td><td class="n">$10.00</td><td><button>×</button></td></tr><tr class="lnk"><td colspan="4">↳ link a</td></tr>
+   <tr data-r="b"><td><input type="checkbox"></td><td>Bravo</td><td class="n">$250.00</td><td><button>×</button></td></tr></tbody></table>`;
+  const box=document.createElement('div');document.body.appendChild(box);
+  const draw=()=>{box.innerHTML=slFromTable('tlFrom',html,{sub:'.lnk'});};draw();
+  const heads=[...box.querySelectorAll('thead th[data-col]')].map(th=>th.textContent.trim()),btns=box.querySelectorAll('thead .sl-fbtn').length,wrap=!!box.querySelector('[data-tl-x]');
+  const rows=()=>[...box.querySelectorAll('tbody tr')].map(r=>r.dataset.r||r.className.replace(/\s+/g,' ').trim());
+  const before=rows(),check=!!box.querySelector('tr[data-r="a"] td.sl-check input'),btn=!!box.querySelector('tr[data-r="a"] .sl-row-acts button');
+  slScopePin='tlFrom';salesListSetFilter(heads.length?salesListColumns()[1].k:'',{mode:'include',conds:[{op:'gt',v:'100',v2:'',join:'and'}],values:null,preset:''});draw();const after=rows();
+  salesListSetFilter(salesListColumns()[1].k,null);slScopePin='';box.remove();
+  return {heads,btns,wrap,before,check,btn,after};
+ }),{heads:['Item','Amount'],btns:2,wrap:true,before:['a','lnk','b'],check:true,btn:true,after:['b']});
+ eq('Sales: Columns has the order fields that were not on screen — Account, Contact, Currency, Picked up, Payment due, Days late, Hold reason, Notes',await t.p.evaluate(()=>SALES_LIST_COLUMNS.filter(c=>['account','contact','currency','billed','payDue','daysLate','holdReason','notes'].includes(c.k)).map(c=>c.label+(c.def?' on':''))),
+  ['Account','Contact','Currency','Picked up','Payment due','Days late','Hold reason','Notes']);
  eq('no browser errors',t.errs,[]);
  await t.c.close();
 };

@@ -188,7 +188,7 @@ function salesExtraItemsSection(){
   </tr>`;
  }).join('');
  return `<section class="sales-block sales-extra-items"><div class="sales-block-head"><div><b>STOCK & EXTRA ITEMS</b><span>Sold as their own line — no glass, no geometry, no route</span></div></div>
-  <div class="customer-table-wrap"><table><thead><tr><th>Item</th><th>Qty</th><th>Price, ${esc(currency)}</th><th>Total</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="customer-table-wrap">${slFromTable('salesExtraPick',`<table><thead><tr><th>Item</th><th>Qty</th><th>Price, ${esc(currency)}</th><th>Total</th><th></th></tr></thead><tbody>${rows}</tbody></table>`)}</div>
   <div class="row">${salesExtraItemPicker()}</div></section>`;
 }
 /* Окно выбора стокового айтема — тот же `.sales-service-modal-back`, что у
@@ -214,7 +214,7 @@ function salesStockPickerModal(){
  const rows=candidates.map((c,i)=>`<tr class="stock-picker-row"><td><b>${esc(c.name)}</b>${c.subcategory?`<div class="mut">${esc(c.subcategory)}</div>`:''}</td><td class="mono">${esc(c.code||'—')}</td><td class="mono">${c.salePrice!=null?c.salePrice.toFixed(2)+' '+esc(currency):'—'}</td><td><input type="number" min="1" step="1" inputmode="numeric" value="1" id="stockPickQty_${i}" style="width:56px"></td><td><button class="sm" onclick="salesStockPickerChoose('${esc(c.table)}','${esc(c.id)}',(document.getElementById('stockPickQty_${i}')||{}).value)">+ Add</button></td></tr>`).join('');
  return `<div class="sales-service-modal-back" onclick="if(event.target===this)salesStockPickerClose()"><div class="sales-service-modal"><div class="sales-service-modal-head"><div><span>Stock &amp; Extra Items</span><h3>Add an item</h3><small>Sold as its own order line — no glass, no geometry, no route</small></div><button onclick="salesStockPickerClose()">×</button></div>
   ${pills}
-  <div class="customer-table-wrap"><table><thead><tr><th>Item</th><th>Code</th><th>Price, ${esc(currency)}</th><th>Qty</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="5" class="empty">${all.length?'No items in this filter.':'No catalog items'}</td></tr>`}</tbody></table></div>
+  <div class="customer-table-wrap">${slFromTable('salesStockPick',`<table><thead><tr><th>Item</th><th>Code</th><th>Price, ${esc(currency)}</th><th>Qty</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="5" class="empty">${all.length?'No items in this filter.':'No catalog items'}</td></tr>`}</tbody></table>`)}</div>
   </div></div>`;
 }
 function salesLineShapeCell(l,i){

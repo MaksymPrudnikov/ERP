@@ -50,8 +50,9 @@ module.exports=async function({page,eq}){
 
  eq('Orders в карточке: квоты и заказы клиента, новые сверху; строка открывает заказ в Sales; New order — с этим клиентом',await t.p.evaluate(()=>{
   const c=DB.customer.find(x=>x.legalName==='Money Co');tab='customers';customerEdit(c.id);cTab='orders';render();
-  const rows=[...document.querySelectorAll('[data-customer-order]')].map(r=>r.children[1].textContent);
-  const orderRow=[...document.querySelectorAll('[data-customer-order]')].find(r=>r.children[1].textContent==='Order'),first=orderRow.dataset.customerOrder;orderRow.click();
+  /* Первая ячейка — галочка таблицы вида Sales, Type — вторая колонка. */
+  const rows=[...document.querySelectorAll('[data-customer-order]')].map(r=>r.children[2].textContent);
+  const orderRow=[...document.querySelectorAll('[data-customer-order]')].find(r=>r.children[2].textContent==='Order'),first=orderRow.dataset.customerOrder;orderRow.click();
   const opened={tab,order:soDraft&&soDraft.id===first};salesDraftDrop();
   tab='customers';customerEdit(c.id);cTab='orders';render();document.querySelector('[data-customer-new-order]').click();
   const made={tab,customer:soDraft&&soDraft.customerId===c.id,quote:soDraft&&salesIsQuote(soDraft)};salesDraftDrop(true);render();
