@@ -15,10 +15,10 @@ function viewMdCarriers(){
  const nowCell=c=>{const l=on(c),w=where(c),at=out.get(c.code);return l.length?`<b>${l.length}</b> glass${w.length?' · waiting at '+esc(w.join(', ')):''} <span class="mut">since ${esc(carrierSince(l))}</span> <button class="sm" data-carrier-empty="${esc(c.code)}" onclick="carrierEmptyAsk('${esc(c.code)}')">Empty</button>`:at?`<span data-carrier-out>at ${esc(salesCustomerDisplay(at.customerId))} since ${esc(docDate(finLocalDate(at.since)))} · ${esc(at.ps)}</span>`:'<span class="mut">empty</span>';};
  const nowText=c=>{const l=on(c),at=out.get(c.code);return l.length?l.length+' glass'+(where(c).length?' · waiting at '+where(c).join(', '):''):at?'at '+salesCustomerDisplay(at.customerId)+' · '+at.ps:'empty';};
  /* Таблица вида Sales (владелец 07.11.2026); Status, Glass, At customer, Since — в ⚙ Columns. */
- const table=slTable('mdCarriers',{list:list.filter(c=>mdCarrierShow==='all'||state(c)===mdCarrierShow),id:c=>c.code,empty:'No dollies or skids yet',noun:l=>l.length+' dollies and skids',fill:'now',
+ const table=slTable('mdCarriers',{list:list.filter(c=>mdCarrierShow==='all'||state(c)===mdCarrierShow),id:c=>c.code,empty:'No dollies or skids yet',noun:l=>l.length+' dollies and skids',fill:'now',acts:80,
   columns:()=>[
    {k:'code',label:'Code',type:'text',v:c=>c.code,cell:c=>`<button type="button" class="cw-code sm" data-carrier-open="${esc(c.code)}" title="What is on it" onclick="carrierWinOpen('${esc(c.code)}')">${esc(c.code)}</button>`},
-   {k:'kind',label:'Type',type:'list',v:c=>carrierType(c.code).label},
+   {k:'kind',label:'Type',type:'list',w:140,v:c=>carrierType(c.code).label},
    {k:'now',label:'On it now',type:'text',v:nowText,cell:c=>nowCell(c)},
    {k:'state',label:'Status',type:'list',def:false,v:c=>({loaded:'Loaded',out:'At customer',empty:'Empty'})[state(c)]},
    {k:'glass',label:'Glass',type:'number',def:false,sum:true,v:c=>on(c).length||''},

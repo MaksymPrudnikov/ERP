@@ -147,7 +147,7 @@ function viewMdSetup(){
   ['Skid deposit','skidDepositOn',num('skidDepositAmount',cur),'<span class="mut">Not in any base</span>',s.skidDepositAmount+' '+cur,'Not in any base']];
  const chargeTable=slTable('mdSetupCharges',{list:charges,id:x=>x[1],cls:'ncr-table',fill:'charge',noun:l=>l.length+' charges',
   columns:()=>[{k:'charge',label:'Charge',type:'text',v:x=>x[0],cell:x=>`<b>${x[0]}</b>`},{k:'on',label:'On',type:'list',v:x=>s[x[1]]?'Yes':'No',cell:x=>on(x[1])},{k:'value',label:'Value',type:'text',v:x=>x[4],cell:x=>x[2]},{k:'base',label:'Base besides Subtotal',type:'text',v:x=>x[5],cell:x=>x[3]}]});
- const cardTable=slTable('mdSetupCards',{list:s.cardNetworks,id:n=>n.id,cls:'ncr-table',empty:'No cards',noun:l=>l.length+' card'+(l.length===1?'':'s'),
+ const cardTable=slTable('mdSetupCards',{list:s.cardNetworks,id:n=>n.id,cls:'ncr-table',acts:50,empty:'No cards',noun:l=>l.length+' card'+(l.length===1?'':'s'),
   columns:()=>[{k:'name',label:'Name on order',type:'text',v:n=>n.name,cell:(n,v,i)=>`<input type="text" maxlength="60" value="${esc(n.name)}" onchange="orderSetupCardSet(${i.i},'name',this.value)">`},{k:'rate',label:'Rate',type:'number',v:n=>n.rate,cell:(n,v,i)=>`<input type="number" min="0" step="0.01" value="${n.rate}" onchange="orderSetupCardSet(${i.i},'rate',this.value)"> <span class="mut">%</span>`}],
   row:i=>({attrs:` data-setup-card="${esc(i.x.id)}"`,last:`<button type="button" class="sm dl" aria-label="Remove" title="Remove" onclick="orderSetupCardRemove(${i.i})">×</button>`})});
  return `<div class="md-setup" data-md-setup>
@@ -307,7 +307,7 @@ function mdGlassSetPrice(id,field,v){
 /* Таблица стекла — вид Sales (владелец 07.11.2026); Manufacturer, Legacy code, Note, Deposition — в ⚙ Columns. */
 function mdGlassTable(list){
  const temper=p=>p.temperMode==='temper_required'?'bad':p.temperMode==='annealed_only'?'warn':'info',stock=p=>p.cut===false?'No cut':glassLabel('stock',p.stocked?'stocked':'preorder');
- return slTable('mdGlass',{list,id:p=>p.id,empty:'no items found',noun:l=>l.length+' glass',fill:'name',
+ return slTable('mdGlass',{list,id:p=>p.id,empty:'no items found',noun:l=>l.length+' glass',fill:'name',acts:230,
   columns:()=>[
    {k:'code',label:'Code',type:'text',v:p=>p.code,cell:p=>`<span class="mono"><b>${raw(p.code)}</b></span>${p.active===false?' <span class="pill warn">discontinued</span>':''}`},
    {k:'short',label:'Short name',type:'text',v:p=>p.shortName||'',cell:p=>`<span data-md-short>${p.shortName?`<b>${raw(p.shortName)}</b>`:`<button type="button" class="gb-link md-short-add" onclick="mdGlassEdit('${esc(p.id)}','short')">add</button>`}</span>`},
@@ -861,7 +861,7 @@ ${slTable('mdHwModels',{list:sorted,id:m=>m.id,rowHTML:m=>{
     <td class="mono">${used}</td>
     <td><span class="pill ${m.active===false?'warn':'ok'}">${m.active===false?'inactive':'active'}</span></td>
     <td style="white-space:nowrap"><button class="sm" onclick="mdHwModelEditRow('${esc(m.id)}')">Edit</button><button class="sm dl" onclick="mdHwModelDelete('${esc(m.id)}')">×</button></td></tr>`;
-  },lastTd:-1,empty:'no models',noun:l=>l.length+' models',fill:'name',
+  },lastTd:-1,acts:110,empty:'no models',noun:l=>l.length+' models',fill:'name',
    columns:()=>[{k:'name',label:'Model',type:'text',td:0,v:m=>m.name},{k:'kind',label:'Kind',type:'list',td:1,v:m=>hardwareKindRow(m.kind)?hardwareKindName(m.kind):'no kind'},{k:'series',label:'Series',type:'list',td:2,v:m=>m.series||''},{k:'short',label:'On the drawing',type:'text',td:3,v:m=>hardwareModelShort(m)},{k:'mm',label:'Glass thickness',type:'text',td:4,v:m=>m.thickness||''},{k:'supplierCode',label:'Supplier code',type:'text',td:5,v:m=>m.supplierCode||''},{k:'used',label:'On drawings',type:'number',td:6,v:m=>mdHwModelUsage(m.id)},{k:'status',label:'Status',type:'list',td:7,v:m=>m.active===false?'inactive':'active'},{k:'note',label:'Note',type:'text',def:false,v:m=>m.note||''}]})}
   <div class="section-title"><h3>Kinds</h3><span class="pill info">code goes on the drawing</span></div>
 ${slTable('mdHwKinds',{list:kinds,id:k=>k.code,rowHTML:k=>{
@@ -873,7 +873,7 @@ ${slTable('mdHwKinds',{list:kinds,id:k=>k.code,rowHTML:k=>{
     <td class="mono">${used}</td>
     <td><span class="pill ${k.active===false?'warn':'ok'}">${k.active===false?'inactive':'active'}</span></td>
     <td style="white-space:nowrap"><button class="sm" onclick="mdHwKindEditRow('${esc(k.code)}')">Edit</button><button class="sm dl" onclick="mdHwKindDelete('${esc(k.code)}')">×</button></td></tr>`;
-  },lastTd:-1,empty:'no kinds',noun:l=>l.length+' kinds',fill:'name',
+  },lastTd:-1,acts:110,empty:'no kinds',noun:l=>l.length+' kinds',fill:'name',
    columns:()=>[{k:'name',label:'Kind',type:'text',td:0,v:k=>hardwareKindName(k.code)},{k:'code',label:'Code',type:'text',td:1,v:k=>k.code},{k:'short',label:'On the drawing',type:'text',td:2,v:k=>k.short},{k:'models',label:'Models',type:'number',sum:true,td:3,v:k=>hardwareModelsFor(k.code,true).length},{k:'used',label:'On drawings',type:'number',td:4,v:k=>mdHwKindUsage(k.code)},{k:'status',label:'Status',type:'list',td:5,v:k=>k.active===false?'inactive':'active'},{k:'note',label:'Note',type:'text',def:false,v:k=>k.note||''}]})}
   <div class="row"><button onclick="mdHwKindNew()">+ New kind</button></div>`;
 }
@@ -1255,7 +1255,7 @@ function viewMdCatalogues(){
  const def=mdCatDef(),all=mdCatRows(),rows=mdCatalogFilterRows(all),colour=mdCatIsColour(),rate=mdCatIsRate();
  const found=rows!==all;
  return `<div class="md-toolbar"><span class="mut"${found?' data-md-search-count':''}>${found?rows.length+' of '+all.length+' '+esc(def.label.toLowerCase()):esc(def.what.charAt(0).toUpperCase()+def.what.slice(1))+' · used rows: switch off, don\'t delete.'}</span><span class="sp"></span><button class="pri" onclick="mdCatNew()">+ New</button></div>
-  ${slTable('mdCat-'+mdCatKind,{list:rows,id:x=>x.id,rowHTML:x=>mdCatRowHTML(x),lastTd:-1,empty:found?'Nothing found':'empty',noun:l=>l.length+' rows',fill:'name',
+  ${slTable('mdCat-'+mdCatKind,{list:rows,id:x=>x.id,rowHTML:x=>mdCatRowHTML(x),lastTd:-1,empty:found?'Nothing found':'empty',noun:l=>l.length+' rows',fill:'name',acts:110,
    /* Вид Sales (владелец 07.11.2026): ячейки — из mdCatRowHTML, движок даёт фильтр, сортировку, ширину, порядок. */
    columns:()=>[{k:'name',label:'Name',type:'text',td:0,v:x=>x.name}].concat(rate?[
      {k:'station',label:'Station',type:'list',td:1,v:x=>x.station||''},{k:'unit',label:'Unit',type:'list',td:2,v:x=>x.unit},{k:'price',label:'Price by thickness, mm',type:'text',td:3,v:x=>mdWorkTiersText(x)},

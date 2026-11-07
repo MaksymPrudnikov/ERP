@@ -28,7 +28,7 @@ function plListTable(list){
  const price=r=>{const t=byKey.get(r.target),tiers=t&&t.tiers;return tiers?`<div class="row" style="gap:4px;flex-wrap:wrap">${num(r,'All thicknesses',null,r.price)}${tiers.map(x=>`<label class="mut" style="display:flex;align-items:center;gap:3px">${esc(serviceRateTierShort(x))}${num(r,serviceRateTierLabel(x),x.id,r.bands?r.bands[x.id]:null)}</label>`).join('')}</div>`:num(r,'Price',null,r.price);};
  const base=r=>{const t=byKey.get(r.target);return t?plBaseText(t)+(t.unit?' / '+t.unit:''):'';};
  /* Таблица вида Sales (владелец 07.11.2026); Changed — в ⚙ Columns. */
- return `<div data-pl-list="${esc(list.id)}">${slTable('plList',{list:list.rows,id:r=>r.id,empty:'No prices yet — base prices apply.',noun:l=>l.length+' price'+(l.length===1?'':'s'),fill:'item',
+ return `<div data-pl-list="${esc(list.id)}">${slTable('plList',{list:list.rows,id:r=>r.id,empty:'No prices yet — base prices apply.',noun:l=>l.length+' price'+(l.length===1?'':'s'),fill:'item',acts:50,
   columns:()=>[{k:'item',label:'Item',type:'text',v:r=>salesPriceTargetLabel(r.target,targets)},
    {k:'base',label:'Base',type:'text',v:base,cell:r=>`<span class="mono mut">${esc(base(r)||'—')}</span>`},
    {k:'price',label:'Price'+(list.rows.some(r=>(byKey.get(r.target)||{}).tiers)?' · all / by mm':''),type:'number',v:r=>r.price==null?'':r.price,cell:r=>price(r)},
@@ -101,7 +101,7 @@ function plItemGroupsView(){
   columns:()=>[{k:'name',label:'Item group',type:'text',v:x=>x.name||'Unnamed',cell:x=>`<b>${esc(x.name||'Unnamed')}</b>`},{k:'items',label:'Items',type:'number',sum:true,v:x=>x.members.length}],
   row:i=>({attrs:` data-pl-item-group class="${i.x.id===plItemGroupId?'sel':''}" style="cursor:pointer" onclick="plItemGroupId='${esc(i.x.id)}';render()"`})});
  const editor=g?`<div class="row" style="gap:8px;margin-bottom:10px"><input aria-label="Item group name" value="${esc(g.name)}" onchange="plItemGroupSet('${esc(g.id)}',x=>{x.name=String(${'this.value'}).trim();})" style="max-width:260px"><button class="sm dl" onclick="plItemGroupDelete('${esc(g.id)}')">Delete group</button></div>
-   ${slTable('plItemMembers',{list:g.members,id:k=>k,empty:'No items yet.',noun:l=>l.length+' item'+(l.length===1?'':'s'),fill:'item',
+   ${slTable('plItemMembers',{list:g.members,id:k=>k,empty:'No items yet.',noun:l=>l.length+' item'+(l.length===1?'':'s'),fill:'item',acts:50,
     columns:()=>[{k:'item',label:'Item',type:'text',v:k=>salesPriceTargetLabel(k,targets)}],
     row:i=>({attrs:' data-pl-member',last:`<button class="sm dl" title="Remove" onclick="plItemGroupSet('${esc(g.id)}',x=>{x.members=x.members.filter(m=>m!=='${esc(i.x)}');})">×</button>`})})}
    <select aria-label="Add item" style="max-width:360px;margin-top:8px" onchange="if(this.value)plItemGroupSet('${esc(g.id)}',x=>{x.members.push(this.value);})">${plTargetOptions(targets.filter(t=>!g.members.includes(t.key)),false,'')}</select>`:'<div class="mut">Pick a group.</div>';

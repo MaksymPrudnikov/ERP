@@ -104,7 +104,7 @@ function viewSfStations(edit,framed){
  const plain=h=>String(h||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
  const works=s=>stationOperations(s.code).map(o=>o.name||o.id);
  /* Таблица вида Sales (владелец 07.11.2026): фильтр, сортировка, ширина, порядок. */
- const table=slTable(edit?'mdStations':'prodStations',{list:DB.station,id:s=>s.code,empty:'empty',noun:l=>l.length+' station'+(l.length===1?'':'s'),fill:'works',
+ const table=slTable(edit?'mdStations':'prodStations',{list:DB.station,id:s=>s.code,empty:'empty',noun:l=>l.length+' station'+(l.length===1?'':'s'),fill:'works',acts:edit?120:90,
   columns:()=>[
    {k:'step',label:'Step',type:'number',v:s=>s.seq,cell:(s,v,info)=>`<span style="white-space:nowrap">${edit?`<input class="sf-step" type="number" min="1" step="1" value="${s.seq}" data-sf-step="${esc(s.code)}" onchange="sfStationSetStep(${info.i},this.value)">`:`<b class="mono">${s.seq}</b>`}${steps.get(s.seq)>1?' <span class="pill info" title="Same step as another station">parallel</span>':''}</span>`},
    {k:'code',label:'Code',type:'text',v:s=>s.code,cell:s=>`<b class="mono">${raw(s.code)}</b>`},

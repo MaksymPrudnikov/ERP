@@ -401,7 +401,7 @@ function invSizesView(){
  const data=accessCan('masterdata'),link=(c,k)=>data?'<button type="button" class="fin-link" data-inv-size-supply="'+esc(c)+'" title="Supply row in Data" onclick="invSizeSupplyOpen('+invArg(c)+','+invArg(k)+')">'+esc(c)+'</button>':esc(c);
  const sizes=cutSheetSizes(),whose=x=>[x.shop?'All glass':'',x.codes.slice(0,4).map(c=>link(c,x.key)).join(', ')+(x.codes.length>4?' +'+(x.codes.length-4):'')].filter(Boolean).join(' · ');
  return '<p class="mut">Supply sizes of a glass go first; shop sizes work for any glass. Trim and border — Data → Cutting.</p>'+
-  '<div data-inv-sizes>'+slTable('invSizes',{list:sizes,id:x=>x.key,cls:'ncr-table',empty:'No sheet sizes yet — glass shows Size missing.',noun:l=>l.length+' sheet size'+(l.length===1?'':'s'),fill:'glass',
+  '<div data-inv-sizes>'+slTable('invSizes',{list:sizes,id:x=>x.key,cls:'ncr-table',empty:'No sheet sizes yet — glass shows Size missing.',noun:l=>l.length+' sheet size'+(l.length===1?'':'s'),fill:'glass',acts:50,
    columns:()=>[{k:'sheet',label:'Sheet',type:'text',v:x=>frac16(x.w)+' × '+frac16(x.h)+'″',cell:x=>'<b>'+esc(frac16(x.w))+' × '+esc(frac16(x.h))+'″</b>'},
     {k:'glass',label:'Glass',type:'text',tokens:true,v:x=>[x.shop?'All glass':''].concat(x.codes).filter(Boolean).join(' · '),cell:x=>'<span class="mut">'+whose(x)+'</span>'},
     {k:'from',label:'From',type:'list',v:x=>x.codes.length?'Supply'+(x.shop?' · Shop':''):'Shop'},

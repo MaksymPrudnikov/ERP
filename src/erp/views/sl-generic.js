@@ -38,7 +38,7 @@ function slCell(info,c){
  if(c.type==='number')return `<td class="n">${c.money?esc(finFmt(v)):esc(typeof v==='number'?v.toLocaleString('en-US',{maximumFractionDigits:c.digits==null?2:c.digits}):String(v))}</td>`;
  return `<td>${esc(String(v))}</td>`;
 }
-/* o: {columns:()=>[...], list, id(x), sort:{k,dir}, fill — колонка во всю ширину, row(info)→{attrs, first, last, after(colspan) — строка под строкой},
+/* o: {columns:()=>[...], list, id(x), sort:{k,dir}, fill — колонка во всю ширину, acts — ширина колонки кнопок справа (px), c.w — ширина колонки, row(info)→{attrs, first, last, after(colspan) — строка под строкой},
    rowHTML(x) — готовая строка экрана: колонки берут её ячейки (td:N), firstTd/lastTd — галочка и кнопки, noun(rows), empty, widths, cls}.
    Колонки без def видны сразу; def:false — только в ⚙ Columns. Ключ 'type' не брать: в движке он
    прячется, когда в Sales один вид (заказы без квот). */
@@ -48,9 +48,10 @@ function slTable(scope,o){
  const was=slScopeNow;slScopeNow=scope;let html='';
  try{
   const cols=salesListColumns(),infos=slInfos(o.list,o.id||((x,i)=>i),cols0);
-  salesListCwTable(cols.map(c=>c.k),[44],20,o.widths);
+  const defs=Object.assign({},...cols0.filter(c=>c.w).map(c=>({[c.k]:c.w})),o.widths||{});
+  salesListCwTable(cols.map(c=>c.k),[44],o.acts||20,defs);
   /* Колонка, что забирает остаток ширины (как Customer в Sales): своя или первая текстовая. */
-  const reg=CW_TABLES[scope];if(reg)reg.fill=o.fill||(cols0.find(c=>c.type==='text')||cols0[0]||{}).k||'';
+  const reg=CW_TABLES[scope];if(reg){reg.fill=o.fill||(cols0.find(c=>c.type==='text')||cols0[0]||{}).k||'';reg.trail=o.acts||20;}
   const rows=salesListRows(infos);
   if(o.rowHTML)rows.forEach(i=>{i.row=slParseRow(o.rowHTML(i.x,i.i));});
   html=salesListTableHTML({infos,rows,cls:o.cls,

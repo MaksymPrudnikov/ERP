@@ -33,7 +33,7 @@ function viewMdNcr(){
   columns:()=>[
    {k:'name',label:'Reason',type:'text',v:r=>r.name,cell:r=>base(r)?`<span class="ncr-name">${esc(r.name)}</span>`:`<input class="ncr-name-input" data-ncr-name value="${esc(ncrTyped&&ncrTyped.id===r.id?ncrTyped.name:r.name)}" maxlength="80" aria-label="Reason name" onchange="ncrRenameFromInput('${esc(r.id)}',this)">`},
    {k:'where',label:'Applies to',type:'list',v:scopeText,cell:r=>`<span class="pill ${r.where===NCR_ALL?'ncr-scope-all':'ncr-scope-own'}">${esc(scopeText(r))}</span>`},
-   {k:'active',label:'Active',type:'list',v:r=>r.active?'On':'Off',cell:r=>base(r)?`<span class="mut" title="Change in All stations">${r.active?'On':'Off'}</span>`:`<label class="ncr-switch"><input type="checkbox" data-ncr-active ${r.active?'checked':''} aria-label="Active: ${esc(r.name)}" onchange="ncrToggle('${esc(r.id)}',this.checked)"><span></span></label>`}],
+   {k:'active',label:'Active',type:'list',v:r=>r.active?'On':'Off',cell:r=>`<span class="ncr-active">${base(r)?`<span class="mut" title="Change in All stations">${r.active?'On':'Off'}</span>`:`<label class="ncr-switch"><input type="checkbox" data-ncr-active ${r.active?'checked':''} aria-label="Active: ${esc(r.name)}" onchange="ncrToggle('${esc(r.id)}',this.checked)"><span></span></label>`}</span>`}],
   row:i=>({attrs:` data-ncr-reason="${esc(i.x.id)}" class="${i.x.active?'':'ncr-off'}"`})});
  const pills=list=>`<div class="ncr-pills">${list.map(x=>`<span class="pill">${esc(x)}</span>`).join('')}</div>`;
  return ` <div class="ncr-layout">
@@ -58,7 +58,7 @@ function viewMdStockReasons(){
  const table=slTable('mdStockReasons',{list:DB.stockReason||[],id:r=>r.id,cls:'ncr-table',empty:'No reasons yet.',noun:l=>l.length+' reason'+(l.length===1?'':'s'),
   columns:()=>[
    {k:'name',label:'Reason',type:'text',v:r=>r.name,cell:r=>`<input class="ncr-name-input" data-stock-reason-name value="${esc(r.name)}" maxlength="80" aria-label="Reason" onchange="stockReasonError=stockReasonRename('${esc(r.id)}',this.value);render()">`},
-   {k:'active',label:'Active',type:'list',v:r=>r.active?'On':'Off',cell:r=>`<label class="ncr-switch"><input type="checkbox" data-stock-reason-active ${r.active?'checked':''} aria-label="Active: ${esc(r.name)}" onchange="stockReasonError=stockReasonSetActive('${esc(r.id)}',this.checked);render()"><span></span></label>`}],
+   {k:'active',label:'Active',type:'list',v:r=>r.active?'On':'Off',cell:r=>`<span class="ncr-active"><label class="ncr-switch"><input type="checkbox" data-stock-reason-active ${r.active?'checked':''} aria-label="Active: ${esc(r.name)}" onchange="stockReasonError=stockReasonSetActive('${esc(r.id)}',this.checked);render()"><span></span></label></span>`}],
   row:i=>({attrs:` data-stock-reason="${esc(i.x.id)}" class="${i.x.active?'':'ncr-off'}"`})});
  return `<div class="card ncr-main" data-stock-reasons>
   <div class="ncr-head"><div><div class="ncr-label">STOCK COUNT</div><h3>Reasons</h3><p>Shown when a count differs.</p></div>
