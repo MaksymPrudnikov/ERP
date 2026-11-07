@@ -47,9 +47,10 @@ function slTable(scope,o){
  SL_GENERIC[scope]={columns:()=>cols0,sort:o.sort||null};
  const was=slScopeNow;slScopeNow=scope;let html='';
  try{
-  /* Колонка, что появилась позже (Server — когда подключён сервер), встаёт в
-     сохранённый вид: настройки перечитываются и чистятся с новым набором. */
-  const p=salesListLoadPrefs();if(cols0.some(c=>!p.cols.some(x=>x.k===c.k)))delete salesQueuePrefs[scope];
+  /* Колонка появилась или пропала (Server — пока подключён сервер): настройки
+     перечитываются и чистятся с новым набором колонок. */
+  const p=salesListLoadPrefs(),keys=new Set(cols0.map(c=>c.k));
+  if(cols0.some(c=>!p.cols.some(x=>x.k===c.k))||p.cols.some(x=>!keys.has(x.k)))delete salesQueuePrefs[scope];
   const cols=salesListColumns(),infos=slInfos(o.list,o.id||((x,i)=>i),cols0);
   const defs=Object.assign({},...cols0.filter(c=>c.w).map(c=>({[c.k]:c.w})),o.widths||{});
   salesListCwTable(cols.map(c=>c.k),[44],o.acts||20,defs);
