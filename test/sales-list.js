@@ -100,7 +100,7 @@ module.exports=async function({page,eq,ok}){
   document.querySelector('[data-filter-col="created"]').click();const presets=document.querySelectorAll('[data-preset]').length;salesListCloseMenu();
   document.querySelector('[data-filter-col="status"]').click();const vals=[...document.querySelectorAll('[data-val]')].map(x=>x.dataset.val);salesListCloseMenu();
   return {ops,chip,active,presets,vals};
- }),{ops:['gt','gte','lt','lte','eq','ne','between','empty'],chip:'Total: > $1,000.00 and < $1,000,000.00',active:true,presets:9,vals:['New','Not sent']});
+ }),{ops:['startsWith','gt','gte','lt','lte','eq','ne','between','empty'],chip:'Total: > $1,000.00 and < $1,000,000.00',active:true,presets:9,vals:['New','Not sent']});
 
  const MOVED=['Type','Number','Customer','PO','Created','Due','Status','Invoice','Order Items','Units','Total','Area ft²','Receipts','Balance','Weight kg'];
  eq('колонки: скрыть Priority и Glass, включить Weight, поднять Total',await t.p.evaluate(()=>{

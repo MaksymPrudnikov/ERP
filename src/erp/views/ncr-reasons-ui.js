@@ -26,13 +26,15 @@ function viewMdNcr(){
  const side=place(NCR_ALL,'ALL','All stations')+'<hr>'+places.map(w=>place(w.code,w.code,w.name)).join('');
  const station=ncrWhere!==NCR_ALL&&ncrWhere!==NCR_OFFICE;
  const hint=ncrWhere===NCR_ALL?'Shown on every station':'';
- const row=r=>{
-  const base=station&&r.where===NCR_ALL,scope=r.where===NCR_ALL?'All stations':(r.where===NCR_OFFICE?'Office':r.where)+' only';
-  return `<tr data-ncr-reason="${esc(r.id)}" class="${r.active?'':'ncr-off'}"><td>${base?`<span class="ncr-name">${esc(r.name)}</span>`:`<input class="ncr-name-input" data-ncr-name value="${esc(ncrTyped&&ncrTyped.id===r.id?ncrTyped.name:r.name)}" maxlength="80" aria-label="Reason name" onchange="ncrRenameFromInput('${esc(r.id)}',this)">`}</td>
-   <td><span class="pill ${r.where===NCR_ALL?'ncr-scope-all':'ncr-scope-own'}">${esc(scope)}</span></td>
-   <td class="ncr-active">${base?`<span class="mut" title="Change in All stations">${r.active?'On':'Off'}</span>`:`<label class="ncr-switch"><input type="checkbox" data-ncr-active ${r.active?'checked':''} aria-label="Active: ${esc(r.name)}" onchange="ncrToggle('${esc(r.id)}',this.checked)"><span></span></label>`}</td></tr>`;
- };
+ const base=r=>station&&r.where===NCR_ALL,scopeText=r=>r.where===NCR_ALL?'All stations':(r.where===NCR_OFFICE?'Office':r.where)+' only';
  const rows=ncrReasonsFor(ncrWhere);
+ /* Таблица вида Sales (владелец 07.11.2026): фильтр, сортировка, ширина, порядок. */
+ const table=slTable('mdNcrReasons',{list:rows,id:r=>r.id,cls:'ncr-table',empty:'No reasons yet.',noun:l=>l.length+' reason'+(l.length===1?'':'s'),
+  columns:()=>[
+   {k:'name',label:'Reason',type:'text',v:r=>r.name,cell:r=>base(r)?`<span class="ncr-name">${esc(r.name)}</span>`:`<input class="ncr-name-input" data-ncr-name value="${esc(ncrTyped&&ncrTyped.id===r.id?ncrTyped.name:r.name)}" maxlength="80" aria-label="Reason name" onchange="ncrRenameFromInput('${esc(r.id)}',this)">`},
+   {k:'where',label:'Applies to',type:'list',v:scopeText,cell:r=>`<span class="pill ${r.where===NCR_ALL?'ncr-scope-all':'ncr-scope-own'}">${esc(scopeText(r))}</span>`},
+   {k:'active',label:'Active',type:'list',v:r=>r.active?'On':'Off',cell:r=>`<span class="ncr-active">${base(r)?`<span class="mut" title="Change in All stations">${r.active?'On':'Off'}</span>`:`<label class="ncr-switch"><input type="checkbox" data-ncr-active ${r.active?'checked':''} aria-label="Active: ${esc(r.name)}" onchange="ncrToggle('${esc(r.id)}',this.checked)"><span></span></label>`}</span>`}],
+  row:i=>({attrs:` data-ncr-reason="${esc(i.x.id)}" class="${i.x.active?'':'ncr-off'}"`})});
  const pills=list=>`<div class="ncr-pills">${list.map(x=>`<span class="pill">${esc(x)}</span>`).join('')}</div>`;
  return ` <div class="ncr-layout">
   <div class="card ncr-side"><div class="ncr-label">WHERE</div>${side}</div>
@@ -41,7 +43,7 @@ function viewMdNcr(){
     <div class="ncr-head"><div><div class="ncr-label">WHAT HAPPENED</div><h3>${esc(ncrWhere===NCR_ALL?'All stations':ncrWhere===NCR_OFFICE?'Office':ncrWhere+' · '+ncrWhereName(ncrWhere))}</h3>${hint?`<p>${esc(hint)}</p>`:''}</div>
      <div class="ncr-add"><input data-ncr-new maxlength="80" placeholder="New reason" aria-label="New reason" value="${esc(ncrNew)}" oninput="ncrNew=this.value" onkeydown="if(event.key==='Enter')ncrAddFromInput()"><button type="button" class="pri" data-ncr-add onclick="ncrAddFromInput()">+ Add reason</button></div></div>
     ${ncrError?`<div class="ncr-error" role="alert">${esc(ncrError)}</div>`:''}
-    <table class="ncr-table"><thead><tr><th>Reason</th><th>Applies to</th><th>Active</th></tr></thead><tbody>${rows.map(row).join('')||'<tr><td colspan="3" class="empty">No reasons yet.</td></tr>'}</tbody></table>
+    ${table}
    </div>
    <div class="card ncr-actions-card"><div class="ncr-label">NCR ACTION</div>${pills(NCR_ACTIONS)}</div>
   </div>
@@ -53,12 +55,15 @@ function viewMdNcr(){
    выключить; удаления нет. */
 let stockReasonNew='',stockReasonError='';
 function viewMdStockReasons(){
- const rows=(DB.stockReason||[]).map(r=>`<tr data-stock-reason="${esc(r.id)}" class="${r.active?'':'ncr-off'}"><td><input class="ncr-name-input" data-stock-reason-name value="${esc(r.name)}" maxlength="80" aria-label="Reason" onchange="stockReasonError=stockReasonRename('${esc(r.id)}',this.value);render()"></td>
-  <td class="ncr-active"><label class="ncr-switch"><input type="checkbox" data-stock-reason-active ${r.active?'checked':''} aria-label="Active: ${esc(r.name)}" onchange="stockReasonError=stockReasonSetActive('${esc(r.id)}',this.checked);render()"><span></span></label></td></tr>`).join('');
+ const table=slTable('mdStockReasons',{list:DB.stockReason||[],id:r=>r.id,cls:'ncr-table',empty:'No reasons yet.',noun:l=>l.length+' reason'+(l.length===1?'':'s'),
+  columns:()=>[
+   {k:'name',label:'Reason',type:'text',v:r=>r.name,cell:r=>`<input class="ncr-name-input" data-stock-reason-name value="${esc(r.name)}" maxlength="80" aria-label="Reason" onchange="stockReasonError=stockReasonRename('${esc(r.id)}',this.value);render()">`},
+   {k:'active',label:'Active',type:'list',v:r=>r.active?'On':'Off',cell:r=>`<span class="ncr-active"><label class="ncr-switch"><input type="checkbox" data-stock-reason-active ${r.active?'checked':''} aria-label="Active: ${esc(r.name)}" onchange="stockReasonError=stockReasonSetActive('${esc(r.id)}',this.checked);render()"><span></span></label></span>`}],
+  row:i=>({attrs:` data-stock-reason="${esc(i.x.id)}" class="${i.x.active?'':'ncr-off'}"`})});
  return `<div class="card ncr-main" data-stock-reasons>
   <div class="ncr-head"><div><div class="ncr-label">STOCK COUNT</div><h3>Reasons</h3><p>Shown when a count differs.</p></div>
    <div class="ncr-add"><input data-stock-reason-new maxlength="80" placeholder="New reason" aria-label="New reason" value="${esc(stockReasonNew)}" oninput="stockReasonNew=this.value" onkeydown="if(event.key==='Enter')stockReasonAddUi()"><button type="button" class="pri" data-stock-reason-add onclick="stockReasonAddUi()">+ Add</button></div></div>
   ${stockReasonError?`<div class="ncr-error" role="alert">${esc(stockReasonError)}</div>`:''}
-  <table class="ncr-table"><thead><tr><th>Reason</th><th>Active</th></tr></thead><tbody>${rows||'<tr><td colspan="2" class="empty">No reasons yet.</td></tr>'}</tbody></table></div>`;
+  ${table}</div>`;
 }
 function stockReasonAddUi(){stockReasonError=stockReasonAdd(stockReasonNew);if(!stockReasonError)stockReasonNew='';render();}

@@ -25,12 +25,15 @@ function plBaseText(t){
 function plListTable(list){
  const targets=salesPriceTargets(),byKey=new Map(targets.map(t=>[t.key,t]));
  const num=(row,field,band,v)=>`<input type="number" min="0" step="0.01" value="${v==null?'':esc(v)}" placeholder="—" style="width:84px" onchange="plSetPrice('${esc(list.id)}','${esc(row.id)}',${band?`'${esc(band)}'`:'null'},this.value)" aria-label="${esc(field)}">`;
- const body=list.rows.map(r=>{
-  const t=byKey.get(r.target),tiers=t&&t.tiers;
-  const price=tiers?`<div class="row" style="gap:4px;flex-wrap:wrap">${num(r,'All thicknesses',null,r.price)}${tiers.map(x=>`<label class="mut" style="display:flex;align-items:center;gap:3px">${esc(serviceRateTierShort(x))}${num(r,serviceRateTierLabel(x),x.id,r.bands?r.bands[x.id]:null)}</label>`).join('')}</div>`:num(r,'Price',null,r.price);
-  return `<tr data-pl-row><td>${esc(salesPriceTargetLabel(r.target,targets))}</td><td class="mono mut">${t?esc(plBaseText(t))+(t.unit?' / '+esc(t.unit):''):'—'}</td><td>${price}</td><td><button class="sm dl" title="Remove" onclick="plRemoveRow('${esc(list.id)}','${esc(r.id)}')">×</button></td></tr>`;
- }).join('');
- return `<table data-pl-list="${esc(list.id)}"><thead><tr><th>Item</th><th>Base</th><th>Price${list.rows.some(r=>(byKey.get(r.target)||{}).tiers)?' · all / by mm':''}</th><th></th></tr></thead><tbody>${body||'<tr><td colspan="4" class="mut">No prices yet — base prices apply.</td></tr>'}</tbody></table>
+ const price=r=>{const t=byKey.get(r.target),tiers=t&&t.tiers;return tiers?`<div class="row" style="gap:4px;flex-wrap:wrap">${num(r,'All thicknesses',null,r.price)}${tiers.map(x=>`<label class="mut" style="display:flex;align-items:center;gap:3px">${esc(serviceRateTierShort(x))}${num(r,serviceRateTierLabel(x),x.id,r.bands?r.bands[x.id]:null)}</label>`).join('')}</div>`:num(r,'Price',null,r.price);};
+ const base=r=>{const t=byKey.get(r.target);return t?plBaseText(t)+(t.unit?' / '+t.unit:''):'';};
+ /* Таблица вида Sales (владелец 07.11.2026); Changed — в ⚙ Columns. */
+ return `<div data-pl-list="${esc(list.id)}">${slTable('plList',{list:list.rows,id:r=>r.id,empty:'No prices yet — base prices apply.',noun:l=>l.length+' price'+(l.length===1?'':'s'),fill:'item',acts:50,
+  columns:()=>[{k:'item',label:'Item',type:'text',v:r=>salesPriceTargetLabel(r.target,targets)},
+   {k:'base',label:'Base',type:'text',v:base,cell:r=>`<span class="mono mut">${esc(base(r)||'—')}</span>`},
+   {k:'price',label:'Price'+(list.rows.some(r=>(byKey.get(r.target)||{}).tiers)?' · all / by mm':''),type:'number',v:r=>r.price==null?'':r.price,cell:r=>price(r)},
+   {k:'at',label:'Changed',type:'date',def:false,v:r=>r.at?String(r.at).slice(0,10):''}],
+  row:i=>({attrs:' data-pl-row',last:`<button class="sm dl" title="Remove" onclick="plRemoveRow('${esc(list.id)}','${esc(i.x.id)}')">×</button>`})})}</div>
   <div class="row" style="gap:8px;margin-top:8px"><select aria-label="Add price" style="max-width:360px" onchange="plAddRow('${esc(list.id)}',this.value)">${plTargetOptions(targets,true,'')}</select><span class="mut">Empty price — next list decides. 0 is a price.</span></div>`;
 }
 function plList(id){return priceListById(id);}
@@ -57,10 +60,12 @@ function plGroupCustomers(id){return (DB.customer||[]).filter(c=>c.priceGroupId=
 function plGroupsView(){
  const groups=priceListGroups();if(plGroupId&&!groups.some(g=>g.id===plGroupId))plGroupId='';
  const g=priceListById(plGroupId);
- const list=groups.map(x=>`<tr data-pl-group class="${x.id===plGroupId?'sel':''}" style="cursor:pointer" onclick="plGroupId='${esc(x.id)}';render()"><td><b>${esc(x.name||'Unnamed group')}</b></td><td class="mono">${plGroupCustomers(x.id).length}</td><td class="mono">${x.rows.length}</td></tr>`).join('');
+ const list=slTable('plGroups',{list:groups,id:x=>x.id,empty:'No groups yet.',noun:l=>l.length+' group'+(l.length===1?'':'s'),fill:'name',
+  columns:()=>[{k:'name',label:'Group',type:'text',v:x=>x.name||'Unnamed group',cell:x=>`<b>${esc(x.name||'Unnamed group')}</b>`},{k:'customers',label:'Customers',type:'number',sum:true,v:x=>plGroupCustomers(x.id).length},{k:'prices',label:'Prices',type:'number',sum:true,v:x=>x.rows.length}],
+  row:i=>({attrs:` data-pl-group class="${i.x.id===plGroupId?'sel':''}" style="cursor:pointer" onclick="plGroupId='${esc(i.x.id)}';render()"`})});
  return `<div class="sub">Personal beats group; else base price.</div>
   <div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap">
-   <div style="flex:0 0 300px"><table><thead><tr><th>Group</th><th>Customers</th><th>Prices</th></tr></thead><tbody>${list||'<tr><td colspan="3" class="mut">No groups yet.</td></tr>'}</tbody></table>
+   <div style="flex:0 0 340px">${list}
     <button class="pri" style="margin-top:8px" onclick="plNewGroup()">+ Customer group</button></div>
    <div style="flex:1 1 480px;min-width:0">${g?plGroupEditor(g):groups.length?'<div class="mut">Pick a group.</div>':'<div class="mut">Add a group, then give it prices.</div>'}</div>
   </div>`;
@@ -92,13 +97,17 @@ function plSetCustomerGroup(customerId,groupId){
 function plItemGroupsView(){
  const groups=DB.itemGroup||[];if(plItemGroupId&&!groups.some(g=>g.id===plItemGroupId))plItemGroupId='';
  const g=itemGroupById(plItemGroupId),targets=salesPriceTargets();
- const list=groups.map(x=>`<tr data-pl-item-group class="${x.id===plItemGroupId?'sel':''}" style="cursor:pointer" onclick="plItemGroupId='${esc(x.id)}';render()"><td><b>${esc(x.name||'Unnamed')}</b></td><td class="mono">${x.members.length}</td></tr>`).join('');
+ const list=slTable('plItemGroups',{list:groups,id:x=>x.id,empty:'No item groups yet.',noun:l=>l.length+' item group'+(l.length===1?'':'s'),fill:'name',
+  columns:()=>[{k:'name',label:'Item group',type:'text',v:x=>x.name||'Unnamed',cell:x=>`<b>${esc(x.name||'Unnamed')}</b>`},{k:'items',label:'Items',type:'number',sum:true,v:x=>x.members.length}],
+  row:i=>({attrs:` data-pl-item-group class="${i.x.id===plItemGroupId?'sel':''}" style="cursor:pointer" onclick="plItemGroupId='${esc(i.x.id)}';render()"`})});
  const editor=g?`<div class="row" style="gap:8px;margin-bottom:10px"><input aria-label="Item group name" value="${esc(g.name)}" onchange="plItemGroupSet('${esc(g.id)}',x=>{x.name=String(${'this.value'}).trim();})" style="max-width:260px"><button class="sm dl" onclick="plItemGroupDelete('${esc(g.id)}')">Delete group</button></div>
-   <table><thead><tr><th>Item</th><th></th></tr></thead><tbody>${g.members.map(k=>`<tr data-pl-member><td>${esc(salesPriceTargetLabel(k,targets))}</td><td><button class="sm dl" title="Remove" onclick="plItemGroupSet('${esc(g.id)}',x=>{x.members=x.members.filter(m=>m!=='${esc(k)}');})">×</button></td></tr>`).join('')||'<tr><td colspan="2" class="mut">No items yet.</td></tr>'}</tbody></table>
+   ${slTable('plItemMembers',{list:g.members,id:k=>k,empty:'No items yet.',noun:l=>l.length+' item'+(l.length===1?'':'s'),fill:'item',acts:50,
+    columns:()=>[{k:'item',label:'Item',type:'text',v:k=>salesPriceTargetLabel(k,targets)}],
+    row:i=>({attrs:' data-pl-member',last:`<button class="sm dl" title="Remove" onclick="plItemGroupSet('${esc(g.id)}',x=>{x.members=x.members.filter(m=>m!=='${esc(i.x)}');})">×</button>`})})}
    <select aria-label="Add item" style="max-width:360px;margin-top:8px" onchange="if(this.value)plItemGroupSet('${esc(g.id)}',x=>{x.members.push(this.value);})">${plTargetOptions(targets.filter(t=>!g.members.includes(t.key)),false,'')}</select>`:'<div class="mut">Pick a group.</div>';
  return `<div class="sub">Item group = one price line for many items, e.g. "Edge work". Inside a price list, an item's own price beats its group; an item in two groups takes the group priced last.</div>
   <div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap">
-   <div style="flex:0 0 300px"><table><thead><tr><th>Item group</th><th>Items</th></tr></thead><tbody>${list||'<tr><td colspan="2" class="mut">No item groups yet.</td></tr>'}</tbody></table>
+   <div style="flex:0 0 340px">${list}
     <button class="pri" style="margin-top:8px" onclick="plNewItemGroup()">+ Item group</button></div>
    <div style="flex:1 1 480px;min-width:0">${editor}</div>
   </div>`;
@@ -130,8 +139,10 @@ function plBulkView(){
   </div>
   <div class="row" style="gap:8px;margin-bottom:8px"><input aria-label="Find customers" placeholder="Find customer or group" value="${esc(b.q)}" oninput="plBulk.q=this.value;render()" style="max-width:260px">
    <button class="sm" onclick="plBulk.ids=[...new Set(plBulk.ids.concat(${esc(JSON.stringify(customers.map(c=>c.id)))}))];render()">Tick shown</button><button class="sm" onclick="plBulk.ids=[];render()">Clear</button></div>
-  <table><thead><tr><th></th><th>Customer</th><th>Group</th><th>Now</th></tr></thead><tbody>${customers.map(c=>{const r=b.target?(priceListOfCustomer(c.id)||{rows:[]}).rows.find(x=>x.target===b.target):null;
-   return `<tr data-pl-bulk-row><td><input type="checkbox" ${b.ids.includes(c.id)?'checked':''} onchange="plBulk.ids=this.checked?plBulk.ids.concat('${esc(c.id)}'):plBulk.ids.filter(x=>x!=='${esc(c.id)}');render()"></td><td>${esc(c.displayName||c.legalName)}</td><td>${esc(customerGroupName(c)||'—')}</td><td class="mono">${r?esc(plRowText(r)):'—'}</td></tr>`;}).join('')||'<tr><td colspan="4" class="mut">No customers.</td></tr>'}</tbody></table>`;
+  ${(()=>{const now=c=>{const r=b.target?(priceListOfCustomer(c.id)||{rows:[]}).rows.find(x=>x.target===b.target):null;return r?plRowText(r):'';};
+   return slTable('plBulk',{list:customers,id:c=>c.id,empty:'No customers.',noun:l=>l.length+' customer'+(l.length===1?'':'s'),fill:'customer',
+    columns:()=>[{k:'customer',label:'Customer',type:'text',v:c=>c.displayName||c.legalName},{k:'code',label:'Account',type:'text',def:false,v:c=>c.code},{k:'group',label:'Group',type:'list',v:c=>customerGroupName(c)},{k:'now',label:'Now',type:'text',v:now,cell:c=>`<span class="mono">${esc(now(c)||'—')}</span>`}],
+    row:i=>({attrs:' data-pl-bulk-row',first:`<td class="sl-check"><input type="checkbox" ${b.ids.includes(i.x.id)?'checked':''} onchange="plBulk.ids=this.checked?plBulk.ids.concat('${esc(i.x.id)}'):plBulk.ids.filter(x=>x!=='${esc(i.x.id)}');render()"></td>`})});})()}`;
 }
 function plBulkApply(){
  const b=plBulk;if(!b||!b.target)return alert('Pick an item, service or group.');
@@ -175,11 +186,15 @@ function plFileView(){
   +(customers.length?`<optgroup label="Customer · every item">${customers.map(c=>opt('customer:'+c.id,priceFileCustomerName(c))).join('')}</optgroup>`:'');
  let body='';
  if(f&&f.plan){
-  const p=f.plan,rows=p.changes.map(ch=>`<tr data-pl-file-change><td>${esc(ch.personal?'Personal · '+ch.listName:ch.listName)}${!ch.listId?' <span class="pill warn">new</span>':''}</td><td>${esc(ch.label)}</td><td class="mono mut">${esc(priceFileText(ch.was))}</td><td class="mono"><b>${esc(priceFileText(ch.next))}</b></td></tr>`).join('');
+  const p=f.plan,listName=ch=>ch.personal?'Personal · '+ch.listName:ch.listName;
+  const rows=slTable('plFilePreview',{list:p.changes,empty:'Nothing to change.',noun:l=>l.length+' change'+(l.length===1?'':'s'),fill:'item',
+   columns:()=>[{k:'list',label:'List',type:'list',v:listName,cell:ch=>`${esc(listName(ch))}${!ch.listId?' <span class="pill warn">new</span>':''}`},{k:'item',label:'Item',type:'text',v:ch=>ch.label},
+    {k:'was',label:'Was',type:'text',v:ch=>priceFileText(ch.was),cell:ch=>`<span class="mono mut">${esc(priceFileText(ch.was))}</span>`},{k:'next',label:'Will be',type:'text',v:ch=>priceFileText(ch.next),cell:ch=>`<b class="mono">${esc(priceFileText(ch.next))}</b>`}],
+   row:()=>({attrs:' data-pl-file-change'})});
   body=`<h4>${esc(f.name)} · ${p.changes.length} change${p.changes.length===1?'':'s'} · ${p.same} same · ${p.errors.length} error${p.errors.length===1?'':'s'}</h4>
    ${p.newGroups.length?`<div class="sub">New customer groups: <b>${esc(p.newGroups.join(', '))}</b></div>`:''}
-   <table data-pl-file-preview><thead><tr><th>List</th><th>Item</th><th>Was</th><th>Will be</th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="mut">Nothing to change.</td></tr>'}</tbody></table>
-   ${p.errors.length?`<h4 style="margin-top:12px">Skipped rows</h4><table data-pl-file-errors><thead><tr><th>Row</th><th>Why</th></tr></thead><tbody>${p.errors.map(e=>`<tr><td class="mono">${e.line}</td><td>${esc(e.why)}</td></tr>`).join('')}</tbody></table>`:''}
+   <div data-pl-file-preview>${rows}</div>
+   ${p.errors.length?`<h4 style="margin-top:12px">Skipped rows</h4><div data-pl-file-errors>${slTable('plFileErrors',{list:p.errors,noun:l=>l.length+' rows',fill:'why',columns:()=>[{k:'line',label:'Row',type:'number',v:e=>e.line},{k:'why',label:'Why',type:'text',v:e=>e.why}]})}</div>`:''}
    <div class="row" style="gap:8px;margin-top:10px"><button class="pri" data-pl-file-write ${p.changes.length?'':'disabled'} onclick="plFileWrite()">Write ${p.changes.length} change${p.changes.length===1?'':'s'}</button><button onclick="plFile=null;render()">Cancel</button></div>`;
  }else if(f&&f.done)body=`<div class="sub" data-pl-file-done>${esc(f.name)}: ${f.done.written} price${f.done.written===1?'':'s'} written${f.done.errors?', '+f.done.errors+' rows skipped':''}.</div>`;
  return `<div class="sub">Export, edit prices in Excel, load the file back. Nothing is written until you check "Was → Will be". Rows not in the file stay as they are; an empty price removes it.</div>

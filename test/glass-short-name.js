@@ -16,7 +16,7 @@ module.exports=async function({page,eq}){
  eq('Data → Glass: Short name в карточке и таблице; пустые — черта у строки, add, счётчик, полоса и фильтр',await run(()=>{
   tab='masterdata';mdCatalogGo('glassProduct');const g=glassProductByCode('6CLEAR'),err=snSave('6CLEAR','6 Clear');
   mdSearch='6CLEAR';render();
-  const row=document.querySelector('[data-md-row="glassProduct:'+g.id+'"]'),heads=[...document.querySelectorAll('.customer-table-wrap thead th')].map(x=>x.textContent).slice(1,4);
+  const row=document.querySelector('[data-md-row="glassProduct:'+g.id+'"]'),heads=[...document.querySelectorAll('[data-sl-scope="mdGlass"] thead th')].map(x=>x.textContent.trim()).slice(1,4);
   const other=glassProductByCode('6E272');mdSearch='6E272';render();
   const miss=document.querySelector('[data-md-row="glassProduct:'+other.id+'"]'),add=miss&&miss.querySelector('.md-short-add');
   const live=DB.glassProduct.filter(x=>x.active!==false&&!x.shortName).length;
