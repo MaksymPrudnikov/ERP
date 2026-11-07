@@ -296,7 +296,7 @@ function stkBatchDialogHTML(d,seg){
   return head+g.jobs.map(row).join('');
  }).join('');
  const allOn=x.scope.length&&x.scope.every(j=>!d.off.has(stkJobKey(j)));
- const list=`<div class="ncr-lines-wrap stk-batch-list" data-stk-batch-list>${slFromTable('stickerBatch',`<table class="ncr-lines stk-lines"><thead><tr><th><input type="checkbox" data-stk-check-all ${allOn?'checked':''} ${x.scope.length?'':'disabled'} aria-label="Print all" onchange="stkBatchCheck('all','',this.checked)"></th><th>Glass</th><th>Order / Line</th><th>Customer</th><th>Size</th><th></th></tr></thead><tbody>${body||'<tr><td colspan="6" class="empty">No glass on these sheets.</td></tr>'}</tbody></table>`)}</div>`;
+ const list=`<div class="ncr-lines-wrap stk-batch-list" data-stk-batch-list><table class="ncr-lines stk-lines"><thead><tr><th><input type="checkbox" data-stk-check-all ${allOn?'checked':''} ${x.scope.length?'':'disabled'} aria-label="Print all" onchange="stkBatchCheck('all','',this.checked)"></th><th>Glass</th><th>Order / Line</th><th>Customer</th><th>Size</th><th></th></tr></thead><tbody>${body||'<tr><td colspan="6" class="empty">No glass on these sheets.</td></tr>'}</tbody></table></div>`;
  const count=x.error||[glassN+' glass',stockN?stockN+' stock':'',x.laid?plural(x.sheets.length,'sheet'):'',x.away?x.away+' not on a sheet':''].filter(Boolean).join(' · ');
  const none=!!x.error||!x.selected.length;
  return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)stkDialogClose()"><div class="sales-service-modal sales-dialog stk-modal" role="dialog" aria-modal="true" aria-label="Print batch">
