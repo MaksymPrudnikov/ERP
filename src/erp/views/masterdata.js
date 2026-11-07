@@ -285,8 +285,7 @@ function viewMdGlass(){
    <select aria-label="Status" data-md-status onchange="mdStatus=this.value;mdGlassLimit=MD_PAGE;render()">${[['all','Any status'],['stocked','In stock'],['preorder','Pre-order'],['noshort','No short name · '+noShort],['inactive','Discontinued']].map(x=>`<option value="${x[0]}" ${mdStatus===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select>
    <button class="pri" onclick="mdGlassNew()">+ New item</button>
   </div>
-    <div class="customer-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"></th><th>Code</th><th>Short name</th><th class="md-name-col">Name</th><th>Thickness</th><th>Substrate</th><th>Coverage</th><th>Tempering</th><th>Price AN</th><th>Price FT</th><th>Surfaces</th><th>Inventory</th><th>Supply</th><th></th></tr></thead>
-  <tbody>${shown.map(mdGlassRow).join('')||'<tr><td colspan="14" class="empty">no items found</td></tr>'}</tbody></table></div>
+  ${mdGlassTable(shown)}
   <div class="md-more"><span class="mut" data-md-shown>${shown.length} of ${rows.length}</span>${rows.length>shown.length?` <button class="sm" data-md-more onclick="mdGlassLimit+=MD_PAGE;render()">Show ${Math.min(MD_PAGE,rows.length-shown.length)} more</button>`:''}</div>`;
 }
 let mdGlassLimit=MD_PAGE;
@@ -305,24 +304,30 @@ function mdGlassSetPrice(id,field,v){
  if(!isFinite(n)||n<0){render();return;}
  p[field]=Math.round(n*100)/100;touch();render();
 }
-function mdGlassRow(p){
- const sheets=glassSheetsFor(p.code).length;
- const temper=p.temperMode==='temper_required'?'bad':p.temperMode==='annealed_only'?'warn':'info';
- return `<tr class="${p.active===false?'md-row-off':mdGlassNoShort(p)?'md-row-noshort':''}" data-md-row="glassProduct:${esc(p.id)}"><td class="sl-check"><input type="checkbox" aria-label="Select ${esc(p.code)}" ${mdPeek==='glassProduct:'+p.id?'checked':''} onclick="event.stopPropagation();mdPeek=this.checked?'glassProduct:${esc(p.id)}':'';render()"></td><td class="mono"><b>${raw(p.code)}</b>${p.active===false?' <span class="pill warn">discontinued</span>':''}</td>
-  <td data-md-short>${p.shortName?`<b>${raw(p.shortName)}</b>`:`<button type="button" class="gb-link md-short-add" onclick="mdGlassEdit('${esc(p.id)}','short')">add</button>`}</td>
-  <td><b>${raw(p.name)}</b><div class="mut">${raw(p.manufacturer)}</div></td>
-  <td class="mono">${p.thicknessMm==null?'—':p.thicknessMm+' mm'}</td>
-  <td>${esc(glassLabel('substrate',p.substrate))}</td>
-  <td>${esc(glassLabel('coatingFamily',p.coatingFamily))}${p.deposition?`<div class="mut">${esc(glassLabel('deposition',p.deposition))}</div>`:''}</td>
-  <td><span class="pill ${temper}">${esc(glassLabel('temperMode',p.temperMode))}</span></td>
-  <td>${mdGlassPriceInput(p,"salePriceAnnealed")}</td>
-  <td>${mdGlassPriceInput(p,"salePriceTempered")}</td>
-  <td>${p.allowedSurfaces.length?p.allowedSurfaces.map(n=>`<span class="pill" data-raw>#${n}</span>`).join(' '):`<span class="mut">${esc(glassLabel('exposureRule',p.exposureRule))}</span>`}</td>
-  <td>${p.cut===false?'<span class="pill">No cut</span>':p.stocked?`<span class="pill ok">${esc(glassLabel('stock','stocked'))}</span>`:`<span class="pill info">${esc(glassLabel('stock','preorder'))}</span>`}</td>
-  <td>${sheets?`<span class="pill" data-raw>${sheets}</span>`:'<span class="mut">none</span>'}</td>
-  <td style="white-space:nowrap"><button class="sm" onclick="mdGlassEdit('${esc(p.id)}')">Edit</button>
-   <button class="sm" onclick="mdGlassToggle('${esc(p.id)}')">${p.active===false?'Restore':'Discontinue'}</button>
-   <button class="sm dl" onclick="mdGlassDelete('${esc(p.id)}')">×</button></td></tr>`;
+/* Таблица стекла — вид Sales (владелец 07.11.2026); Manufacturer, Legacy code, Note, Deposition — в ⚙ Columns. */
+function mdGlassTable(list){
+ const temper=p=>p.temperMode==='temper_required'?'bad':p.temperMode==='annealed_only'?'warn':'info',stock=p=>p.cut===false?'No cut':glassLabel('stock',p.stocked?'stocked':'preorder');
+ return slTable('mdGlass',{list,id:p=>p.id,empty:'no items found',noun:l=>l.length+' glass',fill:'name',
+  columns:()=>[
+   {k:'code',label:'Code',type:'text',v:p=>p.code,cell:p=>`<span class="mono"><b>${raw(p.code)}</b></span>${p.active===false?' <span class="pill warn">discontinued</span>':''}`},
+   {k:'short',label:'Short name',type:'text',v:p=>p.shortName||'',cell:p=>`<span data-md-short>${p.shortName?`<b>${raw(p.shortName)}</b>`:`<button type="button" class="gb-link md-short-add" onclick="mdGlassEdit('${esc(p.id)}','short')">add</button>`}</span>`},
+   {k:'name',label:'Name',type:'text',v:p=>p.name,cell:p=>`<b>${raw(p.name)}</b><div class="mut">${raw(p.manufacturer)}</div>`},
+   {k:'mfr',label:'Manufacturer',type:'list',def:false,v:p=>p.manufacturer||''},
+   {k:'mm',label:'Thickness',type:'number',v:p=>p.thicknessMm==null?'':p.thicknessMm,cell:p=>`<span class="mono">${p.thicknessMm==null?'—':p.thicknessMm+' mm'}</span>`},
+   {k:'substrate',label:'Substrate',type:'list',v:p=>glassLabel('substrate',p.substrate)},
+   {k:'coverage',label:'Coverage',type:'list',v:p=>glassLabel('coatingFamily',p.coatingFamily),cell:p=>`${esc(glassLabel('coatingFamily',p.coatingFamily))}${p.deposition?`<div class="mut">${esc(glassLabel('deposition',p.deposition))}</div>`:''}`},
+   {k:'deposition',label:'Deposition',type:'list',def:false,v:p=>p.deposition?glassLabel('deposition',p.deposition):''},
+   {k:'temper',label:'Tempering',type:'list',v:p=>glassLabel('temperMode',p.temperMode),cell:p=>`<span class="pill ${temper(p)}">${esc(glassLabel('temperMode',p.temperMode))}</span>`},
+   {k:'priceAn',label:'Price AN',type:'number',v:p=>p.salePriceAnnealed==null?'':p.salePriceAnnealed,cell:p=>mdGlassPriceInput(p,'salePriceAnnealed')},
+   {k:'priceFt',label:'Price FT',type:'number',v:p=>p.salePriceTempered==null?'':p.salePriceTempered,cell:p=>mdGlassPriceInput(p,'salePriceTempered')},
+   {k:'surfaces',label:'Surfaces',type:'text',tokens:true,v:p=>p.allowedSurfaces.length?p.allowedSurfaces.map(n=>'#'+n).join(' · '):glassLabel('exposureRule',p.exposureRule),cell:p=>p.allowedSurfaces.length?p.allowedSurfaces.map(n=>`<span class="pill" data-raw>#${n}</span>`).join(' '):`<span class="mut">${esc(glassLabel('exposureRule',p.exposureRule))}</span>`},
+   {k:'inventory',label:'Inventory',type:'list',v:stock,cell:p=>p.cut===false?'<span class="pill">No cut</span>':p.stocked?`<span class="pill ok">${esc(stock(p))}</span>`:`<span class="pill info">${esc(stock(p))}</span>`},
+   {k:'supply',label:'Supply',type:'number',v:p=>glassSheetsFor(p.code).length,cell:p=>{const n=glassSheetsFor(p.code).length;return n?`<span class="pill" data-raw>${n}</span>`:'<span class="mut">none</span>';}},
+   {k:'legacy',label:'Legacy code',type:'text',def:false,v:p=>p.legacyCode||''},
+   {k:'note',label:'Note',type:'text',def:false,v:p=>p.note||''}],
+  row:i=>{const p=i.x;return {attrs:` class="${p.active===false?'md-row-off':mdGlassNoShort(p)?'md-row-noshort':''}" data-md-row="glassProduct:${esc(p.id)}"`,
+   first:`<td class="sl-check"><input type="checkbox" aria-label="Select ${esc(p.code)}" ${mdPeek==='glassProduct:'+p.id?'checked':''} onclick="event.stopPropagation();mdPeek=this.checked?'glassProduct:${esc(p.id)}':'';render()"></td>`,
+   last:`<span style="white-space:nowrap"><button class="sm" onclick="mdGlassEdit('${esc(p.id)}')">Edit</button> <button class="sm" onclick="mdGlassToggle('${esc(p.id)}')">${p.active===false?'Restore':'Discontinue'}</button> <button class="sm dl" onclick="mdGlassDelete('${esc(p.id)}')">×</button></span>`};}});
 }
 function mdGlassNew(){
  mdEdit='new';
@@ -845,8 +850,7 @@ function viewMdHardware(){
   ${orphans?`<div class="note">Models without a kind: <b>${orphans}</b>. Give them a kind.</div>`:''}
   <div class="section-title"><h3>Models</h3><span class="pill info">as on the shop template</span></div>
   <div class="md-toolbar" data-md-hw-models><select aria-label="Kind" onchange="mdHwFilter=this.value;render()"><option value="">All kinds</option>${kinds.map(k=>`<option value="${esc(k.code)}" ${mdHwFilter===k.code?'selected':''} data-raw>${esc(hardwareKindName(k.code))}</option>`).join('')}</select><span class="sp"></span><button class="pri" onclick="mdHwModelNew()">+ New model</button></div>
-  <div class="sales-table-wrap"><table><thead><tr><th>Model</th><th>Kind</th><th>Series</th><th>On the drawing</th><th>Glass thickness</th><th>Supplier code</th><th>On drawings</th><th>Status</th><th></th></tr></thead>
-  <tbody>${sorted.map(m=>{
+${slTable('mdHwModels',{list:sorted,id:m=>m.id,rowHTML:m=>{
    const used=mdHwModelUsage(m.id),kind=hardwareKindRow(m.kind);
    return `<tr data-md-row="hardwareModel:${esc(m.id)}"><td><b>${raw(m.name)}</b>${m.note?`<div class="mut">${raw(m.note)}</div>`:''}</td>
     <td>${kind?raw(hardwareKindName(m.kind)):'<span class="pill warn">no kind</span>'}</td>
@@ -857,10 +861,10 @@ function viewMdHardware(){
     <td class="mono">${used}</td>
     <td><span class="pill ${m.active===false?'warn':'ok'}">${m.active===false?'inactive':'active'}</span></td>
     <td style="white-space:nowrap"><button class="sm" onclick="mdHwModelEditRow('${esc(m.id)}')">Edit</button><button class="sm dl" onclick="mdHwModelDelete('${esc(m.id)}')">×</button></td></tr>`;
-  }).join('')||'<tr><td colspan="9" class="empty">no models</td></tr>'}</tbody></table></div>
+  },lastTd:-1,empty:'no models',noun:l=>l.length+' models',fill:'name',
+   columns:()=>[{k:'name',label:'Model',type:'text',td:0,v:m=>m.name},{k:'kind',label:'Kind',type:'list',td:1,v:m=>hardwareKindRow(m.kind)?hardwareKindName(m.kind):'no kind'},{k:'series',label:'Series',type:'list',td:2,v:m=>m.series||''},{k:'short',label:'On the drawing',type:'text',td:3,v:m=>hardwareModelShort(m)},{k:'mm',label:'Glass thickness',type:'text',td:4,v:m=>m.thickness||''},{k:'supplierCode',label:'Supplier code',type:'text',td:5,v:m=>m.supplierCode||''},{k:'used',label:'On drawings',type:'number',td:6,v:m=>mdHwModelUsage(m.id)},{k:'status',label:'Status',type:'list',td:7,v:m=>m.active===false?'inactive':'active'},{k:'note',label:'Note',type:'text',def:false,v:m=>m.note||''}]})}
   <div class="section-title"><h3>Kinds</h3><span class="pill info">code goes on the drawing</span></div>
-  <div class="sales-table-wrap"><table><thead><tr><th>Kind</th><th>Code</th><th>On the drawing</th><th>Models</th><th>On drawings</th><th>Status</th><th></th></tr></thead>
-  <tbody>${kinds.map(k=>{
+${slTable('mdHwKinds',{list:kinds,id:k=>k.code,rowHTML:k=>{
    const used=mdHwKindUsage(k.code);
    return `<tr><td><b>${raw(hardwareKindName(k.code))}</b><div class="mut"><span data-raw>${esc(k.name)} · ${esc(k.nameEn)}</span></div></td>
     <td class="mono"><span data-raw>${esc(k.code)}</span></td>
@@ -869,7 +873,8 @@ function viewMdHardware(){
     <td class="mono">${used}</td>
     <td><span class="pill ${k.active===false?'warn':'ok'}">${k.active===false?'inactive':'active'}</span></td>
     <td style="white-space:nowrap"><button class="sm" onclick="mdHwKindEditRow('${esc(k.code)}')">Edit</button><button class="sm dl" onclick="mdHwKindDelete('${esc(k.code)}')">×</button></td></tr>`;
-  }).join('')||'<tr><td colspan="7" class="empty">no kinds</td></tr>'}</tbody></table></div>
+  },lastTd:-1,empty:'no kinds',noun:l=>l.length+' kinds',fill:'name',
+   columns:()=>[{k:'name',label:'Kind',type:'text',td:0,v:k=>hardwareKindName(k.code)},{k:'code',label:'Code',type:'text',td:1,v:k=>k.code},{k:'short',label:'On the drawing',type:'text',td:2,v:k=>k.short},{k:'models',label:'Models',type:'number',sum:true,td:3,v:k=>hardwareModelsFor(k.code,true).length},{k:'used',label:'On drawings',type:'number',td:4,v:k=>mdHwKindUsage(k.code)},{k:'status',label:'Status',type:'list',td:5,v:k=>k.active===false?'inactive':'active'},{k:'note',label:'Note',type:'text',def:false,v:k=>k.note||''}]})}
   <div class="row"><button onclick="mdHwKindNew()">+ New kind</button></div>`;
 }
 function mdHwKindNew(){mdHwKindEdit='new';mdHwKindDraft={code:'',name:'',nameEn:'',short:'',active:true,note:''};render();}
@@ -1248,10 +1253,16 @@ function viewMdCatalogues(){
  if(!MD_CATALOGUES.some(c=>c.k===mdCatKind))mdCatKind=MD_CATALOGUES[0].k;
  if(mdCatEdit!==null)return mdCatForm();
  const def=mdCatDef(),all=mdCatRows(),rows=mdCatalogFilterRows(all),colour=mdCatIsColour(),rate=mdCatIsRate();
- const cols=rate?6:colour?5:6,found=rows!==all;
+ const found=rows!==all;
  return `<div class="md-toolbar"><span class="mut"${found?' data-md-search-count':''}>${found?rows.length+' of '+all.length+' '+esc(def.label.toLowerCase()):esc(def.what.charAt(0).toUpperCase()+def.what.slice(1))+' · used rows: switch off, don\'t delete.'}</span><span class="sp"></span><button class="pri" onclick="mdCatNew()">+ New</button></div>
-  <div class="customer-table-wrap"><table><thead><tr><th>Name</th>${rate?'<th>Station</th><th>Unit</th><th>Price by thickness, mm</th>':`<th>Code</th>${colour?'<th>Family</th><th>Spandrel</th>':'<th>Supplier</th><th>Price, CAD</th>'}`}<th>Status</th><th></th></tr></thead>
-  <tbody>${rows.map(mdCatRowHTML).join('')||`<tr><td colspan="${cols}" class="empty">${found?'Nothing found':'empty'}</td></tr>`}</tbody></table></div>
+  ${slTable('mdCat-'+mdCatKind,{list:rows,id:x=>x.id,rowHTML:x=>mdCatRowHTML(x),lastTd:-1,empty:found?'Nothing found':'empty',noun:l=>l.length+' rows',fill:'name',
+   /* Вид Sales (владелец 07.11.2026): ячейки — из mdCatRowHTML, движок даёт фильтр, сортировку, ширину, порядок. */
+   columns:()=>[{k:'name',label:'Name',type:'text',td:0,v:x=>x.name}].concat(rate?[
+     {k:'station',label:'Station',type:'list',td:1,v:x=>x.station||''},{k:'unit',label:'Unit',type:'list',td:2,v:x=>x.unit},{k:'price',label:'Price by thickness, mm',type:'text',td:3,v:x=>mdWorkTiersText(x)},
+     {k:'status',label:'Status',type:'list',td:4,v:x=>x.active===false?'no rate':'active'},{k:'id',label:'ID',type:'text',def:false,v:x=>x.id},{k:'note',label:'Note',type:'text',def:false,v:x=>x.note||''}]
+    :[{k:'code',label:'Code',type:'text',td:1,v:x=>x.code||''}].concat(colour?[{k:'family',label:'Family',type:'list',td:2,v:x=>x.family||''},{k:'spandrel',label:'Spandrel',type:'list',td:3,v:x=>x.productId?((DB.spandrelProduct||[]).find(p=>p.id===x.productId)||{}).name||x.productId:'any'}]
+     :[{k:'supplier',label:'Supplier',type:'list',td:2,v:x=>x.supplier||''},{k:'salePrice',label:'Price, CAD',type:'number',td:3,v:x=>x.salePrice==null?'':Number(x.salePrice)}],
+     [{k:'status',label:'Status',type:'list',td:4,v:x=>x.active===false?'inactive':'active'},{k:'id',label:'ID',type:'text',def:false,v:x=>x.id},{k:'sub',label:'Subcategory',type:'list',def:false,v:x=>x.subcategory||''}]))})}
   ${rate?'<div class="sub">Price by glass thickness.</div>':''}`;
 }
 function mdCatRowHTML(x){

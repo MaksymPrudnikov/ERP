@@ -21,16 +21,25 @@ function slInfos(list,id,cols){
  /* tokens — колонка со списком через « · »: фильтр по каждому значению отдельно. */
  return (list||[]).map((x,i)=>{const memo={},tokens={};cols.forEach(c=>{let v;try{v=c.v(x,i);}catch(e){v='';}memo[c.k]=v==null?'':v;if(c.tokens)tokens[c.k]=String(memo[c.k]).split(' · ').filter(Boolean);});return {o:{id:String(id(x,i)),createdAt:''},x,i,memo,tokens};});
 }
+/* Готовая строка экрана (rowHTML) → её <tr> и ячейки: колонка с td:N берёт N-ю
+   ячейку как есть — вид строки не меняется, движок только ставит порядок колонок. */
+function slParseRow(html){
+ const t=document.createElement('template');t.innerHTML='<table><tbody>'+html+'</tbody></table>';
+ const tr=t.content.querySelector('tr'),at=el=>[...el.attributes].map(a=>` ${a.name}="${esc(a.value)}"`).join('');
+ return tr?{attrs:at(tr),tds:[...tr.children].map(td=>({attrs:at(td),html:td.innerHTML})),after:[...t.content.querySelectorAll('tbody > tr')].slice(1).map(x=>x.outerHTML).join('')}:{attrs:'',tds:[],after:''};
+}
 /* Ячейка по типу колонки, если у колонки нет своей. */
 function slCell(info,c){
  const v=info.memo[c.k];
+ if(c.td!=null&&info.row){const d=info.row.tds[c.td];return d?`<td${d.attrs}>${d.html}</td>`:'<td></td>';}
  if(c.cell)return `<td${c.type==='number'?' class="n"':''}>${c.cell(info.x,v,info)}</td>`;
  if(v===''||v==null)return `<td${c.type==='number'?' class="n"':''}><span class="mut">—</span></td>`;
  if(c.type==='date')return `<td>${esc(salesListShortDay(v))}</td>`;
  if(c.type==='number')return `<td class="n">${c.money?esc(finFmt(v)):esc(typeof v==='number'?v.toLocaleString('en-US',{maximumFractionDigits:c.digits==null?2:c.digits}):String(v))}</td>`;
  return `<td>${esc(String(v))}</td>`;
 }
-/* o: {columns:()=>[...], list, id(x), sort:{k,dir}, fill — колонка во всю ширину, row(info)→{attrs, first, last, after(colspan) — строка под строкой}, noun(rows), empty, widths, cls}.
+/* o: {columns:()=>[...], list, id(x), sort:{k,dir}, fill — колонка во всю ширину, row(info)→{attrs, first, last, after(colspan) — строка под строкой},
+   rowHTML(x) — готовая строка экрана: колонки берут её ячейки (td:N), firstTd/lastTd — галочка и кнопки, noun(rows), empty, widths, cls}.
    Колонки без def видны сразу; def:false — только в ⚙ Columns. Ключ 'type' не брать: в движке он
    прячется, когда в Sales один вид (заказы без квот). */
 function slTable(scope,o){
@@ -43,9 +52,15 @@ function slTable(scope,o){
   /* Колонка, что забирает остаток ширины (как Customer в Sales): своя или первая текстовая. */
   const reg=CW_TABLES[scope];if(reg)reg.fill=o.fill||(cols0.find(c=>c.type==='text')||cols0[0]||{}).k||'';
   const rows=salesListRows(infos);
+  if(o.rowHTML)rows.forEach(i=>{i.row=slParseRow(o.rowHTML(i.x,i.i));});
   html=salesListTableHTML({infos,rows,cls:o.cls,
    cell:(i,c)=>slCell(i,c),
-   row:info=>{const r=o.row?o.row(info)||{}:{};return {attrs:(r.attrs||'')+` data-sl-row="${esc(info.o.id)}"`,first:r.first,last:r.last,after:r.after};},
+   row:info=>{const r=o.row?o.row(info)||{}:{},R=info.row;
+    if(R){/* rowHTML: атрибуты строки, первая (галочка) и последняя (кнопки) ячейки — из неё. */
+     const cell=n=>n==null?undefined:R.tds[n<0?R.tds.length+n:n];
+     const f=cell(o.firstTd),l=cell(o.lastTd);
+     return {attrs:R.attrs+(r.attrs||'')+` data-sl-row="${esc(info.o.id)}"`,first:f?`<td${f.attrs}>${f.html}</td>`:r.first,last:l?l.html:r.last,after:R.after?()=>R.after:r.after};}
+    return {attrs:(r.attrs||'')+` data-sl-row="${esc(info.o.id)}"`,first:r.first,last:r.last,after:r.after};},
    noun:rows=>o.noun?o.noun(rows):rows.length+' row'+(rows.length===1?'':'s'),empty:infos.length?'Nothing matches the filters.':(o.empty||'Nothing here yet.')});
  }finally{slScopeNow=was;}
  return `<div class="sl-generic" data-sl-scope="${esc(scope)}">${html}</div>`;
