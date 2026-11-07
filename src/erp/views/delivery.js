@@ -136,10 +136,15 @@ function deliveryPrint(date,truckId,withPS){
 /* ----------------------- Master Data → Trucks ----------------------- */
 function viewMdTrucks(){
  const set=(t,field,value)=>`mdTruckSet('${esc(t.id)}','${field}',${value})`;
- const rows=(DB.truck||[]).map(t=>`<tr data-truck-row="${esc(t.id)}"${t.active?'':' class="mut"'}><td><input aria-label="Truck name" value="${esc(t.name)}" onchange="${set(t,'name','this.value')}"></td><td><input aria-label="Note" value="${esc(t.note)}" placeholder="Note" onchange="${set(t,'note','this.value')}"></td><td class="md-trucks-on"><input type="checkbox" aria-label="Active" ${t.active?'checked':''} onchange="${set(t,'active','this.checked')}"></td></tr>`).join('');
+ /* Таблица вида Sales (владелец 07.11.2026): фильтр, сортировка, ширина, порядок. */
+ const table=slTable('mdTrucks',{list:DB.truck||[],id:t=>t.id,empty:'No trucks yet',noun:r=>r.length+' truck'+(r.length===1?'':'s'),
+  columns:()=>[
+   {k:'name',label:'Name',type:'text',v:t=>t.name,cell:t=>`<input aria-label="Truck name" value="${esc(t.name)}" onchange="${set(t,'name','this.value')}">`},
+   {k:'note',label:'Note',type:'text',v:t=>t.note,cell:t=>`<input aria-label="Note" value="${esc(t.note)}" placeholder="Note" onchange="${set(t,'note','this.value')}">`},
+   {k:'active',label:'Active',type:'list',v:t=>t.active?'Yes':'No',cell:t=>`<input type="checkbox" aria-label="Active" ${t.active?'checked':''} onchange="${set(t,'active','this.checked')}">`}],
+  row:i=>({attrs:` data-truck-row="${esc(i.x.id)}"${i.x.active?'':' class="mut"'}`})});
  /* Ровная узкая таблица и «+ Truck» в строке инструментов (аудит D-6). */
- return `<div class="md-trucks"><div class="md-toolbar"><span class="mut">Trucks for the delivery plan.</span><span class="sp"></span><button class="pri" data-truck-add onclick="mdTruckAdd()">+ Truck</button></div>
-  <table><thead><tr><th>Name</th><th>Note</th><th class="md-trucks-on">Active</th></tr></thead><tbody>${rows||'<tr><td colspan="3" class="empty">No trucks yet</td></tr>'}</tbody></table></div>`;
+ return `<div class="md-trucks"><div class="md-toolbar"><span class="mut">Trucks for the delivery plan.</span><span class="sp"></span><button class="pri" data-truck-add onclick="mdTruckAdd()">+ Truck</button></div>${table}</div>`;
 }
 function mdTruckAdd(){const out=truckAdd('');if(!out.ok)alert(out.error);render();}
 function mdTruckSet(id,field,value){const out=truckSet(id,field,value);if(!out.ok)alert(out.error);render();}
