@@ -217,8 +217,12 @@ function invStockLog(rows){
  const today=salesListDay(new Date()),list=rows.flatMap(r=>r.moves.filter(m=>m.event&&salesListIsoDay(m.at)===today).map(m=>({r,m}))).sort((a,b)=>String(b.m.at).localeCompare(String(a.m.at)));
  const left=rows.filter(r=>r.status==='Not counted').length;
  return '<section class="inv-stock-log" data-inv-stock-log><div class="inv-stock-log-head"><b>Today</b><span class="mut">'+list.length+' count'+(list.length===1?'':'s')+' and changes</span>'+(left?'<button type="button" class="fin-link" onclick="invListStatus(\'Not counted\')">Not counted yet · '+left+'</button>':'')+'<span class="sales-toolbar-sp"></span><button type="button" class="sm" onclick="invGo(\'journal\')">Full journal</button></div>'+
-  (list.length?'<div class="sales-table-wrap"><table class="ncr-table"><thead><tr><th>Time</th><th>Item</th><th>What</th><th class="n">Was → now</th><th class="n">Change</th><th>Reason</th><th>Who</th></tr></thead><tbody>'+
-   list.map(({r,m})=>{const e=m.event,was=e.kind==='count'?e.before:null;return '<tr><td class="nowrap">'+esc(new Date(e.at).toTimeString().slice(0,5))+'</td><td data-raw>'+esc(r.name)+'</td><td>'+esc(m.kind)+'</td><td class="n">'+(was==null?'<span class="mut">—</span>':esc(was+' → '+e.after))+'</td><td class="n'+(e.qty<0?' inv-neg':'')+'">'+esc((e.qty>0?'+':e.qty<0?'−':'')+Math.abs(e.qty))+'</td><td>'+invNum([e.reason,e.note].filter(Boolean).join(' · '))+'</td><td data-raw>'+invNum(e.by)+'</td></tr>';}).join('')+'</tbody></table></div>':'<p class="mut">Nothing counted today.</p>')+'</section>';
+  (list.length?slTable('invStockToday',{list,cls:'ncr-table',noun:l=>l.length+' changes',fill:'item',
+   columns:()=>[{k:'time',label:'Time',type:'text',v:x=>new Date(x.m.event.at).toTimeString().slice(0,5),cell:x=>'<span class="nowrap">'+esc(new Date(x.m.event.at).toTimeString().slice(0,5))+'</span>'},
+    {k:'item',label:'Item',type:'text',v:x=>x.r.name,cell:x=>'<span data-raw>'+esc(x.r.name)+'</span>'},{k:'what',label:'What',type:'list',v:x=>x.m.kind},
+    {k:'wasNow',label:'Was → now',type:'text',v:x=>x.m.event.kind==='count'?x.m.event.before+' → '+x.m.event.after:''},
+    {k:'change',label:'Change',type:'number',sum:true,v:x=>x.m.event.qty,cell:x=>{const q=x.m.event.qty;return '<span class="'+(q<0?'inv-neg':'')+'">'+esc((q>0?'+':q<0?'−':'')+Math.abs(q))+'</span>';}},
+    {k:'reason',label:'Reason',type:'text',v:x=>[x.m.event.reason,x.m.event.note].filter(Boolean).join(' · ')},{k:'who',label:'Who',type:'list',v:x=>x.m.event.by||''}]}):'<p class="mut">Nothing counted today.</p>')+'</section>';
 }
 function invStockView(infos){
  const rows=salesListRows(infos),cols=salesListColumns(),all=infos.map(i=>i.r);
@@ -397,10 +401,12 @@ function invSizesView(){
  const data=accessCan('masterdata'),link=(c,k)=>data?'<button type="button" class="fin-link" data-inv-size-supply="'+esc(c)+'" title="Supply row in Data" onclick="invSizeSupplyOpen('+invArg(c)+','+invArg(k)+')">'+esc(c)+'</button>':esc(c);
  const sizes=cutSheetSizes(),whose=x=>[x.shop?'All glass':'',x.codes.slice(0,4).map(c=>link(c,x.key)).join(', ')+(x.codes.length>4?' +'+(x.codes.length-4):'')].filter(Boolean).join(' · ');
  return '<p class="mut">Supply sizes of a glass go first; shop sizes work for any glass. Trim and border — Data → Cutting.</p>'+
-  '<div class="sales-table-wrap"><table class="ncr-table" data-inv-sizes><thead><tr><th>Sheet</th><th>Glass</th><th>From</th><th></th></tr></thead><tbody>'+
-  (sizes.map(x=>'<tr data-inv-size="'+esc(x.key)+'"><td><b>'+esc(frac16(x.w))+' × '+esc(frac16(x.h))+'″</b></td><td class="mut">'+whose(x)+'</td><td>'+(x.codes.length?'Supply'+(x.shop?' · Shop':''):'Shop')+'</td><td>'+
-   (x.shop?'<button type="button" class="sm dl" data-inv-size-remove="'+esc(x.key)+'" aria-label="Remove '+esc(x.key)+'" onclick="invSizeRemoveUi('+invArg(x.key)+')">×</button>':'')+'</td></tr>').join('')||
-   '<tr><td colspan="4" class="mut" data-inv-sizes-empty>No sheet sizes yet — glass shows Size missing.</td></tr>')+'</tbody></table></div>'+
+  '<div data-inv-sizes>'+slTable('invSizes',{list:sizes,id:x=>x.key,cls:'ncr-table',empty:'No sheet sizes yet — glass shows Size missing.',noun:l=>l.length+' sheet size'+(l.length===1?'':'s'),fill:'glass',
+   columns:()=>[{k:'sheet',label:'Sheet',type:'text',v:x=>frac16(x.w)+' × '+frac16(x.h)+'″',cell:x=>'<b>'+esc(frac16(x.w))+' × '+esc(frac16(x.h))+'″</b>'},
+    {k:'glass',label:'Glass',type:'text',tokens:true,v:x=>[x.shop?'All glass':''].concat(x.codes).filter(Boolean).join(' · '),cell:x=>'<span class="mut">'+whose(x)+'</span>'},
+    {k:'from',label:'From',type:'list',v:x=>x.codes.length?'Supply'+(x.shop?' · Shop':''):'Shop'},
+    {k:'area',label:'ft²',type:'number',def:false,v:x=>Math.round(x.w*x.h/144*100)/100}],
+   row:i=>({attrs:' data-inv-size="'+esc(i.x.key)+'"',last:i.x.shop?'<button type="button" class="sm dl" data-inv-size-remove="'+esc(i.x.key)+'" aria-label="Remove '+esc(i.x.key)+'" onclick="invSizeRemoveUi('+invArg(i.x.key)+')">×</button>':''})})+'</div>'+
   '<div class="cut-size-add" data-inv-size-add><input type="text" id="invSizeW" placeholder="length" aria-label="Sheet length, in"> × <input type="text" id="invSizeH" placeholder="width" aria-label="Sheet width, in"> <button type="button" onclick="invSizeAddUi()">+ Add sheet size</button>'+
   (invSizeNotice?'<span class="cut-md-error" role="alert" data-inv-size-error>'+esc(invSizeNotice)+'</span>':'')+'</div>';
 }
@@ -421,13 +427,14 @@ function invConsumablesView(){
  const rows=consRows(),tone={'OK':'ok','Short':'bad','Not counted':'','Pack size missing':'warn','Norm missing':'warn'};
  return '<p class="mut">Reserved on Save, used on IGU scan.</p>'+
   (consNotice?'<div class="ncr-error" role="alert">'+esc(consNotice)+'</div>':'')+
-  '<div class="sales-table-wrap"><table class="ncr-table" data-cons-table><thead><tr><th>Item</th><th>Bought in</th><th class="n">Received</th><th class="n">Used</th><th class="n">Count adj.</th><th class="n">On hand</th><th class="n">Reserved</th><th class="n">Free</th><th>Status</th><th>Counted</th></tr></thead><tbody>'+
-  (rows.map(r=>'<tr data-cons-row="'+esc(r.key)+'"><td><b data-raw>'+esc(r.name)+'</b>'+(r.off?' <span class="pill warn">inactive</span>':'')+'<div class="mut">'+esc(r.group)+(r.code?' · <span data-raw>'+esc(r.code)+'</span>':'')+'</div></td>'+
-   '<td class="cons-packs">'+consPacksHTML(r)+'</td>'+
-   ['received','used','adjust','onHand','reserved','free'].map(k=>'<td class="n" data-cons-'+k+'>'+esc(consQty(r[k],r.unit))+'</td>').join('')+
-   '<td><span class="pill '+(tone[r.status]||'')+'">'+esc(r.status)+'</span></td>'+
-   '<td class="inv-count-cell"><input type="number" min="0" step="any" class="inv-min" data-cons-count="'+esc(r.key)+'" value="'+(consCountDraft[r.key]==null?'':esc(consCountDraft[r.key]))+'" oninput="consCountDraft['+invArg(r.key)+']=this.value;const b=this.parentNode.querySelector(\'[data-inv-why]\');if(b)b.hidden=this.value.trim()===\'\'">'+invWhyHTML(consCountWhy,'consCountWhy',r.key,String(consCountDraft[r.key]==null?'':consCountDraft[r.key]).trim()==='')+'</td></tr>').join('')||
-   '<tr><td colspan="10" class="mut">No spacers, sealants, gas or IGU parts in Master Data.</td></tr>')+'</tbody></table></div>';
+  '<div data-cons-table>'+slTable('invConsumables',{list:rows,id:r=>r.key,cls:'ncr-table',empty:'No spacers, sealants, gas or IGU parts in Master Data.',noun:l=>l.length+' item'+(l.length===1?'':'s'),fill:'item',
+   columns:()=>[{k:'item',label:'Item',type:'text',v:r=>r.name,cell:r=>'<b data-raw>'+esc(r.name)+'</b>'+(r.off?' <span class="pill warn">inactive</span>':'')+'<div class="mut">'+esc(r.group)+(r.code?' · <span data-raw>'+esc(r.code)+'</span>':'')+'</div>'},
+    {k:'group',label:'Group',type:'list',def:false,v:r=>r.group},{k:'code',label:'Code',type:'text',def:false,v:r=>r.code},{k:'unit',label:'Unit',type:'list',def:false,v:r=>r.unit},
+    {k:'packs',label:'Bought in',type:'text',v:r=>String(consPacksHTML(r)).replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim(),cell:r=>'<span class="cons-packs">'+consPacksHTML(r)+'</span>'}]
+    .concat([['received','Received'],['used','Used'],['adjust','Count adj.'],['onHand','On hand'],['reserved','Reserved'],['free','Free']].map(([k,l])=>({k,label:l,type:'number',v:r=>r[k],cell:r=>'<span data-cons-'+k+'>'+esc(consQty(r[k],r.unit))+'</span>'})))
+    .concat([{k:'status',label:'Status',type:'list',v:r=>r.status,cell:r=>'<span class="pill '+(tone[r.status]||'')+'">'+esc(r.status)+'</span>'},
+     {k:'counted',label:'Counted',type:'number',v:r=>consCountDraft[r.key]==null?'':consCountDraft[r.key],cell:r=>'<span class="inv-count-cell"><input type="number" min="0" step="any" class="inv-min" data-cons-count="'+esc(r.key)+'" value="'+(consCountDraft[r.key]==null?'':esc(consCountDraft[r.key]))+'" oninput="consCountDraft['+invArg(r.key)+']=this.value;const b=this.parentNode.querySelector(\'[data-inv-why]\');if(b)b.hidden=this.value.trim()===\'\'">'+invWhyHTML(consCountWhy,'consCountWhy',r.key,String(consCountDraft[r.key]==null?'':consCountDraft[r.key]).trim()==='')+'</span>'}]),
+   row:i=>({attrs:' data-cons-row="'+esc(i.x.key)+'"'})})+'</div>';
 }
 function consPackUi(key,v){const r=consSetPack(key,v);consNotice=r.ok?'':r.error;render();}
 /* Во что покупают (владелец, 26.10.2026: «в боксах, в метрах, в кг —
