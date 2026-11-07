@@ -746,15 +746,6 @@ function salesListCwTable(keys,lead,trail,defs){
   min:()=>CW_MIN,move:salesListMoveColumnTo,lead:lead||[],trail:trail||0,fill:['customer','glass','item'].find(k=>keys.includes(k))||''});
  return {cls:cwTableClass(id),attrs:cwTableAttrs(id,keys),col:cwColgroup(id,keys)};
 }
-/* Таблица с постоянными колонками (окна, Ready): ширина тянется за край
-   заголовка и хранится в этом браузере; порядок у таких таблиц постоянный.
-   head — [[ключ, подпись, класс]]. Возвращает {head, cls, attrs, col}. */
-function cwStaticTable(id,head,lead){
- const key='glass_erp_cw_'+id,read=()=>{try{const v=JSON.parse(localStorage.getItem(key)||'{}');return v&&typeof v==='object'?v:{};}catch(e){return {};}};
- if(!CW_TABLES[id])cwRegister(id,{widths:read,save:w=>{try{if(Object.keys(w).length)localStorage.setItem(key,JSON.stringify(w));else localStorage.removeItem(key);}catch(e){}render();},def:()=>110,min:()=>CW_MIN,move:()=>{},lead:lead||[],trail:0,fill:''});
- const keys=head.map(h=>h[0]);
- return {head:head.map(([k,l,c])=>`<th${c?` class="${c}"`:''} data-cw-key="${k}"><span data-cw-label>${l}</span>${cwGrip()}</th>`).join(''),cls:cwTableClass(id),attrs:cwTableAttrs(id,keys),col:cwColgroup(id,keys)};
-}
 /* Таблица списка вида Sales для вкладок со своими строками (Skids, Backorders,
    Delivery): шестерёнка Columns, фильтр и сортировка в заголовке, ширина и
    порядок перетаскиванием, итог внизу. o: {infos, rows, cell(info,col,prev),
