@@ -59,7 +59,7 @@ function slTable(scope,o){
   const reg=CW_TABLES[scope];if(reg){reg.fill=o.fill||(cols0.find(c=>c.type==='text')||cols0[0]||{}).k||'';reg.trail=o.acts||20;reg.lead=[o.lead||44];}
   const rows=salesListRows(infos);
   if(o.rowHTML)rows.forEach(i=>{i.row=slParseRow(o.rowHTML(i.x,i.i));});
-  html=salesListTableHTML({infos,rows,cls:o.cls,tail:o.tail,
+  html=salesListTableHTML({infos,rows,cls:o.cls,tail:o.tail,firstTh:o.firstTh,
    cell:(i,c)=>slCell(i,c),
    row:info=>{const r=o.row?o.row(info)||{}:{},R=info.row;
     if(R){/* rowHTML: атрибуты строки, первая (галочка) и последняя (кнопки) ячейки — из неё. */
@@ -98,7 +98,7 @@ function slFromTable(scope,html,o){
  /* Несколько пустых колонок слева (галочка и ▸) — одна первая ячейка. */
  let lead=0;while(lead<ths.length-1&&!lab(ths[lead])&&!ths[lead].querySelector('input'))lead++;
  if(lead>1){tb.querySelectorAll('tr').forEach(tr=>{const c=[...tr.children];if(c.length<lead||c[0].colSpan>1)return;for(let i=1;i<lead;i++){c[0].insertAdjacentHTML('beforeend',' '+c[i].innerHTML);c[i].remove();}});ths=[...tb.querySelectorAll('thead th')];}
- const first=ths.length>1&&!lab(ths[0]),last=ths.length>1&&!lab(ths[ths.length-1]);
+ const first=ths.length>1&&!lab(ths[0]),last=ths.length>2&&!lab(ths[ths.length-1])&&!ths[ths.length-1].querySelector('input');
  const from=first?1:0,to=last?ths.length-1:ths.length;
  const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'')||'c';
  const head=ths.slice(from,to).map((th,i)=>({k:slug(lab(th))+'_'+(i+from),label:lab(th),n:th.classList.contains('n')||th.classList.contains('cs-n'),td:i+from}));
@@ -113,7 +113,9 @@ function slFromTable(scope,html,o){
  const num=s=>{const n=parseFloat(String(s).replace(/[^\d.\-]/g,''));return Number.isFinite(n)?(/^\s*[−-]/.test(s)?-Math.abs(n):n):'';};
  const attrs=[...tb.attributes].filter(a=>a.name!=='class'&&a.name!=='style').map(a=>` ${a.name}="${esc(a.value)}"`).join('');
  const cls=[...tb.classList].filter(c=>c!=='sl-table').join(' ');
- const out=slTable(scope,Object.assign({list,rowHTML:x=>x.html+x.sub.join(''),firstTd:first?0:undefined,lastTd:last?-1:undefined,
+ /* Галочка «все» в заголовке первой колонки — рядом с ⚙. */
+ const firstTh=first&&ths[0].querySelector('input')?ths[0].innerHTML:undefined;
+ const out=slTable(scope,Object.assign({list,firstTh,rowHTML:x=>x.html+x.sub.join(''),firstTd:first?0:undefined,lastTd:last?-1:undefined,
   empty:emptyRow?emptyRow.textContent.trim():undefined,cls,acts:last?90:20,tail:foot?()=>foot:undefined,noun:l=>l.length+' row'+(l.length===1?'':'s'),
   columns:()=>head.map(h=>({k:h.k,label:h.label,type:h.n?'number':'text',td:h.td,v:x=>h.n?num(x.tds[h.td]):x.tds[h.td]}))},o));
  return attrs?`<div${attrs}>${out}</div>`:out;

@@ -33,15 +33,15 @@ function viewMdCutting(){
  return `<div class="cut-md" data-cut-md>
   <div class="cut-md-head"><div><h3>Cutting parameters</h3><p class="mut">Trim — bottom, left. Border — top, right.</p></div>
    <button type="button" data-cut-reset onclick="cutMdReset()">Reset to shop table</button></div>
-  <div class="sales-table-wrap"><table class="ncr-table cut-table"><thead><tr><th>Thickness</th><th class="n">Trim</th><th class="n">Border</th><th class="n">Min distance</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="sales-table-wrap">${slFromTable('mdCutParams',`<table class="ncr-table cut-table"><thead><tr><th>Thickness</th><th class="n">Trim</th><th class="n">Border</th><th class="n">Min distance</th></tr></thead><tbody>${rows}</tbody></table>`)}</div>
   ${(function(){const sizes=cutSheetSizes();
    const edge=(x,own,f,label)=>`<td class="n"><input type="text" data-cut-${f.toLowerCase()}="${esc(x.key)}" value="${own[f]==null?'':esc(frac16(own[f]))}" placeholder="—" aria-label="${label} ${esc(x.key)}" onchange="cutMdSheetTrim('${esc(x.key)}','${f}',this.value)"></td>`;
    const whose=x=>[x.shop?'All glass':'',x.codes.slice(0,4).join(', ')+(x.codes.length>4?' +'+(x.codes.length-4):'')].filter(Boolean).join(' · ');
    return `<h4 class="cut-md-sub">Sheet sizes</h4><p class="mut">Sizes from supply and Inventory.</p>
-   <div class="sales-table-wrap"><table class="ncr-table cut-table" data-cut-sheet-table><thead><tr><th>Sheet</th><th>Glass</th><th class="n">Trim X <small>bottom</small></th><th class="n">Trim Y <small>left</small></th><th class="n">Border X <small>top</small></th><th class="n">Border Y <small>right</small></th></tr></thead><tbody>${sizes.map(x=>{const own=cutSheetTrim(x.key)||{};
+   <div class="sales-table-wrap">${slFromTable('mdCutSheets',`<table class="ncr-table cut-table" data-cut-sheet-table><thead><tr><th>Sheet</th><th>Glass</th><th class="n">Trim X <small>bottom</small></th><th class="n">Trim Y <small>left</small></th><th class="n">Border X <small>top</small></th><th class="n">Border Y <small>right</small></th></tr></thead><tbody>${sizes.map(x=>{const own=cutSheetTrim(x.key)||{};
     return `<tr data-cut-sheet-row="${esc(x.key)}"><td><b>${esc(frac16(x.w))} × ${esc(frac16(x.h))}″</b></td><td class="mut">${esc(whose(x))}</td>
      ${edge(x,own,'trimX','Trim X')}${edge(x,own,'trimY','Trim Y')}${edge(x,own,'borderX','Border X')}${edge(x,own,'borderY','Border Y')}
-     </tr>`;}).join('')||'<tr><td colspan="6" class="mut" data-cut-sheets-empty>No sheet sizes yet — add them in Inventory → Sheet sizes.</td></tr>'}</tbody></table></div>
+     </tr>`;}).join('')||'<tr><td colspan="6" class="mut" data-cut-sheets-empty>No sheet sizes yet — add them in Inventory → Sheet sizes.</td></tr>'}</tbody></table>`)}</div>
    <div class="cut-size-add" data-cut-size-add><button type="button" onclick="navGo('inventory');if(tab==='inventory')invGo('sizes')">Sheet sizes in Inventory →</button></div>`;})()}
   <div class="cut-md-foot">
    <label><span class="ncr-label">MIN OFFCUT W</span><input type="text" data-cut-offcut-w value="${esc(frac16(s.minOffcutW))}" onchange="cutMdSetting('minOffcutW',this.value)"></label>
