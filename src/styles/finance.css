@@ -117,5 +117,5 @@
 .fin-aging span{display:block;height:100%}
 .fin-age-90{background:var(--danger)}.fin-age-60{background:var(--warning)}.fin-age-now{background:var(--series-3)}.fin-age-cur{background:var(--accent)}
 /* Allocate на движке Sales (07.11.2026): галочка и ▸ в одной ячейке, связи — целиком. */
-.fin-alloc td.sl-check{overflow:visible;text-overflow:clip;white-space:nowrap}
+.fin-alloc .sl-table td.sl-check{overflow:visible;text-overflow:clip;white-space:nowrap;text-align:left;padding-left:21px}
 .fin-alloc tr.fin-alloc-link td{overflow:visible;text-overflow:clip;white-space:nowrap}
