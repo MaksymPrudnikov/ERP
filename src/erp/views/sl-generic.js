@@ -30,7 +30,8 @@ function slCell(info,c){
  return `<td>${esc(String(v))}</td>`;
 }
 /* o: {columns:()=>[...], list, id(x), sort:{k,dir}, fill — колонка во всю ширину, row(info)→{attrs, first, last}, noun(rows), empty, widths, cls}.
-   Колонки без def видны сразу; def:false — только в ⚙ Columns. */
+   Колонки без def видны сразу; def:false — только в ⚙ Columns. Ключ 'type' не брать: в движке он
+   прячется, когда в Sales один вид (заказы без квот). */
 function slTable(scope,o){
  const cols0=o.columns().map(c=>Object.assign({def:true},c));
  SL_GENERIC[scope]={columns:()=>cols0,sort:o.sort||null};
