@@ -139,19 +139,22 @@ function viewMdSetup(){
  const on=k=>`<input type="checkbox" data-setup="${k}" ${s[k]?'checked':''} onchange="orderSetupSet('${k}',this.checked)">`;
  const num=(k,unit)=>`<input type="number" min="0" step="0.01" data-setup="${k}" value="${s[k]}" onchange="orderSetupSet('${k}',this.value)"> <span class="mut">${unit}</span>`;
  const inBase=(k,label)=>`<label class="md-setup-base">${on(k)} ${label}</label>`;
- const row=(label,onKey,value,base)=>`<tr><td><b>${label}</b></td><td class="n">${on(onKey)}</td><td>${value}</td><td>${base}</td></tr>`;
- const cards=s.cardNetworks.map((n,i)=>`<tr data-setup-card="${esc(n.id)}"><td><input type="text" maxlength="60" value="${esc(n.name)}" onchange="orderSetupCardSet(${i},'name',this.value)"></td><td><input type="number" min="0" step="0.01" value="${n.rate}" onchange="orderSetupCardSet(${i},'rate',this.value)"> <span class="mut">%</span></td><td><button type="button" class="sm dl" aria-label="Remove" title="Remove" onclick="orderSetupCardRemove(${i})">×</button></td></tr>`).join('');
+ /* Таблицы вида Sales (владелец 07.11.2026): фильтр, сортировка, ширина, порядок. */
+ const charges=[['Energy surcharge (ES)','energyOn',num('energyRate','%'),'<span class="mut">—</span>',s.energyRate+' %','—'],
+  ['HST','hstOn',num('hstRate','%'),inBase('hstOnEnergy','ES')+inBase('hstOnDelivery','Delivery'),s.hstRate+' %',[s.hstOnEnergy&&'ES',s.hstOnDelivery&&'Delivery'].filter(Boolean).join(', ')],
+  ['Card fee','cardOn','<span class="mut">by card below</span>',inBase('cardOnEnergy','ES')+inBase('cardOnHst','HST')+inBase('cardOnDelivery','Delivery'),'by card',[s.cardOnEnergy&&'ES',s.cardOnHst&&'HST',s.cardOnDelivery&&'Delivery'].filter(Boolean).join(', ')],
+  ['Delivery','deliveryOn',num('deliveryAmount',cur),'<span class="mut">—</span>',s.deliveryAmount+' '+cur,'—'],
+  ['Skid deposit','skidDepositOn',num('skidDepositAmount',cur),'<span class="mut">Not in any base</span>',s.skidDepositAmount+' '+cur,'Not in any base']];
+ const chargeTable=slTable('mdSetupCharges',{list:charges,id:x=>x[1],cls:'ncr-table',fill:'charge',noun:l=>l.length+' charges',
+  columns:()=>[{k:'charge',label:'Charge',type:'text',v:x=>x[0],cell:x=>`<b>${x[0]}</b>`},{k:'on',label:'On',type:'list',v:x=>s[x[1]]?'Yes':'No',cell:x=>on(x[1])},{k:'value',label:'Value',type:'text',v:x=>x[4],cell:x=>x[2]},{k:'base',label:'Base besides Subtotal',type:'text',v:x=>x[5],cell:x=>x[3]}]});
+ const cardTable=slTable('mdSetupCards',{list:s.cardNetworks,id:n=>n.id,cls:'ncr-table',empty:'No cards',noun:l=>l.length+' card'+(l.length===1?'':'s'),
+  columns:()=>[{k:'name',label:'Name on order',type:'text',v:n=>n.name,cell:(n,v,i)=>`<input type="text" maxlength="60" value="${esc(n.name)}" onchange="orderSetupCardSet(${i.i},'name',this.value)">`},{k:'rate',label:'Rate',type:'number',v:n=>n.rate,cell:(n,v,i)=>`<input type="number" min="0" step="0.01" value="${n.rate}" onchange="orderSetupCardSet(${i.i},'rate',this.value)"> <span class="mut">%</span>`}],
+  row:i=>({attrs:` data-setup-card="${esc(i.x.id)}"`,last:`<button type="button" class="sm dl" aria-label="Remove" title="Remove" onclick="orderSetupCardRemove(${i.i})">×</button>`})});
  return `<div class="md-setup" data-md-setup>
   <h3>Order charges</h3><p class="mut">Defaults for new orders.</p>
-  <div class="sales-table-wrap"><table class="ncr-table"><thead><tr><th>Charge</th><th class="n">On</th><th>Value</th><th>Base besides Subtotal</th></tr></thead><tbody>
-   ${row('Energy surcharge (ES)','energyOn',num('energyRate','%'),'<span class="mut">—</span>')}
-   ${row('HST','hstOn',num('hstRate','%'),inBase('hstOnEnergy','ES')+inBase('hstOnDelivery','Delivery'))}
-   ${row('Card fee','cardOn','<span class="mut">by card below</span>',inBase('cardOnEnergy','ES')+inBase('cardOnHst','HST')+inBase('cardOnDelivery','Delivery'))}
-   ${row('Delivery','deliveryOn',num('deliveryAmount',cur),'<span class="mut">—</span>')}
-   ${row('Skid deposit','skidDepositOn',num('skidDepositAmount',cur),'<span class="mut">Not in any base</span>')}
-  </tbody></table></div>
+  ${chargeTable}
   <h4>Cards</h4><p class="mut">The first card is the default.</p>
-  <div class="sales-table-wrap"><table class="ncr-table" data-setup-cards><thead><tr><th>Name on order</th><th>Rate</th><th></th></tr></thead><tbody>${cards||'<tr><td colspan="3" class="mut">No cards</td></tr>'}</tbody></table></div>
+  <div data-setup-cards>${cardTable}</div>
   <button type="button" data-setup-card-add onclick="orderSetupCardAdd()">+ Card</button>
   <h3>Weights</h3><p class="mut">Unit weight on orders and stickers.</p>
   <div class="grid">${(()=>{const g=(DB.materialWeightRates||[]).find(r=>r.key==='glass');return `<div><label>Glass density, kg/m³</label><input type="number" min="0" step="any" data-setup-density value="${g&&g.rate!=null?g.rate:''}" placeholder="unknown" onchange="mdWeightSet('glass',this.value,1)"></div>`;})()}</div>
@@ -1077,15 +1080,14 @@ function viewMdOverview(){
  return subs+(mdOverviewView==='log'?viewMdLog():mdOverviewView==='file'?(accessCost()?mdTransferCard():'<div class="mut">Needs Cost &amp; margin.</div>'):viewMdCollections());
 }
 function viewMdCollections(){
- const rows=MD_COLLECTIONS.map(c=>{
-  const n=Array.isArray(DB[c.key])?DB[c.key].length:0;
-  return `<tr><td><b>${c.label}</b><div class="mut">${c.what}</div></td>
-   <td class="mono"><span data-raw>${esc(c.key)}</span></td>
-   <td class="mono"><b>${n}</b></td>
-   <td>${n?'<span class="pill ok">filled</span>':'<span class="pill info">empty</span>'}</td></tr>`;
- }).join('');
+ const n=c=>Array.isArray(DB[c.key])?DB[c.key].length:0;
+ const table=slTable('mdCollections',{list:MD_COLLECTIONS,id:c=>c.key,noun:l=>l.length+' collections',fill:'label',
+  columns:()=>[{k:'label',label:'Collection',type:'text',v:c=>c.label,cell:c=>`<b>${c.label}</b><div class="mut">${c.what}</div>`},
+   {k:'key',label:'Data key',type:'text',v:c=>c.key,cell:c=>`<span class="mono" data-raw>${esc(c.key)}</span>`},
+   {k:'records',label:'Records',type:'number',sum:true,v:n,cell:c=>`<b class="mono">${n(c)}</b>`},
+   {k:'state',label:'State',type:'list',v:c=>n(c)?'filled':'empty',cell:c=>n(c)?'<span class="pill ok">filled</span>':'<span class="pill info">empty</span>'}]});
  return `<div class="sub">All collections.</div>
-  <table><thead><tr><th>Collection</th><th>Data key</th><th>Records</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+  ${table}
   <div class="hint">Reference version: <b data-raw>${DB.refVersion}</b></div>`;
 }
 
@@ -1100,16 +1102,25 @@ function mdLogValueCells(e){
 function viewMdLog(){
  const rows=mdLogRows(mdLogFilter,mdLogQuery),places=[...new Set((DB.masterDataEvent||[]).map(e=>e.tbl))].sort((a,b)=>mdLogWhere(a).localeCompare(mdLogWhere(b)));
  const when=t=>esc(String(t||'').slice(0,16).replace('T',' '));
- const body=rows.slice(0,mdLogShown).map(e=>`<tr data-md-log-row><td class="mono">${when(e.at)}</td><td>${esc(e.by||'—')}</td><td>${esc(mdLogWhere(e.tbl))}</td><td><b data-raw>${esc(e.row)}</b></td><td>${esc(e.what)}${e.field?' · <span class="mono" data-raw>'+esc(e.field)+'</span>':''}</td>${mdLogValueCells(e)}</tr>`).join('');
+ const cost=e=>!accessCost()&&MD_COST_FIELDS.includes(e.field);
+ const table=slTable('mdLog',{list:rows.slice(0,mdLogShown),empty:'No changes yet.',noun:l=>l.length+' changes',fill:'change',
+  columns:()=>[{k:'when',label:'When',type:'text',v:e=>String(e.at||'').slice(0,16).replace('T',' '),cell:e=>`<span class="mono">${when(e.at)}</span>`},
+   {k:'who',label:'Who',type:'list',v:e=>e.by||''},{k:'section',label:'Section',type:'list',v:e=>mdLogWhere(e.tbl)},
+   {k:'item',label:'Item',type:'text',v:e=>e.row,cell:e=>`<b data-raw>${esc(e.row)}</b>`},
+   {k:'change',label:'Change',type:'text',v:e=>e.what+(e.field?' · '+e.field:''),cell:e=>`${esc(e.what)}${e.field?' · <span class="mono" data-raw>'+esc(e.field)+'</span>':''}`},
+   {k:'was',label:'Was',type:'text',v:e=>cost(e)?'':e.was,cell:e=>cost(e)?'<span class="mut">Cost &amp; margin</span>':`<span class="mono" data-raw>${esc(e.was)}</span>`},
+   {k:'now',label:'Now',type:'text',v:e=>cost(e)?'':e.now,cell:e=>cost(e)?'<span class="mut">Cost &amp; margin</span>':`<span class="mono" data-raw>${esc(e.now)}</span>`}],
+  row:()=>({attrs:' data-md-log-row'})});
  return `<div class="row" style="gap:8px;margin-bottom:10px"><input aria-label="Search the log" placeholder="Search" value="${esc(mdLogQuery)}" oninput="mdLogQuery=this.value;mdLogShown=200;render()" style="max-width:260px">
   <select aria-label="Section" style="max-width:220px" onchange="mdLogFilter=this.value;mdLogShown=200;render()"><option value="">All sections</option>${places.map(k=>`<option value="${esc(k)}"${k===mdLogFilter?' selected':''}>${esc(mdLogWhere(k))}</option>`).join('')}</select>
   <span class="mut" data-md-log-count>${rows.length} changes</span></div>
-  <table><thead><tr><th>When</th><th>Who</th><th>Section</th><th>Item</th><th>Change</th><th>Was</th><th>Now</th></tr></thead><tbody>${body||'<tr><td colspan="7" class="mut">No changes yet.</td></tr>'}</tbody></table>
+  ${table}
   ${rows.length>mdLogShown?`<button type="button" onclick="mdLogShown+=200;render()">Show ${Math.min(200,rows.length-mdLogShown)} more</button>`:''}`;
 }
 function mdTransferCard(){
  const p=mdTransfer;
- const plan=p&&p.plan?`<table data-md-import-plan><thead><tr><th>Section</th><th>New</th><th>Changed</th><th>Same</th><th>Rejected</th></tr></thead><tbody>${p.plan.tables.filter(t=>t.added||t.changed||t.rejected).map(t=>`<tr><td>${esc(t.label)}</td><td class="mono">${t.added}</td><td class="mono">${t.changed}</td><td class="mono">${t.same}</td><td class="mono">${t.rejected}</td></tr>`).join('')}${p.plan.settings.filter(x=>x.changed).map(x=>`<tr><td>${esc(x.label)}</td><td class="mono">—</td><td class="mono">${x.changed?'yes':'—'}</td><td class="mono">—</td><td class="mono">—</td></tr>`).join('')}</tbody></table>
+ const plan=p&&p.plan?`<div data-md-import-plan>${slTable('mdImportPlan',{list:p.plan.tables.filter(t=>t.added||t.changed||t.rejected).map(t=>({label:t.label,added:t.added,changed:t.changed,same:t.same,rejected:t.rejected})).concat(p.plan.settings.filter(x=>x.changed).map(x=>({label:x.label,added:'',changed:'yes',same:'',rejected:''}))),noun:l=>l.length+' sections',fill:'label',
+  columns:()=>[{k:'label',label:'Section',type:'text',v:t=>t.label},{k:'added',label:'New',type:'number',v:t=>t.added},{k:'changed',label:'Changed',type:'text',v:t=>t.changed},{k:'same',label:'Same',type:'number',v:t=>t.same},{k:'rejected',label:'Rejected',type:'number',v:t=>t.rejected}]})}</div>
   <div class="mut">${p.plan.tables.filter(t=>!t.added&&!t.changed&&!t.rejected).length+p.plan.settings.filter(x=>!x.changed).length} sections without changes</div>
   ${p.plan.errors.length?`<div class="hint" data-md-import-errors>${p.plan.errors.slice(0,20).map(esc).join('<br>')}</div>`:''}
   <div class="row" style="gap:8px"><button class="pri" type="button" onclick="mdTransferApply()">Import ${esc(p.name)}</button><button type="button" onclick="mdTransfer=null;render()">Cancel</button></div>`:'';
