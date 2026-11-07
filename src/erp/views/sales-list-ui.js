@@ -608,6 +608,7 @@ function salesListMenuHTML(infos){
  if(m.kind==='date')return back+salesListDateMenuHTML(m,style);
  if(m.kind==='context')return back+salesListContextHTML(m,style);
  if(m.kind==='oq-context')return back+optimizationContextHTML(m,style);
+ if(m.kind==='fin-context'&&typeof finListContextHTML==='function')return back+finListContextHTML(m,style);
  if(m.kind==='columns')return back+salesListColumnsHTML(style);
  if(m.kind==='filter')return back+salesListFilterHTML(m,infos,style);
  return '';

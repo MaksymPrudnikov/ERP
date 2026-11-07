@@ -8,6 +8,10 @@
 **Accounts** (клиенты и их счёт), **Due dates** (сроки оплаты), **Payments** (квитанции). Клик по клиенту в Accounts —
 его карточка: Balance, Overdue, Prepaid, On account, заказы и оплаты, кнопки **Allocate**, **Statement**, **+ Receipt**.
 
+Правый клик по клиенту в Accounts — меню Open, Allocate, Statement, (Apply deposit), + Receipt, сразу для этого
+клиента, без захода в карточку. Те же кнопки — над таблицей, когда у клиента стоит галочка (как в Sales). Правый клик
+есть и в Due dates и Payments — там Open.
+
 Под Balance в Accounts — полоса сроков: красное — просрочка 90+, жёлтое — 60+, оранжевое — просрочено моложе (Due
 now), зелёное — Current. Суммы — в подсказке при наведении. Те же правила, что итоги внизу Statement.
 

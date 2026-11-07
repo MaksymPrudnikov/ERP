@@ -17,6 +17,10 @@
   — зелёным; `docCells` cell.tone), под строкой полоса `docPaidBar` из `m.stripPaid` — только когда есть оплата.
   Полоса — часть секции Totals strip, в конструкторе ходит вместе с ней. Процент — до десятой, 100% только без
   остатка. Значок вида перед названием строки: `it.panes` 1 / 2 / 3 черты (Single lite / IGU / Triple IGU).
+- **Accounts — Allocate без захода в клиента** (владелец 07.11.2026, «два способа»): у строки действия Open,
+  Allocate, Statement, Apply deposit, + Receipt — кнопками над таблицей при галочке и меню правого клика
+  (`finListContext`, `salesListMenu.kind='fin-context'`, действия строки из `finListActs`). Меню есть у всех списков
+  Finance на `finListTable`.
 - **Accounts**: под Balance полоса сроков `finAgingBar` (views/finance-lists, классы `.fin-age-*` на токенах),
   суммы — в title.
 - **Sales**: колонка Invoice видна по умолчанию, за Status (у сохранённых списков включается один раз —

@@ -92,12 +92,24 @@ function finListFooter(all,cols,noun){
 /* Списки Finance — вид Sales (этап 6, 03.11.2026): галочка строки, действия
    строки — сверху в шапке для отмеченной (r.acts: [label, onclick, атрибуты]),
    шестерёнка слева, ширина и порядок колонок, итог. */
-let finSel='';
+let finSel='',finListActs=new Map();
 function finSelect(id,on=true){finSel=on?id:'';render();}
+/* Правый клик по строке (как в Sales, владелец 07.11.2026): строка
+   отмечается, меню — те же действия, что кнопки над таблицей. */
+function finListContext(e,id){
+ if(e){e.preventDefault();e.stopPropagation();}
+ if(!finListActs.has(id))return;
+ finSel=id;salesListMenu={kind:'fin-context',id,x:(e&&e.clientX)||40,y:(e&&e.clientY)||40,w:220};render();
+}
+function finListContextHTML(m,style){
+ const acts=finListActs.get(m.id)||[];if(!acts.length)return '';
+ return `<div class="sl-ctx" style="${style}" role="menu" data-fin-context>${acts.map(([l,fn,attr])=>`<button type="button" role="menuitem" ${attr||''} onclick="salesListMenu=null;${fn}">${l}</button>`).join('')}</div>`;
+}
 function finListTable(infos,cell,rowAttrs,noun,empty,names){
  const p=salesListLoadPrefs(),rows=salesListRows(infos),cols=salesListColumns();
  if(finSel&&!rows.some(r=>r.o.id===finSel))finSel='';
- const body=rows.map(r=>{const on=finSel===r.o.id;return `<tr ${rowAttrs(r)}${on?' data-fin-sel':''}><td class="sl-check" onclick="event.stopPropagation()"><input type="checkbox" aria-label="Select ${esc(String(r.memo.number||r.memo.customer||r.o.id))}" ${on?'checked':''} onchange="finSelect('${esc(r.o.id)}',this.checked)"></td>${cols.map(c=>cell(r,c)).join('')}<td></td></tr>`;}).join('');
+ finListActs=new Map(rows.map(r=>[r.o.id,r.acts||[]]));
+ const body=rows.map(r=>{const on=finSel===r.o.id;return `<tr ${rowAttrs(r)}${on?' data-fin-sel':''} oncontextmenu="finListContext(event,'${esc(r.o.id)}')"><td class="sl-check" onclick="event.stopPropagation()"><input type="checkbox" aria-label="Select ${esc(String(r.memo.number||r.memo.customer||r.o.id))}" ${on?'checked':''} onchange="finSelect('${esc(r.o.id)}',this.checked)"></td>${cols.map(c=>cell(r,c)).join('')}<td></td></tr>`;}).join('');
  const cw=salesListCwTable(cols.map(c=>c.k),[44],20,{due:130,terms:150,days:110,balance:110,outstanding:110,limit:110,state:130,status:110}),sel=rows.find(r=>r.o.id===finSel);
  const acts=(sel&&sel.acts||[]).map(([l,fn,attr])=>`<button type="button" class="sl-quiet" ${attr||''} onclick="${fn}">${l}</button>`).join('');
  /* Ничего не отмечено — те же кнопки серыми, как в Sales: шапка не пустеет. */
@@ -145,8 +157,8 @@ function finAccountCell(r,c){
 /* Строки таблицы Accounts после фильтров — для CSV, печати и тестов. */
 function finAccountsList(){return salesListRows(finAccountInfos()).map(r=>({c:r.c,m:r.m}));}
 function finAccountsWorkspace(){
- const infos=finAccountInfos();infos.forEach(r=>{r.acts=[['Open',`finOpenAccount('${esc(r.c.id)}')`]].concat(r.m.money.deposit>0&&r.m.money.balance>0?[['Apply deposit',`finOpenApply('${esc(r.c.id)}')`]]:[]);r.applyHint=r.m.money.deposit>0&&r.m.money.balance>0;});
- const t=finListTable(infos,finAccountCell,r=>`data-account="${esc(r.c.id)}"`,'customer',finAccountAll?'No customers yet':'No open balances',['Open','Apply deposit']);
+ const infos=finAccountInfos();infos.forEach(r=>{const id=esc(r.c.id);r.acts=[['Open',`finOpenAccount('${id}')`],['Allocate',`finOpenAllocate('${id}')`,'data-fin-row-allocate'],['Statement',`finOpenAccount('${id}');finOpenStatement('${id}')`]].concat(r.m.money.deposit>0&&r.m.money.balance>0?[['Apply deposit',`finOpenApply('${id}')`]]:[],[['+ Receipt',`finNewReceipt('${id}')`]]);r.applyHint=r.m.money.deposit>0&&r.m.money.balance>0;});
+ const t=finListTable(infos,finAccountCell,r=>`data-account="${esc(r.c.id)}"`,'customer',finAccountAll?'No customers yet':'No open balances',['Open','Allocate','Statement','Apply deposit']);
  return finFrame(`<button type="button" class="sl-quiet${finAccountAll?'':' on'}" data-accounts="open" onclick="finAccountAll=false;render()">Open accounts</button><button type="button" class="sl-quiet${finAccountAll?' on':''}" data-accounts="all" onclick="finAccountAll=true;render()">All customers</button>${t.acts}`,`<button type="button" class="sl-quiet" onclick="finOpenStatements()" title="Statements for all customers for a month">Statements</button><button type="button" class="sl-quiet" ${t.rows.length?'':'disabled'} onclick="finBalancesExport()">CSV</button><button type="button" class="sl-quiet" ${t.rows.length?'':'disabled'} onclick="finOpenPreview('balances')">Print</button>`,t.html);
 }
 

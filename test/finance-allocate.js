@@ -55,5 +55,15 @@ module.exports=async function({page,eq}){
   finAllocNewReceipt();const form=finTab==='receipts'&&finEdit==='new'&&finDraft.customerId===c.id;finCloseReceipt(true);
   return {pairs,due,form,back:finTab==='accounts'&&!!document.querySelector('.fin-alloc')};
  }),{pairs:2,due:100,form:true,back:true});
+ eq('Accounts: right-click on a customer — menu with the top-bar actions, Allocate opens that customer; tick a row — Allocate above the table',await t.p.evaluate(()=>{
+  allocSeed();const tr=()=>document.querySelector('tr[data-account="CUS-AL"]');
+  tr().dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:200,clientY:200}));
+  const items=[...document.querySelectorAll('[data-fin-context] button')].map(b=>b.textContent),ticked=finSel;
+  document.querySelector('[data-fin-context] [data-fin-row-allocate]').click();
+  const opened=finAllocOn()&&finAlloc.customerId==='CUS-AL'&&!salesListMenu;finCloseAllocate();finAccountId='';finSel='';render();
+  const grey=[...document.querySelectorAll('.sales-toolbar button[disabled]')].map(b=>b.textContent).filter(x=>['Open','Allocate','Statement'].includes(x));
+  finSelect('CUS-AL');document.querySelector('.sales-toolbar [data-fin-row-allocate]').click();
+  return {items,ticked,opened,grey,top:finAllocOn()&&finAlloc.customerId==='CUS-AL'};
+ }),{items:['Open','Allocate','Statement','Apply deposit','+ Receipt'],ticked:'CUS-AL',opened:true,grey:['Open','Allocate','Statement'],top:true});
  eq('allocate window has no browser errors',t.errs,[]);await t.c.close();
 };

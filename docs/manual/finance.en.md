@@ -9,6 +9,10 @@ tabs **Accounts** (customers and their account), **Due dates** and **Payments** 
 Accounts to open the card: Balance, Overdue, Prepaid, On account, orders and payments, and the buttons **Allocate**,
 **Statement**, **+ Receipt**.
 
+Right-click a customer in Accounts for a menu — Open, Allocate, Statement, (Apply deposit), + Receipt — for that
+customer, without opening the card. The same buttons sit above the table when the customer is ticked (as in Sales).
+Due dates and Payments have the right-click menu too, with Open.
+
 Under Balance in Accounts there is an aging bar: red — overdue 90+, yellow — 60+, orange — overdue less (Due now),
 green — Current. Amounts are in the tip on hover. The same rules as the totals at the bottom of the Statement.
 
