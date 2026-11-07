@@ -1673,6 +1673,9 @@ table.cw-fixed tr[data-picked] td>select:has(+.line-locked-pill){width:calc(100%
 .fin-aging{display:flex;height:5px;width:110px;max-width:100%;margin:4px 0 0 auto;border-radius:3px;overflow:hidden;background:var(--surface-3)}
 .fin-aging span{display:block;height:100%}
 .fin-age-90{background:var(--danger)}.fin-age-60{background:var(--warning)}.fin-age-now{background:var(--series-3)}.fin-age-cur{background:var(--accent)}
+/* Allocate на движке Sales (07.11.2026): галочка и ▸ в одной ячейке, связи — целиком. */
+.fin-alloc .sl-table td.sl-check{overflow:visible;text-overflow:clip;white-space:nowrap;text-align:left;padding-left:21px}
+.fin-alloc tr.fin-alloc-link td{overflow:visible;text-overflow:clip;white-space:nowrap}
 
 /* ---- src/styles/lifecycle.css ---- */
 /* Квота и заказ: галочки Show, фильтр статусов, цепочка шагов, замок строк
@@ -2004,6 +2007,14 @@ th.n .sl-th [data-cw-label]{text-align:right}
 .sl-qf{width:100%;min-width:0;height:22px !important;padding:0 3px !important;border:0 !important;border-radius:3px 3px 0 0 !important;background:var(--surface) !important;box-shadow:inset 0 -2px 0 var(--accent) !important;font:inherit;font-weight:600;color:var(--text);outline:0}
 th.n .sl-qf{text-align:right}
 .sl-qf-on{color:var(--accent);font-weight:700}
+/* Первая колонка (07.11.2026, владелец: «шестерня не отцентрована»): ⚙ и
+   галочки строк — по центру колонки, ⚙ на одной высоте с названиями. */
+.sl-table thead th{vertical-align:middle}
+/* Только где в шапке одна ⚙ (без галочки «все», как в Sales — там галочки строк под ней). */
+.sl-table:not(:has(thead th.sl-check input)) th.sl-check .sl-header-tools{justify-content:center}
+.sl-table:not(:has(thead th.sl-check input)) th.sl-check:has(.sl-header-tools){padding-left:4px;padding-right:4px}
+.sl-table:not(:has(thead th.sl-check input)) td.sl-check{text-align:center;padding-left:4px;padding-right:4px}
+.sl-settings{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0}
 
 /* ---- src/styles/col-widths.css ---- */
 /* Ширина и порядок колонок (views/col-widths): Sales и Order Lines одинаково. */
@@ -4291,7 +4302,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='a52a7299c1c8';
+var ERP_BUILD='5e9a979312d8';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -18270,7 +18281,7 @@ function usersCloudAccessHTML(){
  const add=`<select id="cl_rule_tbl" ${busy?'disabled':''}>${free.map(t=>`<option>${esc(t)}</option>`).join('')}</select><button class="sm" data-rule-add ${busy?'disabled':''} onclick="usersRuleAdd()">Add rule</button>`;
  return `<h3>Access</h3><div class="hint">No rule — everyone.</div>
   ${a.error?`<div class="hint warn" data-cloud-access-error>${esc(a.error)}</div>`:''}
-  <table data-cloud-rules><thead><tr><th>Table</th><th>Read</th><th>Write</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="empty">No rules</td></tr>'}</tbody></table>
+  ${slFromTable('cloudRules',`<table data-cloud-rules><thead><tr><th>Table</th><th>Read</th><th>Write</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="empty">No rules</td></tr>'}</tbody></table>`)}
   <div class="row">${add}${d?`<button class="pri" data-rule-save ${busy?'disabled':''} onclick="cloudRulesSave(cloudAccess.draft)">Save access</button><button ${busy?'disabled':''} onclick="cloudAccess.draft=null;cloudAccess.open='';render()">Cancel</button>`:`<button class="sm" ${busy?'disabled':''} onclick="cloudAccessLoad()">Refresh</button>`}</div>`;
 }
 function usersRuleDraft(){if(!cloudAccess.draft)cloudAccess.draft=(cloudAccess.rules||[]).map(r=>({tbl:r.tbl,read:r.read||'',write:r.write||''}));return cloudAccess.draft;}
@@ -18851,7 +18862,7 @@ function customerOrdersTab(){
  const row=i=>{const o=i.o,v=k=>salesListValue(i,k),total=v('total'),bal=v('balance');
   return `<tr data-customer-order="${esc(o.id)}"${i.a?' class="sl-row-archived"':''} onclick="${i.a?'customerOpenArchived':'customerOpenOrder'}('${esc(o.id)}')"><td class="mono"><b>${esc(v('number')||'—')}</b></td><td>${esc(v('type'))}</td><td>${esc(v('status')||'')}${i.a?' <span class="pill archived" data-archived>Archived</span>':''}</td><td>${esc(salesListShortDay(v('created'))||'—')}</td><td>${v('due')?esc(salesListShortDay(v('due'))):'<span class="mut">—</span>'}</td><td class="n">${total==null?'<span class="mut">—</span>':esc(finFmt(total))}</td><td class="n">${bal==null?'<span class="mut">—</span>':`<span class="${bal>0?'fin-due':''}">${esc(finFmt(bal))}</span>`}</td></tr>`;};
  return `<div class="section-title"><div><h3>Orders</h3><div class="sub">${list.length?customerOrdersCount(list)+' · newest first':'No quotes or orders yet'}</div></div><div class="row"><button class="pri" data-customer-new-order onclick="customerNewOrder('order')">+ New order</button><button data-customer-new-quote onclick="customerNewOrder('quote')">+ New quote</button></div></div>
-  ${list.length?`<div class="sales-table-wrap"><table class="sl-table cust-orders"><thead><tr><th>Number</th><th>Type</th><th>Status</th><th>Created</th><th>Due</th><th class="n">Total</th><th class="n">Balance</th></tr></thead><tbody>${list.map(row).join('')}</tbody></table></div>`:''}`;
+  ${list.length?`<div class="sales-table-wrap">${slFromTable('custOrders',`<table class="sl-table cust-orders"><thead><tr><th>Number</th><th>Type</th><th>Status</th><th>Created</th><th>Due</th><th class="n">Total</th><th class="n">Balance</th></tr></thead><tbody>${list.map(row).join('')}</tbody></table>`)}</div>`:''}`;
 }
 function customerOrdersCount(list){const q=list.filter(i=>i.q).length,o=list.length-q,n=(k,w)=>k+' '+w+(k===1?'':'s');return [o?n(o,'order'):'',q?n(q,'quote'):''].filter(Boolean).join(' · ');}
 function customerToSales(go){
@@ -26678,7 +26689,7 @@ function salesExtraItemsSection(){
   </tr>`;
  }).join('');
  return `<section class="sales-block sales-extra-items"><div class="sales-block-head"><div><b>STOCK & EXTRA ITEMS</b><span>Sold as their own line — no glass, no geometry, no route</span></div></div>
-  <div class="customer-table-wrap"><table><thead><tr><th>Item</th><th>Qty</th><th>Price, ${esc(currency)}</th><th>Total</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="customer-table-wrap">${slFromTable('salesExtraPick',`<table><thead><tr><th>Item</th><th>Qty</th><th>Price, ${esc(currency)}</th><th>Total</th><th></th></tr></thead><tbody>${rows}</tbody></table>`)}</div>
   <div class="row">${salesExtraItemPicker()}</div></section>`;
 }
 /* Окно выбора стокового айтема — тот же `.sales-service-modal-back`, что у
@@ -26704,7 +26715,7 @@ function salesStockPickerModal(){
  const rows=candidates.map((c,i)=>`<tr class="stock-picker-row"><td><b>${esc(c.name)}</b>${c.subcategory?`<div class="mut">${esc(c.subcategory)}</div>`:''}</td><td class="mono">${esc(c.code||'—')}</td><td class="mono">${c.salePrice!=null?c.salePrice.toFixed(2)+' '+esc(currency):'—'}</td><td><input type="number" min="1" step="1" inputmode="numeric" value="1" id="stockPickQty_${i}" style="width:56px"></td><td><button class="sm" onclick="salesStockPickerChoose('${esc(c.table)}','${esc(c.id)}',(document.getElementById('stockPickQty_${i}')||{}).value)">+ Add</button></td></tr>`).join('');
  return `<div class="sales-service-modal-back" onclick="if(event.target===this)salesStockPickerClose()"><div class="sales-service-modal"><div class="sales-service-modal-head"><div><span>Stock &amp; Extra Items</span><h3>Add an item</h3><small>Sold as its own order line — no glass, no geometry, no route</small></div><button onclick="salesStockPickerClose()">×</button></div>
   ${pills}
-  <div class="customer-table-wrap"><table><thead><tr><th>Item</th><th>Code</th><th>Price, ${esc(currency)}</th><th>Qty</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="5" class="empty">${all.length?'No items in this filter.':'No catalog items'}</td></tr>`}</tbody></table></div>
+  <div class="customer-table-wrap">${slFromTable('salesStockPick',`<table><thead><tr><th>Item</th><th>Code</th><th>Price, ${esc(currency)}</th><th>Qty</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="5" class="empty">${all.length?'No items in this filter.':'No catalog items'}</td></tr>`}</tbody></table>`)}</div>
   </div></div>`;
 }
 function salesLineShapeCell(l,i){
@@ -27073,7 +27084,7 @@ function salesWeightRow(row,index,editable){
 }
 function salesWeightPanel(line){
  const w=salesLineWeight(line,soDraft);
- return `<p>${'Calculated weight of all components in one unit. An empty norm means missing data, not zero weight.'}</p><button type="button" onclick="salesMetricsEditWeights=!salesMetricsEditWeights;render()">${salesMetricsEditWeights?'Close weight norms':'Edit weight norms'}</button>${salesMetricsEditWeights?`<p class="mut">${'Norms apply across all orders. Area norms and connectors are entered in grams; calculation converts them to kg.'}</p>`:''}<div class="metric-detail-scroll"><table class="metric-weight-table"><thead><tr><th>${'Component'}</th><th>${'Basis'}</th><th>${'Norm'}</th><th>kg / unit</th></tr></thead><tbody>${w.rows.map((r,i)=>salesWeightRow(r,i,salesMetricsEditWeights)).join('')}</tbody></table></div><div class="metric-price-row"><span>Unit Weight</span><b data-raw>${w.complete?w.kg.toFixed(2)+' kg':'—'}</b></div><div class="metric-price-row"><span>Line Weight · Qty ${line.qty}</span><b data-raw>${w.complete?w.lineKg.toFixed(2)+' kg':'—'}</b></div>${!w.complete?`<p class="metric-incomplete">${'Weight incomplete. Known components'}: ${w.knownKg.toFixed(2)} kg/unit · ${w.missing} ${'items need data'}</p>${w.gaps.length?`<p class="metric-incomplete" data-weight-where>${w.gaps.map(g=>esc(g.what)+' → '+esc(g.where)).join('<br>')}</p>`:''}`:''}<h4>${'Additional components'}</h4><p class="mut">${'Supplied items only: hardware, fasteners and other components. A Clamp / Hinge processing mark does not itself mean hardware is supplied.'}</p>${(line.weightExtras||[]).map((x,i)=>`<div class="metric-extra"><input aria-label="Component name ${i+1}" value="${esc(x.label)}" placeholder="Component" oninput="salesSetWeightExtra(${i},'label',this.value)"><input aria-label="Component kg ${i+1}" type="number" min="0" step="any" value="${x.kg==null?'':x.kg}" placeholder="kg / unit" onchange="salesSetWeightExtra(${i},'kg',this.value)"><button type="button" onclick="salesRemoveWeightExtra(${i})">×</button></div>`).join('')}<button type="button" onclick="salesAddWeightExtra()">+ ${'Component'}</button>`;
+ return `<p>${'Calculated weight of all components in one unit. An empty norm means missing data, not zero weight.'}</p><button type="button" onclick="salesMetricsEditWeights=!salesMetricsEditWeights;render()">${salesMetricsEditWeights?'Close weight norms':'Edit weight norms'}</button>${salesMetricsEditWeights?`<p class="mut">${'Norms apply across all orders. Area norms and connectors are entered in grams; calculation converts them to kg.'}</p>`:''}<div class="metric-detail-scroll">${slFromTable('lineWeight',`<table class="metric-weight-table"><thead><tr><th>${'Component'}</th><th>${'Basis'}</th><th>${'Norm'}</th><th>kg / unit</th></tr></thead><tbody>${w.rows.map((r,i)=>salesWeightRow(r,i,salesMetricsEditWeights)).join('')}</tbody></table>`)}</div><div class="metric-price-row"><span>Unit Weight</span><b data-raw>${w.complete?w.kg.toFixed(2)+' kg':'—'}</b></div><div class="metric-price-row"><span>Line Weight · Qty ${line.qty}</span><b data-raw>${w.complete?w.lineKg.toFixed(2)+' kg':'—'}</b></div>${!w.complete?`<p class="metric-incomplete">${'Weight incomplete. Known components'}: ${w.knownKg.toFixed(2)} kg/unit · ${w.missing} ${'items need data'}</p>${w.gaps.length?`<p class="metric-incomplete" data-weight-where>${w.gaps.map(g=>esc(g.what)+' → '+esc(g.where)).join('<br>')}</p>`:''}`:''}<h4>${'Additional components'}</h4><p class="mut">${'Supplied items only: hardware, fasteners and other components. A Clamp / Hinge processing mark does not itself mean hardware is supplied.'}</p>${(line.weightExtras||[]).map((x,i)=>`<div class="metric-extra"><input aria-label="Component name ${i+1}" value="${esc(x.label)}" placeholder="Component" oninput="salesSetWeightExtra(${i},'label',this.value)"><input aria-label="Component kg ${i+1}" type="number" min="0" step="any" value="${x.kg==null?'':x.kg}" placeholder="kg / unit" onchange="salesSetWeightExtra(${i},'kg',this.value)"><button type="button" onclick="salesRemoveWeightExtra(${i})">×</button></div>`).join('')}<button type="button" onclick="salesAddWeightExtra()">+ ${'Component'}</button>`;
 }
 function salesMetricsLine(){return soDraft&&(soDraft.lines||[]).find(l=>l.id===salesMetricsLineId);}
 function salesSaveWeightNorm(index,value,factor){
@@ -27317,7 +27328,7 @@ function viewShapeSkill(){
   var presetOptions=shapePresetChoices().map(function(p){return `<option value='${esc(p.id)}'>${esc(p.code+' · '+p.label)}</option>`;}).join('');
   return `${sEdit!==null?'':`<div class='real-module-note'><b>Shape schema v2</b><span>Finished Geometry, Production Drawing and Cutting Geometry come from one revision. For a Fusion 360 DXF, ERP stores metadata, a lightweight 2D preview contour and bounding dimensions; the original DXF contents are not stored in localStorage.</span></div>`}
     ${sEdit!==null?shapeForm():''}
-    <table><thead><tr><th>Name / type</th><th>Size</th><th>Edges</th><th>Features</th><th>Status</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">empty</td></tr>'}</tbody></table>
+    ${slFromTable('shapeList',`<table><thead><tr><th>Name / type</th><th>Size</th><th>Edges</th><th>Features</th><th>Status</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">empty</td></tr>'}</tbody></table>`)}
     ${sEdit===null?`<div class='shape-new-row'><select id='s_new_type'>${presetOptions}</select><button class='pri' onclick='openShapeNew(document.getElementById("s_new_type").value)'>New Production Shape</button></div>`:''}`;
 }
 
@@ -31047,27 +31058,43 @@ function shippingOrderStrip(o){
 /* Ready — один список вида Sales (этап 6, владелец 03.11.2026): строка
    клиента с адресом и скидами, под ней заказы и строки. Create packing slip
    сверху — для клиента отмеченного (галочка клиента отмечает всё его). */
-function shippingSelectCustomer(id,on){shippingSelect(id,shippingReadyOrders().filter(o=>o.customerId===id).flatMap(shippingOrderKeys),on);}
 function shippingReadyHTML(){
- const orders=shippingReadyOrders(),customers=[...new Set(orders.map(o=>o.customerId))],cur=shippingSelection.size?shippingCustomer:'';
- let sumReady=0,sumLeft=0;
- const body=customers.map(id=>{
-  const os=orders.filter(o=>o.customerId===id),summaries=os.map(o=>({o,q:shippingSummary(o)})),units=os.flatMap(shippingUnits),free=units.filter(i=>i.ready&&!i.shipment);
-  const c=salesFindCustomer(id),skids=[...new Set(units.filter(i=>i.ready&&i.skid).map(i=>i.skid))],loose=free.filter(i=>!i.skid).length,keys=os.flatMap(shippingOrderKeys);
-  const skidHTML=skids.map(code=>{const all=units.filter(i=>i.ready&&i.skid===code),a=all.filter(i=>!i.shipment),counts=new Map();all.forEach(i=>counts.set(i.orderId,(counts.get(i.orderId)||0)+1));return `<span class="shipping-skid"><label><input type="checkbox" ${a.length?'':'disabled'} ${a.length&&a.every(i=>shippingSelection.has(i.label))?'checked':''} onchange="shippingSelectSkid('${esc(id)}','${code}',this.checked)"></label><button type="button" class="gb-link" data-skid-sheet="${code}" title="Skid sheet" onclick="carrierWinOpen('${code}')">${code}</button><span class="mut small">${shippingCount(all.length,'unit')} · ${[...counts].map(([oid,n])=>esc(salesRecord(oid).businessNumber)+' ×'+n).join(', ')}${all.length>a.length?' · '+(all.length-a.length)+' on PS':''}</span></span>`;}).join('');
-  const head=`<tr class="shipping-customer" data-ready-customer="${esc(id)}" oncontextmenu="event.preventDefault();shippingSelectCustomer('${esc(id)}',true)"><td class="sl-check"><input type="checkbox" aria-label="Select ${esc(salesCustomerDisplay(id))}" ${keys.length?'':'disabled'} ${keys.length&&keys.every(k=>shippingSelection.has(k))?'checked':''} onchange="shippingSelectCustomer('${esc(id)}',this.checked)"></td><td colspan="9"><div class="shipping-customer-head"><b>${esc(salesCustomerDisplay(id))}</b><span class="mut">${esc(docAddressText(shippingDefaultAddress(c)))||'Choose an address or pickup'}</span>${skidHTML}${loose?`<span class="shipping-noskid mut small" data-no-skid>Without a skid · ${shippingCount(loose,'unit')}</span>`:''}</div></td></tr>`;
-  const rows=summaries.map(({o,q})=>{
-   const ok=shippingOrderKeys(o),back=v=>q.shipped?v:'—',left=Math.max(0,q.glass-q.physicalReady-q.lines.reduce((n,l)=>n+l.shipped,0));sumReady+=q.ready;sumLeft+=left;
-   return `<tr class="shipping-order-row"><td class="sl-check"><input type="checkbox" aria-label="Select order ${esc(o.businessNumber)}" ${ok.length?'':'disabled'} ${ok.length&&ok.every(k=>shippingSelection.has(k))?'checked':''} onchange="shippingSelectOrder('${esc(o.id)}',this.checked)"></td><td colspan="4"><button type="button" class="gb-link" onclick="optimizationOpenOrder('${esc(o.id)}')">Order ${esc(o.businessNumber)}</button>${o.customerPo?' · PO '+esc(o.customerPo):''}</td><td class="n">${q.ready}</td><td class="n">${left}</td><td class="n">${back(q.back)}</td><td></td><td></td></tr>`
-    +q.lines.map((r,n)=>({r,n})).filter(x=>x.r.ready>0).map(({r,n})=>`<tr data-ready-line="${esc(r.l.id)}"><td></td><td></td><td>${n+1}${r.l.mark?' · '+esc(r.l.mark):''}</td><td>${esc(docSize(r.l))}</td><td>${esc(salesMakeupSummary(salesMakeupById(o,r.l.makeupId)))}</td><td class="n">${r.ready}</td><td class="n">${Math.max(0,r.ordered-r.physicalReady-r.shipped)}</td><td class="n">${back(r.back)}</td><td><input class="shipping-queue" aria-label="Queue for order ${esc(o.businessNumber)} line ${n+1}" type="number" min="1" max="999" value="${shippingQueueOf(r.l)||''}" onchange="shippingQueueChange('${esc(o.id)}','${esc(r.l.id)}',this.value)"></td><td><input aria-label="Select quantity for order ${esc(o.businessNumber)} line ${n+1}" type="number" min="0" max="${r.ready}" value="${free.filter(i=>i.lineId===r.l.id&&shippingSelection.has(i.label)).length}" onchange="shippingSelectQty('${esc(o.id)}','${esc(r.l.id)}',this.value)"></td></tr>`).join('')
-    +shippingReadyExtras(o,q).map(e=>`<tr><td></td><td></td><td colspan="3">From stock · ${esc(salesExtraItemName(e.x))}</td><td class="n">${e.ready}</td><td class="n">—</td><td class="n">${back(e.back)}</td><td></td><td>In PS form</td></tr>`).join('')
-    +unitTakes(o).map(x=>`<tr data-ready-takes><td></td><td></td><td colspan="3">Cancelled · customer takes · line ${x.line} · ${esc(docSize(x.l))}</td><td class="n">${x.pieces} glass</td><td class="n">—</td><td class="n">—</td><td></td><td>In PS form</td></tr>`).join('');
-  }).join('');
-  return head+rows;
- }).join('');
- const bar=`<div class="sales-toolbar"><button type="button" class="sl-quiet" data-create-ps="${esc(cur)}" ${cur?'':'disabled'} title="${cur?'':'Tick a customer, order or skid'}" onclick="shippingOpen(shippingCustomer)">Create packing slip</button>${cur?`<b class="oq-sel" title="${esc(salesCustomerDisplay(cur))}">${shippingSelection.size} selected</b>`:''}<span class="sales-toolbar-sp"></span>${shippingBarRight()}</div>`;
- const foot=customers.length?`<tfoot><tr class="sl-foot"><td></td><td colspan="4"><b>${customers.length} customer${customers.length===1?'':'s'} · ${orders.length} order${orders.length===1?'':'s'}</b></td><td class="n"><b>${sumReady}</b></td><td class="n"><b>${sumLeft}</b></td><td></td><td></td><td></td></tr></tfoot>`:'';
- return `<div class="card sales-list-card sl-foot-pin">${bar}${shippingTabs()}<div class="sales-table-wrap">${(t=>`<table class="sl-table shipping-ready-table${t.cls}"${t.attrs}>${t.col}<thead><tr><th class="sl-check"></th>${t.head}</tr></thead>`)(cwStaticTable('shippingReady',[['order','Order'],['line','Line / Mark'],['size','Size'],['makeup','Makeup'],['ready','Ready','n'],['left','Not ready','n'],['back','Back order','n'],['queue','Queue'],['qty','Select qty']],[44]))}<tbody>${body||'<tr><td colspan="10" class="empty">No units ready for a packing slip.</td></tr>'}</tbody>${foot}</table></div></div>`;
+ const orders=shippingReadyOrders(),cur=shippingSelection.size?shippingCustomer:'';
+ /* Плоский список вида Sales (владелец 07.11.2026, вариант Б): строка — строка
+    заказа с готовыми юнитами (и товар склада, и «клиент забирает»); клиент,
+    заказ, PO и скид — колонки. Галочка строки отмечает её готовые юниты. */
+ const items=orders.flatMap(o=>{
+  const q=shippingSummary(o),units=shippingUnits(o),free=units.filter(i=>i.ready&&!i.shipment),back=v=>q.shipped?v:'',keys=shippingOrderKeys(o);
+  return q.lines.map((r,n)=>({r,n})).filter(x=>x.r.ready>0).map(({r,n})=>{
+   const mine=free.filter(i=>i.lineId===r.l.id),skids=[...new Set(units.filter(i=>i.lineId===r.l.id&&i.ready&&i.skid).map(i=>i.skid))],loose=mine.filter(i=>!i.skid).length;
+   return {kind:'line',o,q,r,n,loose,id:o.id+':'+r.l.id,line:(n+1)+(r.l.mark?' · '+r.l.mark:''),size:docSize(r.l),makeup:salesMakeupSummary(salesMakeupById(o,r.l.makeupId)),skids,ready:r.ready,left:Math.max(0,r.ordered-r.physicalReady-r.shipped),back:back(r.back),labels:mine.map(i=>i.label),picked:mine.filter(i=>shippingSelection.has(i.label)).length};
+  }).concat(shippingReadyExtras(o,q).map((e,k)=>({kind:'stock',o,q,id:o.id+':stock:'+k,line:'From stock',size:'',makeup:salesExtraItemName(e.x),skids:[],ready:e.ready,left:'',back:back(e.back),labels:keys.filter(x=>x==='stock:'+o.id)})),
+   unitTakes(o).map((x,k)=>({kind:'takes',o,q,id:o.id+':takes:'+k,line:'Cancelled · customer takes · line '+x.line,size:docSize(x.l),makeup:x.pieces+' glass',skids:[],ready:'',left:'',back:'',labels:keys.filter(y=>y==='takes:'+o.id)})));
+ });
+ const on=x=>x.labels.length&&x.labels.every(l=>shippingSelection.has(l));
+ const tick=x=>x.kind==='line'?`shippingSelectQty('${esc(x.o.id)}','${esc(x.r.l.id)}',this.checked?${x.labels.length}:0)`:`shippingSelect('${esc(x.o.customerId)}',${esc(JSON.stringify(x.labels))},this.checked)`;
+ const table=slTable('shippingReady',{list:items,id:x=>x.id,cls:'shipping-ready-table',empty:'No units ready for a packing slip.',fill:'makeup',acts:20,
+  noun:l=>l.length+' line'+(l.length===1?'':'s')+' · '+new Set(l.map(i=>i.x.o.id)).size+' orders · '+(n=>n+' customer'+(n===1?'':'s'))(new Set(l.map(i=>i.x.o.customerId)).size),
+  columns:()=>[
+   {k:'customer',label:'Customer',type:'text',w:150,v:x=>salesCustomerDisplay(x.o.customerId),cell:x=>`<b>${esc(salesCustomerDisplay(x.o.customerId))}</b>`},
+   {k:'order',label:'Order',type:'text',w:80,v:x=>x.o.businessNumber,cell:x=>`<button type="button" class="gb-link" onclick="optimizationOpenOrder('${esc(x.o.id)}')">${esc(x.o.businessNumber)}</button>`},
+   {k:'po',label:'PO',type:'text',w:100,v:x=>x.o.customerPo||''},
+   {k:'line',label:'Line / Mark',type:'text',w:96,v:x=>x.line},
+   {k:'size',label:'Size',type:'text',w:96,v:x=>x.size},
+   {k:'makeup',label:'Makeup',type:'text',v:x=>x.makeup},
+   /* Готовое без скида — жёлтым (владелец: стекло без тары видно, но ничего не блокирует). */
+   {k:'skid',label:'Skid',type:'text',tokens:true,w:120,v:x=>x.skids.concat(x.loose?['No skid']:[]).join(' · '),cell:x=>x.skids.map(c=>`<button type="button" class="gb-link" data-skid-sheet="${c}" title="Skid sheet" onclick="carrierWinOpen('${c}')">${c}</button>`).join(' ')+(x.loose?` <span class="pill warn shipping-noskid" data-no-skid>Without a skid · ${shippingCount(x.loose,'unit')}</span>`:'')},
+   {k:'ready',label:'Ready',type:'number',sum:true,w:78,v:x=>x.ready},
+   {k:'left',label:'Not ready',type:'number',sum:true,w:92,v:x=>x.left},
+   {k:'back',label:'Back order',type:'number',w:96,v:x=>x.back},
+   {k:'queue',label:'Queue',type:'number',w:76,v:x=>x.kind==='line'?shippingQueueOf(x.r.l)||'':'',cell:x=>x.kind==='line'?`<input class="shipping-queue" aria-label="Queue for order ${esc(x.o.businessNumber)} line ${x.n+1}" type="number" min="1" max="999" value="${shippingQueueOf(x.r.l)||''}" onchange="shippingQueueChange('${esc(x.o.id)}','${esc(x.r.l.id)}',this.value)">`:''},
+   {k:'qty',label:'Select qty',type:'number',w:96,v:x=>x.kind==='line'?x.picked:'',cell:x=>x.kind==='line'?`<input aria-label="Select quantity for order ${esc(x.o.businessNumber)} line ${x.n+1}" type="number" min="0" max="${x.labels.length}" value="${x.picked}" onchange="shippingSelectQty('${esc(x.o.id)}','${esc(x.r.l.id)}',this.value)">`:'<span class="mut">In PS form</span>'},
+   {k:'address',label:'Address',type:'text',def:false,v:x=>docAddressText(shippingDefaultAddress(salesFindCustomer(x.o.customerId)))||''},
+   {k:'due',label:'Due',type:'date',def:false,v:x=>x.o.dueDate||''}],
+  row:i=>({attrs:` data-ready-line="${esc(i.x.kind==='line'?i.x.r.l.id:i.x.id)}" data-ready-order="${esc(i.x.o.id)}" data-ready-customer="${esc(i.x.o.customerId)}"${i.x.kind==='takes'?' data-ready-takes':''}${on(i.x)?' class="oq-selected"':''}`,
+   first:`<td class="sl-check"><input type="checkbox" aria-label="Select ${esc(i.x.o.businessNumber)} ${esc(i.x.line)}" ${i.x.labels.length?'':'disabled'} ${on(i.x)?'checked':''} onchange="${tick(i.x)}"></td>`})});
+ const bar=`<div class="sales-toolbar"><button type="button" class="sl-quiet" data-create-ps="${esc(cur)}" ${cur?'':'disabled'} title="${cur?'':'Tick a line'}" onclick="shippingOpen(shippingCustomer)">Create packing slip</button>${cur?`<b class="oq-sel" title="${esc(salesCustomerDisplay(cur))}">${shippingSelection.size} selected</b>`:''}<span class="sales-toolbar-sp"></span>${shippingBarRight()}</div>`;
+ return `<div class="card sales-list-card sl-foot-pin">${bar}${shippingTabs()}${table}</div>`;
 }
 /* Поиск заказа и «Open a trip» — справа в шапке списка каждой вкладки Shipping. */
 function shippingBarRight(){return shippingLookupHTML().field+shippingTripHTML();}
@@ -31156,7 +31183,7 @@ function shippingDetailHTML(){
  const main=s.status==='planned'?action('Ship',`shippingLoaded('${id}')`,'pri'):s.status==='shipped'?action(s.method==='pickup'?'Picked up':'Delivered',`shippingReceive('${id}')`,'pri'):'';
  const rest=(s.status==='planned'?action('Edit',`shippingOpen('${esc(s.customerId)}','${id}')`)+action('Cancel',`shippingUndo('${id}','cancel')`):s.status==='shipped'?action('Undo dispatch',`shippingUndo('${id}','dispatch')`):s.status==='delivered'?action('Undo receipt',`shippingUndo('${id}','receipt')`):'')+(s.status!=='cancelled'||s.unbatchedItems?.length?action('Print',`shippingPrint('${id}')`):'')+action(shippingPreview?'Hide preview':'Preview','shippingPreview=!shippingPreview;render()');
  const rows=d.orders.map(o=>`<tr class="shipping-order-row"><td colspan="7"><b>Order ${esc(o.number)}</b>${o.po?' · PO '+esc(o.po):''}</td></tr>`+o.rows.map(r=>`<tr><td>${r.line}${r.mark?' · '+esc(r.mark):''}</td><td>${esc(r.size)}</td><td>${esc(r.makeup)}</td><td>${esc(r.skids)||'<span class="mut">—</span>'}</td><td class="n"><b>${r.now}</b></td><td class="n">${r.before}</td><td class="n">${r.back}</td></tr>`+(r.note?`<tr class="shipping-cancel-note" data-ps-cancel-note><td colspan="7">${esc(r.note)}</td></tr>`:'')).join('')+(o.takes||[]).map(x=>`<tr data-ps-takes><td colspan="4">Cancelled · customer takes · line ${x.line} · ${esc(x.size)}</td><td class="n"><b>${x.pieces}</b> glass</td><td></td><td></td></tr>`).join('')+o.extras.map(x=>`<tr><td colspan="3">From stock · ${esc(x.name)}</td><td><span class="mut">—</span></td><td class="n"><b>${x.now}</b></td><td class="n">${x.before}</td><td class="n">${x.back}</td></tr>`).join('')).join('');
- return `<div class="sales-service-modal-back shipping-detail-back"><div class="sales-service-modal shipping-detail-window" role="dialog" aria-modal="true" aria-label="Packing slip ${esc(s.number)}"><button type="button" class="shipping-detail-close" aria-label="Close" onclick="shippingHide()">×</button><div class="card shipping-detail"><div class="shipping-customer-head"><div><h3>${esc(s.number)} · ${esc(salesCustomerDisplay(s.customerId))}</h3><span class="mut">${esc(docAddressText(s.shipTo))||'Pickup'} · ${esc(salesListShortDay(s.date))}</span></div>${shippingStatusPill(s)}</div>${(d.corrections||[]).map(text=>`<p class="shipping-loaded" data-ps-unbatch>${esc(text)}</p>`).join('')}${loaded?`<p class="shipping-loaded" data-ps-loaded>${esc(loaded)}</p>`:''}${s.status==='delivered'?`<p class="shipping-loaded" data-ps-received>${esc('Received '+salesListShortDay(salesListIsoDay(s.deliveredAt))+(s.receivedBy?' · '+s.receivedBy:''))}</p>`:''}<div class="sales-toolbar">${rest}<span class="sales-toolbar-sp"></span>${main}</div>${rows?`<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th>Line / Mark</th><th>Size</th><th>Makeup</th><th>Skids</th><th class="n">Qty</th><th class="n">Before</th><th class="n">Back order</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<p class="mut">Open trip · no items selected</p>'}${shippingPreview?'<div class="shipping-preview">'+shippingPages(d).map(docPageSVG).join('')+'</div>':''}</div></div></div>`;
+ return `<div class="sales-service-modal-back shipping-detail-back"><div class="sales-service-modal shipping-detail-window" role="dialog" aria-modal="true" aria-label="Packing slip ${esc(s.number)}"><button type="button" class="shipping-detail-close" aria-label="Close" onclick="shippingHide()">×</button><div class="card shipping-detail"><div class="shipping-customer-head"><div><h3>${esc(s.number)} · ${esc(salesCustomerDisplay(s.customerId))}</h3><span class="mut">${esc(docAddressText(s.shipTo))||'Pickup'} · ${esc(salesListShortDay(s.date))}</span></div>${shippingStatusPill(s)}</div>${(d.corrections||[]).map(text=>`<p class="shipping-loaded" data-ps-unbatch>${esc(text)}</p>`).join('')}${loaded?`<p class="shipping-loaded" data-ps-loaded>${esc(loaded)}</p>`:''}${s.status==='delivered'?`<p class="shipping-loaded" data-ps-received>${esc('Received '+salesListShortDay(salesListIsoDay(s.deliveredAt))+(s.receivedBy?' · '+s.receivedBy:''))}</p>`:''}<div class="sales-toolbar">${rest}<span class="sales-toolbar-sp"></span>${main}</div>${rows?`<div class="sales-table-wrap">${slFromTable('psWindowLines',`<table class="sl-table"><thead><tr><th>Line / Mark</th><th>Size</th><th>Makeup</th><th>Skids</th><th class="n">Qty</th><th class="n">Before</th><th class="n">Back order</th></tr></thead><tbody>${rows}</tbody></table>`)}</div>`:'<p class="mut">Open trip · no items selected</p>'}${shippingPreview?'<div class="shipping-preview">'+shippingPages(d).map(docPageSVG).join('')+'</div>':''}</div></div></div>`;
 }
 /* Backorders — список вида Sales: строка — остаток строки заказа; заказ и
    клиент в своих колонках, повтор ниже бледный; Columns, фильтры, итог. */
@@ -31494,7 +31521,7 @@ function sfReportHTML(rep){
    <b>Rows accepted: ${rep.accepted}</b> — ${rep.added} new, ${rep.updated} updated. Rejected: ${rep.rejected.length}.
    ${rep.missing.length?`<div style="margin-top:6px">Not in the file, left as they were: ${rep.missing.map(c=>`<b>${esc(c)}</b>`).join(', ')}</div>`:''}
   </div>
-  ${rejected?`<table style="margin-top:10px"><thead><tr><th>Line</th><th>Code</th><th>Why rejected</th></tr></thead><tbody>${rejected}</tbody></table>`:''}`;
+  ${rejected?`${slFromTable('prodRejected',`<table style="margin-top:10px"><thead><tr><th>Line</th><th>Code</th><th>Why rejected</th></tr></thead><tbody>${rejected}</tbody></table>`)}`:''}`;
 }
 function sfImportCsv(inp){
  const f=inp.files[0]; inp.value='';
@@ -31549,7 +31576,7 @@ function mdPriceListsHTML(target){
  (DB.priceList||[]).forEach(l=>l.rows.forEach(r=>{if(r.target!==target&&!gIds.has(r.target))return;
   const c=l.kind==='customer'?(DB.customer||[]).find(x=>x.id===l.customerId):null;
   rows.push(`<tr><td>${l.kind==='customer'?'Personal · '+raw(c?(c.displayName||c.legalName||c.code||c.id):l.customerId):'Group · '+raw(l.name||'Unnamed')}</td><td>${r.target===target?'This item':'Item group · '+raw((itemGroupById(r.target.slice(6))||{}).name||'')}</td><td class="n mono">${esc(priceListRowText(r,v=>Number(v).toFixed(2)))||'<span class="mut">empty</span>'}</td></tr>`);}));
- return `<h4>Customer price lists</h4>${rows.length?`<div class="sales-table-wrap"><table class="ncr-table" data-md-card-lists><thead><tr><th>List</th><th>Row</th><th class="n">Price</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>`:'<p class="mut" data-md-card-lists>In no customer list. Edited in Prices.</p>'}`;
+ return `<h4>Customer price lists</h4>${rows.length?`<div class="sales-table-wrap">${slFromTable('mdCardPriceLists',`<table class="ncr-table" data-md-card-lists><thead><tr><th>List</th><th>Row</th><th class="n">Price</th></tr></thead><tbody>${rows.join('')}</tbody></table>`)}</div>`:'<p class="mut" data-md-card-lists>In no customer list. Edited in Prices.</p>'}`;
 }
 
 /* ==== src/erp/views/md-catalog.js ==== */
@@ -32110,13 +32137,13 @@ function mdGlassForm(){
  const measure=`<div class="grid">${mdSaleRulesFields(r,['minAreaFt2','minWidthIn','minHeightIn','maxWidthIn','maxHeightIn'])}</div>`;
  const sheets=isNew?[]:glassSheetsFor(r.code);
  const cost=accessCost();
- const purchase=sheets.length?`<div class="sales-table-wrap"><table class="ncr-table" data-md-glass-supply><thead><tr><th>Supplier</th><th>Sheet</th>${cost?'<th class="n">Price</th>':''}<th>Unit</th><th>Date</th><th class="n">Lead, days</th></tr></thead><tbody>${sheets.map(x=>`<tr><td>${raw(x.supplier||'—')}</td><td class="mono">${x.sheetWIn!=null&&x.sheetHIn!=null?esc(x.sheetWIn+' × '+x.sheetHIn+' in'):'—'}</td>${cost?`<td class="n mono">${money(x.purchasePrice)} <span class="mut">${esc(x.currency||'')}</span></td>`:''}<td>${esc(mdUnitName(x.purchaseUnit))}</td><td class="mono">${esc(x.priceDate||'—')}</td><td class="n mono">${x.leadTimeDays==null?'—':esc(String(x.leadTimeDays))}</td></tr>`).join('')}</tbody></table></div><p class="mut">Edited in Supply points.</p>`:`<p class="mut" data-md-glass-supply>No supply rows.</p>${isNew?'':`<button type="button" class="sm" data-md-glass-supply-add onclick="mdSheetNewFor('${esc(r.code)}')">+ Supply row</button>`}`;
+ const purchase=sheets.length?`<div class="sales-table-wrap">${slFromTable('mdGlassSupply',`<table class="ncr-table" data-md-glass-supply><thead><tr><th>Supplier</th><th>Sheet</th>${cost?'<th class="n">Price</th>':''}<th>Unit</th><th>Date</th><th class="n">Lead, days</th></tr></thead><tbody>${sheets.map(x=>`<tr><td>${raw(x.supplier||'—')}</td><td class="mono">${x.sheetWIn!=null&&x.sheetHIn!=null?esc(x.sheetWIn+' × '+x.sheetHIn+' in'):'—'}</td>${cost?`<td class="n mono">${money(x.purchasePrice)} <span class="mut">${esc(x.currency||'')}</span></td>`:''}<td>${esc(mdUnitName(x.purchaseUnit))}</td><td class="mono">${esc(x.priceDate||'—')}</td><td class="n mono">${x.leadTimeDays==null?'—':esc(String(x.leadTimeDays))}</td></tr>`).join('')}</tbody></table>`)}</div><p class="mut">Edited in Supply points.</p>`:`<p class="mut" data-md-glass-supply>No supply rows.</p>${isNew?'':`<button type="button" class="sm" data-md-glass-supply-add onclick="mdSheetNewFor('${esc(r.code)}')">+ Supply row</button>`}`;
  const price=(id,k,label)=>mdField(label,`<input id="${id}" type="number" step="0.01" min="0" value="${r[k]==null?'':r[k]}" placeholder="—">`,'Empty — no price.');
  const prices=`<div class="grid">${price('md_priceAN','salePriceAnnealed','Price annealed, CAD')}${price('md_priceFT','salePriceTempered','Price tempered, CAD')}${mdSaleRulesFields(r,['minCharge'])}</div>
   ${isNew?'':mdPriceListsHTML('glass:'+r.id+':salePriceAnnealed').replace('<h4>Customer price lists</h4>','<h4>Customer price lists · annealed</h4>')+mdPriceListsHTML('glass:'+r.id+':salePriceTempered').replace('<h4>Customer price lists</h4>','<h4>Customer price lists · tempered</h4>')}`;
  const racks=isNew||r.cut===false?[]:invSheetRows().filter(x=>x.code.toUpperCase()===String(r.code).toUpperCase());
  const stock=`<div class="row"><label class="chk"><input type="checkbox" id="md_stocked" ${r.stocked?'checked':''}> Kept in stock</label></div>
-  ${racks.length?`<div class="sales-table-wrap"><table class="ncr-table" data-md-glass-stock><thead><tr><th>Sheet</th><th class="n">On rack</th><th class="n">Reserved</th><th class="n">Free</th><th class="n">Min</th><th>Status</th></tr></thead><tbody>${racks.map(x=>`<tr><td class="mono">${esc(invSizeText(x))}</td><td class="n mono">${x.onRack}</td><td class="n mono">${x.reserved}</td><td class="n mono">${x.free}</td><td class="n mono">${x.min==null?'—':x.min}</td><td>${esc(x.status)}</td></tr>`).join('')}</tbody></table></div><p class="mut">Sizes and counts: Inventory.</p>`:`<p class="mut">No sheet size. Add a supply row.</p>${isNew?'':`<button type="button" class="sm" onclick="mdSheetNewFor('${esc(r.code)}')">+ Supply row</button>`}`}`;
+  ${racks.length?`<div class="sales-table-wrap">${slFromTable('mdGlassStock',`<table class="ncr-table" data-md-glass-stock><thead><tr><th>Sheet</th><th class="n">On rack</th><th class="n">Reserved</th><th class="n">Free</th><th class="n">Min</th><th>Status</th></tr></thead><tbody>${racks.map(x=>`<tr><td class="mono">${esc(invSizeText(x))}</td><td class="n mono">${x.onRack}</td><td class="n mono">${x.reserved}</td><td class="n mono">${x.free}</td><td class="n mono">${x.min==null?'—':x.min}</td><td>${esc(x.status)}</td></tr>`).join('')}</tbody></table>`)}</div><p class="mut">Sizes and counts: Inventory.</p>`:`<p class="mut">No sheet size. Add a supply row.</p>${isNew?'':`<button type="button" class="sm" onclick="mdSheetNewFor('${esc(r.code)}')">+ Supply row</button>`}`}`;
  return mdCardHTML({form:'glass',crumb:['Materials','Glass'].concat(r.manufacturer?[r.manufacturer]:[]),
   title:isNew?'New catalog item':raw(r.name||r.code),status:isNew?null:r.active===false?['discontinued','warn']:r.stocked?[glassLabel('stock','stocked'),'ok']:[glassLabel('stock','preorder'),'info'],code:isNew?'':r.code,
   tabs:[{k:'general',label:'General',html:general},{k:'production',label:'Production',html:prod},{k:'units',label:'Units',html:units},{k:'measure',label:'Measurements',html:measure},
@@ -32375,13 +32402,13 @@ function mdSurchargeTable(){
   .concat((DB.spandrelProduct||[]).map(x=>({x:x,kind:'spandrelProduct',group:'Spandrel'})));
  if(!rows.length)return '';
  return `<div class="sub" style="margin-top:22px">Added per sq ft of glass.</div>
-  <div class="customer-table-wrap"><table><thead><tr><th>Product</th><th>Kind</th><th>Surcharge, sq ft</th><th></th></tr></thead>
+  <div class="customer-table-wrap">${slFromTable('mdProducts',`<table><thead><tr><th>Product</th><th>Kind</th><th>Surcharge, sq ft</th><th></th></tr></thead>
   <tbody>${rows.map(r=>`<tr>
    <td><b>${raw(r.x.name)}</b><div class="mut mono">${raw(r.x.code||r.x.id)}</div></td>
    <td>${esc(r.group)}</td>
    <td><input class="md-mm" type="number" step="0.01" min="0" style="width:88px" value="${r.x.salePrice==null?'':r.x.salePrice}" placeholder="—" onchange="mdSurchargeSet('${esc(r.kind)}','${esc(r.x.id)}',this.value)"></td>
    <td>${r.x.active===false?'<span class="pill warn">off</span>':'<span class="pill ok">active</span>'}</td>
-  </tr>`).join('')}</tbody></table></div>`;
+  </tr>`).join('')}</tbody></table>`)}</div>`;
 }
 function mdSurchargeSet(kind,id,v){
  const row=(DB[kind]||[]).find(x=>x.id===id);if(!row)return;
@@ -32405,8 +32432,8 @@ function viewMdSpacer(){
  });
  /* Счётчики этого списка — в шапке каталога (mdCatalogHealth), здесь их нет. */
  return `<div class="md-toolbar"><span class="mut">Price, weight and recipe per spacer.</span><span class="sp"></span><button class="pri" onclick="mdSpacerNew()">+ New spacer</button></div>
-  <div class="customer-table-wrap"><table><thead><tr><th>System</th><th>Nominal</th><th>Actual, mm</th><th>Price</th><th>Weight</th><th>Recipe</th><th>Availability</th><th></th></tr></thead>
-  <tbody>${all.map(mdSpacerRow).join('')||'<tr><td colspan="8" class="empty">no spacers</td></tr>'}</tbody></table></div>
+  <div class="customer-table-wrap">${slFromTable('mdSystems',`<table><thead><tr><th>System</th><th>Nominal</th><th>Actual, mm</th><th>Price</th><th>Weight</th><th>Recipe</th><th>Availability</th><th></th></tr></thead>
+  <tbody>${all.map(mdSpacerRow).join('')||'<tr><td colspan="8" class="empty">no spacers</td></tr>'}</tbody></table>`)}</div>
   ${mdSpacerSystemsTable()}
   ${mdSurchargeTable()}`;
 }
@@ -32480,7 +32507,7 @@ function mdSpacerForm(){
  const st=isNew?null:consRows().find(x=>x.key===consKey('spacerVariant',r.id));
  const q=v=>esc((Math.round(v*10)/10).toFixed(1))+' ft';
  const stock=st?`<dl class="md-kv" data-md-stock><dt>On hand</dt><dd>${q(st.onHand)}</dd><dt>Reserved</dt><dd>${q(st.reserved)}</dd><dt>Free</dt><dd>${q(st.free)}</dd><dt>Status</dt><dd>${esc(st.status)}</dd></dl><p class="mut">Counted in Inventory → Consumables.</p>`:'<p class="mut">Save first.</p>';
- const parts=rec?`<table class="ncr-table" data-md-recipe-parts><thead><tr><th>Part</th><th class="n">Amount</th><th class="n">Waste</th></tr></thead><tbody>${rec.rows.map(x=>`<tr><td>${raw(surroundPartLabel(x.part))}</td><td class="n mono">${x.amount==null?(x.part==='spacer'||x.part==='gas'?'<span class="mut">by size</span>':'<span class="pill warn">no norm</span>'):esc(String(x.amount))+' <span class="mut">'+esc(SURROUND_PER[x.per])+'</span>'}</td><td class="n mono">${esc(String(x.wastePct||0))}%</td></tr>`).join('')}</tbody></table>`:'';
+ const parts=rec?`${slFromTable('mdRecipeParts',`<table class="ncr-table" data-md-recipe-parts><thead><tr><th>Part</th><th class="n">Amount</th><th class="n">Waste</th></tr></thead><tbody>${rec.rows.map(x=>`<tr><td>${raw(surroundPartLabel(x.part))}</td><td class="n mono">${x.amount==null?(x.part==='spacer'||x.part==='gas'?'<span class="mut">by size</span>':'<span class="pill warn">no norm</span>'):esc(String(x.amount))+' <span class="mut">'+esc(SURROUND_PER[x.per])+'</span>'}</td><td class="n mono">${esc(String(x.wastePct||0))}%</td></tr>`).join('')}</tbody></table>`)}`:'';
  const use=`<div class="grid">${mdField('Surround recipe',`<select id="md_spRecipe"><option value="">— no recipe —</option>${(DB.surroundRecipe||[]).map(x=>`<option value="${esc(x.id)}" ${x.id===r.recipeId?'selected':''}>${esc(x.name||x.id)}</option>`).join('')}</select>`,'Edited in Surround recipes.')}</div>${parts}`;
  return mdCardHTML({form:'spacer',crumb:['Materials','IGU assembly','Spacers'].concat(r.system?[r.system]:[]),
   title:isNew?'New spacer':raw(r.name||r.id),status:isNew?null:[glassLabel('availability',r.availability),r.availability==='stock'?'ok':r.availability==='inactive'?'warn':'info'],code:isNew?'':(r.code||r.id),
@@ -32755,7 +32782,7 @@ function mdAllowanceShow(v){
 function viewMdAllowance(){
  const rows=mdAllowanceSorted();
  return `<div class="sub" style="margin-top:6px">Stock removal per side. Narrowest row wins.</div>
-  <div class="customer-table-wrap"><table><thead><tr><th>Operation</th><th>Measured by</th><th>From, mm</th><th>To, mm</th><th>Allowance</th><th>Preview</th><th></th></tr></thead>
+  <div class="customer-table-wrap">${slFromTable('mdOperations',`<table><thead><tr><th>Operation</th><th>Measured by</th><th>From, mm</th><th>To, mm</th><th>Allowance</th><th>Preview</th><th></th></tr></thead>
   <tbody>${rows.map(r=>`<tr>
    <td><select onchange="mdAllowanceSet('${esc(r.id)}','op',this.value)">${SHAPE_EDGE_OPS.map(o=>`<option value="${esc(o)}" ${o===r.op?'selected':''}>${esc(o)}</option>`).join('')}</select></td>
    <td><select onchange="mdAllowanceSet('${esc(r.id)}','scope',this.value)">${MD_ALLOWANCE_SCOPES.map(s=>`<option value="${s.k}" ${s.k===r.scope?'selected':''}>${esc(s.label)}</option>`).join('')}</select></td>
@@ -32764,14 +32791,14 @@ function viewMdAllowance(){
    <td><input style="width:92px" value="${esc(String(r.allowance))}" placeholder="1/16" onchange="mdAllowanceSet('${esc(r.id)}','allowance',this.value)"></td>
    <td>${mdAllowanceShow(r.allowance)}${r.note?`<div class="mut">${esc(r.note)}</div>`:''}</td>
    <td><button class="btn-ghost" onclick="mdAllowanceRemove('${esc(r.id)}')">×</button></td>
-  </tr>`).join('')}</tbody></table></div>
+  </tr>`).join('')}</tbody></table>`)}</div>
   <div style="margin-top:10px"><button class="btn-ghost" onclick="mdAllowanceAdd()">+ row</button></div>
   <div class="sub" style="margin-top:22px">What the current values produce</div>
-  <div class="customer-table-wrap"><table><thead><tr><th>Case</th><th>Allowance per side</th></tr></thead>
+  <div class="customer-table-wrap">${slFromTable('mdAllowance',`<table><thead><tr><th>Case</th><th>Allowance per side</th></tr></thead>
   <tbody>${MD_ALLOWANCE_SAMPLES.map(s=>{
     const r=ShapeModule.productionAllowanceRule(s.op,s.mm,s.scope);
     return `<tr><td>${esc(s.label)}</td><td>${r.ok?`<b class="mono">${r.value?'+'+esc(dimIn(r.value)):'0″'}</b>`:'<span class="pill warn">no rule — cutting is blocked</span>'}</td></tr>`;
-  }).join('')}</tbody></table></div>`;
+  }).join('')}</tbody></table>`)}</div>`;
 }
 function mdAllowanceSet(id,field,v){
  const row=(DB.edgeAllowance||[]).find(x=>x.id===id);if(!row)return;
@@ -33065,9 +33092,9 @@ function mdCatForm(){
     <div><label class="chk"><input type="checkbox" id="md_ruleOnTop" ${r.rule.onTop?'checked':''}> On top of earlier surcharges</label></div>`:''}`:''}
    </div>`;
   const prices=`${r.rule?'<p class="mut">Value: Applies tab.</p>':`<label>Price by glass thickness</label>
-   <table class="md-work-tiers" data-md-tiers><thead><tr><th>From, mm</th><th>To, mm</th><th>Price, CAD</th><th></th></tr></thead><tbody>
+   ${slFromTable('mdTiers',`<table class="md-work-tiers" data-md-tiers><thead><tr><th>From, mm</th><th>To, mm</th><th>Price, CAD</th><th></th></tr></thead><tbody>
     ${(r.tiers||[]).map((t,i)=>`<tr data-md-tier="${esc(t.id)}"><td><input id="md_tierFrom${i}" type="number" step="any" min="0" value="${v(t.from)}" placeholder="no limit" style="width:90px"></td><td><input id="md_tierTo${i}" type="number" step="any" min="0" value="${v(t.to)}" placeholder="no limit" style="width:90px"></td><td><input id="md_tierPrice${i}" type="number" step="0.01" min="0" value="${v(t.price)}" placeholder="no price" style="width:90px"></td><td><button class="sm dl" title="Remove row" onclick="mdWorkTierRemove(${i})">×</button></td></tr>`).join('')}
-   </tbody></table>
+   </tbody></table>`)}
    <div class="row"><button class="sm" data-md-tier-add onclick="mdWorkTierAdd()">+ Row</button><span class="hint">From and to included. Empty: no limit.</span></div>
    <div class="grid">
     <div><label>Round quantity up to</label><input id="md_catRoundTo" type="number" step="any" min="0" value="${v(r.roundTo)}" placeholder="no rounding"><div class="hint">In the work's unit</div></div>
@@ -33136,8 +33163,8 @@ function mdFilmFields(r){
   <div><label>Thicknesses, mm</label><input id="md_filmThick" value="${esc((r.thicknessesMm||[]).join(', '))}"><div class="hint">Offered in the order</div></div>`;
 }
 function mdFilmSupplyHTML(r){
- return `<div data-md-film-supplies><label>Supply</label><div class="sales-table-wrap"><table class="ncr-table"><thead><tr><th>Supplier</th><th>Roll width, in</th><th>Thickness, mm</th>${accessCost()?'<th>Price, CAD</th><th>Per</th>':''}<th></th></tr></thead><tbody>${(r.supply||[]).map(mdFilmSupplyRow).join('')}</tbody></table></div>
-   <button type="button" onclick="this.previousElementSibling.querySelector('tbody').insertAdjacentHTML('beforeend',mdFilmSupplyRow())">+ Supply row</button></div>`;
+ return `<div data-md-film-supplies><label>Supply</label><div class="sales-table-wrap">${slFromTable('mdFilmSupply',`<table class="ncr-table"><thead><tr><th>Supplier</th><th>Roll width, in</th><th>Thickness, mm</th>${accessCost()?'<th>Price, CAD</th><th>Per</th>':''}<th></th></tr></thead><tbody>${(r.supply||[]).map(mdFilmSupplyRow).join('')}</tbody></table>`)}</div>
+   <button type="button" data-md-film-add onclick="this.previousElementSibling.querySelector('tbody').insertAdjacentHTML('beforeend',mdFilmSupplyRow().replace('>','><td class=&quot;sl-check&quot;></td>'))">+ Supply row</button></div>`;
 }
 function mdFilmRead(){
  const ply=mdVal('md_filmPly');if(!(+ply>0))return {error:'Ply must be a positive number'};
@@ -33167,7 +33194,7 @@ function mdStockMeasureRow(m){m=m||{};
  return `<tr data-md-measure><td><input data-k="name" aria-label="Measurement" value="${esc(m.name||'')}"></td><td><input data-k="value" aria-label="Value" type="number" min="0" step="any" value="${m.value==null?'':esc(m.value)}"></td><td><input data-k="unit" aria-label="Unit" list="md_stockUnits" value="${esc(m.unit||'')}"></td><td><button type="button" class="sm dl" aria-label="Remove" onclick="this.closest('tr').remove()">×</button></td></tr>`;}
 function mdStockMeasuresHTML(r,isNew){
  const preset=isNew&&!(r.measures||[]).length?(STOCK_MEASURE_PRESET[String(r.subcategory||'').toLowerCase()]||[]).map(([name,unit])=>({name,unit})):(r.measures||[]);
- return `<div data-md-measures><div class="sales-table-wrap md-stock-measures"><table class="ncr-table"><thead><tr><th>Measurement</th><th>Value</th><th>Unit</th><th></th></tr></thead><tbody>${preset.map(mdStockMeasureRow).join('')}</tbody></table></div>
+ return `<div data-md-measures><div class="sales-table-wrap md-stock-measures">${slFromTable('mdMeasures',`<table class="ncr-table"><thead><tr><th>Measurement</th><th>Value</th><th>Unit</th><th></th></tr></thead><tbody>${preset.map(mdStockMeasureRow).join('')}</tbody></table>`)}</div>
   <datalist id="md_stockUnits">${MD_STOCK_UNITS.map(u=>`<option value="${u}">`).join('')}</datalist>
   <div class="row"><button type="button" class="sm" data-md-measure-add onclick="document.querySelector('[data-md-measures] tbody').insertAdjacentHTML('beforeend',mdStockMeasureRow())">+ Measurement</button><button type="button" class="sm" data-md-measure-name onclick="mdStockNameFromMeasures()">Name from measurements</button><span class="hint">Another value — another stock item.</span></div></div>`;
 }
@@ -33347,11 +33374,11 @@ function mdRecipeCard(r){
    <div><label>PIB per side, mm</label><input type="number" min="0" step="any" value="${r.pibPerSideMm==null?'':r.pibPerSideMm}" placeholder="unknown" onchange="mdRecipeSet('${esc(r.id)}','pibPerSideMm',this.value)"><div class="hint">Adds to unit thickness on both sides of the spacer.</div></div>
    <div><label>Used by</label><div>${users.length} spacer${users.length===1?'':'s'}${missing?` <span class="pill warn">${missing} without norm</span>`:''}</div></div>
   </div>
-  <div class="customer-table-wrap"><table><thead><tr><th>Part</th><th>Norm, g</th><th>Per</th><th>Waste, %</th><th></th></tr></thead><tbody>
+  <div class="customer-table-wrap">${slFromTable('mdSurroundParts',`<table><thead><tr><th>Part</th><th>Norm, g</th><th>Per</th><th>Waste, %</th><th></th></tr></thead><tbody>
   ${r.rows.map((x,i)=>`<tr><td><select onchange="mdRecipeRowSet('${esc(r.id)}',${i},'part',this.value)">${mdRecipePartOptions(x.part)}</select></td>${cell(x,i)}
    <td><input type="number" min="0" step="any" style="width:70px" value="${x.wastePct==null?'':x.wastePct}" placeholder="0" onchange="mdRecipeRowSet('${esc(r.id)}',${i},'wastePct',this.value)"></td>
    <td><button class="sm dl" onclick="mdRecipeRowDelete('${esc(r.id)}',${i})">×</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">no parts</td></tr>'}
-  </tbody></table></div>
+  </tbody></table>`)}</div>
   <div class="row"><button class="sm" onclick="mdRecipeRowAdd('${esc(r.id)}')">+ Part</button><button class="sm dl" onclick="mdRecipeDelete('${esc(r.id)}')">Delete recipe</button></div>
  </div>`;
 }
@@ -33395,12 +33422,12 @@ function mdRecipeDelete(id){
 function mdSpacerSystemsTable(){
  const rows=DB.spacerSystem||[],used=name=>(DB.spacerVariant||[]).filter(sp=>sp&&sp.system===name).length;
  return `<h4 style="margin-top:22px">Spacer systems</h4>
-  <div class="customer-table-wrap"><table data-spacer-systems><thead><tr><th>Name</th><th>Code</th><th>Family</th><th>Spacers</th><th></th></tr></thead><tbody>
+  <div class="customer-table-wrap">${slFromTable('mdSpacerSystems',`<table data-spacer-systems><thead><tr><th>Name</th><th>Code</th><th>Family</th><th>Spacers</th><th></th></tr></thead><tbody>
   ${rows.map(x=>`<tr><td><input value="${esc(x.name)}" onchange="mdSpacerSystemSet('${esc(x.id)}','name',this.value)"></td>
    <td><input style="width:80px" value="${esc(x.code)}" onchange="mdSpacerSystemSet('${esc(x.id)}','code',this.value)"></td>
    <td><input value="${esc(x.family)}" onchange="mdSpacerSystemSet('${esc(x.id)}','family',this.value)"></td>
    <td class="mono">${used(x.name)}</td><td><button class="sm dl" onclick="mdSpacerSystemDelete('${esc(x.id)}')">×</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">no systems</td></tr>'}
-  </tbody></table></div>
+  </tbody></table>`)}</div>
   <div class="row"><button class="sm" onclick="mdSpacerSystemNew()">+ New system</button></div>`;
 }
 function mdSpacerSystemNew(){
@@ -34136,9 +34163,9 @@ function finReceiptForm(){
  const customers=(DB.customer||[]).filter(c=>c.status!=='archived'||c.id===d.customerId),rows=finFormOrders(),noPrice=finFormNoPrice();
  const ph=({cheque:'Cheque #',etransfer:'Transfer reference',debit:'Last 4 digits or approval #',creditcard:'Last 4 digits or approval #',card:'Last 4 digits or approval #'})[d.method]||'Optional';
  const table=!d.customerId?'<p class="mut">Select a customer to apply the receipt to orders.</p>':rows.length?`<h4 class="fin-h4">Apply to orders of this customer</h4>
-  <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Order</th><th>Customer PO</th><th class="n">Order total</th><th class="n">Paid before</th><th class="n">Balance</th><th class="n">Apply now</th></tr></thead><tbody>${rows.map(x=>`<tr>
+  <div class="fin-table-wrap">${slFromTable('finReceiptApply',`<table class="fin-table"><thead><tr><th>Order</th><th>Customer PO</th><th class="n">Order total</th><th class="n">Paid before</th><th class="n">Balance</th><th class="n">Apply now</th></tr></thead><tbody>${rows.map(x=>`<tr>
    <td><b class="mono">${raw(x.order.businessNumber||'draft')}</b>${!locked&&d.method==='creditcard'?finCardFeeTag(x.order):''}</td><td>${raw(x.order.customerPo||'—')}</td><td class="n">${finFmt(x.total)}</td><td class="n">${finFmt(x.paid)}</td><td class="n"><b>${finFmt(x.balance)}</b></td>
-   <td class="n fin-apply-cell"><div><input type="number" min="0" step="0.01" data-fin-apply="${esc(x.order.id)}"${dis} value="${esc(d.apply[x.order.id]||'')}" placeholder="0.00" oninput="finApplyInput('${esc(x.order.id)}',this.value)">${locked?'':`<button type="button" class="sm" onclick="finApplyMax('${esc(x.order.id)}')">Max</button>`}</div></td></tr>`).join('')}</tbody></table></div>`
+   <td class="n fin-apply-cell"><div><input type="number" min="0" step="0.01" data-fin-apply="${esc(x.order.id)}"${dis} value="${esc(d.apply[x.order.id]||'')}" placeholder="0.00" oninput="finApplyInput('${esc(x.order.id)}',this.value)">${locked?'':`<button type="button" class="sm" onclick="finApplyMax('${esc(x.order.id)}')">Max</button>`}</div></td></tr>`).join('')}</tbody></table>`)}</div>`
   :'<p class="mut fin-apply-empty">This customer has no orders with a balance due — the whole amount stays on account as a deposit.</p>';
  return `<div class="fin-form"><div class="fin-form-head"><h3>${r?'Receipt '+raw(r.number):'New receipt'}</h3>${locked?`<span class="pill bad">Void</span><span class="mut">${raw(r.voidReason)}</span>`:''}</div>
  <div class="fin-grid">
@@ -34337,7 +34364,8 @@ function finActionHTML(){
 function finSaveAction(){if(!finAction)return;const d=finCopy(finAction),out=finPersist(()=>d.type==='terms'?finSaveTerms(d.orderId,d,d.reason):finCreateRefund(d));if(!out.ok)return fail(document.getElementById('e_fin_action'),out.error);finAction=null;render();}
 /* Таблицы карточки клиента — вид Sales: ширина колонок мышью (этап 6;
    порядок постоянный, как в окнах). */
-function finStaticTable(id,head,body){const t=cwStaticTable(id,head);return `<div class="sales-table-wrap fin-table-wrap"><table class="sl-table fin-table${t.cls}"${t.attrs}>${t.col}<thead><tr>${t.head}</tr></thead><tbody>${body}</tbody></table></div>`;}
+/* Таблицы карточки клиента — вид Sales (владелец 07.11.2026): фильтр, сортировка, ширина, порядок. */
+function finStaticTable(id,head,body){return `<div class="fin-table-wrap">${slHtmlTable(id,head,body,{cls:'fin-table',acts:head.length&&!head[head.length-1][1]?120:20})}</div>`;}
 function finRefundTable(rows){return finStaticTable('finAccRefunds',[['refund','Refund'],['date','Date'],['payment','Payment'],['amount','Amount','n'],['method','Method · reference'],['reason','Reason'],['act','']],rows.map(r=>{const p=DB.receipt.find(p=>p.id===r.receiptId);return `<tr class="${r.voided?'fin-void':''}"><td><b>${esc(r.number)}</b>${r.voided?' <span class="pill bad">Void</span>':''}</td><td>${esc(r.date)}</td><td><button class="fin-link" onclick="finOpenReceipt('${esc(r.receiptId)}')">${esc(p?p.number:r.receiptId)}</button></td><td class="n">${finFmt(r.amount)}</td><td>${esc(finMethodLabel(r.method))}${r.reference?` <span class="mut">${raw(r.reference)}</span>`:''}</td><td>${raw(r.voided?r.voidReason:r.reason)}</td><td class="fin-actions">${r.voided?'':`<button class="sm" onclick="finVoidRefundUI('${esc(r.id)}')">Void</button>`}</td></tr>`;}).join(''));}
 function finVoidRefundUI(id){const reason=prompt('Void this refund record. Reason:','');if(reason===null)return;const out=finPersist(()=>finVoidRefund(id,reason));if(!out.ok)return alert(out.error);render();}
 
@@ -34465,7 +34493,7 @@ function finStatementsHTML(){
  return `<div class="sales-service-modal-back fin-modal-back" onclick="if(event.target===this)finCloseStatements()"><div class="sales-service-modal fin-statements" role="dialog" aria-modal="true" aria-label="Statements"><div class="sales-service-modal-head"><h3>Statements · ${esc(err?'':finPeriodText(p.from,p.to))}</h3><button type="button" aria-label="Close" onclick="finCloseStatements()">×</button></div>
  <div class="fin-modal-body"><div class="sales-toolbar">${finRangeButton('statements')}</div>
  ${err?`<p role="alert" class="fin-due">${esc(err)}</p>`:''}
- <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Customer</th><th>Email</th><th class="n">Balance forward</th><th class="n">Billed</th><th class="n">Paid</th><th class="n">Balance</th><th></th></tr></thead><tbody>${list.map(({c,d})=>{const to=finEmailTo(c,'statement');return `<tr data-statement="${esc(c.id)}"><td><b>${raw(finCustomerName(c))}</b><div class="mut small">${raw(c.code)}</div></td><td>${to?esc(to):'<span class="mut">no email</span>'}</td><td class="n">${finSigned(d.opening)}</td><td class="n">${d.billed?finFmt(d.billed):'<span class="mut">—</span>'}</td><td class="n">${d.paid?finFmt(d.paid):'<span class="mut">—</span>'}</td><td class="n"><b>${finSigned(d.closing)}</b></td><td class="fin-actions">${p.sent[c.id]?'<span class="pill good">Emailed</span> ':''}<button class="sm" onclick="finOpenStatement('${esc(c.id)}',{from:finStatements.from,to:finStatements.to})">View</button><button class="sm pri" onclick="finStatementsEmail('${esc(c.id)}')">Email PDF</button></td></tr>`;}).join('')||`<tr><td colspan="7" class="empty">${err?'Correct the dates.':'No activity in this period.'}</td></tr>`}</tbody></table></div>
+ <div class="fin-table-wrap">${slFromTable('finStatementsList',`<table class="fin-table"><thead><tr><th>Customer</th><th>Email</th><th class="n">Balance forward</th><th class="n">Billed</th><th class="n">Paid</th><th class="n">Balance</th><th></th></tr></thead><tbody>${list.map(({c,d})=>{const to=finEmailTo(c,'statement');return `<tr data-statement="${esc(c.id)}"><td><b>${raw(finCustomerName(c))}</b><div class="mut small">${raw(c.code)}</div></td><td>${to?esc(to):'<span class="mut">no email</span>'}</td><td class="n">${finSigned(d.opening)}</td><td class="n">${d.billed?finFmt(d.billed):'<span class="mut">—</span>'}</td><td class="n">${d.paid?finFmt(d.paid):'<span class="mut">—</span>'}</td><td class="n"><b>${finSigned(d.closing)}</b></td><td class="fin-actions">${p.sent[c.id]?'<span class="pill good">Emailed</span> ':''}<button class="sm" onclick="finOpenStatement('${esc(c.id)}',{from:finStatements.from,to:finStatements.to})">View</button><button class="sm pri" onclick="finStatementsEmail('${esc(c.id)}')">Email PDF</button></td></tr>`;}).join('')||`<tr><td colspan="7" class="empty">${err?'Correct the dates.':'No activity in this period.'}</td></tr>`}</tbody></table>`)}</div>
  ${Object.keys(p.sent).length?'<p class="mut small">PDFs are in Downloads — drag each into its Gmail message.</p>':''}</div></div></div>`;
 }
 
@@ -34910,9 +34938,9 @@ function finAllocHTML(){
  <div class="fin-alloc-bar"><button type="button" class="pri" data-fin-allocate ${plan.total>0?'':'disabled'} onclick="finAllocRun()">Allocate selected</button><button type="button" data-fin-unallocate ${pairs.length?'':'disabled'} onclick="finAllocUnselected()">Unallocate selected</button>
   <label class="fin-alloc-ask"><input type="checkbox" ${finAlloc.ask?'checked':''} onchange="finAlloc.ask=this.checked"> Ask amount</label><span class="fin-alloc-say" id="finAllocSay">${say}</span></div>
  <div class="err" id="e_fin_alloc"></div>
- <div class="fin-alloc">${finAllocPane('Orders & invoices','o',finAlloc.showO,`<table class="sl-table fin-table"><thead><tr><th class="sl-check"></th><th class="fin-alloc-arrow-cell"></th><th>Type</th><th>Date</th><th>Order / PO</th><th class="n">Amount</th><th class="n">Allocated</th><th class="n">Outstanding</th></tr></thead><tbody>${leftBody}</tbody></table>`,
+ <div class="fin-alloc">${finAllocPane('Orders & invoices','o',finAlloc.showO,`${slFromTable('finAllocOrders',`<table class="sl-table fin-table"><thead><tr><th class="sl-check"></th><th class="fin-alloc-arrow-cell"></th><th>Type</th><th>Date</th><th>Order / PO</th><th class="n">Amount</th><th class="n">Allocated</th><th class="n">Outstanding</th></tr></thead><tbody>${leftBody}</tbody></table>`,{sub:'.fin-alloc-link',lead:60,acts:4,fill:'order_po_3',noun:()=>'',widths:{type_1:66,date_2:96,order_po_3:100,amount_4:88,allocated_5:88,outstanding_6:96}})}`,
    `<span>Selected <b>${selO.length}</b> · <b>${finFmt(sum(selO,o=>Math.max(0,o.b.balance)))}</b></span><span>Shown ${shownO.length} of ${orders.length}</span>${unpriced?`<span>${unpriced} not priced</span>`:''}`)}
-  ${finAllocPane('Receipts & credits','r',finAlloc.showR,`<table class="sl-table fin-table"><thead><tr><th class="sl-check"></th><th class="fin-alloc-arrow-cell"></th><th>Date</th><th>Receipt</th><th class="n">Amount</th><th class="n">Allocated</th><th class="n">Outstanding</th></tr></thead><tbody>${rightBody}</tbody></table>`,
+  ${finAllocPane('Receipts & credits','r',finAlloc.showR,`${slFromTable('finAllocReceipts',`<table class="sl-table fin-table"><thead><tr><th class="sl-check"></th><th class="fin-alloc-arrow-cell"></th><th>Date</th><th>Receipt</th><th class="n">Amount</th><th class="n">Allocated</th><th class="n">Outstanding</th></tr></thead><tbody>${rightBody}</tbody></table>`,{sub:'.fin-alloc-link',lead:60,acts:4,fill:'receipt_2',noun:()=>'',widths:{date_1:96,receipt_2:120,amount_3:88,allocated_4:88,outstanding_5:96}})}`,
    `<span>Selected <b>${selR.length}</b> · <b class="fin-deposit">${finFmt(sum(selR,r=>r.left))}</b></span><span>Shown ${shownR.length} of ${receipts.length}</span>`)}</div>`;
 }
 
@@ -34965,7 +34993,8 @@ function viewCommissionsIn(){
   <div class="card sales-list-card sl-foot-pin">${tools}${table}</div>${salesListMenuHTML(infos)}${comDraft?comFormHTML():comOpen&&comFind(comOpen)?comDetailHTML(comFind(comOpen),range):''}`;
 }
 /* Таблицы человека — ширина колонок мышью (порядок постоянный, как в окнах). */
-function comStaticTable(id,head,body,attr){const t=cwStaticTable(id,head);return `<div class="sales-table-wrap"><table class="sl-table${t.cls}"${t.attrs}${attr?' '+attr:''}>${t.col}<thead><tr>${t.head}</tr></thead><tbody>${body}</tbody></table></div>`;}
+/* Таблицы человека — вид Sales (владелец 07.11.2026); attr — у обёртки. */
+function comStaticTable(id,head,body,attr){return `<div${attr?' '+attr:''}>${slHtmlTable(id,head,body,{acts:head.length&&!head[head.length-1][1]?90:20})}</div>`;}
 /* Заказы человека: начислено за период; «Paid out» и «Due» — за всё время
    по заказу. Выплата — галочками по заказам с долгом, сумма считается сама. */
 function comDetailHTML(r,range){
@@ -34976,7 +35005,7 @@ function comDetailHTML(r,range){
  const owed=[...due.values()].filter(x=>x.due>0).sort((a,b)=>String(a.number).localeCompare(String(b.number)));
  /* Переплата по другим заказам вычитается из выплаты (comPayoutPlan). */
  const plan=comPayDraft?comPayoutPlan(r,comPayDraft.orderIds):{pay:[],back:[],total:0},picked=plan.pay,total=plan.total;
- const back=plan.back.length?`<div class="sales-table-wrap"><table class="sl-table" data-com-pay-back><thead><tr><th>Overpaid earlier · taken off</th><th>Customer</th><th class="n">Commission</th><th class="n">Paid out</th><th class="n">Due</th></tr></thead><tbody>${plan.back.map(x=>`<tr><td>${open(x.o)}</td><td data-raw>${esc(comCustomerName(x.customerId))}</td><td class="n">${finFmt(x.com)}</td><td class="n">${finFmt(x.paidOut)}</td><td class="n"><b class="fin-due">${finFmt(x.due)}</b></td></tr>`).join('')}</tbody></table></div>`:'';
+ const back=plan.back.length?`<div class="sales-table-wrap">${slFromTable('comPayBack',`<table class="sl-table" data-com-pay-back><thead><tr><th>Overpaid earlier · taken off</th><th>Customer</th><th class="n">Commission</th><th class="n">Paid out</th><th class="n">Due</th></tr></thead><tbody>${plan.back.map(x=>`<tr><td>${open(x.o)}</td><td data-raw>${esc(comCustomerName(x.customerId))}</td><td class="n">${finFmt(x.com)}</td><td class="n">${finFmt(x.paidOut)}</td><td class="n"><b class="fin-due">${finFmt(x.due)}</b></td></tr>`).join('')}</tbody></table>`)}</div>`:'';
  const payForm=comPayDraft?`<div class="com-pay-form" data-com-pay-form><h4>Payout · ${picked.length} of ${owed.length} orders · <span data-com-pay-total>${finFmt(Math.max(0,total))}</span></h4>
    ${owed.length?`<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th></th><th>Order</th><th>Customer</th><th class="n">Commission</th><th class="n">Paid out</th><th class="n">Due</th></tr></thead><tbody>${owed.map(x=>`<tr><td class="sl-check"><input type="checkbox" data-com-pay-order="${esc(x.number)}" ${comPayDraft.orderIds.includes(x.orderId)?'checked':''} onchange="comPayPick('${esc(x.orderId)}',this.checked)"></td><td>${open(x.o)}</td><td data-raw>${esc(comCustomerName(x.customerId))}</td><td class="n">${finFmt(x.com)}</td><td class="n">${money(x.paidOut)}</td><td class="n"><b>${finFmt(x.due)}</b></td></tr>`).join('')}</tbody></table></div>`:'<p class="mut">Nothing to pay: every order is paid out.</p>'}${back}${picked.length&&total<=0?'<p class="mut" data-com-pay-covered>Nothing to pay: earlier payouts cover it.</p>':''}
    <div class="sl-row"><input type="date" aria-label="Payout date" value="${esc(comPayDraft.date)}" onchange="comPayDraft.date=this.value"><input type="text" placeholder="Note" value="${esc(comPayDraft.note)}" oninput="comPayDraft.note=this.value"><button type="button" class="pri sm" data-com-pay-save ${picked.length&&total>0?'':'disabled'} onclick="comPaySave()">Save payout</button><button type="button" class="sm" onclick="comPayDraft=null;render()">Cancel</button></div></div>`:'';
@@ -35084,7 +35113,7 @@ function purSupplierForm(){
   ${groups.map(g=>`<section class="card pur-card"><h3>${g}</h3><div class="pur-fields">${PUR_SUPPLIER_FIELDS.filter(f=>f.group===g).map(purSupplierInput).join('')}</div></section>`).join('')}
   <section class="card pur-card pur-wide"><div class="pur-section-head"><h3>Other contacts</h3><button type="button" class="sm" data-pur-add-contact onclick="purSupplierDraft.contacts.push({name:'',role:'',email:'',phone:''});render()">+ Contact</button></div>${extra||'<p class="mut">Add another person or department when needed.</p>'}</section>
   <section class="card pur-card pur-wide"><div class="pur-section-head"><h3>Custom fields</h3><button type="button" class="sm" data-pur-add-field onclick="purSupplierDraft.customFields.push({id:salesUid('SF'),label:'',value:''});render()">+ Field</button></div>${custom||'<p class="mut">Your own labels and values.</p>'}</section>
-  ${sheets.length?`<section class="card pur-card pur-wide"><h3>Supply points · ${sheets.length}</h3><div class="sales-table-wrap"><table class="sl-table"><thead><tr><th>Supply point</th><th>Glass</th><th>Sheet, in</th><th>Currency</th></tr></thead><tbody>${sheets.map(s=>`<tr><td data-raw>${esc(s.supplier)}</td><td data-raw>${esc(s.productCode)}</td><td>${s.sheetWIn==null?'—':esc(s.sheetWIn+' × '+s.sheetHIn)}</td><td>${esc(s.currency)}</td></tr>`).join('')}</tbody></table></div></section>`:''}
+  ${sheets.length?`<section class="card pur-card pur-wide"><h3>Supply points · ${sheets.length}</h3><div class="sales-table-wrap">${slFromTable('purSupplyPoints',`<table class="sl-table"><thead><tr><th>Supply point</th><th>Glass</th><th>Sheet, in</th><th>Currency</th></tr></thead><tbody>${sheets.map(s=>`<tr><td data-raw>${esc(s.supplier)}</td><td data-raw>${esc(s.productCode)}</td><td>${s.sheetWIn==null?'—':esc(s.sheetWIn+' × '+s.sheetHIn)}</td><td>${esc(s.currency)}</td></tr>`).join('')}</tbody></table>`)}</div></section>`:''}
   <section class="card pur-card pur-wide"><label class="pur-active"><input type="checkbox" data-pur-active ${d.active?'checked':''} onchange="purSupplierDraft.active=this.checked"> Active supplier</label><p class="mut">Archived cards keep their supply links and can be restored here.</p></section>
   ${d.id?purHistoryHTML('supplier',d.id):''}
   </div></div>`;
@@ -35323,8 +35352,8 @@ function purPOGlassRow(l,i){
 }
 function purPOLinesHTML(){
  const glass=purOrderDraft.lines.map((l,i)=>({l,i})).filter(x=>purIsGlass(x.l)),extra=purOrderDraft.lines.map((l,i)=>({l,i})).filter(x=>!purIsGlass(x.l));
- return purPOGlassBuilder(glass)+'<section class="sales-block sales-lines-block"><div class="sales-lines-head"><div><b>ORDER LINES</b></div><div class="sales-line-tools"><button type="button" class="pri" onclick="purOrderAddLine(\'glass\');purActiveGlass=purOrderDraft.lines.at(-1).id;render()">+ Line</button></div></div><div class="sales-table-wrap"><table class="sales-lines-table pur-glass-table"><thead><tr>'+['#','Glass','Qty','Width, in','Height, in','Unit','Sheets / block','Price','Price per','Line total','Held',''].map(n=>'<th>'+esc(n)+'</th>').join('')+'</tr></thead><tbody>'+glass.map(({l,i})=>purPOGlassRow(l,i)).join('')+(!glass.length?'<tr><td colspan="12" class="empty">No glass in this order.</td></tr>':'')+'</tbody></table></div></section>'+
-  (extra.length?'<section class="sales-block sales-extra-items"><div class="sales-block-head"><b>STOCK &amp; EXTRA ITEMS</b></div><div class="customer-table-wrap"><table class="sales-lines-table pur-extra-table"><thead><tr>'+['Item','Qty','Unit','Price','Price per','Note','Total',''].map(n=>'<th>'+n+'</th>').join('')+'</tr></thead><tbody>'+extra.map(({l,i})=>purOrderLineHTML(l,i)).join('')+'</tbody></table></div></section>':'')+
+ return purPOGlassBuilder(glass)+'<section class="sales-block sales-lines-block"><div class="sales-lines-head"><div><b>ORDER LINES</b></div><div class="sales-line-tools"><button type="button" class="pri" onclick="purOrderAddLine(\'glass\');purActiveGlass=purOrderDraft.lines.at(-1).id;render()">+ Line</button></div></div><div class="sales-table-wrap">'+slFromTable('purGlassLines','<table class="sales-lines-table pur-glass-table"><thead><tr>'+['#','Glass','Qty','Width, in','Height, in','Unit','Sheets / block','Price','Price per','Line total','Held',''].map(n=>'<th>'+esc(n)+'</th>').join('')+'</tr></thead><tbody>'+glass.map(({l,i})=>purPOGlassRow(l,i)).join('')+(!glass.length?'<tr><td colspan="12" class="empty">No glass in this order.</td></tr>':'')+'</tbody></table>')+'</div></section>'+
+  (extra.length?'<section class="sales-block sales-extra-items"><div class="sales-block-head"><b>STOCK &amp; EXTRA ITEMS</b></div><div class="customer-table-wrap">'+slFromTable('purExtraLines','<table class="sales-lines-table pur-extra-table"><thead><tr>'+['Item','Qty','Unit','Price','Price per','Note','Total',''].map(n=>'<th>'+n+'</th>').join('')+'</tr></thead><tbody>'+extra.map(({l,i})=>purOrderLineHTML(l,i)).join('')+'</tbody></table>')+'</div></section>':'')+
   '<div class="sales-extra-items-quiet"><button type="button" class="sm" onclick="purPicker={kind:\'stock\'};render()">+ Material</button><button type="button" class="sm" data-pur-add-line onclick="purOrderAddLine(\'other\')">+ Other item</button></div>';
 }
 function purReceiptGlassPicked(i,id){const l=purFulfilDraft.data.lines[i],g=glassProductById(id);if(g)Object.assign(l,{kind:'glass',productId:g.id,productCode:g.code,description:g.name,sheetId:''});else purClearGlass(l);render();}
@@ -35530,7 +35559,7 @@ function purFulfilForm(){
   (receipt?purFulfilField('receivedBy','Received by')+purFulfilField('packingSlip','Supplier packing slip')+(requests.length||d.requestId?'<div><label for="pur_delivery_request">Delivery request · optional</label><select id="pur_delivery_request" onchange="purFulfilDraft.data.requestId=this.value;purFulfilDraft.data.lines.forEach(l=>l.requestLineId=\'\');render()"><option value="">Without request</option>'+requests.map(r=>'<option value="'+esc(r.id)+'" '+(r.id===d.requestId?'selected':'')+'>'+esc(r.number+' · '+purFulfilStatus('request',r))+'</option>').join('')+'</select>'+(d.requestId?'<button type="button" class="sm" onclick="purFulfilLoadRequest()">Load request lines</button>':'')+'</div>':''):purFulfilField('expectedDate','Requested delivery','date')+purFulfilField('to','Email to')+purFulfilField('cc','CC'))+
   purFulfilField('note','Notes')+'</div>'+
   '<section class="sales-block sales-lines-block"><div class="sales-lines-head"><div><b>'+(receipt?'WHAT ARRIVED':'WHAT TO BRING')+'</b><span>'+(receipt?'Empty rows are not saved':'Only receipts reduce the held balance')+'</span></div><div class="sales-line-tools">'+(p?'<button type="button" onclick="purFulfilLoadPO()">Load PO lines</button>':'')+'<button type="button" onclick="purFulfilAddLine(\'glass\')">+ Glass</button><button type="button" onclick="purPicker={kind:\'stock\',target:\'receipt\'};render()">+ Material</button><button type="button" onclick="purFulfilAddLine(\'other\')">+ Other item</button></div></div>'+
-  '<div class="sales-table-wrap"><table class="sales-lines-table pur-receive-table'+(receipt?'':' pur-request-table')+'"><thead><tr>'+heads.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+(d.lines.map(purFulfilRowHTML).join('')||'<tr><td colspan="'+heads.length+'" class="empty">No lines.</td></tr>')+'</tbody></table></div></section>'+
+  '<div class="sales-table-wrap">'+slFromTable('purReceiveLines','<table class="sales-lines-table pur-receive-table'+(receipt?'':' pur-request-table')+'"><thead><tr>'+heads.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+(d.lines.map(purFulfilRowHTML).join('')||'<tr><td colspan="'+heads.length+'" class="empty">No lines.</td></tr>')+'</tbody></table>')+'</div></section>'+
   '<datalist id="pur_reason"><option>In transit</option><option>Factory defect</option><option>Our breakage</option><option>Other</option></datalist><datalist id="pur_resolution"><option>Credit requested</option><option>Replacement</option><option>Written off</option><option>Other</option></datalist></fieldset>'+
   (d.id?purHistoryHTML(f.kind,d.id):'')+(purPicker?purPickerHTML():'')+(purFulfilPreview?purRequestPreviewHTML():'')+'</div>';
 }
@@ -35832,7 +35861,17 @@ const SALES_LIST_COLUMNS=[
  {k:'validUntil',label:'Valid until',type:'date'},
  {k:'revisions',label:'Revisions',type:'number'},
  {k:'fromQuote',label:'From quote',type:'text'},
- {k:'updated',label:'Updated',type:'date'}
+ {k:'updated',label:'Updated',type:'date'},
+ /* Поля заказа, которых не было на экране (владелец 07.11.2026: «если где-то
+    не хватает данных в колонках, даже в Sales — добавь»): в ⚙ Columns. */
+ {k:'account',label:'Account',type:'text'},
+ {k:'contact',label:'Contact',type:'text'},
+ {k:'currency',label:'Currency',type:'list'},
+ {k:'billed',label:'Picked up',type:'date'},
+ {k:'payDue',label:'Payment due',type:'date'},
+ {k:'daysLate',label:'Days late',type:'number'},
+ {k:'holdReason',label:'Hold reason',type:'text'},
+ {k:'notes',label:'Notes',type:'text'}
 ];
 const SALES_LIST_OPS={
  text:[['contains','Contains'],['notContains','Does not contain'],['startsWith','Starts with'],['endsWith','Ends with'],['equals','Equals'],['notEqual','Not equal'],['empty','Is empty'],['notEmpty','Is not empty']],
@@ -36053,6 +36092,14 @@ function salesListValue(info,k){
   case 'hold':v=!q&&o.onHold?'On Hold':'Not on hold';break;
   case 'delivery':v=o.delivery==='delivery'?'Delivery':'Pickup';break;
   case 'rep':v=c.salesRep||'';break;
+  case 'account':v=c.code||'';break;
+  case 'contact':{const p=(c.contacts||[]).find(x=>x.id===o.customerContactId);v=p?p.name||p.email||'':'';break;}
+  case 'currency':v=o.currency||'';break;
+  case 'billed':v=q||typeof finBillingDate!=='function'?'':finBillingDate(o)||'';break;
+  case 'payDue':v=q||typeof finOrderFinancial!=='function'?'':finOrderFinancial(o).dueOn||'';break;
+  case 'daysLate':{if(q||typeof finOrderFinancial!=='function'){v=null;break;}const f=finOrderFinancial(o),d=f.dueOn&&f.b.balance>0&&f.dueOn<finToday()?Math.floor((Date.parse(finToday())-Date.parse(f.dueOn))/864e5):0;v=d||null;break;}
+  case 'holdReason':v=o.onHold?o.holdReason||'':'';break;
+  case 'notes':v=o.notes||'';break;
   case 'createdBy':{const e=orderCreatedBy(o.id);v=e?e.by:'';break;}
   case 'terms':v=finTermsFor(o).paymentMode==='credit'?'Credit':'Cash';break;
   case 'invoice':v=q?'':!finInvoiceDate(o)?'In work':salesInvoicedSet().has(o.id)?'Invoiced':'Not invoiced';break;
@@ -36273,11 +36320,12 @@ function salesListCell(info,col){
   case 'type':return `<td><span class="pill ${q?'kind-quote':'kind-order'}">${q?'Quote':'Order'}</span></td>`;
   case 'number':{const from=!q&&o.fromQuoteId?salesListValue(info,'fromQuote'):'';return `<td><b class="mono">${raw(v||'Auto Number')}</b>${from?` <span class="mut small">from ${raw(from)}</span>`:''}</td>`;}
   case 'customer':return `<td><b>${raw(v||'—')}</b></td>`;
-  case 'created':case 'due':case 'validUntil':case 'updated':return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;
+  case 'created':case 'due':case 'validUntil':case 'updated':case 'billed':case 'payDue':return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;
   case 'status':return `<td>${q?salesQuoteGroupPill(o):salesStatusPill(o)}${!q&&o.onHold?' <span class="pill hold">On Hold</span>':''}</td>`;
   case 'invoice':return `<td>${salesInvoicePill(o,v)}</td>`;
   case 'glass':case 'orderItems':return `<td><span class="sl-glass" title="${esc(v)}">${raw(v||'—')}</span></td>`;
   case 'weight':return salesListWeightCell(v,info.memo.weightInfo);
+  case 'daysLate':return `<td class="n">${v?`<b class="fin-due">${v} d</b>`:'<span class="mut">—</span>'}</td>`;
   case 'units':case 'pcs':case 'lines':case 'shapes':case 'revisions':return `<td class="n">${salesListNum(v)}</td>`;
   case 'area':return `<td class="n">${salesListNum(v,1)}</td>`;
   case 'total':return `<td class="n${!q&&finOrderCounts(o)?'':' mut'}">${finFmt(v)}</td>`;
@@ -36522,15 +36570,6 @@ function salesListCwTable(keys,lead,trail,defs){
   min:()=>CW_MIN,move:salesListMoveColumnTo,lead:lead||[],trail:trail||0,fill:['customer','glass','item'].find(k=>keys.includes(k))||''});
  return {cls:cwTableClass(id),attrs:cwTableAttrs(id,keys),col:cwColgroup(id,keys)};
 }
-/* Таблица с постоянными колонками (окна, Ready): ширина тянется за край
-   заголовка и хранится в этом браузере; порядок у таких таблиц постоянный.
-   head — [[ключ, подпись, класс]]. Возвращает {head, cls, attrs, col}. */
-function cwStaticTable(id,head,lead){
- const key='glass_erp_cw_'+id,read=()=>{try{const v=JSON.parse(localStorage.getItem(key)||'{}');return v&&typeof v==='object'?v:{};}catch(e){return {};}};
- if(!CW_TABLES[id])cwRegister(id,{widths:read,save:w=>{try{if(Object.keys(w).length)localStorage.setItem(key,JSON.stringify(w));else localStorage.removeItem(key);}catch(e){}render();},def:()=>110,min:()=>CW_MIN,move:()=>{},lead:lead||[],trail:0,fill:''});
- const keys=head.map(h=>h[0]);
- return {head:head.map(([k,l,c])=>`<th${c?` class="${c}"`:''} data-cw-key="${k}"><span data-cw-label>${l}</span>${cwGrip()}</th>`).join(''),cls:cwTableClass(id),attrs:cwTableAttrs(id,keys),col:cwColgroup(id,keys)};
-}
 /* Таблица списка вида Sales для вкладок со своими строками (Skids, Backorders,
    Delivery): шестерёнка Columns, фильтр и сортировка в заголовке, ширина и
    порядок перетаскиванием, итог внизу. o: {infos, rows, cell(info,col,prev),
@@ -36540,7 +36579,7 @@ function salesListTableHTML(o){
  const th=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th"><span data-cw-label>${c.label}</span><button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span>${cwGrip()}</th>`;};
  const body=rows.map((i,k)=>{const r=o.row(i,k);return `<tr${r.attrs||''}>${r.first||'<td class="sl-check"></td>'}${cols.map(c=>o.cell(i,c,rows[k-1])).join('')}${r.last!=null?`<td class="sl-row-acts">${r.last}</td>`:'<td></td>'}</tr>${r.after?r.after(cols.length+2):''}`;}).join('');
  const lead=Math.max(0,cols.findIndex(c=>salesListCalc(c)!=='none')),foot=rows.length?`<tfoot><tr class="sl-foot"><td colspan="${lead+1}" class="sl-foot-head"><b>${o.noun(rows)}</b></td>${cols.slice(lead).map(c=>salesListCalcCell(c,rows)).join('')}<td></td></tr></tfoot>`:'';
- return `${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${o.cls?' '+o.cls:''}${cwTableClass(cwId)}"${cwTableAttrs(cwId,keys)}>${cwColgroup(cwId,keys)}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">${o.empty}</td></tr>`}</tbody>${foot}</table></div>${salesListMenuHTML(o.infos)}`;
+ return `${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${o.cls?' '+o.cls:''}${cwTableClass(cwId)}"${cwTableAttrs(cwId,keys)}>${cwColgroup(cwId,keys)}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button>${o.firstTh||''}</span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">${o.empty}</td></tr>`}${o.tail?o.tail(cols):''}</tbody>${foot}</table></div>${salesListMenuHTML(o.infos)}`;
 }
 
 /* ------------------------------ Выбор строк ---------------------------- */
@@ -36851,8 +36890,9 @@ function slCell(info,c){
  if(c.type==='number')return `<td class="n">${c.money?esc(finFmt(v)):esc(typeof v==='number'?v.toLocaleString('en-US',{maximumFractionDigits:c.digits==null?2:c.digits}):String(v))}</td>`;
  return `<td>${esc(String(v))}</td>`;
 }
-/* o: {columns:()=>[...], list, id(x), sort:{k,dir}, fill — колонка во всю ширину, acts — ширина колонки кнопок справа (px), c.w — ширина колонки, row(info)→{attrs, first, last, after(colspan) — строка под строкой},
-   rowHTML(x) — готовая строка экрана: колонки берут её ячейки (td:N), firstTd/lastTd — галочка и кнопки, noun(rows), empty, widths, cls}.
+/* o: {columns:()=>[...], list, id(x), sort:{k,dir}, fill — колонка во всю ширину, acts — ширина колонки кнопок справа (px), lead — ширина первой (галочка), c.w — ширина колонки, row(info)→{attrs, first, last, after(colspan) — строка под строкой},
+   rowHTML(x) — готовая строка экрана: колонки берут её ячейки (td:N), firstTd/lastTd — галочка и кнопки,
+   tail(cols) — строки после списка (итог «All»), их фильтр не трогает, noun(rows), empty, widths, cls}.
    Колонки без def видны сразу; def:false — только в ⚙ Columns. Ключ 'type' не брать: в движке он
    прячется, когда в Sales один вид (заказы без квот). */
 function slTable(scope,o){
@@ -36866,22 +36906,74 @@ function slTable(scope,o){
   if(cols0.some(c=>!p.cols.some(x=>x.k===c.k))||p.cols.some(x=>!keys.has(x.k)))delete salesQueuePrefs[scope];
   const cols=salesListColumns(),infos=slInfos(o.list,o.id||((x,i)=>i),cols0);
   const defs=Object.assign({},...cols0.filter(c=>c.w).map(c=>({[c.k]:c.w})),o.widths||{});
-  salesListCwTable(cols.map(c=>c.k),[44],o.acts||20,defs);
+  salesListCwTable(cols.map(c=>c.k),[o.lead||44],o.acts||20,defs);
   /* Колонка, что забирает остаток ширины (как Customer в Sales): своя или первая текстовая. */
-  const reg=CW_TABLES[scope];if(reg){reg.fill=o.fill||(cols0.find(c=>c.type==='text')||cols0[0]||{}).k||'';reg.trail=o.acts||20;}
+  const reg=CW_TABLES[scope];if(reg){reg.fill=o.fill||(cols0.find(c=>c.type==='text')||cols0[0]||{}).k||'';reg.trail=o.acts||20;reg.lead=[o.lead||44];}
   const rows=salesListRows(infos);
   if(o.rowHTML)rows.forEach(i=>{i.row=slParseRow(o.rowHTML(i.x,i.i));});
-  html=salesListTableHTML({infos,rows,cls:o.cls,
+  html=salesListTableHTML({infos,rows,cls:o.cls,tail:o.tail,firstTh:o.firstTh,
    cell:(i,c)=>slCell(i,c),
    row:info=>{const r=o.row?o.row(info)||{}:{},R=info.row;
     if(R){/* rowHTML: атрибуты строки, первая (галочка) и последняя (кнопки) ячейки — из неё. */
      const cell=n=>n==null?undefined:R.tds[n<0?R.tds.length+n:n];
      const f=cell(o.firstTd),l=cell(o.lastTd);
-     return {attrs:R.attrs+(r.attrs||'')+` data-sl-row="${esc(info.o.id)}"`,first:f?`<td${f.attrs}>${f.html}</td>`:r.first,last:l?l.html:r.last,after:R.after?()=>R.after:r.after};}
+     /* Галочка — ячейка sl-check: стоит под ⚙, как во всех таблицах. */
+     const fa=f?(/ class="/.test(f.attrs)?f.attrs.replace(/ class="/,' class="sl-check '):f.attrs+' class="sl-check"'):'';
+     return {attrs:R.attrs+(r.attrs||'')+` data-sl-row="${esc(info.o.id)}"`,first:f?`<td${fa}>${f.html}</td>`:r.first,last:l?l.html:r.last,after:R.after?()=>R.after:r.after};}
     return {attrs:(r.attrs||'')+` data-sl-row="${esc(info.o.id)}"`,first:r.first,last:r.last,after:r.after};},
    noun:rows=>o.noun?o.noun(rows):rows.length+' row'+(rows.length===1?'':'s'),empty:infos.length?'Nothing matches the filters.':(o.empty||'Nothing here yet.')});
  }finally{slScopeNow=was;}
  return `<div class="sl-generic" data-sl-scope="${esc(scope)}">${html}</div>`;
+}
+/* Готовая таблица экрана — заголовки [[ключ, подпись, класс]] и строки HTML —
+   на движок Sales без переписывания строк: значения для фильтра и сортировки —
+   текст ячеек (у колонок с классом n — число). Колонка без подписи в конце —
+   кнопки строки. Строка с одной ячейкой на всю ширину — надпись «пусто». */
+function slHtmlTable(scope,head,body,o){
+ o=o||{};
+ const t=document.createElement('template');t.innerHTML='<table><tbody>'+(body||'')+'</tbody></table>';
+ const trs=[...t.content.querySelectorAll('tbody > tr')],data=trs.filter(tr=>!(tr.children.length===1&&tr.children[0].colSpan>1));
+ const empty=trs.length&&!data.length?trs[0].textContent.trim():o.empty;
+ const acts=head.length&&!head[head.length-1][1];
+ const list=data.map(tr=>({html:tr.outerHTML,tds:[...tr.children].map(td=>td.textContent.replace(/\s+/g,' ').trim())}));
+ const num=s=>{const n=parseFloat(String(s).replace(/[^\d.\-]/g,''));return Number.isFinite(n)?(/^\s*[−-]/.test(s)?-Math.abs(n):n):'';};
+ return slTable(scope,Object.assign({list,rowHTML:x=>x.html,lastTd:acts?-1:undefined,empty},o,{
+  columns:()=>head.slice(0,acts?-1:head.length).map(([k,label,cls],i)=>{const n=/\bn\b/.test(cls||'');return {k,label,type:n?'number':'text',td:i,v:x=>n?num(x.tds[i]):x.tds[i]};})}));
+}
+/* Готовая таблица экрана целиком (<table>…</table>) — на движок Sales:
+   заголовки и строки как есть. Пустой заголовок первой колонки — галочка
+   строки, пустой последней — кнопки строки. Строки с классом o.sub
+   (подстроки связей) идут под своей строкой, фильтр их не считает; строки
+   tfoot — под списком. Класс и data-атрибуты таблицы — у обёртки. */
+function slFromTable(scope,html,o){
+ o=o||{};
+ const t=document.createElement('template');t.innerHTML=html;const tb=t.content.querySelector('table');if(!tb)return html;
+ let ths=[...tb.querySelectorAll('thead th')];const lab=th=>th.textContent.replace(/\s+/g,' ').trim();
+ /* Несколько пустых колонок слева (галочка и ▸) — одна первая ячейка. */
+ let lead=0;while(lead<ths.length-1&&!lab(ths[lead])&&!ths[lead].querySelector('input'))lead++;
+ if(lead>1){tb.querySelectorAll('tr').forEach(tr=>{const c=[...tr.children];if(c.length<lead||c[0].colSpan>1)return;for(let i=1;i<lead;i++){c[0].insertAdjacentHTML('beforeend',' '+c[i].innerHTML);c[i].remove();}});ths=[...tb.querySelectorAll('thead th')];}
+ const first=ths.length>1&&!lab(ths[0]),last=ths.length>2&&!lab(ths[ths.length-1])&&!ths[ths.length-1].querySelector('input');
+ const from=first?1:0,to=last?ths.length-1:ths.length;
+ const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'')||'c';
+ const head=ths.slice(from,to).map((th,i)=>({k:slug(lab(th))+'_'+(i+from),label:lab(th),n:th.classList.contains('n')||th.classList.contains('cs-n'),td:i+from}));
+ const rows=[...tb.querySelectorAll(':scope > tbody > tr')],list=[];
+ rows.forEach(tr=>{
+  /* Строка с одной ячейкой на всю ширину: до данных — «пусто», после — пояснение под своей строкой. */
+  if(tr.children.length===1&&tr.children[0].colSpan>1){if(list.length)list[list.length-1].sub.push(tr.outerHTML);return;}
+  if(o.sub&&tr.matches(o.sub)&&list.length){list[list.length-1].sub.push(tr.outerHTML);return;}
+  list.push({html:tr.outerHTML,sub:[],tds:[...tr.children].map(td=>td.textContent.replace(/\s+/g,' ').trim())});
+ });
+ const emptyRow=rows.find(tr=>tr.children.length===1&&tr.children[0].colSpan>1);
+ const foot=[...tb.querySelectorAll('tfoot tr')].map(tr=>tr.outerHTML).join('');
+ const num=s=>{const n=parseFloat(String(s).replace(/[^\d.\-]/g,''));return Number.isFinite(n)?(/^\s*[−-]/.test(s)?-Math.abs(n):n):'';};
+ const attrs=[...tb.attributes].filter(a=>a.name!=='class'&&a.name!=='style').map(a=>` ${a.name}="${esc(a.value)}"`).join('');
+ const cls=[...tb.classList].filter(c=>c!=='sl-table').join(' ');
+ /* Галочка «все» в заголовке первой колонки — рядом с ⚙. */
+ const firstTh=first&&ths[0].querySelector('input')?ths[0].innerHTML:undefined;
+ const out=slTable(scope,Object.assign({list,firstTh,rowHTML:x=>x.html+x.sub.join(''),firstTd:first?0:undefined,lastTd:last?-1:undefined,
+  empty:emptyRow?emptyRow.textContent.trim():undefined,cls,acts:last?90:20,tail:foot?()=>foot:undefined,noun:l=>l.length+' row'+(l.length===1?'':'s'),
+  columns:()=>head.map(h=>({k:h.k,label:h.label,type:h.n?'number':'text',td:h.td,v:x=>h.n?num(x.tds[h.td]):x.tds[h.td]}))},o));
+ return attrs?`<div${attrs}>${out}</div>`:out;
 }
 
 /* ==== src/erp/views/sl-quick-filter.js ==== */
@@ -44609,7 +44701,7 @@ function ncrFormHTML(){
   <div class="sales-service-modal-head"><h3>${recut?'Recut':'New NCR'} · Order ${esc(o.businessNumber)}</h3><button type="button" aria-label="Close" onclick="ncrFormClose()">×</button></div>
   <div class="sales-dialog-body ncr-form">
    <p class="mut">${esc([salesCustomerDisplay(o.customerId),o.customerPo,salesStatusLabel(o)].filter(Boolean).join(' · '))}</p>
-   <div><div class="ncr-label">AFFECTED GLASS</div><div class="ncr-lines-wrap"><table class="ncr-lines"><thead><tr><th></th><th>Line</th><th>Size</th><th>Glass</th><th class="n">Qty</th><th>Affected</th><th>Which glass</th></tr></thead><tbody>${rows}</tbody></table></div></div>
+   <div><div class="ncr-label">AFFECTED GLASS</div><div class="ncr-lines-wrap">${slFromTable('ncrLines',`<table class="ncr-lines"><thead><tr><th></th><th>Line</th><th>Size</th><th>Glass</th><th class="n">Qty</th><th>Affected</th><th>Which glass</th></tr></thead><tbody>${rows}</tbody></table>`)}</div></div>
    <div class="ncr-pick${recut?' ncr-pick-two':''}">
     <label><span class="ncr-label">WHERE</span><select data-ncr-where-select onchange="ncrFormSet('where',this.value)"><option value="">Choose…</option>${places.map(w=>`<option value="${esc(w.code)}" ${f.where===w.code?'selected':''}>${esc(w.code===NCR_OFFICE?'Office':w.code+' · '+w.name)}</option>`).join('')}</select></label>
     <label><span class="ncr-label">WHAT HAPPENED</span><select data-ncr-reason-select ${f.where?'':'disabled'} onchange="ncrFormSet('reasonId',this.value)"><option value="">${f.where?'Choose…':'Choose where first'}</option>${reasons.map(r=>`<option value="${esc(r.id)}" ${f.reasonId===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}</select></label>
@@ -44630,7 +44722,7 @@ function ncrViewHTML(){
   <div class="sales-service-modal-head"><h3>${esc(n.number)}${o?' · Order '+esc(o.businessNumber):''} <span class="pill ${status==='Open'?'ncr-st-open':'ncr-st-done'}" data-ncr-status>${esc(status)}</span></h3><button type="button" aria-label="Close" onclick="ncrViewClose()">×</button></div>
   <div class="sales-dialog-body ncr-form">
    <div class="sales-dialog-rows">${row('Created',salesShortDate(n.createdAt))}${row('Customer',o?salesCustomerDisplay(o.customerId):'—')}${row('Source',n.source)}${row('Where',n.where===NCR_OFFICE?'Office':n.where+' · '+ncrWhereName(n.where))}${row('What happened',n.reason)}${row('Action',n.action)}</div>
-   <div class="ncr-lines-wrap"><table class="ncr-lines"><thead><tr><th>Line</th><th>Which glass</th><th class="n">Affected</th></tr></thead><tbody>${n.glass.map(g=>`<tr><td>Line ${g.line}${g.mark?' · '+esc(g.mark):''}</td><td>${esc(g.lite)}</td><td class="n">${g.qty}</td></tr>`).join('')}</tbody></table></div>
+   <div class="ncr-lines-wrap">${slFromTable('ncrAffected',`<table class="ncr-lines"><thead><tr><th>Line</th><th>Which glass</th><th class="n">Affected</th></tr></thead><tbody>${n.glass.map(g=>`<tr><td>Line ${g.line}${g.mark?' · '+esc(g.mark):''}</td><td>${esc(g.lite)}</td><td class="n">${g.qty}</td></tr>`).join('')}</tbody></table>`)}</div>
    ${n.note?`<p class="ncr-note">${esc(n.note)}</p>`:''}
    ${n.action===NCR_REMAKE?`<div class="sales-quote-note">${r?'Remake order '+esc(r.businessNumber)+' · '+esc(salesStatusLabel(r)):'Remake order deleted'}</div>`:''}
   </div>
@@ -44986,7 +45078,7 @@ function stkDialogHTML(){
    <td>${usable?`<select data-stk-which ${on&&opts.length>1?'':'disabled'} aria-label="Which glass" onchange="stkDialogRow('${esc(row.key)}','which',this.value,true)">${opts.map(v=>`<option value="${esc(v.v)}" ${x.which===v.v?'selected':''}>${esc(v.t)}</option>`).join('')}</select>`:`<span class="mut">${unitType?'Single glass':'No glass'}</span>`}</td>
    <td><input type="text" data-stk-units value="${esc(x.units)}" placeholder="1-${max}" ${on?'':'disabled'} aria-label="Units" oninput="stkDialogRow('${esc(row.key)}','units',this.value)"></td></tr>`;
  }).join('');
- const body=`<div class="ncr-lines-wrap"><table class="ncr-lines stk-lines"><thead><tr><th></th><th>Line</th><th>Size</th><th class="n">Qty</th><th>Which glass</th><th>Units</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+ const body=`<div class="ncr-lines-wrap">${slFromTable('stickerLines',`<table class="ncr-lines stk-lines"><thead><tr><th></th><th>Line</th><th>Size</th><th class="n">Qty</th><th>Which glass</th><th>Units</th></tr></thead><tbody>${rows}</tbody></table>`)}</div>`;
  const types=`<div><div class="ncr-label">STICKER</div>${seg(STK_TYPES,d.type,'stkDialogType')}</div>`;
  return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)stkDialogClose()"><div class="sales-service-modal sales-dialog stk-modal" role="dialog" aria-modal="true" aria-label="Print stickers">
   <div class="sales-service-modal-head"><h3>${esc(title)}</h3><button type="button" aria-label="Close" onclick="stkDialogClose()">×</button></div>
@@ -45911,15 +46003,15 @@ function viewMdCutting(){
  return `<div class="cut-md" data-cut-md>
   <div class="cut-md-head"><div><h3>Cutting parameters</h3><p class="mut">Trim — bottom, left. Border — top, right.</p></div>
    <button type="button" data-cut-reset onclick="cutMdReset()">Reset to shop table</button></div>
-  <div class="sales-table-wrap"><table class="ncr-table cut-table"><thead><tr><th>Thickness</th><th class="n">Trim</th><th class="n">Border</th><th class="n">Min distance</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="sales-table-wrap">${slFromTable('mdCutParams',`<table class="ncr-table cut-table"><thead><tr><th>Thickness</th><th class="n">Trim</th><th class="n">Border</th><th class="n">Min distance</th></tr></thead><tbody>${rows}</tbody></table>`)}</div>
   ${(function(){const sizes=cutSheetSizes();
    const edge=(x,own,f,label)=>`<td class="n"><input type="text" data-cut-${f.toLowerCase()}="${esc(x.key)}" value="${own[f]==null?'':esc(frac16(own[f]))}" placeholder="—" aria-label="${label} ${esc(x.key)}" onchange="cutMdSheetTrim('${esc(x.key)}','${f}',this.value)"></td>`;
    const whose=x=>[x.shop?'All glass':'',x.codes.slice(0,4).join(', ')+(x.codes.length>4?' +'+(x.codes.length-4):'')].filter(Boolean).join(' · ');
    return `<h4 class="cut-md-sub">Sheet sizes</h4><p class="mut">Sizes from supply and Inventory.</p>
-   <div class="sales-table-wrap"><table class="ncr-table cut-table" data-cut-sheet-table><thead><tr><th>Sheet</th><th>Glass</th><th class="n">Trim X <small>bottom</small></th><th class="n">Trim Y <small>left</small></th><th class="n">Border X <small>top</small></th><th class="n">Border Y <small>right</small></th></tr></thead><tbody>${sizes.map(x=>{const own=cutSheetTrim(x.key)||{};
+   <div class="sales-table-wrap">${slFromTable('mdCutSheets',`<table class="ncr-table cut-table" data-cut-sheet-table><thead><tr><th>Sheet</th><th>Glass</th><th class="n">Trim X <small>bottom</small></th><th class="n">Trim Y <small>left</small></th><th class="n">Border X <small>top</small></th><th class="n">Border Y <small>right</small></th></tr></thead><tbody>${sizes.map(x=>{const own=cutSheetTrim(x.key)||{};
     return `<tr data-cut-sheet-row="${esc(x.key)}"><td><b>${esc(frac16(x.w))} × ${esc(frac16(x.h))}″</b></td><td class="mut">${esc(whose(x))}</td>
      ${edge(x,own,'trimX','Trim X')}${edge(x,own,'trimY','Trim Y')}${edge(x,own,'borderX','Border X')}${edge(x,own,'borderY','Border Y')}
-     </tr>`;}).join('')||'<tr><td colspan="6" class="mut" data-cut-sheets-empty>No sheet sizes yet — add them in Inventory → Sheet sizes.</td></tr>'}</tbody></table></div>
+     </tr>`;}).join('')||'<tr><td colspan="6" class="mut" data-cut-sheets-empty>No sheet sizes yet — add them in Inventory → Sheet sizes.</td></tr>'}</tbody></table>`)}</div>
    <div class="cut-size-add" data-cut-size-add><button type="button" onclick="navGo('inventory');if(tab==='inventory')invGo('sizes')">Sheet sizes in Inventory →</button></div>`;})()}
   <div class="cut-md-foot">
    <label><span class="ncr-label">MIN OFFCUT W</span><input type="text" data-cut-offcut-w value="${esc(frac16(s.minOffcutW))}" onchange="cutMdSetting('minOffcutW',this.value)"></label>
@@ -48029,7 +48121,9 @@ function salesCutEstimateCompare(){
   const total=`<tr class="cut-est-total" data-cut-est-total><td colspan="2"><b>All</b></td><td class="n">${g.rows.reduce((n,r)=>n+r.pcs,0)}</td><td class="n">${cutNum(g.used,1)}</td>
    <td class="n" data-cut-est-sheets>${all?q+aSheets+' → <b>'+g.sheets+'</b>':'—'}</td><td class="n">${all?q+pct(aPct):'—'}</td><td class="n"><b>${pct(g.pct)}</b></td><td class="n">${all?diff(g.pct-aPct):'—'}</td></tr>`;
   return `<div class="cut-orders cut-est-compare" data-cut-est-compare="${esc(g.glass)}"><h4>Alone / together · ${esc(glassCodeLabel(g.glass))} · ${g.mm} mm</h4>
-   ${(t=>`<table class="sl-table${t.cls}"${t.attrs}>${t.col}<thead><tr>${t.head}</tr></thead>`)(cwStaticTable('cutEstimate',[['order','Order / quote'],['customer','Customer'],['pcs','Pcs','n'],['ft2','Glass ft²','n'],['sheets','Sheets alone','n'],['waste','Waste alone','n'],['together','Waste together','n'],['change','Change, pts','n']]))}<tbody>${rows}${total}</tbody></table></div>`;
+   ${slHtmlTable('cutEstimate',[['order','Order / quote'],['customer','Customer'],['pcs','Pcs','n'],['ft2','Glass ft²','n'],['sheets','Sheets alone','n'],['waste','Waste alone','n'],['together','Waste together','n'],['change','Change, pts','n']],rows,{fill:'customer',
+    /* Итог All — под списком в порядке колонок, фильтр его не трогает. */
+    tail:cols=>{const t=document.createElement('template');t.innerHTML='<table><tbody>'+total+'</tbody></table>';const tds=[...t.content.querySelectorAll('td')],cell={order:'<td><b>All</b></td>',customer:'<td></td>'};['pcs','ft2','sheets','waste','together','change'].forEach((k,i)=>{cell[k]=tds[i+1].outerHTML;});return `<tr class="cut-est-total" data-cut-est-total><td class="sl-check"></td>${cols.map(c=>cell[c.k]||'<td></td>').join('')}<td></td></tr>`;}})}</div>`;
  }).join('');
 }
 function viewSalesCutEstimate(){
@@ -48069,10 +48163,16 @@ function orderLogDialogHTML(){
  const o=(DB.salesOrder||[]).find(x=>x.id===v.id);if(!o){orderLogView=null;return '';}
  /* Skip отменяется отсюда целиком (erp/shopfloor/skip) — Users и Finance. */
  const undo=r=>{const k=r.id&&typeof skipAllowed==='function'&&skipAllowed()?(DB.skip||[]).find(x=>x.eventId===r.id&&!x.undoneAt):null;const pieces=k?productionUnbatchSkipPieces(k):[];if(pieces.length)return ` <span class="mut" data-skip-unbatched>${pieces.length===k.pieces.length?'Fully':'Partially'} unbatched · ${shippingCount(pieces.length,'glass piece')}</span>`;return k?` <button type="button" class="sm" data-skip-undo="${esc(k.id)}" onclick="skipUndoClick('${esc(k.id)}')">Undo</button>`:'';};
- const rows=orderLogFor(o.id).map(r=>`<tr data-order-log-row><td>${esc(orderLogWhen(r.at))}</td><td>${r.by?raw(r.by):'<span class="mut">—</span>'}</td><td><b>${esc(r.what)}</b>${r.note?` <span class="order-log-note">· ${raw(r.note)}</span>`:''}${undo(r)}</td></tr>`).join('');
+ /* Таблица вида Sales (владелец 07.11.2026): фильтр, сортировка, ширина, порядок; Note — и отдельной колонкой в ⚙. */
+ const table=slTable('orderLog',{list:orderLogFor(o.id),cls:'order-log-table',empty:'No entries yet.',noun:l=>l.length+' entries',fill:'what',
+  columns:()=>[{k:'when',label:'When',type:'text',w:170,v:r=>r.at||'',cell:r=>esc(orderLogWhen(r.at))},
+   {k:'who',label:'Who',type:'list',w:150,v:r=>r.by||'',cell:r=>r.by?raw(r.by):'<span class="mut">—</span>'},
+   {k:'what',label:'What',type:'text',v:r=>r.what+(r.note?' · '+r.note:''),cell:r=>`<b>${esc(r.what)}</b>${r.note?` <span class="order-log-note">· ${raw(r.note)}</span>`:''}${undo(r)}`},
+   {k:'note',label:'Note',type:'text',def:false,v:r=>r.note||''}],
+  row:()=>({attrs:' data-order-log-row'})});
  return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)orderLogClose()"><div class="sales-service-modal sales-dialog order-log-dialog" role="dialog" aria-modal="true" aria-label="Activity log" data-order-log>
   <div class="sales-service-modal-head"><div><span>Activity log</span><h3 data-raw>${esc([o.businessNumber,salesCustomerDisplay(o.customerId)].filter(Boolean).join(' · '))}</h3></div><button type="button" aria-label="Close" onclick="orderLogClose()">×</button></div>
-  <div class="sales-dialog-body">${(t=>`<table class="order-log-table${t.cls}"${t.attrs}>${t.col}<thead><tr>${t.head}</tr></thead>`)(cwStaticTable('orderLog',[['when','When'],['who','Who'],['what','What']]))}<tbody>${rows}</tbody></table></div></div></div>`;
+  <div class="sales-dialog-body">${table}</div></div></div>`;
 }
 (window.APP_OVERLAYS=window.APP_OVERLAYS||[]).push(orderLogDialogHTML);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&orderLogView)orderLogClose();});
@@ -50028,7 +50128,7 @@ function shippingLookupHTML(){
  if(!o){
   const list=shippingLookupIds.map(salesRecord).filter(Boolean),more=list.length-SHIPPING_LOOKUP_MAX;
   if(list.length<2)return {field,card:shippingLookupMiss?`<div class="shipping-notice bad" role="alert" data-lookup-miss>${po?'No order with PO':'Order'} ${esc(shippingLookupMiss)}${po?'':' not found'}</div>`:''};
-  return {field,card:`<section class="card shipping-customer shipping-lookup" data-lookup-list><div class="shipping-customer-head"><h3>PO ${esc(shippingLookupText)} · ${list.length} orders</h3><button type="button" aria-label="Close" onclick="shippingLookupClose()">×</button></div><div class="sales-table-wrap"><table class="sl-table"><thead><tr><th>Order</th><th>Customer</th><th>PO</th><th>Status</th></tr></thead><tbody>${list.slice(0,SHIPPING_LOOKUP_MAX).map(x=>`<tr><td><button type="button" class="sm" data-lookup-open onclick="shippingLookupId='${esc(x.id)}';render()">${esc(x.businessNumber)}</button></td><td><b>${esc(salesCustomerDisplay(x.customerId))}</b></td><td>${esc(x.customerPo)}</td><td>${shippingLookupPill(x,shippingSummary(x))}</td></tr>`).join('')}</tbody></table></div>${more>0?`<p class="mut">${more} more · type more of the PO</p>`:''}</section>`};
+  return {field,card:`<section class="card shipping-customer shipping-lookup" data-lookup-list><div class="shipping-customer-head"><h3>PO ${esc(shippingLookupText)} · ${list.length} orders</h3><button type="button" aria-label="Close" onclick="shippingLookupClose()">×</button></div><div class="sales-table-wrap">${slFromTable('shipLookup',`<table class="sl-table"><thead><tr><th>Order</th><th>Customer</th><th>PO</th><th>Status</th></tr></thead><tbody>${list.slice(0,SHIPPING_LOOKUP_MAX).map(x=>`<tr><td><button type="button" class="sm" data-lookup-open onclick="shippingLookupId='${esc(x.id)}';render()">${esc(x.businessNumber)}</button></td><td><b>${esc(salesCustomerDisplay(x.customerId))}</b></td><td>${esc(x.customerPo)}</td><td>${shippingLookupPill(x,shippingSummary(x))}</td></tr>`).join('')}</tbody></table>`)}</div>${more>0?`<p class="mut">${more} more · type more of the PO</p>`:''}</section>`};
  }
  const m=shippingLookupModel(o),count=n=>shippingCount(n,'unit'),open=shippingLookupOpen(o),pill=shippingLookupPill(o,m.q);
  const where=m.where.map(([code,n])=>`<div class="shipping-skid shipping-lookup-where"><b>${esc(code||'No skid')}</b><span>${count(n)}</span></div>`).join('');
@@ -50833,7 +50933,7 @@ const CARRIER_WIDTHS_KEY='glass_erp_carrier_widths_v1';
 function carrierWidthsAll(){try{const v=JSON.parse(localStorage.getItem(CARRIER_WIDTHS_KEY)||'{}');return v&&typeof v==='object'?v:{};}catch(e){return {};}}
 function carrierWidths(){return carrierWidthsAll()[carrierMe().id]||{};}
 function carrierWidthsSave(w){const all=carrierWidthsAll(),id=carrierMe().id;if(Object.keys(w).length)all[id]=w;else delete all[id];try{localStorage.setItem(CARRIER_WIDTHS_KEY,JSON.stringify(all));}catch(e){}render();}
-const CARRIER_COL_WIDTH={pos:52,order:80,customer:170,po:110,line:64,mark:100,size:140,glass:130,makeup:220,id:120,batch:120,next:70,due:70,weight:84,puton:160};
+const CARRIER_COL_WIDTH={pos:60,order:90,customer:170,po:130,line:84,mark:100,size:140,glass:130,makeup:220,id:120,batch:120,next:70,due:70,weight:84,puton:160};
 const CARRIER_CW={widths:carrierWidths,save:carrierWidthsSave,def:k=>CARRIER_COL_WIDTH[k]||100,min:()=>CW_MIN,
  move:(from,to,after)=>{const cols=carrierColPrefs(),a=cols.findIndex(c=>c.k===from);if(a<0||from===to)return;const [c]=cols.splice(a,1),b=cols.findIndex(x=>x.k===to);if(b<0){cols.splice(a,0,c);return;}cols.splice(after?b+1:b,0,c);carrierColsStore(cols);},
  trail:0,fill:'customer'};
@@ -50984,9 +51084,21 @@ function carrierWinHTML(){
  const done=w.done?`<div class="cw-done" role="status" data-carrier-done><b>${esc(w.done.text)}</b>${w.done.by?` · by <span data-raw>${esc(w.done.by)}</span>`:''}${w.done.kind==='back'?'':' <button type="button" class="sm" data-carrier-undo onclick="carrierWinUndo()">Undo</button>'}</div>`:'';
  const chips=loaded&&orders.length?`<div class="cw-orders">${orders.map(g=>{const all=g.items.every(i=>w.sel.has(i.key));return `<label class="cw-chip${all?' on':''}" data-carrier-order="${esc(g.o.businessNumber||'')}"><input type="checkbox" ${all?'checked':''} onchange="carrierWinPickOrder('${esc(g.o.id)}')"><b>${esc(g.o.businessNumber||'')}</b> <span data-raw>${esc(salesCustomerDisplay(g.o.customerId))}</span> · ${g.items.length}${carrierPrio(g.o)}</label>`;}).join('')}</div>`:'';
  const allSel=loaded&&sel.length===m.items.length;
- const head=`<tr>${loaded?`<th class="cw-check"><input type="checkbox" aria-label="Select all" data-carrier-all ${allSel?'checked':''} onchange="carrierWinPickAll(this.checked)"></th>`:''}${cols.map(c=>`<th${c.k==='weight'?' class="n"':''} data-cw-key="${c.k}"><span data-cw-label>${esc(c.label)}</span>${cwGrip()}</th>`).join('')}</tr>`,cwKeys=cols.map(c=>c.k),cwId=loaded?'carrierWin':'carrierWinOut';
- const body=rows.map(it=>{const on=w.sel.has(it.key);return `<tr class="${on?'on':''}" data-carrier-row="${esc(it.label)}"${loaded?` onclick="if(event.target.tagName!=='INPUT')carrierWinPick('${esc(it.key)}')"`:''}>${loaded?`<td class="cw-check"><input type="checkbox" ${on?'checked':''} aria-label="Select ${esc(it.label)}" onchange="carrierWinPick('${esc(it.key)}')"></td>`:''}${cols.map(c=>carrierCell(it,c)).join('')}</tr>`;}).join('');
- const table=rows.length?`<div class="cw-table-wrap"><table class="sl-table cw-table${cwTableClass(cwId)}"${cwTableAttrs(cwId,cwKeys)}>${cwColgroup(cwId,cwKeys)}<thead>${head}</thead><tbody>${body}</tbody></table></div><div class="cw-note"><span>${loaded?'#1 went on first.':'What went to the customer on '+esc(m.out.ps)+'.'}</span><b data-carrier-total>Total: ${esc(carrierCountText(rows))} · ${stationPlural(orders.length,'order','orders')}</b></div>`:'<div class="empty">Nothing on it</div>';
+ /* Фильтр ▾, сортировка и быстрый фильтр в заголовке — движок Sales
+    (владелец 07.11.2026: «все таблицы как Sales»). Колонки, их порядок и
+    ширины — свои, общие с меню Columns и листом тары на печать. */
+ const scope='carrierWinList',num=k=>k==='weight'||k==='pos';
+ SL_GENERIC[scope]={columns:()=>cols.map(c=>({k:c.k,label:c.label,type:num(c.k)?'number':'text',def:true})),sort:null};
+ const was=slScopeNow;slScopeNow=scope;let shown,menu,p;
+ try{
+  p=salesListLoadPrefs();if(cols.some(c=>!p.cols.some(x=>x.k===c.k))||p.cols.some(x=>!cols.some(c=>c.k===x.k))){delete salesQueuePrefs[scope];p=salesListLoadPrefs();}
+  const infos=rows.map((it,i)=>({o:{id:String(it.key||it.label||i),createdAt:''},it,memo:Object.fromEntries(cols.map(c=>{const t=carrierText(it,c.k);return [c.k,num(c.k)?(parseFloat(String(t).replace(/[^\d.]/g,''))||''):t];}))}));
+  shown=salesListRows(infos).map(x=>x.it);menu=salesListMenuHTML(infos);
+ }finally{slScopeNow=was;}
+ const fbtn=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button>`;};
+ const head=`<tr>${loaded?`<th class="cw-check"><input type="checkbox" aria-label="Select all" data-carrier-all ${allSel?'checked':''} onchange="carrierWinPickAll(this.checked)"></th>`:''}${cols.map(c=>`<th${c.k==='weight'?' class="n"':''} data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th">${fbtn(c)}<span data-cw-label>${esc(c.label)}</span></span>${cwGrip()}</th>`).join('')}</tr>`,cwKeys=cols.map(c=>c.k),cwId=loaded?'carrierWin':'carrierWinOut';
+ const body=shown.map(it=>{const on=w.sel.has(it.key);return `<tr class="${on?'on':''}" data-carrier-row="${esc(it.label)}"${loaded?` onclick="if(event.target.tagName!=='INPUT')carrierWinPick('${esc(it.key)}')"`:''}>${loaded?`<td class="cw-check"><input type="checkbox" ${on?'checked':''} aria-label="Select ${esc(it.label)}" onchange="carrierWinPick('${esc(it.key)}')"></td>`:''}${cols.map(c=>carrierCell(it,c)).join('')}</tr>`;}).join('');
+ const table=rows.length?`<div data-sl-scope="${scope}"><div class="cw-table-wrap"><table class="sl-table cw-table${cwTableClass(cwId)}"${cwTableAttrs(cwId,cwKeys)}>${cwColgroup(cwId,cwKeys)}<thead>${head}</thead><tbody>${body||`<tr><td colspan="${cols.length+1}" class="empty">Nothing matches the filters.</td></tr>`}</tbody></table></div>${menu}</div><div class="cw-note"><span>${loaded?'#1 went on first.':'What went to the customer on '+esc(m.out.ps)+'.'}</span><b data-carrier-total>Total: ${esc(carrierCountText(rows))} · ${stationPlural(orders.length,'order','orders')}</b></div>`:'<div class="empty">Nothing on it</div>';
  const bar=sel.length?`<div class="cw-bar" data-carrier-sel><span><b>${esc(carrierCountText(sel))} selected</b> <span class="mut">${sel.map(i=>'#'+i.pos).join(', ')}</span></span><span class="cw-sp"></span><label class="cw-to">Move to <input data-carrier-to placeholder="DL-15" value="${esc(w.to)}" oninput="carrierWin.to=this.value" onkeydown="if(event.key==='Enter'){event.preventDefault();carrierWinMove(this.value)}"></label><button type="button" class="pri" data-carrier-move onclick="carrierWinMove(document.querySelector('[data-carrier-to]').value)">Move</button>${m.code?`<button type="button" class="cw-danger" data-carrier-takeoff onclick="carrierWinTakeOff()">Take off ${esc(m.code)}</button>`:''}</div>`:'';
  const title=m.code?`<span class="cw-code">${esc(m.code)}</span><h3>${esc(m.type?m.type.label:'')}</h3>`:`<span class="cw-code none">${esc(m.word)}</span><h3>Waiting at ${esc(m.station)}</h3>`;
  return `<div class="sales-service-modal-back cw-back" onclick="if(event.target===this)carrierWinClose()"><div class="sales-service-modal cw" role="dialog" aria-modal="true" aria-label="${esc(m.code||m.word)}" data-carrier-window="${esc(m.code||'none:'+m.station)}" onclick="if(carrierWin&&carrierWin.menu&&!event.target.closest('[data-carrier-cols],[data-carrier-cols-button]')){carrierWin.menu=false;render();}">
@@ -51274,7 +51386,7 @@ function carrierCountScreen(){
    <div class="cc-place"><span class="mut">Place</span><span class="cb-seg">${CARRIER_COUNT_PLACES.map(p=>`<button type="button" class="${carrierCountPlace===p?'on':''}" data-count-place="${p}" onclick="carrierCountPlace='${p}';render()">${p}</button>`).join('')}</span></div>
    <div class="cb-tile cc-found" data-count-found><b>${found} of ${exp.length}</b><span>in the shop found</span></div></div>`:''}
   <div class="card cc-card"><div class="cc-sec"><h3>Scanned · ${got.size}</h3><span class="cw-sp"></span>${open?'<button type="button" class="sm" data-count-nolabel onclick="carrierCountNoLabelAsk()">+ No label</button>':''}</div>
-   ${rows?`<table class="cc-table"><thead><tr><th>Code</th><th>Result</th><th>By</th><th>Time</th></tr></thead><tbody>${rows}</tbody></table>`:'<div class="empty">Scan the first dolly or skid</div>'}</div></div>
+   ${rows?`${slFromTable('carrierCount',`<table class="cc-table"><thead><tr><th>Code</th><th>Result</th><th>By</th><th>Time</th></tr></thead><tbody>${rows}</tbody></table>`)}`:'<div class="empty">Scan the first dolly or skid</div>'}</div></div>
   <div class="card cc-card cc-right"><div class="cc-sec"><h3>${open?'Not seen yet':'Not found'} · ${missing.length}</h3></div>${cap(missing,c=>ns(c,desc(c)))||'<div class="mut">All found</div>'}
    ${open&&atCust.length?`<div class="cc-sec"><h3>At customers · ${atCust.length}</h3></div>${cap(atCust,x=>ns(x.code,salesCustomerDisplay(x.customerId)+' · '+x.ps+' · '+stationPlural(skidDays(x.since),'day','days')))}`:''}
    ${open&&unconf.length?`<div class="cc-sec"><h3>Not confirmed yet · ${unconf.length}</h3><span class="mut">a scan here confirms</span></div>${cap(unconf,c=>ns(c.code,'never used'))}`:''}</div></div></div>`;
@@ -52658,7 +52770,7 @@ function skipDialogHTML(){
   <div class="sales-dialog-body ncr-form">
    <p class="mut">${esc([salesCustomerDisplay(o.customerId),o.customerPo,salesStatusLabel(o)].filter(Boolean).join(' · '))}</p>
    <label class="skip-all"><input type="checkbox" data-skip-all ${d.all?'checked':''} onchange="skipSetAll(this.checked)"> Whole order</label>
-   <div class="ncr-lines-wrap"><table class="ncr-lines"><thead><tr><th>Line</th><th>Size</th><th>Glass</th><th class="n">Qty</th><th class="n">Left</th><th>Skip</th></tr></thead><tbody>${rows}${extras}</tbody></table></div>
+   <div class="ncr-lines-wrap">${slFromTable('skipLines',`<table class="ncr-lines"><thead><tr><th>Line</th><th>Size</th><th>Glass</th><th class="n">Qty</th><th class="n">Left</th><th>Skip</th></tr></thead><tbody>${rows}${extras}</tbody></table>`)}</div>
    <label><span class="ncr-label">GLASS ID OR UNIT</span><input type="text" data-skip-codes value="${esc(d.codes)}" placeholder="Scan G- or U-" oninput="skipSet('codes',this.value)"></label>
    <div class="ncr-pick">
     <label><span class="ncr-label">TO</span><select data-skip-to onchange="skipSet('to',this.value,true)"><option value="${SKIP_PICKUP}" ${pickup?'selected':''}>Picked up</option><option value="${SKIP_DELIVERED}" ${delivered?'selected':''}>Delivered</option>${stations.map(s=>`<option value="${esc(s.code)}" ${d.to===s.code?'selected':''}>${s.code===shippingStations().ship?'Shipped · ':''}${esc(s.code)} done</option>`).join('')}</select></label>
@@ -52905,7 +53017,7 @@ function productionUnbatchDialogHTML(){
   <div class="sales-service-modal-head"><h3>Unbatch · Order ${esc(o.businessNumber)}</h3><button type="button" aria-label="Close" onclick="productionUnbatchClose()">×</button></div>
   <div class="sales-dialog-body ncr-form"><p class="mut">${esc([salesCustomerDisplay(o.customerId),salesStatusLabel(o)].join(' · '))}</p>
   <label class="skip-all"><input type="checkbox" data-unbatch-all ${d.all?'checked':''} onchange="productionUnbatchSetAll(this.checked)"> Whole order · glass only</label>
-  <div class="ncr-lines-wrap"><table class="ncr-lines"><thead><tr><th>Line</th><th>Size</th><th class="n">Units</th><th>Unbatch</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="ncr-lines-wrap">${slFromTable('unbatchLines',`<table class="ncr-lines"><thead><tr><th>Line</th><th>Size</th><th class="n">Units</th><th>Unbatch</th></tr></thead><tbody>${rows}</tbody></table>`)}</div>
   <label><span class="ncr-label">GLASS ID OR UNIT</span><input type="text" data-unbatch-codes value="${esc(d.codes)}" placeholder="Scan G- or U-" onchange="productionUnbatchSet('codes',this.value)"></label>
   <label><span class="ncr-label">TO</span><select data-unbatch-target onchange="productionUnbatchSet('target',this.value)">${targets.map(t=>`<option value="${esc(t.id)}" ${d.target===t.id?'selected':''}>${esc(t.label)}</option>`).join('')}</select></label>
   <label><span class="ncr-label">REASON</span><input type="text" data-unbatch-reason maxlength="200" value="${esc(d.reason)}" placeholder="Optional" oninput="productionUnbatchSet('reason',this.value)"></label>
