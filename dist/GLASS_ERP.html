@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 201 модулей, 27 стиля.
+  Состав сборки: 203 модулей, 27 стиля.
 -->
 <html lang="en">
 <head>
@@ -1996,6 +1996,14 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .card.sales-list-card>.sales-toolbar:not(:has(>:not(.sales-toolbar-sp,[hidden]))){display:none}
 /* Колонка Invoice (07.11.2026): таблетка плотнее — колонка влезает в экран без прокрутки. */
 .sl-table .sl-inv-pill{font-size:10.5px;padding:2px 6px}
+/* Быстрый фильтр в заголовке (07.11.2026): ▾ слева, остальное — название и поле. */
+th .sl-th{display:flex;width:100%;min-width:0}
+th .sl-th .sl-fbtn{order:-1;flex:none}
+th .sl-th [data-cw-label]{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text}
+th.n .sl-th [data-cw-label]{text-align:right}
+.sl-qf{width:100%;min-width:0;height:22px !important;padding:0 3px !important;border:0 !important;border-radius:3px 3px 0 0 !important;background:var(--surface) !important;box-shadow:inset 0 -2px 0 var(--accent) !important;font:inherit;font-weight:600;color:var(--text);outline:0}
+th.n .sl-qf{text-align:right}
+.sl-qf-on{color:var(--accent);font-weight:700}
 
 /* ---- src/styles/col-widths.css ---- */
 /* Ширина и порядок колонок (views/col-widths): Sales и Order Lines одинаково. */
@@ -4283,7 +4291,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='f0f7f5004a05';
+var ERP_BUILD='a52a7299c1c8';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -18175,17 +18183,19 @@ function viewUsers(){
  const srv=!prod&&Array.isArray(cloudAccess.members);
  const list=log||cloud?[]:DB.user.map((u,i)=>({u,i})).filter(x=>usersOn(x.u,side));
  const count=k=>k==='cloud'?'':k==='log'?(DB.authEvent||[]).length:DB.user.filter(u=>usersOn(u,k)).length;
- const rows=list.map(({u,i})=>{
-  /* Edit и Remove — сверху для отмеченного (вид Sales, владелец 03.11.2026). */
-  const on=uSel===u.viewProfileId,actions='<td></td>',check=`<td class="sl-check"><input type="checkbox" aria-label="Select ${esc(u.name)}" ${on?'checked':''} onchange="uSel=this.checked?'${esc(u.viewProfileId)}':'';render()"></td>`;
-  return prod
-   ?`<tr data-user-row="${esc(u.viewProfileId)}"${on?' class="oq-selected"':''} ondblclick="userEditOpen(${i})">${check}<td class="mono">${esc(userNoText(u))}</td><td><b>${raw(u.name)}</b></td><td>${userNowHTML(u)}</td><td>${userHasPin(u)?'<span class="pill ok">set</span>':'<span class="mut">—</span>'}</td>${actions}</tr>`
-   :`<tr data-user-row="${esc(u.viewProfileId)}"${on?' class="oq-selected"':''} ondblclick="userEditOpen(${i})">${check}<td><b>${raw(u.name)}</b></td><td>${userNowHTML(u)}</td><td class="user-access-cell">${userAccessHTML(u)}</td>
-   <td>${userHasPassword(u)?'<span class="pill ok">set</span>':u.email&&signinServer()?'<span class="pill ok" title="Server login">server</span>':'<span class="pill warn" title="Cannot sign in">not set</span>'}</td>${srv?userServerHTML(u):''}${actions}</tr>`;
- }).join('');
- const head=prod
-  ?'<th class="sl-check"></th><th title="Station sign-in: number + PIN">No.</th><th>Name</th><th title="Signed in now on this computer">Now</th><th>PIN</th><th></th>'
-  :'<th class="sl-check"></th><th>Name</th><th title="Signed in now on this computer">Now</th><th>Sections</th><th>Password</th>'+(srv?'<th title="Login on server">Server</th>':'')+'<th></th>';
+ const plain=h=>String(h||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+ /* Таблица вида Sales (владелец 07.11.2026); Email, Badge — в ⚙ Columns. Edit и Remove — сверху для отмеченного. */
+ const pw=u=>userHasPassword(u)?'set':u.email&&signinServer()?'server':'not set';
+ const table=slTable(prod?'usersProduction':'usersOffice',{list,id:x=>x.u.viewProfileId,empty:prod?'No one signs in at stations yet':'No one signs in to the office yet',noun:l=>l.length+' '+(l.length===1?'person':'people'),fill:prod?'name':'access',
+  columns:()=>(prod?[{k:'no',label:'No.',type:'text',v:x=>userNoText(x.u),cell:x=>`<span class="mono">${esc(userNoText(x.u))}</span>`}]:[])
+   .concat([{k:'name',label:'Name',type:'text',v:x=>x.u.name,cell:x=>`<b>${raw(x.u.name)}</b>`},
+    {k:'now',label:'Now',type:'text',v:x=>plain(userNowHTML(x.u)),cell:x=>userNowHTML(x.u)}])
+   .concat(prod?[{k:'pin',label:'PIN',type:'list',v:x=>userHasPin(x.u)?'set':'',cell:x=>userHasPin(x.u)?'<span class="pill ok">set</span>':'<span class="mut">—</span>'}]
+    :[{k:'access',label:'Sections',type:'text',v:x=>plain(userAccessHTML(x.u)),cell:x=>`<span class="user-access-cell">${userAccessHTML(x.u)}</span>`},
+      {k:'password',label:'Password',type:'list',v:x=>pw(x.u),cell:x=>pw(x.u)==='set'?'<span class="pill ok">set</span>':pw(x.u)==='server'?'<span class="pill ok" title="Server login">server</span>':'<span class="pill warn" title="Cannot sign in">not set</span>'}])
+   .concat(srv&&!prod?[{k:'server',label:'Server',type:'text',v:x=>x.u.email||'',cell:x=>userServerHTML(x.u).replace(/^<td/,'<span').replace(/<\/td>$/,'</span>')}]:[])
+   .concat([{k:'email',label:'Email',type:'text',def:false,v:x=>x.u.email||''}]),
+  row:info=>{const u=info.x.u,on=uSel===u.viewProfileId;return {attrs:` data-user-row="${esc(u.viewProfileId)}"${on?' class="oq-selected"':''} ondblclick="userEditOpen(${info.x.i})"`,first:`<td class="sl-check"><input type="checkbox" aria-label="Select ${esc(u.name)}" ${on?'checked':''} onchange="uSel=this.checked?'${esc(u.viewProfileId)}':'';render()"></td>`};}});
  /* Вход ещё выключен (signinOn): пароля нет ни у кого с разделом Users. */
  const off=DB.user.some(userOffice)&&!signinOn()?'<span class="pill warn" data-signin-off>Sign-in is off — set a password for someone with Users</span>':'';
  const tabs=`<div class="sl-filter-row"><div class="sl-quick" role="tablist">${[['office','Office'],['production','Production'],['log','Sign-in log'],['cloud','Cloud']].map(([k,l])=>`<button type="button" role="tab" class="sl-quick-pill${side===k?' on':''}" data-users-side="${k}" onclick="subtab='${k}';uEdit=null;uDraft=null;uSel='';render()">${l} <b>${count(k)}</b></button>`).join('')}</div></div>`;
@@ -18193,8 +18203,7 @@ function viewUsers(){
  const bar=`<div class="sales-toolbar">${sel?`<b class="oq-sel" title="${esc(sel.u.name)}">1 selected</b>`:''}<button type="button" class="sl-quiet" data-user-edit ${sel?'':'disabled'} onclick="userEditOpen(${sel?sel.i:-1})">Edit</button><button type="button" class="sl-quiet sl-delete-quiet" data-user-remove ${sel?'':'disabled'} title="${prod?'Remove from production':'Remove from office'}" onclick="delUser(${sel?sel.i:-1},'${side}');uSel=''">Remove</button><span class="sales-toolbar-sp"></span>${off}${uEdit!==null||log||cloud?'':`<button class="pri" data-user-add onclick="userEditOpen('new')">Add user</button>`}</div>`;
  return `${cloud?`<div class="card sales-list-card"><div class="sales-toolbar"><span class="sales-toolbar-sp"></span>${off}</div>${tabs}<div style="padding:0 20px 16px">${usersCloudHTML()}</div></div>`:log?`<div class="card sales-list-card users-log-card">${tabs}${authLogTable()}</div>`:`<div class="card sales-list-card sl-foot-pin">${bar}${tabs}
   ${uEdit!==null?userForm():''}
-  <div class="sales-table-wrap"><table class="sl-table"><thead><tr>${head}</tr></thead>
-  <tbody>${rows||`<tr><td colspan="${srv?7:6}" class="empty">${prod?'No one signs in at stations yet':'No one signs in to the office yet'}</td></tr>`}</tbody>${list.length?`<tfoot><tr class="sl-foot"><td></td><td colspan="${srv?6:5}"><b>${list.length} ${list.length===1?'person':'people'}</b></td></tr></tfoot>`:''}</table></div>
+  ${table}
   </div>`}`;
 }
 /* Вход человека на сервер и совпадает ли он с галочками здесь
@@ -18338,11 +18347,11 @@ function authLogInfos(){
 }
 function authLogTable(){
  const infos=authLogInfos(),rows=salesListRows(infos).sort((a,b)=>b.e.at.localeCompare(a.e.at)),cols=salesListColumns();
- const head=c=>salesListHead(c),cw=salesListCwTable(cols.map(c=>c.k),[],0);
+ const head=c=>salesListHead(c),cw=salesListCwTable(cols.map(c=>c.k),[44],0);
  const cell=(i,c)=>c.k==='when'?`<td>${esc(salesListShortDay(i.memo.when))} · ${esc(new Date(i.e.at).toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit',hour12:false}))}</td>`:c.k==='what'?`<td><span class="pill ${i.e.what==='Sign in'?'ok':''}">${esc(i.e.what)}</span></td>`:`<td>${i.memo[c.k]?raw(String(i.memo[c.k])):'<span class="mut">—</span>'}</td>`;
  return `<div class="sales-toolbar">${salesListDateButton('when')}</div>${salesListFilterChips()}
-  <div class="sales-table-wrap"><table class="sl-table users-log${cw.cls}"${cw.attrs}>${cw.col}<thead><tr>${cols.map(head).join('')}</tr></thead>
-  <tbody>${rows.map(i=>`<tr data-auth-row>${cols.map(c=>cell(i,c)).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length}" class="empty">${infos.length?'Nothing matches the filters.':'No sign-ins yet'}</td></tr>`}</tbody></table></div>
+  <div class="sales-table-wrap"><table class="sl-table users-log${cw.cls}"${cw.attrs}>${cw.col}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(head).join('')}</tr></thead>
+  <tbody>${rows.map(i=>`<tr data-auth-row><td class="sl-check"></td>${cols.map(c=>cell(i,c)).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length+1}" class="empty">${infos.length?'Nothing matches the filters.':'No sign-ins yet'}</td></tr>`}</tbody></table></div>
   <div class="mut cust-foot">${rows.length} of ${infos.length} records · this computer only</div>${salesListMenuHTML(infos)}`;
 }
 /* Новый человек — с тем входом, на вкладке которого нажали Add user.
@@ -31301,27 +31310,29 @@ let sfSel='';
 function sfSelect(code,on){sfSel=on?code:'';render();}
 function viewSfStations(edit,framed){
  const steps=new Map();DB.station.forEach(s=>steps.set(s.seq,(steps.get(s.seq)||0)+1));
- const rows=DB.station.map((s,i)=>{
-  const w=stationOperations(s.code),par=steps.get(s.seq)>1;
-  return `<tr data-sf-station="${esc(s.code)}"${framed&&sfSel===s.code?' class="oq-selected"':''}>${framed?`<td class="sl-check"><input type="checkbox" data-sf-check aria-label="Select ${esc(s.code)}" ${sfSel===s.code?'checked':''} onchange="sfSelect('${esc(s.code)}',this.checked)"></td>`:''}<td style="white-space:nowrap">${edit?`<input class="sf-step" type="number" min="1" step="1" value="${s.seq}" data-sf-step="${esc(s.code)}" onchange="sfStationSetStep(${i},this.value)">`:`<b class="mono">${s.seq}</b>`}${par?' <span class="pill info" title="Same step as another station">parallel</span>':''}</td>
-   <td class="mono"><b>${raw(s.code)}</b></td><td>${sfLabel(s)}</td>
-   <td><span class="pill ${s.always?'ok':'info'}">${s.always?'always':'when required'}</span></td>
-   <td class="mono">${sfDimText(s)}</td>
-   <td>${sfPutsOnCell(s,edit)}</td>
-   <td style="white-space:nowrap">${typeof carrierSheetCell==='function'?carrierSheetCell(s,edit):''}</td>
-   <td>${w.length?w.slice(0,6).map(o=>`<span class="pill info" data-raw>${esc(o.name||o.id)}</span>`).join(' ')+(w.length>6?` <span class="mut">+${w.length-6}</span>`:''):'<span class="mut">none</span>'}</td>
-   <td class="mut" style="max-width:260px">${raw(s.note||'')}</td>
-   <td style="white-space:nowrap">${framed?'':`<button class="sm" onclick="stationOpen('${esc(s.code)}')" title="Open the scan screen">Screen</button>`}
-   ${edit?`<button class="sm" onclick="stEditOpen(${i})">Edit</button>
-   <button class="sm dl" data-sf-del="${esc(s.code)}" onclick="delSfStation(${i})">×</button>`:''}</td></tr>`+
+ const plain=h=>String(h||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+ const works=s=>stationOperations(s.code).map(o=>o.name||o.id);
+ /* Таблица вида Sales (владелец 07.11.2026): фильтр, сортировка, ширина, порядок. */
+ const table=slTable(edit?'mdStations':'prodStations',{list:DB.station,id:s=>s.code,empty:'empty',noun:l=>l.length+' station'+(l.length===1?'':'s'),fill:'works',acts:edit?120:90,
+  columns:()=>[
+   {k:'step',label:'Step',type:'number',v:s=>s.seq,cell:(s,v,info)=>`<span style="white-space:nowrap">${edit?`<input class="sf-step" type="number" min="1" step="1" value="${s.seq}" data-sf-step="${esc(s.code)}" onchange="sfStationSetStep(${info.i},this.value)">`:`<b class="mono">${s.seq}</b>`}${steps.get(s.seq)>1?' <span class="pill info" title="Same step as another station">parallel</span>':''}</span>`},
+   {k:'code',label:'Code',type:'text',v:s=>s.code,cell:s=>`<b class="mono">${raw(s.code)}</b>`},
+   {k:'name',label:'Name',type:'text',v:s=>plain(sfLabel(s)),cell:s=>sfLabel(s)},
+   {k:'route',label:'In route',type:'list',v:s=>s.always?'always':'when required',cell:s=>`<span class="pill ${s.always?'ok':'info'}">${s.always?'always':'when required'}</span>`},
+   {k:'size',label:'Size, W × L',type:'text',v:s=>plain(sfDimText(s)),cell:s=>`<span class="mono">${sfDimText(s)}</span>`},
+   {k:'putsOn',label:'Puts on',type:'list',v:s=>plain(sfPutsOnCell(s,false)),cell:s=>sfPutsOnCell(s,edit)},
+   {k:'sheet',label:'Dolly / skid sheet',type:'text',v:s=>typeof carrierSheetCell==='function'?plain(carrierSheetCell(s,false)):'',cell:s=>`<span style="white-space:nowrap">${typeof carrierSheetCell==='function'?carrierSheetCell(s,edit):''}</span>`},
+   {k:'works',label:'Works',type:'text',tokens:true,v:s=>works(s).join(' · '),cell:s=>{const w=works(s);return w.length?w.slice(0,6).map(n=>`<span class="pill info" data-raw>${esc(n)}</span>`).join(' ')+(w.length>6?` <span class="mut">+${w.length-6}</span>`:''):'<span class="mut">none</span>';}},
+   {k:'note',label:'Note',type:'text',v:s=>s.note||'',cell:s=>`<span class="mut">${raw(s.note||'')}</span>`}],
+  row:info=>{const s=info.x;return {attrs:` data-sf-station="${esc(s.code)}"${framed&&sfSel===s.code?' class="oq-selected"':''}`,
+   first:framed?`<td class="sl-check"><input type="checkbox" data-sf-check aria-label="Select ${esc(s.code)}" ${sfSel===s.code?'checked':''} onchange="sfSelect('${esc(s.code)}',this.checked)"></td>`:undefined,
+   last:`<span style="white-space:nowrap">${framed?'':`<button class="sm" onclick="stationOpen('${esc(s.code)}')" title="Open the scan screen">Screen</button>`}${edit?` <button class="sm" onclick="stEditOpen(${info.i})">Edit</button> <button class="sm dl" data-sf-del="${esc(s.code)}" onclick="delSfStation(${info.i})">×</button>`:''}</span>`,
    /* Колонки листа долли/скида станции — под её строкой (views/carriers-board). */
-   (edit&&typeof sfSheetEdit!=='undefined'&&sfSheetEdit===s.code?`<tr class="sf-sheet-row"><td colspan="10">${carrierSheetEditorHTML(s.code)}</td></tr>`:'');
- }).join('');
+   after:edit&&typeof sfSheetEdit!=='undefined'&&sfSheetEdit===s.code?n=>`<tr class="sf-sheet-row"><td colspan="${n}">${carrierSheetEditorHTML(s.code)}</td></tr>`:null};}});
  return `${edit&&stEdit!==null?sfStationForm():''}
   ${framed?'':`<div class="sub">${edit?'Same step — parallel stations.':'Route steps in order. Stations are added, removed and ordered in Master Data → Stations.'}</div>`}
   ${edit||framed?'':`<div class="row" style="margin:0 0 10px"><button class="sm" data-sf-to-md onclick="tab='masterdata';mdSetTab('stations')">Edit in Master Data</button></div>`}
-  <div class="sales-table-wrap"><table${framed?' class="sl-table"':''}><thead><tr>${framed?'<th class="sl-check"></th>':''}<th>Step</th><th>Code</th><th>Name</th><th>In route</th><th>Size, W × L</th><th title="What glass goes on after this station">Puts on</th><th title="Columns of the printed dolly or skid sheet">Dolly / skid sheet</th><th>Works</th><th>Note</th><th></th></tr></thead>
-  <tbody>${rows||'<tr><td colspan="11" class="empty">empty</td></tr>'}</tbody></table></div>
+  ${table}
   ${edit&&stEdit===null?'<div class="row"><button class="pri" data-sf-add onclick="stEdit=&quot;new&quot;;render()">Add station</button><button data-sf-tidy onclick="sfStationsTidy()" title="Renumber steps 1, 2, 3… keeping parallel stations together">Tidy step numbers</button></div>':''}`;
 }
 /* На что кладут стекло после станции — ставит владелец (6.10.2026). Без
@@ -31426,12 +31437,14 @@ function sfTerminalsBar(){
 }
 function viewSfTerminals(){
  if(tmSel!==null&&!DB.terminal[tmSel])tmSel=null;
- const rows=DB.terminal.map((t,i)=>`<tr${tmSel===i?' class="oq-selected"':''} ondblclick="tmEdit=${i};render()"><td class="sl-check"><input type="checkbox" aria-label="Select ${esc(t.code)}" ${tmSel===i?'checked':''} onchange="tmSel=this.checked?${i}:null;render()"></td><td class="mono"><b>${raw(t.code)}</b></td><td>${sfLabel(t)}</td>
-   <td>${(t.stations||[]).map(c=>`<span class="pill info" data-raw>${esc(c)}</span>`).join(' ')||'<span class="warn pill">no stations</span>'}</td>
-   <td class="mut" style="max-width:260px">${raw(t.note||'')}</td></tr>`).join('');
+ const table=slTable('prodTerminals',{list:DB.terminal,id:t=>t.code,empty:'No terminals yet. Add one for each scanning screen in the shop.',noun:l=>l.length+' terminal'+(l.length===1?'':'s'),fill:'stations',
+  columns:()=>[{k:'code',label:'Code',type:'text',v:t=>t.code,cell:t=>`<b class="mono">${raw(t.code)}</b>`},
+   {k:'name',label:'Name',type:'text',v:t=>String(sfLabel(t)).replace(/<[^>]*>/g,' ').trim(),cell:t=>sfLabel(t)},
+   {k:'stations',label:'Stations',type:'text',tokens:true,v:t=>(t.stations||[]).join(' · '),cell:t=>(t.stations||[]).map(c=>`<span class="pill info" data-raw>${esc(c)}</span>`).join(' ')||'<span class="warn pill">no stations</span>'},
+   {k:'note',label:'Note',type:'text',v:t=>t.note||'',cell:t=>`<span class="mut">${raw(t.note||'')}</span>`}],
+  row:info=>({attrs:`${tmSel===info.i?' class="oq-selected"':''} ondblclick="tmEdit=${info.i};render()"`,first:`<td class="sl-check"><input type="checkbox" aria-label="Select ${esc(info.x.code)}" ${tmSel===info.i?'checked':''} onchange="tmSel=this.checked?${info.i}:null;render()"></td>`})});
  return `${tmEdit!==null?'<div style="padding:0 20px">'+sfTerminalForm()+'</div>':''}
-  <div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"></th><th>Code</th><th>Name</th><th>Stations</th><th>Note</th></tr></thead>
-  <tbody>${rows||'<tr><td colspan="5" class="empty">No terminals yet. Add one for each scanning screen in the shop.</td></tr>'}</tbody>${DB.terminal.length?`<tfoot><tr class="sl-foot"><td></td><td colspan="4"><b>${DB.terminal.length} terminal${DB.terminal.length===1?'':'s'}</b></td></tr></tfoot>`:''}</table></div>`;
+  ${table}`;
 }
 function sfTerminalForm(){
  const r = tmEdit==='new' ? {code:'',name:'',nameEn:'',stations:[],note:''} : DB.terminal[tmEdit];
@@ -31858,19 +31871,22 @@ function viewMdSetup(){
  const on=k=>`<input type="checkbox" data-setup="${k}" ${s[k]?'checked':''} onchange="orderSetupSet('${k}',this.checked)">`;
  const num=(k,unit)=>`<input type="number" min="0" step="0.01" data-setup="${k}" value="${s[k]}" onchange="orderSetupSet('${k}',this.value)"> <span class="mut">${unit}</span>`;
  const inBase=(k,label)=>`<label class="md-setup-base">${on(k)} ${label}</label>`;
- const row=(label,onKey,value,base)=>`<tr><td><b>${label}</b></td><td class="n">${on(onKey)}</td><td>${value}</td><td>${base}</td></tr>`;
- const cards=s.cardNetworks.map((n,i)=>`<tr data-setup-card="${esc(n.id)}"><td><input type="text" maxlength="60" value="${esc(n.name)}" onchange="orderSetupCardSet(${i},'name',this.value)"></td><td><input type="number" min="0" step="0.01" value="${n.rate}" onchange="orderSetupCardSet(${i},'rate',this.value)"> <span class="mut">%</span></td><td><button type="button" class="sm dl" aria-label="Remove" title="Remove" onclick="orderSetupCardRemove(${i})">×</button></td></tr>`).join('');
+ /* Таблицы вида Sales (владелец 07.11.2026): фильтр, сортировка, ширина, порядок. */
+ const charges=[['Energy surcharge (ES)','energyOn',num('energyRate','%'),'<span class="mut">—</span>',s.energyRate+' %','—'],
+  ['HST','hstOn',num('hstRate','%'),inBase('hstOnEnergy','ES')+inBase('hstOnDelivery','Delivery'),s.hstRate+' %',[s.hstOnEnergy&&'ES',s.hstOnDelivery&&'Delivery'].filter(Boolean).join(', ')],
+  ['Card fee','cardOn','<span class="mut">by card below</span>',inBase('cardOnEnergy','ES')+inBase('cardOnHst','HST')+inBase('cardOnDelivery','Delivery'),'by card',[s.cardOnEnergy&&'ES',s.cardOnHst&&'HST',s.cardOnDelivery&&'Delivery'].filter(Boolean).join(', ')],
+  ['Delivery','deliveryOn',num('deliveryAmount',cur),'<span class="mut">—</span>',s.deliveryAmount+' '+cur,'—'],
+  ['Skid deposit','skidDepositOn',num('skidDepositAmount',cur),'<span class="mut">Not in any base</span>',s.skidDepositAmount+' '+cur,'Not in any base']];
+ const chargeTable=slTable('mdSetupCharges',{list:charges,id:x=>x[1],cls:'ncr-table',fill:'charge',noun:l=>l.length+' charges',
+  columns:()=>[{k:'charge',label:'Charge',type:'text',v:x=>x[0],cell:x=>`<b>${x[0]}</b>`},{k:'on',label:'On',type:'list',v:x=>s[x[1]]?'Yes':'No',cell:x=>on(x[1])},{k:'value',label:'Value',type:'text',v:x=>x[4],cell:x=>x[2]},{k:'base',label:'Base besides Subtotal',type:'text',v:x=>x[5],cell:x=>x[3]}]});
+ const cardTable=slTable('mdSetupCards',{list:s.cardNetworks,id:n=>n.id,cls:'ncr-table',acts:50,empty:'No cards',noun:l=>l.length+' card'+(l.length===1?'':'s'),
+  columns:()=>[{k:'name',label:'Name on order',type:'text',v:n=>n.name,cell:(n,v,i)=>`<input type="text" maxlength="60" value="${esc(n.name)}" onchange="orderSetupCardSet(${i.i},'name',this.value)">`},{k:'rate',label:'Rate',type:'number',v:n=>n.rate,cell:(n,v,i)=>`<input type="number" min="0" step="0.01" value="${n.rate}" onchange="orderSetupCardSet(${i.i},'rate',this.value)"> <span class="mut">%</span>`}],
+  row:i=>({attrs:` data-setup-card="${esc(i.x.id)}"`,last:`<button type="button" class="sm dl" aria-label="Remove" title="Remove" onclick="orderSetupCardRemove(${i.i})">×</button>`})});
  return `<div class="md-setup" data-md-setup>
   <h3>Order charges</h3><p class="mut">Defaults for new orders.</p>
-  <div class="sales-table-wrap"><table class="ncr-table"><thead><tr><th>Charge</th><th class="n">On</th><th>Value</th><th>Base besides Subtotal</th></tr></thead><tbody>
-   ${row('Energy surcharge (ES)','energyOn',num('energyRate','%'),'<span class="mut">—</span>')}
-   ${row('HST','hstOn',num('hstRate','%'),inBase('hstOnEnergy','ES')+inBase('hstOnDelivery','Delivery'))}
-   ${row('Card fee','cardOn','<span class="mut">by card below</span>',inBase('cardOnEnergy','ES')+inBase('cardOnHst','HST')+inBase('cardOnDelivery','Delivery'))}
-   ${row('Delivery','deliveryOn',num('deliveryAmount',cur),'<span class="mut">—</span>')}
-   ${row('Skid deposit','skidDepositOn',num('skidDepositAmount',cur),'<span class="mut">Not in any base</span>')}
-  </tbody></table></div>
+  ${chargeTable}
   <h4>Cards</h4><p class="mut">The first card is the default.</p>
-  <div class="sales-table-wrap"><table class="ncr-table" data-setup-cards><thead><tr><th>Name on order</th><th>Rate</th><th></th></tr></thead><tbody>${cards||'<tr><td colspan="3" class="mut">No cards</td></tr>'}</tbody></table></div>
+  <div data-setup-cards>${cardTable}</div>
   <button type="button" data-setup-card-add onclick="orderSetupCardAdd()">+ Card</button>
   <h3>Weights</h3><p class="mut">Unit weight on orders and stickers.</p>
   <div class="grid">${(()=>{const g=(DB.materialWeightRates||[]).find(r=>r.key==='glass');return `<div><label>Glass density, kg/m³</label><input type="number" min="0" step="any" data-setup-density value="${g&&g.rate!=null?g.rate:''}" placeholder="unknown" onchange="mdWeightSet('glass',this.value,1)"></div>`;})()}</div>
@@ -32001,8 +32017,7 @@ function viewMdGlass(){
    <select aria-label="Status" data-md-status onchange="mdStatus=this.value;mdGlassLimit=MD_PAGE;render()">${[['all','Any status'],['stocked','In stock'],['preorder','Pre-order'],['noshort','No short name · '+noShort],['inactive','Discontinued']].map(x=>`<option value="${x[0]}" ${mdStatus===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select>
    <button class="pri" onclick="mdGlassNew()">+ New item</button>
   </div>
-    <div class="customer-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"></th><th>Code</th><th>Short name</th><th class="md-name-col">Name</th><th>Thickness</th><th>Substrate</th><th>Coverage</th><th>Tempering</th><th>Price AN</th><th>Price FT</th><th>Surfaces</th><th>Inventory</th><th>Supply</th><th></th></tr></thead>
-  <tbody>${shown.map(mdGlassRow).join('')||'<tr><td colspan="14" class="empty">no items found</td></tr>'}</tbody></table></div>
+  ${mdGlassTable(shown)}
   <div class="md-more"><span class="mut" data-md-shown>${shown.length} of ${rows.length}</span>${rows.length>shown.length?` <button class="sm" data-md-more onclick="mdGlassLimit+=MD_PAGE;render()">Show ${Math.min(MD_PAGE,rows.length-shown.length)} more</button>`:''}</div>`;
 }
 let mdGlassLimit=MD_PAGE;
@@ -32021,24 +32036,30 @@ function mdGlassSetPrice(id,field,v){
  if(!isFinite(n)||n<0){render();return;}
  p[field]=Math.round(n*100)/100;touch();render();
 }
-function mdGlassRow(p){
- const sheets=glassSheetsFor(p.code).length;
- const temper=p.temperMode==='temper_required'?'bad':p.temperMode==='annealed_only'?'warn':'info';
- return `<tr class="${p.active===false?'md-row-off':mdGlassNoShort(p)?'md-row-noshort':''}" data-md-row="glassProduct:${esc(p.id)}"><td class="sl-check"><input type="checkbox" aria-label="Select ${esc(p.code)}" ${mdPeek==='glassProduct:'+p.id?'checked':''} onclick="event.stopPropagation();mdPeek=this.checked?'glassProduct:${esc(p.id)}':'';render()"></td><td class="mono"><b>${raw(p.code)}</b>${p.active===false?' <span class="pill warn">discontinued</span>':''}</td>
-  <td data-md-short>${p.shortName?`<b>${raw(p.shortName)}</b>`:`<button type="button" class="gb-link md-short-add" onclick="mdGlassEdit('${esc(p.id)}','short')">add</button>`}</td>
-  <td><b>${raw(p.name)}</b><div class="mut">${raw(p.manufacturer)}</div></td>
-  <td class="mono">${p.thicknessMm==null?'—':p.thicknessMm+' mm'}</td>
-  <td>${esc(glassLabel('substrate',p.substrate))}</td>
-  <td>${esc(glassLabel('coatingFamily',p.coatingFamily))}${p.deposition?`<div class="mut">${esc(glassLabel('deposition',p.deposition))}</div>`:''}</td>
-  <td><span class="pill ${temper}">${esc(glassLabel('temperMode',p.temperMode))}</span></td>
-  <td>${mdGlassPriceInput(p,"salePriceAnnealed")}</td>
-  <td>${mdGlassPriceInput(p,"salePriceTempered")}</td>
-  <td>${p.allowedSurfaces.length?p.allowedSurfaces.map(n=>`<span class="pill" data-raw>#${n}</span>`).join(' '):`<span class="mut">${esc(glassLabel('exposureRule',p.exposureRule))}</span>`}</td>
-  <td>${p.cut===false?'<span class="pill">No cut</span>':p.stocked?`<span class="pill ok">${esc(glassLabel('stock','stocked'))}</span>`:`<span class="pill info">${esc(glassLabel('stock','preorder'))}</span>`}</td>
-  <td>${sheets?`<span class="pill" data-raw>${sheets}</span>`:'<span class="mut">none</span>'}</td>
-  <td style="white-space:nowrap"><button class="sm" onclick="mdGlassEdit('${esc(p.id)}')">Edit</button>
-   <button class="sm" onclick="mdGlassToggle('${esc(p.id)}')">${p.active===false?'Restore':'Discontinue'}</button>
-   <button class="sm dl" onclick="mdGlassDelete('${esc(p.id)}')">×</button></td></tr>`;
+/* Таблица стекла — вид Sales (владелец 07.11.2026); Manufacturer, Legacy code, Note, Deposition — в ⚙ Columns. */
+function mdGlassTable(list){
+ const temper=p=>p.temperMode==='temper_required'?'bad':p.temperMode==='annealed_only'?'warn':'info',stock=p=>p.cut===false?'No cut':glassLabel('stock',p.stocked?'stocked':'preorder');
+ return slTable('mdGlass',{list,id:p=>p.id,empty:'no items found',noun:l=>l.length+' glass',fill:'name',acts:230,
+  columns:()=>[
+   {k:'code',label:'Code',type:'text',v:p=>p.code,cell:p=>`<span class="mono"><b>${raw(p.code)}</b></span>${p.active===false?' <span class="pill warn">discontinued</span>':''}`},
+   {k:'short',label:'Short name',type:'text',v:p=>p.shortName||'',cell:p=>`<span data-md-short>${p.shortName?`<b>${raw(p.shortName)}</b>`:`<button type="button" class="gb-link md-short-add" onclick="mdGlassEdit('${esc(p.id)}','short')">add</button>`}</span>`},
+   {k:'name',label:'Name',type:'text',v:p=>p.name,cell:p=>`<b>${raw(p.name)}</b><div class="mut">${raw(p.manufacturer)}</div>`},
+   {k:'mfr',label:'Manufacturer',type:'list',def:false,v:p=>p.manufacturer||''},
+   {k:'mm',label:'Thickness',type:'number',v:p=>p.thicknessMm==null?'':p.thicknessMm,cell:p=>`<span class="mono">${p.thicknessMm==null?'—':p.thicknessMm+' mm'}</span>`},
+   {k:'substrate',label:'Substrate',type:'list',v:p=>glassLabel('substrate',p.substrate)},
+   {k:'coverage',label:'Coverage',type:'list',v:p=>glassLabel('coatingFamily',p.coatingFamily),cell:p=>`${esc(glassLabel('coatingFamily',p.coatingFamily))}${p.deposition?`<div class="mut">${esc(glassLabel('deposition',p.deposition))}</div>`:''}`},
+   {k:'deposition',label:'Deposition',type:'list',def:false,v:p=>p.deposition?glassLabel('deposition',p.deposition):''},
+   {k:'temper',label:'Tempering',type:'list',v:p=>glassLabel('temperMode',p.temperMode),cell:p=>`<span class="pill ${temper(p)}">${esc(glassLabel('temperMode',p.temperMode))}</span>`},
+   {k:'priceAn',label:'Price AN',type:'number',v:p=>p.salePriceAnnealed==null?'':p.salePriceAnnealed,cell:p=>mdGlassPriceInput(p,'salePriceAnnealed')},
+   {k:'priceFt',label:'Price FT',type:'number',v:p=>p.salePriceTempered==null?'':p.salePriceTempered,cell:p=>mdGlassPriceInput(p,'salePriceTempered')},
+   {k:'surfaces',label:'Surfaces',type:'text',tokens:true,v:p=>p.allowedSurfaces.length?p.allowedSurfaces.map(n=>'#'+n).join(' · '):glassLabel('exposureRule',p.exposureRule),cell:p=>p.allowedSurfaces.length?p.allowedSurfaces.map(n=>`<span class="pill" data-raw>#${n}</span>`).join(' '):`<span class="mut">${esc(glassLabel('exposureRule',p.exposureRule))}</span>`},
+   {k:'inventory',label:'Inventory',type:'list',v:stock,cell:p=>p.cut===false?'<span class="pill">No cut</span>':p.stocked?`<span class="pill ok">${esc(stock(p))}</span>`:`<span class="pill info">${esc(stock(p))}</span>`},
+   {k:'supply',label:'Supply',type:'number',v:p=>glassSheetsFor(p.code).length,cell:p=>{const n=glassSheetsFor(p.code).length;return n?`<span class="pill" data-raw>${n}</span>`:'<span class="mut">none</span>';}},
+   {k:'legacy',label:'Legacy code',type:'text',def:false,v:p=>p.legacyCode||''},
+   {k:'note',label:'Note',type:'text',def:false,v:p=>p.note||''}],
+  row:i=>{const p=i.x;return {attrs:` class="${p.active===false?'md-row-off':mdGlassNoShort(p)?'md-row-noshort':''}" data-md-row="glassProduct:${esc(p.id)}"`,
+   first:`<td class="sl-check"><input type="checkbox" aria-label="Select ${esc(p.code)}" ${mdPeek==='glassProduct:'+p.id?'checked':''} onclick="event.stopPropagation();mdPeek=this.checked?'glassProduct:${esc(p.id)}':'';render()"></td>`,
+   last:`<span style="white-space:nowrap"><button class="sm" onclick="mdGlassEdit('${esc(p.id)}')">Edit</button> <button class="sm" onclick="mdGlassToggle('${esc(p.id)}')">${p.active===false?'Restore':'Discontinue'}</button> <button class="sm dl" onclick="mdGlassDelete('${esc(p.id)}')">×</button></span>`};}});
 }
 function mdGlassNew(){
  mdEdit='new';
@@ -32561,8 +32582,7 @@ function viewMdHardware(){
   ${orphans?`<div class="note">Models without a kind: <b>${orphans}</b>. Give them a kind.</div>`:''}
   <div class="section-title"><h3>Models</h3><span class="pill info">as on the shop template</span></div>
   <div class="md-toolbar" data-md-hw-models><select aria-label="Kind" onchange="mdHwFilter=this.value;render()"><option value="">All kinds</option>${kinds.map(k=>`<option value="${esc(k.code)}" ${mdHwFilter===k.code?'selected':''} data-raw>${esc(hardwareKindName(k.code))}</option>`).join('')}</select><span class="sp"></span><button class="pri" onclick="mdHwModelNew()">+ New model</button></div>
-  <div class="sales-table-wrap"><table><thead><tr><th>Model</th><th>Kind</th><th>Series</th><th>On the drawing</th><th>Glass thickness</th><th>Supplier code</th><th>On drawings</th><th>Status</th><th></th></tr></thead>
-  <tbody>${sorted.map(m=>{
+${slTable('mdHwModels',{list:sorted,id:m=>m.id,rowHTML:m=>{
    const used=mdHwModelUsage(m.id),kind=hardwareKindRow(m.kind);
    return `<tr data-md-row="hardwareModel:${esc(m.id)}"><td><b>${raw(m.name)}</b>${m.note?`<div class="mut">${raw(m.note)}</div>`:''}</td>
     <td>${kind?raw(hardwareKindName(m.kind)):'<span class="pill warn">no kind</span>'}</td>
@@ -32573,10 +32593,10 @@ function viewMdHardware(){
     <td class="mono">${used}</td>
     <td><span class="pill ${m.active===false?'warn':'ok'}">${m.active===false?'inactive':'active'}</span></td>
     <td style="white-space:nowrap"><button class="sm" onclick="mdHwModelEditRow('${esc(m.id)}')">Edit</button><button class="sm dl" onclick="mdHwModelDelete('${esc(m.id)}')">×</button></td></tr>`;
-  }).join('')||'<tr><td colspan="9" class="empty">no models</td></tr>'}</tbody></table></div>
+  },lastTd:-1,acts:110,empty:'no models',noun:l=>l.length+' models',fill:'name',
+   columns:()=>[{k:'name',label:'Model',type:'text',td:0,v:m=>m.name},{k:'kind',label:'Kind',type:'list',td:1,v:m=>hardwareKindRow(m.kind)?hardwareKindName(m.kind):'no kind'},{k:'series',label:'Series',type:'list',td:2,v:m=>m.series||''},{k:'short',label:'On the drawing',type:'text',td:3,v:m=>hardwareModelShort(m)},{k:'mm',label:'Glass thickness',type:'text',td:4,v:m=>m.thickness||''},{k:'supplierCode',label:'Supplier code',type:'text',td:5,v:m=>m.supplierCode||''},{k:'used',label:'On drawings',type:'number',td:6,v:m=>mdHwModelUsage(m.id)},{k:'status',label:'Status',type:'list',td:7,v:m=>m.active===false?'inactive':'active'},{k:'note',label:'Note',type:'text',def:false,v:m=>m.note||''}]})}
   <div class="section-title"><h3>Kinds</h3><span class="pill info">code goes on the drawing</span></div>
-  <div class="sales-table-wrap"><table><thead><tr><th>Kind</th><th>Code</th><th>On the drawing</th><th>Models</th><th>On drawings</th><th>Status</th><th></th></tr></thead>
-  <tbody>${kinds.map(k=>{
+${slTable('mdHwKinds',{list:kinds,id:k=>k.code,rowHTML:k=>{
    const used=mdHwKindUsage(k.code);
    return `<tr><td><b>${raw(hardwareKindName(k.code))}</b><div class="mut"><span data-raw>${esc(k.name)} · ${esc(k.nameEn)}</span></div></td>
     <td class="mono"><span data-raw>${esc(k.code)}</span></td>
@@ -32585,7 +32605,8 @@ function viewMdHardware(){
     <td class="mono">${used}</td>
     <td><span class="pill ${k.active===false?'warn':'ok'}">${k.active===false?'inactive':'active'}</span></td>
     <td style="white-space:nowrap"><button class="sm" onclick="mdHwKindEditRow('${esc(k.code)}')">Edit</button><button class="sm dl" onclick="mdHwKindDelete('${esc(k.code)}')">×</button></td></tr>`;
-  }).join('')||'<tr><td colspan="7" class="empty">no kinds</td></tr>'}</tbody></table></div>
+  },lastTd:-1,acts:110,empty:'no kinds',noun:l=>l.length+' kinds',fill:'name',
+   columns:()=>[{k:'name',label:'Kind',type:'text',td:0,v:k=>hardwareKindName(k.code)},{k:'code',label:'Code',type:'text',td:1,v:k=>k.code},{k:'short',label:'On the drawing',type:'text',td:2,v:k=>k.short},{k:'models',label:'Models',type:'number',sum:true,td:3,v:k=>hardwareModelsFor(k.code,true).length},{k:'used',label:'On drawings',type:'number',td:4,v:k=>mdHwKindUsage(k.code)},{k:'status',label:'Status',type:'list',td:5,v:k=>k.active===false?'inactive':'active'},{k:'note',label:'Note',type:'text',def:false,v:k=>k.note||''}]})}
   <div class="row"><button onclick="mdHwKindNew()">+ New kind</button></div>`;
 }
 function mdHwKindNew(){mdHwKindEdit='new';mdHwKindDraft={code:'',name:'',nameEn:'',short:'',active:true,note:''};render();}
@@ -32796,15 +32817,14 @@ function viewMdOverview(){
  return subs+(mdOverviewView==='log'?viewMdLog():mdOverviewView==='file'?(accessCost()?mdTransferCard():'<div class="mut">Needs Cost &amp; margin.</div>'):viewMdCollections());
 }
 function viewMdCollections(){
- const rows=MD_COLLECTIONS.map(c=>{
-  const n=Array.isArray(DB[c.key])?DB[c.key].length:0;
-  return `<tr><td><b>${c.label}</b><div class="mut">${c.what}</div></td>
-   <td class="mono"><span data-raw>${esc(c.key)}</span></td>
-   <td class="mono"><b>${n}</b></td>
-   <td>${n?'<span class="pill ok">filled</span>':'<span class="pill info">empty</span>'}</td></tr>`;
- }).join('');
+ const n=c=>Array.isArray(DB[c.key])?DB[c.key].length:0;
+ const table=slTable('mdCollections',{list:MD_COLLECTIONS,id:c=>c.key,noun:l=>l.length+' collections',fill:'label',
+  columns:()=>[{k:'label',label:'Collection',type:'text',v:c=>c.label,cell:c=>`<b>${c.label}</b><div class="mut">${c.what}</div>`},
+   {k:'key',label:'Data key',type:'text',v:c=>c.key,cell:c=>`<span class="mono" data-raw>${esc(c.key)}</span>`},
+   {k:'records',label:'Records',type:'number',sum:true,v:n,cell:c=>`<b class="mono">${n(c)}</b>`},
+   {k:'state',label:'State',type:'list',v:c=>n(c)?'filled':'empty',cell:c=>n(c)?'<span class="pill ok">filled</span>':'<span class="pill info">empty</span>'}]});
  return `<div class="sub">All collections.</div>
-  <table><thead><tr><th>Collection</th><th>Data key</th><th>Records</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+  ${table}
   <div class="hint">Reference version: <b data-raw>${DB.refVersion}</b></div>`;
 }
 
@@ -32819,16 +32839,25 @@ function mdLogValueCells(e){
 function viewMdLog(){
  const rows=mdLogRows(mdLogFilter,mdLogQuery),places=[...new Set((DB.masterDataEvent||[]).map(e=>e.tbl))].sort((a,b)=>mdLogWhere(a).localeCompare(mdLogWhere(b)));
  const when=t=>esc(String(t||'').slice(0,16).replace('T',' '));
- const body=rows.slice(0,mdLogShown).map(e=>`<tr data-md-log-row><td class="mono">${when(e.at)}</td><td>${esc(e.by||'—')}</td><td>${esc(mdLogWhere(e.tbl))}</td><td><b data-raw>${esc(e.row)}</b></td><td>${esc(e.what)}${e.field?' · <span class="mono" data-raw>'+esc(e.field)+'</span>':''}</td>${mdLogValueCells(e)}</tr>`).join('');
+ const cost=e=>!accessCost()&&MD_COST_FIELDS.includes(e.field);
+ const table=slTable('mdLog',{list:rows.slice(0,mdLogShown),empty:'No changes yet.',noun:l=>l.length+' changes',fill:'change',
+  columns:()=>[{k:'when',label:'When',type:'text',v:e=>String(e.at||'').slice(0,16).replace('T',' '),cell:e=>`<span class="mono">${when(e.at)}</span>`},
+   {k:'who',label:'Who',type:'list',v:e=>e.by||''},{k:'section',label:'Section',type:'list',v:e=>mdLogWhere(e.tbl)},
+   {k:'item',label:'Item',type:'text',v:e=>e.row,cell:e=>`<b data-raw>${esc(e.row)}</b>`},
+   {k:'change',label:'Change',type:'text',v:e=>e.what+(e.field?' · '+e.field:''),cell:e=>`${esc(e.what)}${e.field?' · <span class="mono" data-raw>'+esc(e.field)+'</span>':''}`},
+   {k:'was',label:'Was',type:'text',v:e=>cost(e)?'':e.was,cell:e=>cost(e)?'<span class="mut">Cost &amp; margin</span>':`<span class="mono" data-raw>${esc(e.was)}</span>`},
+   {k:'now',label:'Now',type:'text',v:e=>cost(e)?'':e.now,cell:e=>cost(e)?'<span class="mut">Cost &amp; margin</span>':`<span class="mono" data-raw>${esc(e.now)}</span>`}],
+  row:()=>({attrs:' data-md-log-row'})});
  return `<div class="row" style="gap:8px;margin-bottom:10px"><input aria-label="Search the log" placeholder="Search" value="${esc(mdLogQuery)}" oninput="mdLogQuery=this.value;mdLogShown=200;render()" style="max-width:260px">
   <select aria-label="Section" style="max-width:220px" onchange="mdLogFilter=this.value;mdLogShown=200;render()"><option value="">All sections</option>${places.map(k=>`<option value="${esc(k)}"${k===mdLogFilter?' selected':''}>${esc(mdLogWhere(k))}</option>`).join('')}</select>
   <span class="mut" data-md-log-count>${rows.length} changes</span></div>
-  <table><thead><tr><th>When</th><th>Who</th><th>Section</th><th>Item</th><th>Change</th><th>Was</th><th>Now</th></tr></thead><tbody>${body||'<tr><td colspan="7" class="mut">No changes yet.</td></tr>'}</tbody></table>
+  ${table}
   ${rows.length>mdLogShown?`<button type="button" onclick="mdLogShown+=200;render()">Show ${Math.min(200,rows.length-mdLogShown)} more</button>`:''}`;
 }
 function mdTransferCard(){
  const p=mdTransfer;
- const plan=p&&p.plan?`<table data-md-import-plan><thead><tr><th>Section</th><th>New</th><th>Changed</th><th>Same</th><th>Rejected</th></tr></thead><tbody>${p.plan.tables.filter(t=>t.added||t.changed||t.rejected).map(t=>`<tr><td>${esc(t.label)}</td><td class="mono">${t.added}</td><td class="mono">${t.changed}</td><td class="mono">${t.same}</td><td class="mono">${t.rejected}</td></tr>`).join('')}${p.plan.settings.filter(x=>x.changed).map(x=>`<tr><td>${esc(x.label)}</td><td class="mono">—</td><td class="mono">${x.changed?'yes':'—'}</td><td class="mono">—</td><td class="mono">—</td></tr>`).join('')}</tbody></table>
+ const plan=p&&p.plan?`<div data-md-import-plan>${slTable('mdImportPlan',{list:p.plan.tables.filter(t=>t.added||t.changed||t.rejected).map(t=>({label:t.label,added:t.added,changed:t.changed,same:t.same,rejected:t.rejected})).concat(p.plan.settings.filter(x=>x.changed).map(x=>({label:x.label,added:'',changed:'yes',same:'',rejected:''}))),noun:l=>l.length+' sections',fill:'label',
+  columns:()=>[{k:'label',label:'Section',type:'text',v:t=>t.label},{k:'added',label:'New',type:'number',v:t=>t.added},{k:'changed',label:'Changed',type:'text',v:t=>t.changed},{k:'same',label:'Same',type:'number',v:t=>t.same},{k:'rejected',label:'Rejected',type:'number',v:t=>t.rejected}]})}</div>
   <div class="mut">${p.plan.tables.filter(t=>!t.added&&!t.changed&&!t.rejected).length+p.plan.settings.filter(x=>!x.changed).length} sections without changes</div>
   ${p.plan.errors.length?`<div class="hint" data-md-import-errors>${p.plan.errors.slice(0,20).map(esc).join('<br>')}</div>`:''}
   <div class="row" style="gap:8px"><button class="pri" type="button" onclick="mdTransferApply()">Import ${esc(p.name)}</button><button type="button" onclick="mdTransfer=null;render()">Cancel</button></div>`:'';
@@ -32956,10 +32985,16 @@ function viewMdCatalogues(){
  if(!MD_CATALOGUES.some(c=>c.k===mdCatKind))mdCatKind=MD_CATALOGUES[0].k;
  if(mdCatEdit!==null)return mdCatForm();
  const def=mdCatDef(),all=mdCatRows(),rows=mdCatalogFilterRows(all),colour=mdCatIsColour(),rate=mdCatIsRate();
- const cols=rate?6:colour?5:6,found=rows!==all;
+ const found=rows!==all;
  return `<div class="md-toolbar"><span class="mut"${found?' data-md-search-count':''}>${found?rows.length+' of '+all.length+' '+esc(def.label.toLowerCase()):esc(def.what.charAt(0).toUpperCase()+def.what.slice(1))+' · used rows: switch off, don\'t delete.'}</span><span class="sp"></span><button class="pri" onclick="mdCatNew()">+ New</button></div>
-  <div class="customer-table-wrap"><table><thead><tr><th>Name</th>${rate?'<th>Station</th><th>Unit</th><th>Price by thickness, mm</th>':`<th>Code</th>${colour?'<th>Family</th><th>Spandrel</th>':'<th>Supplier</th><th>Price, CAD</th>'}`}<th>Status</th><th></th></tr></thead>
-  <tbody>${rows.map(mdCatRowHTML).join('')||`<tr><td colspan="${cols}" class="empty">${found?'Nothing found':'empty'}</td></tr>`}</tbody></table></div>
+  ${slTable('mdCat-'+mdCatKind,{list:rows,id:x=>x.id,rowHTML:x=>mdCatRowHTML(x),lastTd:-1,empty:found?'Nothing found':'empty',noun:l=>l.length+' rows',fill:'name',acts:110,
+   /* Вид Sales (владелец 07.11.2026): ячейки — из mdCatRowHTML, движок даёт фильтр, сортировку, ширину, порядок. */
+   columns:()=>[{k:'name',label:'Name',type:'text',td:0,v:x=>x.name}].concat(rate?[
+     {k:'station',label:'Station',type:'list',td:1,v:x=>x.station||''},{k:'unit',label:'Unit',type:'list',td:2,v:x=>x.unit},{k:'price',label:'Price by thickness, mm',type:'text',td:3,v:x=>mdWorkTiersText(x)},
+     {k:'status',label:'Status',type:'list',td:4,v:x=>x.active===false?'no rate':'active'},{k:'id',label:'ID',type:'text',def:false,v:x=>x.id},{k:'note',label:'Note',type:'text',def:false,v:x=>x.note||''}]
+    :[{k:'code',label:'Code',type:'text',td:1,v:x=>x.code||''}].concat(colour?[{k:'family',label:'Family',type:'list',td:2,v:x=>x.family||''},{k:'spandrel',label:'Spandrel',type:'list',td:3,v:x=>x.productId?((DB.spandrelProduct||[]).find(p=>p.id===x.productId)||{}).name||x.productId:'any'}]
+     :[{k:'supplier',label:'Supplier',type:'list',td:2,v:x=>x.supplier||''},{k:'salePrice',label:'Price, CAD',type:'number',td:3,v:x=>x.salePrice==null?'':Number(x.salePrice)}],
+     [{k:'status',label:'Status',type:'list',td:4,v:x=>x.active===false?'inactive':'active'},{k:'id',label:'ID',type:'text',def:false,v:x=>x.id},{k:'sub',label:'Subcategory',type:'list',def:false,v:x=>x.subcategory||''}]))})}
   ${rate?'<div class="sub">Price by glass thickness.</div>':''}`;
 }
 function mdCatRowHTML(x){
@@ -33418,12 +33453,15 @@ function plBaseText(t){
 function plListTable(list){
  const targets=salesPriceTargets(),byKey=new Map(targets.map(t=>[t.key,t]));
  const num=(row,field,band,v)=>`<input type="number" min="0" step="0.01" value="${v==null?'':esc(v)}" placeholder="—" style="width:84px" onchange="plSetPrice('${esc(list.id)}','${esc(row.id)}',${band?`'${esc(band)}'`:'null'},this.value)" aria-label="${esc(field)}">`;
- const body=list.rows.map(r=>{
-  const t=byKey.get(r.target),tiers=t&&t.tiers;
-  const price=tiers?`<div class="row" style="gap:4px;flex-wrap:wrap">${num(r,'All thicknesses',null,r.price)}${tiers.map(x=>`<label class="mut" style="display:flex;align-items:center;gap:3px">${esc(serviceRateTierShort(x))}${num(r,serviceRateTierLabel(x),x.id,r.bands?r.bands[x.id]:null)}</label>`).join('')}</div>`:num(r,'Price',null,r.price);
-  return `<tr data-pl-row><td>${esc(salesPriceTargetLabel(r.target,targets))}</td><td class="mono mut">${t?esc(plBaseText(t))+(t.unit?' / '+esc(t.unit):''):'—'}</td><td>${price}</td><td><button class="sm dl" title="Remove" onclick="plRemoveRow('${esc(list.id)}','${esc(r.id)}')">×</button></td></tr>`;
- }).join('');
- return `<table data-pl-list="${esc(list.id)}"><thead><tr><th>Item</th><th>Base</th><th>Price${list.rows.some(r=>(byKey.get(r.target)||{}).tiers)?' · all / by mm':''}</th><th></th></tr></thead><tbody>${body||'<tr><td colspan="4" class="mut">No prices yet — base prices apply.</td></tr>'}</tbody></table>
+ const price=r=>{const t=byKey.get(r.target),tiers=t&&t.tiers;return tiers?`<div class="row" style="gap:4px;flex-wrap:wrap">${num(r,'All thicknesses',null,r.price)}${tiers.map(x=>`<label class="mut" style="display:flex;align-items:center;gap:3px">${esc(serviceRateTierShort(x))}${num(r,serviceRateTierLabel(x),x.id,r.bands?r.bands[x.id]:null)}</label>`).join('')}</div>`:num(r,'Price',null,r.price);};
+ const base=r=>{const t=byKey.get(r.target);return t?plBaseText(t)+(t.unit?' / '+t.unit:''):'';};
+ /* Таблица вида Sales (владелец 07.11.2026); Changed — в ⚙ Columns. */
+ return `<div data-pl-list="${esc(list.id)}">${slTable('plList',{list:list.rows,id:r=>r.id,empty:'No prices yet — base prices apply.',noun:l=>l.length+' price'+(l.length===1?'':'s'),fill:'item',acts:50,
+  columns:()=>[{k:'item',label:'Item',type:'text',v:r=>salesPriceTargetLabel(r.target,targets)},
+   {k:'base',label:'Base',type:'text',v:base,cell:r=>`<span class="mono mut">${esc(base(r)||'—')}</span>`},
+   {k:'price',label:'Price'+(list.rows.some(r=>(byKey.get(r.target)||{}).tiers)?' · all / by mm':''),type:'number',v:r=>r.price==null?'':r.price,cell:r=>price(r)},
+   {k:'at',label:'Changed',type:'date',def:false,v:r=>r.at?String(r.at).slice(0,10):''}],
+  row:i=>({attrs:' data-pl-row',last:`<button class="sm dl" title="Remove" onclick="plRemoveRow('${esc(list.id)}','${esc(i.x.id)}')">×</button>`})})}</div>
   <div class="row" style="gap:8px;margin-top:8px"><select aria-label="Add price" style="max-width:360px" onchange="plAddRow('${esc(list.id)}',this.value)">${plTargetOptions(targets,true,'')}</select><span class="mut">Empty price — next list decides. 0 is a price.</span></div>`;
 }
 function plList(id){return priceListById(id);}
@@ -33450,10 +33488,12 @@ function plGroupCustomers(id){return (DB.customer||[]).filter(c=>c.priceGroupId=
 function plGroupsView(){
  const groups=priceListGroups();if(plGroupId&&!groups.some(g=>g.id===plGroupId))plGroupId='';
  const g=priceListById(plGroupId);
- const list=groups.map(x=>`<tr data-pl-group class="${x.id===plGroupId?'sel':''}" style="cursor:pointer" onclick="plGroupId='${esc(x.id)}';render()"><td><b>${esc(x.name||'Unnamed group')}</b></td><td class="mono">${plGroupCustomers(x.id).length}</td><td class="mono">${x.rows.length}</td></tr>`).join('');
+ const list=slTable('plGroups',{list:groups,id:x=>x.id,empty:'No groups yet.',noun:l=>l.length+' group'+(l.length===1?'':'s'),fill:'name',
+  columns:()=>[{k:'name',label:'Group',type:'text',v:x=>x.name||'Unnamed group',cell:x=>`<b>${esc(x.name||'Unnamed group')}</b>`},{k:'customers',label:'Customers',type:'number',sum:true,v:x=>plGroupCustomers(x.id).length},{k:'prices',label:'Prices',type:'number',sum:true,v:x=>x.rows.length}],
+  row:i=>({attrs:` data-pl-group class="${i.x.id===plGroupId?'sel':''}" style="cursor:pointer" onclick="plGroupId='${esc(i.x.id)}';render()"`})});
  return `<div class="sub">Personal beats group; else base price.</div>
   <div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap">
-   <div style="flex:0 0 300px"><table><thead><tr><th>Group</th><th>Customers</th><th>Prices</th></tr></thead><tbody>${list||'<tr><td colspan="3" class="mut">No groups yet.</td></tr>'}</tbody></table>
+   <div style="flex:0 0 340px">${list}
     <button class="pri" style="margin-top:8px" onclick="plNewGroup()">+ Customer group</button></div>
    <div style="flex:1 1 480px;min-width:0">${g?plGroupEditor(g):groups.length?'<div class="mut">Pick a group.</div>':'<div class="mut">Add a group, then give it prices.</div>'}</div>
   </div>`;
@@ -33485,13 +33525,17 @@ function plSetCustomerGroup(customerId,groupId){
 function plItemGroupsView(){
  const groups=DB.itemGroup||[];if(plItemGroupId&&!groups.some(g=>g.id===plItemGroupId))plItemGroupId='';
  const g=itemGroupById(plItemGroupId),targets=salesPriceTargets();
- const list=groups.map(x=>`<tr data-pl-item-group class="${x.id===plItemGroupId?'sel':''}" style="cursor:pointer" onclick="plItemGroupId='${esc(x.id)}';render()"><td><b>${esc(x.name||'Unnamed')}</b></td><td class="mono">${x.members.length}</td></tr>`).join('');
+ const list=slTable('plItemGroups',{list:groups,id:x=>x.id,empty:'No item groups yet.',noun:l=>l.length+' item group'+(l.length===1?'':'s'),fill:'name',
+  columns:()=>[{k:'name',label:'Item group',type:'text',v:x=>x.name||'Unnamed',cell:x=>`<b>${esc(x.name||'Unnamed')}</b>`},{k:'items',label:'Items',type:'number',sum:true,v:x=>x.members.length}],
+  row:i=>({attrs:` data-pl-item-group class="${i.x.id===plItemGroupId?'sel':''}" style="cursor:pointer" onclick="plItemGroupId='${esc(i.x.id)}';render()"`})});
  const editor=g?`<div class="row" style="gap:8px;margin-bottom:10px"><input aria-label="Item group name" value="${esc(g.name)}" onchange="plItemGroupSet('${esc(g.id)}',x=>{x.name=String(${'this.value'}).trim();})" style="max-width:260px"><button class="sm dl" onclick="plItemGroupDelete('${esc(g.id)}')">Delete group</button></div>
-   <table><thead><tr><th>Item</th><th></th></tr></thead><tbody>${g.members.map(k=>`<tr data-pl-member><td>${esc(salesPriceTargetLabel(k,targets))}</td><td><button class="sm dl" title="Remove" onclick="plItemGroupSet('${esc(g.id)}',x=>{x.members=x.members.filter(m=>m!=='${esc(k)}');})">×</button></td></tr>`).join('')||'<tr><td colspan="2" class="mut">No items yet.</td></tr>'}</tbody></table>
+   ${slTable('plItemMembers',{list:g.members,id:k=>k,empty:'No items yet.',noun:l=>l.length+' item'+(l.length===1?'':'s'),fill:'item',acts:50,
+    columns:()=>[{k:'item',label:'Item',type:'text',v:k=>salesPriceTargetLabel(k,targets)}],
+    row:i=>({attrs:' data-pl-member',last:`<button class="sm dl" title="Remove" onclick="plItemGroupSet('${esc(g.id)}',x=>{x.members=x.members.filter(m=>m!=='${esc(i.x)}');})">×</button>`})})}
    <select aria-label="Add item" style="max-width:360px;margin-top:8px" onchange="if(this.value)plItemGroupSet('${esc(g.id)}',x=>{x.members.push(this.value);})">${plTargetOptions(targets.filter(t=>!g.members.includes(t.key)),false,'')}</select>`:'<div class="mut">Pick a group.</div>';
  return `<div class="sub">Item group = one price line for many items, e.g. "Edge work". Inside a price list, an item's own price beats its group; an item in two groups takes the group priced last.</div>
   <div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap">
-   <div style="flex:0 0 300px"><table><thead><tr><th>Item group</th><th>Items</th></tr></thead><tbody>${list||'<tr><td colspan="2" class="mut">No item groups yet.</td></tr>'}</tbody></table>
+   <div style="flex:0 0 340px">${list}
     <button class="pri" style="margin-top:8px" onclick="plNewItemGroup()">+ Item group</button></div>
    <div style="flex:1 1 480px;min-width:0">${editor}</div>
   </div>`;
@@ -33523,8 +33567,10 @@ function plBulkView(){
   </div>
   <div class="row" style="gap:8px;margin-bottom:8px"><input aria-label="Find customers" placeholder="Find customer or group" value="${esc(b.q)}" oninput="plBulk.q=this.value;render()" style="max-width:260px">
    <button class="sm" onclick="plBulk.ids=[...new Set(plBulk.ids.concat(${esc(JSON.stringify(customers.map(c=>c.id)))}))];render()">Tick shown</button><button class="sm" onclick="plBulk.ids=[];render()">Clear</button></div>
-  <table><thead><tr><th></th><th>Customer</th><th>Group</th><th>Now</th></tr></thead><tbody>${customers.map(c=>{const r=b.target?(priceListOfCustomer(c.id)||{rows:[]}).rows.find(x=>x.target===b.target):null;
-   return `<tr data-pl-bulk-row><td><input type="checkbox" ${b.ids.includes(c.id)?'checked':''} onchange="plBulk.ids=this.checked?plBulk.ids.concat('${esc(c.id)}'):plBulk.ids.filter(x=>x!=='${esc(c.id)}');render()"></td><td>${esc(c.displayName||c.legalName)}</td><td>${esc(customerGroupName(c)||'—')}</td><td class="mono">${r?esc(plRowText(r)):'—'}</td></tr>`;}).join('')||'<tr><td colspan="4" class="mut">No customers.</td></tr>'}</tbody></table>`;
+  ${(()=>{const now=c=>{const r=b.target?(priceListOfCustomer(c.id)||{rows:[]}).rows.find(x=>x.target===b.target):null;return r?plRowText(r):'';};
+   return slTable('plBulk',{list:customers,id:c=>c.id,empty:'No customers.',noun:l=>l.length+' customer'+(l.length===1?'':'s'),fill:'customer',
+    columns:()=>[{k:'customer',label:'Customer',type:'text',v:c=>c.displayName||c.legalName},{k:'code',label:'Account',type:'text',def:false,v:c=>c.code},{k:'group',label:'Group',type:'list',v:c=>customerGroupName(c)},{k:'now',label:'Now',type:'text',v:now,cell:c=>`<span class="mono">${esc(now(c)||'—')}</span>`}],
+    row:i=>({attrs:' data-pl-bulk-row',first:`<td class="sl-check"><input type="checkbox" ${b.ids.includes(i.x.id)?'checked':''} onchange="plBulk.ids=this.checked?plBulk.ids.concat('${esc(i.x.id)}'):plBulk.ids.filter(x=>x!=='${esc(i.x.id)}');render()"></td>`})});})()}`;
 }
 function plBulkApply(){
  const b=plBulk;if(!b||!b.target)return alert('Pick an item, service or group.');
@@ -33568,11 +33614,15 @@ function plFileView(){
   +(customers.length?`<optgroup label="Customer · every item">${customers.map(c=>opt('customer:'+c.id,priceFileCustomerName(c))).join('')}</optgroup>`:'');
  let body='';
  if(f&&f.plan){
-  const p=f.plan,rows=p.changes.map(ch=>`<tr data-pl-file-change><td>${esc(ch.personal?'Personal · '+ch.listName:ch.listName)}${!ch.listId?' <span class="pill warn">new</span>':''}</td><td>${esc(ch.label)}</td><td class="mono mut">${esc(priceFileText(ch.was))}</td><td class="mono"><b>${esc(priceFileText(ch.next))}</b></td></tr>`).join('');
+  const p=f.plan,listName=ch=>ch.personal?'Personal · '+ch.listName:ch.listName;
+  const rows=slTable('plFilePreview',{list:p.changes,empty:'Nothing to change.',noun:l=>l.length+' change'+(l.length===1?'':'s'),fill:'item',
+   columns:()=>[{k:'list',label:'List',type:'list',v:listName,cell:ch=>`${esc(listName(ch))}${!ch.listId?' <span class="pill warn">new</span>':''}`},{k:'item',label:'Item',type:'text',v:ch=>ch.label},
+    {k:'was',label:'Was',type:'text',v:ch=>priceFileText(ch.was),cell:ch=>`<span class="mono mut">${esc(priceFileText(ch.was))}</span>`},{k:'next',label:'Will be',type:'text',v:ch=>priceFileText(ch.next),cell:ch=>`<b class="mono">${esc(priceFileText(ch.next))}</b>`}],
+   row:()=>({attrs:' data-pl-file-change'})});
   body=`<h4>${esc(f.name)} · ${p.changes.length} change${p.changes.length===1?'':'s'} · ${p.same} same · ${p.errors.length} error${p.errors.length===1?'':'s'}</h4>
    ${p.newGroups.length?`<div class="sub">New customer groups: <b>${esc(p.newGroups.join(', '))}</b></div>`:''}
-   <table data-pl-file-preview><thead><tr><th>List</th><th>Item</th><th>Was</th><th>Will be</th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="mut">Nothing to change.</td></tr>'}</tbody></table>
-   ${p.errors.length?`<h4 style="margin-top:12px">Skipped rows</h4><table data-pl-file-errors><thead><tr><th>Row</th><th>Why</th></tr></thead><tbody>${p.errors.map(e=>`<tr><td class="mono">${e.line}</td><td>${esc(e.why)}</td></tr>`).join('')}</tbody></table>`:''}
+   <div data-pl-file-preview>${rows}</div>
+   ${p.errors.length?`<h4 style="margin-top:12px">Skipped rows</h4><div data-pl-file-errors>${slTable('plFileErrors',{list:p.errors,noun:l=>l.length+' rows',fill:'why',columns:()=>[{k:'line',label:'Row',type:'number',v:e=>e.line},{k:'why',label:'Why',type:'text',v:e=>e.why}]})}</div>`:''}
    <div class="row" style="gap:8px;margin-top:10px"><button class="pri" data-pl-file-write ${p.changes.length?'':'disabled'} onclick="plFileWrite()">Write ${p.changes.length} change${p.changes.length===1?'':'s'}</button><button onclick="plFile=null;render()">Cancel</button></div>`;
  }else if(f&&f.done)body=`<div class="sub" data-pl-file-done>${esc(f.name)}: ${f.done.written} price${f.done.written===1?'':'s'} written${f.done.errors?', '+f.done.errors+' rows skipped':''}.</div>`;
  return `<div class="sub">Export, edit prices in Excel, load the file back. Nothing is written until you check "Was → Will be". Rows not in the file stay as they are; an empty price removes it.</div>
@@ -35786,8 +35836,8 @@ const SALES_LIST_COLUMNS=[
 ];
 const SALES_LIST_OPS={
  text:[['contains','Contains'],['notContains','Does not contain'],['startsWith','Starts with'],['endsWith','Ends with'],['equals','Equals'],['notEqual','Not equal'],['empty','Is empty'],['notEmpty','Is not empty']],
- number:[['gt','> Greater than'],['gte','≥ At least'],['lt','< Less than'],['lte','≤ At most'],['eq','= Equal to'],['ne','≠ Not equal'],['between','Between'],['empty','Is empty']],
- date:[['between','Between'],['on','On'],['before','Before'],['after','After'],['empty','Is empty']],
+ number:[['startsWith','Starts with'],['gt','> Greater than'],['gte','≥ At least'],['lt','< Less than'],['lte','≤ At most'],['eq','= Equal to'],['ne','≠ Not equal'],['between','Between'],['empty','Is empty']],
+ date:[['between','Between'],['startsWith','Starts with'],['on','On'],['before','Before'],['after','After'],['empty','Is empty']],
  list:[]
 };
 const SALES_LIST_PRESETS=[['today','Today'],['yesterday','Yesterday'],['thisWeek','This week'],['last7','Last 7 days'],['last14','Last 14 days'],['last30','Last 30 days'],['thisMonth','This month'],['lastMonth','Last month'],['thisYear','This year']];
@@ -35806,8 +35856,10 @@ let salesListPrefs=null,salesListMenu=null,salesListSel=new Set(),salesListAncho
 /* ------------------------------ Настройки ------------------------------ */
 /* Один движок колонок/фильтров, отдельные настройки Sales, Optimization и Shipping. */
 const salesQueuePrefs={optimization:null,shipping:null};
-function salesListScope(){if(tab==='purchasing'&&typeof purListScope==='function')return purListScope();if(tab==='inventory'&&typeof invListScope==='function')return invListScope();if(tab==='shipping'&&typeof shippingListScope==='function'&&shippingListScope())return shippingListScope();if(tab==='users'&&typeof usersListScope==='function'&&usersListScope())return usersListScope();if(tab==='customers'&&typeof custListScope==='function'&&custListScope())return custListScope();if(tab==='masterdata'&&typeof mdListScope==='function'&&mdListScope())return mdListScope();if(tab==='finance'&&typeof finListScope==='function')return finListScope();if(tab==='commissions'&&typeof comListScope==='function')return comListScope();if(tab==='production'&&typeof prodListScope==='function'&&prodListScope())return prodListScope();if(tab==='optimization'&&typeof glassBatchViewScope==='function'&&glassBatchViewScope())return glassBatchViewScope();return tab==='optimization'||tab==='shipping'?tab:'sales';}
+function salesListScope(){const g=typeof slGenericScope==='function'?slGenericScope():'';if(g)return g;if(tab==='purchasing'&&typeof purListScope==='function')return purListScope();if(tab==='inventory'&&typeof invListScope==='function')return invListScope();if(tab==='shipping'&&typeof shippingListScope==='function'&&shippingListScope())return shippingListScope();if(tab==='users'&&typeof usersListScope==='function'&&usersListScope())return usersListScope();if(tab==='customers'&&typeof custListScope==='function'&&custListScope())return custListScope();if(tab==='masterdata'&&typeof mdListScope==='function'&&mdListScope())return mdListScope();if(tab==='finance'&&typeof finListScope==='function')return finListScope();if(tab==='commissions'&&typeof comListScope==='function')return comListScope();if(tab==='production'&&typeof prodListScope==='function'&&prodListScope())return prodListScope();if(tab==='optimization'&&typeof glassBatchViewScope==='function'&&glassBatchViewScope())return glassBatchViewScope();return tab==='optimization'||tab==='shipping'?tab:'sales';}
 function salesListCatalog(){
+ /* Таблицы на views/sl-generic — свои колонки по scope. */
+ if(typeof SL_GENERIC!=='undefined'&&SL_GENERIC[salesListScope()])return SL_GENERIC[salesListScope()].columns();
  if(tab==='purchasing'&&typeof purListColumns==='function')return purListColumns();
  if(tab==='inventory'&&typeof invListColumns==='function')return invListColumns();
  if(salesListScope()==='shippingPS')return shippingListColumns();
@@ -36030,6 +36082,12 @@ function salesListCondTest(type,c,val){
  const empty=val==null||val==='';
  if(c.op==='empty')return empty;
  if(c.op==='notEmpty')return !empty;
+ /* Starts with у чисел и дат (быстрый фильтр в заголовке): по тексту
+    значения — «76» находит 76025, «2026-10» и «Oct» — даты октября. */
+ if(c.op==='startsWith'&&type!=='text'&&type!=='list'){
+  if(empty)return false;const x=String(c.v==null?'':c.v).trim().toLowerCase().replace(/[$,]/g,'');
+  return String(val).toLowerCase().startsWith(x)||type==='date'&&String(salesListShortDay(val)).toLowerCase().startsWith(x);
+ }
  if(type==='number'){
   if(empty)return false;
   const a=Number(c.v),b=Number(c.v2);if(!Number.isFinite(a))return true;
@@ -36102,7 +36160,7 @@ function salesListBase(){
  return {all:all.concat(old.map(i=>i.o),ncrs.map(i=>i.o)),pool,infos:salesStatusFilter?pool.filter(r=>salesListStatusKey(r)===salesStatusFilter):pool};
 }
 /* Сортировка по умолчанию: у Sales — новые сверху, у таблиц Finance — своя. */
-function salesListDefaultSort(){if(tab==='purchasing'&&typeof purListDefaultSort==='function')return purListDefaultSort();if(tab==='inventory'&&typeof invListDefaultSort==='function')return invListDefaultSort();if(salesListScope()==='shippingPS')return {k:'number',dir:'desc'};const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||(s==='agents'?{k:'toPay',dir:'desc'}:s==='mdSupply'?{k:'product',dir:'asc'}:s==='glassSheets'?{k:'built',dir:'desc'}:{k:'created',dir:'desc'});}
+function salesListDefaultSort(){const g=typeof SL_GENERIC!=='undefined'&&SL_GENERIC[salesListScope()];if(g)return g.sort||{k:'',dir:'asc'};if(tab==='purchasing'&&typeof purListDefaultSort==='function')return purListDefaultSort();if(tab==='inventory'&&typeof invListDefaultSort==='function')return invListDefaultSort();if(salesListScope()==='shippingPS')return {k:'number',dir:'desc'};const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||(s==='agents'?{k:'toPay',dir:'desc'}:s==='mdSupply'?{k:'product',dir:'asc'}:s==='glassSheets'?{k:'built',dir:'desc'}:{k:'created',dir:'desc'});}
 /* Колонка блока дат над таблицей: её фильтр показан кнопкой, а не чипом. */
 function salesListDateColumn(){if(tab==='purchasing'&&typeof purListDateColumn==='function')return purListDateColumn();if(tab==='inventory'&&typeof invListDateColumn==='function')return invListDateColumn();return salesListScope()==='usersLog'?'when':salesListScope()==='shippingPS'?'date':salesListScope()==='sales'?'created':salesListScope()==='glassSheets'?'built':salesListScope().startsWith('fin')&&typeof finListDateColumn==='function'?finListDateColumn():salesListScope().startsWith('prod')?'due':'';}
 function salesListRows(infos,skip){
@@ -36480,7 +36538,7 @@ function cwStaticTable(id,head,lead){
 function salesListTableHTML(o){
  const p=salesListLoadPrefs(),cols=salesListColumns(),keys=cols.map(c=>c.k),cwId=salesListCwId(),rows=o.rows;
  const th=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th"><span data-cw-label>${c.label}</span><button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span>${cwGrip()}</th>`;};
- const body=rows.map((i,k)=>{const r=o.row(i,k);return `<tr${r.attrs||''}>${r.first||'<td class="sl-check"></td>'}${cols.map(c=>o.cell(i,c,rows[k-1])).join('')}<td></td></tr>`;}).join('');
+ const body=rows.map((i,k)=>{const r=o.row(i,k);return `<tr${r.attrs||''}>${r.first||'<td class="sl-check"></td>'}${cols.map(c=>o.cell(i,c,rows[k-1])).join('')}${r.last!=null?`<td class="sl-row-acts">${r.last}</td>`:'<td></td>'}</tr>${r.after?r.after(cols.length+2):''}`;}).join('');
  const lead=Math.max(0,cols.findIndex(c=>salesListCalc(c)!=='none')),foot=rows.length?`<tfoot><tr class="sl-foot"><td colspan="${lead+1}" class="sl-foot-head"><b>${o.noun(rows)}</b></td>${cols.slice(lead).map(c=>salesListCalcCell(c,rows)).join('')}<td></td></tr></tfoot>`:'';
  return `${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${o.cls?' '+o.cls:''}${cwTableClass(cwId)}"${cwTableAttrs(cwId,keys)}>${cwColgroup(cwId,keys)}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">${o.empty}</td></tr>`}</tbody>${foot}</table></div>${salesListMenuHTML(o.infos)}`;
 }
@@ -36649,6 +36707,7 @@ function salesListStatusMenuHTML(style){
    пока обёртка таблицы не прокручивается. Шире экрана (включили колонку,
    потянули ширины) — таблица крутится сама, итоги внизу её окна. */
 function salesListFit(){
+ if(typeof salesListQuickDecorate==='function')salesListQuickDecorate();
  document.querySelectorAll('#app table.sl-table').forEach(salesListTableFit);
  const wrap=document.querySelector('#app .sl-foot-pin .sales-table-wrap');if(!wrap||!wrap.firstElementChild)return;
  const foot=(document.querySelector('.app-foot')||{}).offsetHeight||0,wide=wrap.firstElementChild.offsetWidth>wrap.clientWidth+1;
@@ -36749,6 +36808,159 @@ function salesListStatusControlHTML(chips,selection,total,onSelect){
  const p=salesListLoadPrefs(),selected=chips.find(c=>c.key===selection),label=selected?selected.label:'All',n=selected?selected.n:total;
  const toggle=`<button type="button" class="sl-status-toggle" data-status-toggle aria-expanded="${p.statusExpanded}" title="${p.statusExpanded?'Hide status filters':'Show status filters'}" onclick="salesListToggleStatuses()">${esc(label)} <b>${n}</b><span class="sl-disclosure" aria-hidden="true">${p.statusExpanded?'▾':'▸'}</span></button>`;
  return `<div class="sales-status-chips sl-status-compact">${toggle}${p.statusExpanded?`<div class="sl-status-options"><button type="button" data-status-all class="${selection?'':'on'}" onclick="${onSelect}('')">All <b>${total}</b></button>${chips.map(c=>`<button type="button" data-status-chip="${esc(c.key)}" class="${selection===c.key?'on':''}" onclick="${onSelect}(${esc(JSON.stringify(c.key))})">${esc(c.label)} <b>${c.n}</b></button>`).join('')}</div>`:''}</div>`;
+}
+
+/* ==== src/erp/views/sl-generic.js ==== */
+/* =====================================================================
+   views/sl-generic  ·  любая таблица — вид Sales
+   Владелец 07.11.2026: «все таблицы должны быть одинакового формата, все до
+   одной» — фильтр, сортировка, ширина, перетаскивание столбцов, ⚙ Columns.
+   Таблица экрана подключается к движку Sales (sales-list-ui) своим scope:
+   колонки — {k, label, type, v(x), cell(x,v)?, def?}, значения — из v(x),
+   строку рисует cell или вид по типу. Две таблицы на одном экране не мешают:
+   scope — на время отрисовки (slScopeNow) и по нажатию внутри обёртки
+   [data-sl-scope] (slScopePin) — фильтр, ширина, Columns попадают в свою.
+   IN : строки экрана, колонки
+   OUT: HTML таблицы с шапкой движка Sales
+   ===================================================================== */
+
+const SL_GENERIC={};
+let slScopeNow='',slScopePin='';
+function slGenericScope(){return slScopeNow||slScopePin||'';}
+document.addEventListener('pointerdown',e=>{const w=e.target&&e.target.closest?e.target.closest('[data-sl-scope]'):null;slScopePin=w?w.dataset.slScope:'';},true);
+
+/* Строки: memo — значения всех колонок (фильтр и сортировка читают их). */
+function slInfos(list,id,cols){
+ /* tokens — колонка со списком через « · »: фильтр по каждому значению отдельно. */
+ return (list||[]).map((x,i)=>{const memo={},tokens={};cols.forEach(c=>{let v;try{v=c.v(x,i);}catch(e){v='';}memo[c.k]=v==null?'':v;if(c.tokens)tokens[c.k]=String(memo[c.k]).split(' · ').filter(Boolean);});return {o:{id:String(id(x,i)),createdAt:''},x,i,memo,tokens};});
+}
+/* Готовая строка экрана (rowHTML) → её <tr> и ячейки: колонка с td:N берёт N-ю
+   ячейку как есть — вид строки не меняется, движок только ставит порядок колонок. */
+function slParseRow(html){
+ const t=document.createElement('template');t.innerHTML='<table><tbody>'+html+'</tbody></table>';
+ const tr=t.content.querySelector('tr'),at=el=>[...el.attributes].map(a=>` ${a.name}="${esc(a.value)}"`).join('');
+ return tr?{attrs:at(tr),tds:[...tr.children].map(td=>({attrs:at(td),html:td.innerHTML})),after:[...t.content.querySelectorAll('tbody > tr')].slice(1).map(x=>x.outerHTML).join('')}:{attrs:'',tds:[],after:''};
+}
+/* Ячейка по типу колонки, если у колонки нет своей. */
+function slCell(info,c){
+ const v=info.memo[c.k];
+ if(c.td!=null&&info.row){const d=info.row.tds[c.td];return d?`<td${d.attrs}>${d.html}</td>`:'<td></td>';}
+ if(c.cell)return `<td${c.type==='number'?' class="n"':''}>${c.cell(info.x,v,info)}</td>`;
+ if(v===''||v==null)return `<td${c.type==='number'?' class="n"':''}><span class="mut">—</span></td>`;
+ if(c.type==='date')return `<td>${esc(salesListShortDay(v))}</td>`;
+ if(c.type==='number')return `<td class="n">${c.money?esc(finFmt(v)):esc(typeof v==='number'?v.toLocaleString('en-US',{maximumFractionDigits:c.digits==null?2:c.digits}):String(v))}</td>`;
+ return `<td>${esc(String(v))}</td>`;
+}
+/* o: {columns:()=>[...], list, id(x), sort:{k,dir}, fill — колонка во всю ширину, acts — ширина колонки кнопок справа (px), c.w — ширина колонки, row(info)→{attrs, first, last, after(colspan) — строка под строкой},
+   rowHTML(x) — готовая строка экрана: колонки берут её ячейки (td:N), firstTd/lastTd — галочка и кнопки, noun(rows), empty, widths, cls}.
+   Колонки без def видны сразу; def:false — только в ⚙ Columns. Ключ 'type' не брать: в движке он
+   прячется, когда в Sales один вид (заказы без квот). */
+function slTable(scope,o){
+ const cols0=o.columns().map(c=>Object.assign({def:true},c));
+ SL_GENERIC[scope]={columns:()=>cols0,sort:o.sort||null};
+ const was=slScopeNow;slScopeNow=scope;let html='';
+ try{
+  /* Колонка появилась или пропала (Server — пока подключён сервер): настройки
+     перечитываются и чистятся с новым набором колонок. */
+  const p=salesListLoadPrefs(),keys=new Set(cols0.map(c=>c.k));
+  if(cols0.some(c=>!p.cols.some(x=>x.k===c.k))||p.cols.some(x=>!keys.has(x.k)))delete salesQueuePrefs[scope];
+  const cols=salesListColumns(),infos=slInfos(o.list,o.id||((x,i)=>i),cols0);
+  const defs=Object.assign({},...cols0.filter(c=>c.w).map(c=>({[c.k]:c.w})),o.widths||{});
+  salesListCwTable(cols.map(c=>c.k),[44],o.acts||20,defs);
+  /* Колонка, что забирает остаток ширины (как Customer в Sales): своя или первая текстовая. */
+  const reg=CW_TABLES[scope];if(reg){reg.fill=o.fill||(cols0.find(c=>c.type==='text')||cols0[0]||{}).k||'';reg.trail=o.acts||20;}
+  const rows=salesListRows(infos);
+  if(o.rowHTML)rows.forEach(i=>{i.row=slParseRow(o.rowHTML(i.x,i.i));});
+  html=salesListTableHTML({infos,rows,cls:o.cls,
+   cell:(i,c)=>slCell(i,c),
+   row:info=>{const r=o.row?o.row(info)||{}:{},R=info.row;
+    if(R){/* rowHTML: атрибуты строки, первая (галочка) и последняя (кнопки) ячейки — из неё. */
+     const cell=n=>n==null?undefined:R.tds[n<0?R.tds.length+n:n];
+     const f=cell(o.firstTd),l=cell(o.lastTd);
+     return {attrs:R.attrs+(r.attrs||'')+` data-sl-row="${esc(info.o.id)}"`,first:f?`<td${f.attrs}>${f.html}</td>`:r.first,last:l?l.html:r.last,after:R.after?()=>R.after:r.after};}
+    return {attrs:(r.attrs||'')+` data-sl-row="${esc(info.o.id)}"`,first:r.first,last:r.last,after:r.after};},
+   noun:rows=>o.noun?o.noun(rows):rows.length+' row'+(rows.length===1?'':'s'),empty:infos.length?'Nothing matches the filters.':(o.empty||'Nothing here yet.')});
+ }finally{slScopeNow=was;}
+ return `<div class="sl-generic" data-sl-scope="${esc(scope)}">${html}</div>`;
+}
+
+/* ==== src/erp/views/sl-quick-filter.js ==== */
+/* =====================================================================
+   views/sl-quick-filter  ·  быстрый фильтр в заголовке колонки
+   Владелец 07.11.2026: «засунуть быстрый поиск в саму ячейку заголовка: там
+   текст, пока в неё не нажмёшь, тогда вводишь; всё меню остаётся в
+   стрелочке; стрелочка — слева перед текстом». Нажали на название колонки —
+   на его месте поле; набранное — условие колонки (по умолчанию Starts with,
+   другое выбирают в ▾). Отфильтрованная колонка показывает в заголовке
+   условие и значение. Любая таблица на движке Sales — заголовки не трогаем,
+   после отрисовки поле ставится по data-filter-col (salesListFit).
+   ===================================================================== */
+
+let salesListQuick=null,salesListQuickTimer=0;
+const SL_QUICK_SIGN={startsWith:'',contains:'∗',notContains:'≠∗',endsWith:'…',equals:'=',notEqual:'≠',gt:'>',gte:'≥',lt:'<',lte:'≤',eq:'=',ne:'≠',on:'=',before:'<',after:'>'};
+/* Простое условие колонки — одно, со значением: его и правит поле в заголовке. */
+function salesListQuickCond(f){
+ if(!f||Array.isArray(f.values)||f.preset||f.mode==='exclude')return null;
+ const c=(f.conds||[]).filter(salesListCondReady);
+ return c.length===1&&(f.conds||[]).length===1&&SL_QUICK_SIGN[c[0].op]!=null?c[0]:null;
+}
+/* Заголовок → его таблица: своя обёртка [data-sl-scope] или список экрана. */
+function salesListQuickScopeOf(th){const w=th.closest('[data-sl-scope]');return w?w.dataset.slScope:'';}
+function salesListQuickWith(scope,fn){const was=slScopeNow;if(scope)slScopeNow=scope;try{return fn();}finally{slScopeNow=was;}}
+function salesListQuickTh(q){
+ return [...document.querySelectorAll(`#app th[data-col="${CSS.escape(q.k)}"]`)].find(th=>th.querySelector('.sl-fbtn[data-filter-col]')&&salesListQuickScopeOf(th)===q.wrap)||null;
+}
+document.addEventListener('click',e=>{
+ const lab=e.target&&e.target.closest?e.target.closest('th [data-cw-label]'):null;if(!lab||e.target.closest('.sl-qf'))return;
+ const th=lab.closest('th'),btn=th&&th.querySelector('.sl-fbtn[data-filter-col]');if(!btn)return;
+ const k=btn.dataset.filterCol,wrap=salesListQuickScopeOf(th);
+ const f=salesListQuickWith(wrap,()=>salesListLoadPrefs().filters[k]);
+ /* Сложный фильтр (галочки значений, несколько условий) правят в ▾. */
+ if(salesListFilterActive(f)&&!salesListQuickCond(f)){btn.click();return;}
+ const c=salesListQuickCond(f);
+ salesListQuick={wrap,scope:wrap||salesListScope(),k,v:c?String(c.v):''};salesListQuickDecorate();
+});
+function salesListQuickInput(el){
+ if(!salesListQuick)return;salesListQuick.v=el.value;clearTimeout(salesListQuickTimer);
+ salesListQuickTimer=setTimeout(salesListQuickApply,250);
+}
+function salesListQuickKey(e,el){
+ if(e.key==='Enter'){e.preventDefault();clearTimeout(salesListQuickTimer);salesListQuickApply();salesListQuick=null;render();}
+ else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();clearTimeout(salesListQuickTimer);salesListQuick=null;render();}
+}
+function salesListQuickBlur(){
+ if(!salesListQuick)return;clearTimeout(salesListQuickTimer);const q=salesListQuick;
+ /* Фокус ушёл в меню ▾ этой же колонки — поле остаётся. */
+ /* Перерисовка после фильтра ставит новое поле и фокус в него — это не уход. */
+ setTimeout(()=>{const a=document.activeElement;if(salesListQuick!==q||a&&a.classList&&a.classList.contains('sl-qf'))return;salesListQuickApply();salesListQuick=null;render();},0);
+}
+function salesListQuickApply(){
+ const q=salesListQuick;if(!q)return;
+ salesListQuickWith(q.wrap,()=>{
+  const f=salesListLoadPrefs().filters[q.k],c=salesListQuickCond(f),v=String(q.v||'');
+  if(salesListFilterActive(f)&&!c)return;
+  salesListSetFilter(q.k,v.trim()===''?null:{mode:'include',conds:[{op:c?c.op:'startsWith',v,v2:'',join:'and'}],values:null,preset:''});
+ });
+}
+/* После отрисовки: поле в заголовке, что сейчас правят; у отфильтрованных
+   колонок — условие и значение вместо названия (название — в подсказке). */
+function salesListQuickDecorate(){
+ document.querySelectorAll('#app th .sl-fbtn[data-filter-col]').forEach(btn=>{
+  const th=btn.closest('th'),lab=th.querySelector('[data-cw-label]');if(!lab||lab.querySelector('.sl-qf'))return;
+  const k=btn.dataset.filterCol,wrap=salesListQuickScopeOf(th),q=salesListQuick;
+  if(q&&q.k===k&&q.wrap===wrap){
+   lab.dataset.label=lab.dataset.label||lab.textContent;
+   lab.innerHTML=`<input class="sl-qf" data-sl-quick="${esc(k)}" aria-label="Filter ${esc(lab.dataset.label)}" value="${esc(q.v)}" oninput="salesListQuickInput(this)" onkeydown="salesListQuickKey(event,this)" onblur="salesListQuickBlur()">`;
+   const i=lab.firstChild;i.focus();try{i.setSelectionRange(i.value.length,i.value.length);}catch(x){}
+   return;
+  }
+  const f=salesListQuickWith(wrap,()=>salesListLoadPrefs().filters[k]),c=salesListQuickCond(f);
+  if(!c)return;
+  const name=lab.dataset.label||lab.textContent;lab.dataset.label=name;
+  const sign=SL_QUICK_SIGN[c.op];
+  lab.innerHTML=`<span class="sl-qf-on" data-sl-quick-on="${esc(k)}">${sign?esc(sign)+' ':''}${esc(c.v)}${c.op==='startsWith'?'…':''}</span>`;
+  th.title=name+' · '+((salesListQuickWith(wrap,()=>(SALES_LIST_OPS[(salesListColumn(k)||{}).type]||SALES_LIST_OPS.text).find(o=>o[0]===c.op))||[])[1]||c.op)+' '+c.v;
+ });
 }
 
 /* ==== src/erp/sales/line-hold.js ==== */
@@ -42914,13 +43126,15 @@ function viewMdNcr(){
  const side=place(NCR_ALL,'ALL','All stations')+'<hr>'+places.map(w=>place(w.code,w.code,w.name)).join('');
  const station=ncrWhere!==NCR_ALL&&ncrWhere!==NCR_OFFICE;
  const hint=ncrWhere===NCR_ALL?'Shown on every station':'';
- const row=r=>{
-  const base=station&&r.where===NCR_ALL,scope=r.where===NCR_ALL?'All stations':(r.where===NCR_OFFICE?'Office':r.where)+' only';
-  return `<tr data-ncr-reason="${esc(r.id)}" class="${r.active?'':'ncr-off'}"><td>${base?`<span class="ncr-name">${esc(r.name)}</span>`:`<input class="ncr-name-input" data-ncr-name value="${esc(ncrTyped&&ncrTyped.id===r.id?ncrTyped.name:r.name)}" maxlength="80" aria-label="Reason name" onchange="ncrRenameFromInput('${esc(r.id)}',this)">`}</td>
-   <td><span class="pill ${r.where===NCR_ALL?'ncr-scope-all':'ncr-scope-own'}">${esc(scope)}</span></td>
-   <td class="ncr-active">${base?`<span class="mut" title="Change in All stations">${r.active?'On':'Off'}</span>`:`<label class="ncr-switch"><input type="checkbox" data-ncr-active ${r.active?'checked':''} aria-label="Active: ${esc(r.name)}" onchange="ncrToggle('${esc(r.id)}',this.checked)"><span></span></label>`}</td></tr>`;
- };
+ const base=r=>station&&r.where===NCR_ALL,scopeText=r=>r.where===NCR_ALL?'All stations':(r.where===NCR_OFFICE?'Office':r.where)+' only';
  const rows=ncrReasonsFor(ncrWhere);
+ /* Таблица вида Sales (владелец 07.11.2026): фильтр, сортировка, ширина, порядок. */
+ const table=slTable('mdNcrReasons',{list:rows,id:r=>r.id,cls:'ncr-table',empty:'No reasons yet.',noun:l=>l.length+' reason'+(l.length===1?'':'s'),
+  columns:()=>[
+   {k:'name',label:'Reason',type:'text',v:r=>r.name,cell:r=>base(r)?`<span class="ncr-name">${esc(r.name)}</span>`:`<input class="ncr-name-input" data-ncr-name value="${esc(ncrTyped&&ncrTyped.id===r.id?ncrTyped.name:r.name)}" maxlength="80" aria-label="Reason name" onchange="ncrRenameFromInput('${esc(r.id)}',this)">`},
+   {k:'where',label:'Applies to',type:'list',v:scopeText,cell:r=>`<span class="pill ${r.where===NCR_ALL?'ncr-scope-all':'ncr-scope-own'}">${esc(scopeText(r))}</span>`},
+   {k:'active',label:'Active',type:'list',v:r=>r.active?'On':'Off',cell:r=>`<span class="ncr-active">${base(r)?`<span class="mut" title="Change in All stations">${r.active?'On':'Off'}</span>`:`<label class="ncr-switch"><input type="checkbox" data-ncr-active ${r.active?'checked':''} aria-label="Active: ${esc(r.name)}" onchange="ncrToggle('${esc(r.id)}',this.checked)"><span></span></label>`}</span>`}],
+  row:i=>({attrs:` data-ncr-reason="${esc(i.x.id)}" class="${i.x.active?'':'ncr-off'}"`})});
  const pills=list=>`<div class="ncr-pills">${list.map(x=>`<span class="pill">${esc(x)}</span>`).join('')}</div>`;
  return ` <div class="ncr-layout">
   <div class="card ncr-side"><div class="ncr-label">WHERE</div>${side}</div>
@@ -42929,7 +43143,7 @@ function viewMdNcr(){
     <div class="ncr-head"><div><div class="ncr-label">WHAT HAPPENED</div><h3>${esc(ncrWhere===NCR_ALL?'All stations':ncrWhere===NCR_OFFICE?'Office':ncrWhere+' · '+ncrWhereName(ncrWhere))}</h3>${hint?`<p>${esc(hint)}</p>`:''}</div>
      <div class="ncr-add"><input data-ncr-new maxlength="80" placeholder="New reason" aria-label="New reason" value="${esc(ncrNew)}" oninput="ncrNew=this.value" onkeydown="if(event.key==='Enter')ncrAddFromInput()"><button type="button" class="pri" data-ncr-add onclick="ncrAddFromInput()">+ Add reason</button></div></div>
     ${ncrError?`<div class="ncr-error" role="alert">${esc(ncrError)}</div>`:''}
-    <table class="ncr-table"><thead><tr><th>Reason</th><th>Applies to</th><th>Active</th></tr></thead><tbody>${rows.map(row).join('')||'<tr><td colspan="3" class="empty">No reasons yet.</td></tr>'}</tbody></table>
+    ${table}
    </div>
    <div class="card ncr-actions-card"><div class="ncr-label">NCR ACTION</div>${pills(NCR_ACTIONS)}</div>
   </div>
@@ -42941,13 +43155,16 @@ function viewMdNcr(){
    выключить; удаления нет. */
 let stockReasonNew='',stockReasonError='';
 function viewMdStockReasons(){
- const rows=(DB.stockReason||[]).map(r=>`<tr data-stock-reason="${esc(r.id)}" class="${r.active?'':'ncr-off'}"><td><input class="ncr-name-input" data-stock-reason-name value="${esc(r.name)}" maxlength="80" aria-label="Reason" onchange="stockReasonError=stockReasonRename('${esc(r.id)}',this.value);render()"></td>
-  <td class="ncr-active"><label class="ncr-switch"><input type="checkbox" data-stock-reason-active ${r.active?'checked':''} aria-label="Active: ${esc(r.name)}" onchange="stockReasonError=stockReasonSetActive('${esc(r.id)}',this.checked);render()"><span></span></label></td></tr>`).join('');
+ const table=slTable('mdStockReasons',{list:DB.stockReason||[],id:r=>r.id,cls:'ncr-table',empty:'No reasons yet.',noun:l=>l.length+' reason'+(l.length===1?'':'s'),
+  columns:()=>[
+   {k:'name',label:'Reason',type:'text',v:r=>r.name,cell:r=>`<input class="ncr-name-input" data-stock-reason-name value="${esc(r.name)}" maxlength="80" aria-label="Reason" onchange="stockReasonError=stockReasonRename('${esc(r.id)}',this.value);render()">`},
+   {k:'active',label:'Active',type:'list',v:r=>r.active?'On':'Off',cell:r=>`<span class="ncr-active"><label class="ncr-switch"><input type="checkbox" data-stock-reason-active ${r.active?'checked':''} aria-label="Active: ${esc(r.name)}" onchange="stockReasonError=stockReasonSetActive('${esc(r.id)}',this.checked);render()"><span></span></label></span>`}],
+  row:i=>({attrs:` data-stock-reason="${esc(i.x.id)}" class="${i.x.active?'':'ncr-off'}"`})});
  return `<div class="card ncr-main" data-stock-reasons>
   <div class="ncr-head"><div><div class="ncr-label">STOCK COUNT</div><h3>Reasons</h3><p>Shown when a count differs.</p></div>
    <div class="ncr-add"><input data-stock-reason-new maxlength="80" placeholder="New reason" aria-label="New reason" value="${esc(stockReasonNew)}" oninput="stockReasonNew=this.value" onkeydown="if(event.key==='Enter')stockReasonAddUi()"><button type="button" class="pri" data-stock-reason-add onclick="stockReasonAddUi()">+ Add</button></div></div>
   ${stockReasonError?`<div class="ncr-error" role="alert">${esc(stockReasonError)}</div>`:''}
-  <table class="ncr-table"><thead><tr><th>Reason</th><th>Active</th></tr></thead><tbody>${rows||'<tr><td colspan="2" class="empty">No reasons yet.</td></tr>'}</tbody></table></div>`;
+  ${table}</div>`;
 }
 function stockReasonAddUi(){stockReasonError=stockReasonAdd(stockReasonNew);if(!stockReasonError)stockReasonNew='';render();}
 
@@ -47301,8 +47518,12 @@ function invStockLog(rows){
  const today=salesListDay(new Date()),list=rows.flatMap(r=>r.moves.filter(m=>m.event&&salesListIsoDay(m.at)===today).map(m=>({r,m}))).sort((a,b)=>String(b.m.at).localeCompare(String(a.m.at)));
  const left=rows.filter(r=>r.status==='Not counted').length;
  return '<section class="inv-stock-log" data-inv-stock-log><div class="inv-stock-log-head"><b>Today</b><span class="mut">'+list.length+' count'+(list.length===1?'':'s')+' and changes</span>'+(left?'<button type="button" class="fin-link" onclick="invListStatus(\'Not counted\')">Not counted yet · '+left+'</button>':'')+'<span class="sales-toolbar-sp"></span><button type="button" class="sm" onclick="invGo(\'journal\')">Full journal</button></div>'+
-  (list.length?'<div class="sales-table-wrap"><table class="ncr-table"><thead><tr><th>Time</th><th>Item</th><th>What</th><th class="n">Was → now</th><th class="n">Change</th><th>Reason</th><th>Who</th></tr></thead><tbody>'+
-   list.map(({r,m})=>{const e=m.event,was=e.kind==='count'?e.before:null;return '<tr><td class="nowrap">'+esc(new Date(e.at).toTimeString().slice(0,5))+'</td><td data-raw>'+esc(r.name)+'</td><td>'+esc(m.kind)+'</td><td class="n">'+(was==null?'<span class="mut">—</span>':esc(was+' → '+e.after))+'</td><td class="n'+(e.qty<0?' inv-neg':'')+'">'+esc((e.qty>0?'+':e.qty<0?'−':'')+Math.abs(e.qty))+'</td><td>'+invNum([e.reason,e.note].filter(Boolean).join(' · '))+'</td><td data-raw>'+invNum(e.by)+'</td></tr>';}).join('')+'</tbody></table></div>':'<p class="mut">Nothing counted today.</p>')+'</section>';
+  (list.length?slTable('invStockToday',{list,cls:'ncr-table',noun:l=>l.length+' changes',fill:'item',
+   columns:()=>[{k:'time',label:'Time',type:'text',v:x=>new Date(x.m.event.at).toTimeString().slice(0,5),cell:x=>'<span class="nowrap">'+esc(new Date(x.m.event.at).toTimeString().slice(0,5))+'</span>'},
+    {k:'item',label:'Item',type:'text',v:x=>x.r.name,cell:x=>'<span data-raw>'+esc(x.r.name)+'</span>'},{k:'what',label:'What',type:'list',v:x=>x.m.kind},
+    {k:'wasNow',label:'Was → now',type:'text',v:x=>x.m.event.kind==='count'?x.m.event.before+' → '+x.m.event.after:''},
+    {k:'change',label:'Change',type:'number',sum:true,v:x=>x.m.event.qty,cell:x=>{const q=x.m.event.qty;return '<span class="'+(q<0?'inv-neg':'')+'">'+esc((q>0?'+':q<0?'−':'')+Math.abs(q))+'</span>';}},
+    {k:'reason',label:'Reason',type:'text',v:x=>[x.m.event.reason,x.m.event.note].filter(Boolean).join(' · ')},{k:'who',label:'Who',type:'list',v:x=>x.m.event.by||''}]}):'<p class="mut">Nothing counted today.</p>')+'</section>';
 }
 function invStockView(infos){
  const rows=salesListRows(infos),cols=salesListColumns(),all=infos.map(i=>i.r);
@@ -47481,10 +47702,12 @@ function invSizesView(){
  const data=accessCan('masterdata'),link=(c,k)=>data?'<button type="button" class="fin-link" data-inv-size-supply="'+esc(c)+'" title="Supply row in Data" onclick="invSizeSupplyOpen('+invArg(c)+','+invArg(k)+')">'+esc(c)+'</button>':esc(c);
  const sizes=cutSheetSizes(),whose=x=>[x.shop?'All glass':'',x.codes.slice(0,4).map(c=>link(c,x.key)).join(', ')+(x.codes.length>4?' +'+(x.codes.length-4):'')].filter(Boolean).join(' · ');
  return '<p class="mut">Supply sizes of a glass go first; shop sizes work for any glass. Trim and border — Data → Cutting.</p>'+
-  '<div class="sales-table-wrap"><table class="ncr-table" data-inv-sizes><thead><tr><th>Sheet</th><th>Glass</th><th>From</th><th></th></tr></thead><tbody>'+
-  (sizes.map(x=>'<tr data-inv-size="'+esc(x.key)+'"><td><b>'+esc(frac16(x.w))+' × '+esc(frac16(x.h))+'″</b></td><td class="mut">'+whose(x)+'</td><td>'+(x.codes.length?'Supply'+(x.shop?' · Shop':''):'Shop')+'</td><td>'+
-   (x.shop?'<button type="button" class="sm dl" data-inv-size-remove="'+esc(x.key)+'" aria-label="Remove '+esc(x.key)+'" onclick="invSizeRemoveUi('+invArg(x.key)+')">×</button>':'')+'</td></tr>').join('')||
-   '<tr><td colspan="4" class="mut" data-inv-sizes-empty>No sheet sizes yet — glass shows Size missing.</td></tr>')+'</tbody></table></div>'+
+  '<div data-inv-sizes>'+slTable('invSizes',{list:sizes,id:x=>x.key,cls:'ncr-table',empty:'No sheet sizes yet — glass shows Size missing.',noun:l=>l.length+' sheet size'+(l.length===1?'':'s'),fill:'glass',acts:50,
+   columns:()=>[{k:'sheet',label:'Sheet',type:'text',v:x=>frac16(x.w)+' × '+frac16(x.h)+'″',cell:x=>'<b>'+esc(frac16(x.w))+' × '+esc(frac16(x.h))+'″</b>'},
+    {k:'glass',label:'Glass',type:'text',tokens:true,v:x=>[x.shop?'All glass':''].concat(x.codes).filter(Boolean).join(' · '),cell:x=>'<span class="mut">'+whose(x)+'</span>'},
+    {k:'from',label:'From',type:'list',v:x=>x.codes.length?'Supply'+(x.shop?' · Shop':''):'Shop'},
+    {k:'area',label:'ft²',type:'number',def:false,v:x=>Math.round(x.w*x.h/144*100)/100}],
+   row:i=>({attrs:' data-inv-size="'+esc(i.x.key)+'"',last:i.x.shop?'<button type="button" class="sm dl" data-inv-size-remove="'+esc(i.x.key)+'" aria-label="Remove '+esc(i.x.key)+'" onclick="invSizeRemoveUi('+invArg(i.x.key)+')">×</button>':''})})+'</div>'+
   '<div class="cut-size-add" data-inv-size-add><input type="text" id="invSizeW" placeholder="length" aria-label="Sheet length, in"> × <input type="text" id="invSizeH" placeholder="width" aria-label="Sheet width, in"> <button type="button" onclick="invSizeAddUi()">+ Add sheet size</button>'+
   (invSizeNotice?'<span class="cut-md-error" role="alert" data-inv-size-error>'+esc(invSizeNotice)+'</span>':'')+'</div>';
 }
@@ -47505,13 +47728,14 @@ function invConsumablesView(){
  const rows=consRows(),tone={'OK':'ok','Short':'bad','Not counted':'','Pack size missing':'warn','Norm missing':'warn'};
  return '<p class="mut">Reserved on Save, used on IGU scan.</p>'+
   (consNotice?'<div class="ncr-error" role="alert">'+esc(consNotice)+'</div>':'')+
-  '<div class="sales-table-wrap"><table class="ncr-table" data-cons-table><thead><tr><th>Item</th><th>Bought in</th><th class="n">Received</th><th class="n">Used</th><th class="n">Count adj.</th><th class="n">On hand</th><th class="n">Reserved</th><th class="n">Free</th><th>Status</th><th>Counted</th></tr></thead><tbody>'+
-  (rows.map(r=>'<tr data-cons-row="'+esc(r.key)+'"><td><b data-raw>'+esc(r.name)+'</b>'+(r.off?' <span class="pill warn">inactive</span>':'')+'<div class="mut">'+esc(r.group)+(r.code?' · <span data-raw>'+esc(r.code)+'</span>':'')+'</div></td>'+
-   '<td class="cons-packs">'+consPacksHTML(r)+'</td>'+
-   ['received','used','adjust','onHand','reserved','free'].map(k=>'<td class="n" data-cons-'+k+'>'+esc(consQty(r[k],r.unit))+'</td>').join('')+
-   '<td><span class="pill '+(tone[r.status]||'')+'">'+esc(r.status)+'</span></td>'+
-   '<td class="inv-count-cell"><input type="number" min="0" step="any" class="inv-min" data-cons-count="'+esc(r.key)+'" value="'+(consCountDraft[r.key]==null?'':esc(consCountDraft[r.key]))+'" oninput="consCountDraft['+invArg(r.key)+']=this.value;const b=this.parentNode.querySelector(\'[data-inv-why]\');if(b)b.hidden=this.value.trim()===\'\'">'+invWhyHTML(consCountWhy,'consCountWhy',r.key,String(consCountDraft[r.key]==null?'':consCountDraft[r.key]).trim()==='')+'</td></tr>').join('')||
-   '<tr><td colspan="10" class="mut">No spacers, sealants, gas or IGU parts in Master Data.</td></tr>')+'</tbody></table></div>';
+  '<div data-cons-table>'+slTable('invConsumables',{list:rows,id:r=>r.key,cls:'ncr-table',empty:'No spacers, sealants, gas or IGU parts in Master Data.',noun:l=>l.length+' item'+(l.length===1?'':'s'),fill:'item',
+   columns:()=>[{k:'item',label:'Item',type:'text',v:r=>r.name,cell:r=>'<b data-raw>'+esc(r.name)+'</b>'+(r.off?' <span class="pill warn">inactive</span>':'')+'<div class="mut">'+esc(r.group)+(r.code?' · <span data-raw>'+esc(r.code)+'</span>':'')+'</div>'},
+    {k:'group',label:'Group',type:'list',def:false,v:r=>r.group},{k:'code',label:'Code',type:'text',def:false,v:r=>r.code},{k:'unit',label:'Unit',type:'list',def:false,v:r=>r.unit},
+    {k:'packs',label:'Bought in',type:'text',v:r=>String(consPacksHTML(r)).replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim(),cell:r=>'<span class="cons-packs">'+consPacksHTML(r)+'</span>'}]
+    .concat([['received','Received'],['used','Used'],['adjust','Count adj.'],['onHand','On hand'],['reserved','Reserved'],['free','Free']].map(([k,l])=>({k,label:l,type:'number',v:r=>r[k],cell:r=>'<span data-cons-'+k+'>'+esc(consQty(r[k],r.unit))+'</span>'})))
+    .concat([{k:'status',label:'Status',type:'list',v:r=>r.status,cell:r=>'<span class="pill '+(tone[r.status]||'')+'">'+esc(r.status)+'</span>'},
+     {k:'counted',label:'Counted',type:'number',v:r=>consCountDraft[r.key]==null?'':consCountDraft[r.key],cell:r=>'<span class="inv-count-cell"><input type="number" min="0" step="any" class="inv-min" data-cons-count="'+esc(r.key)+'" value="'+(consCountDraft[r.key]==null?'':esc(consCountDraft[r.key]))+'" oninput="consCountDraft['+invArg(r.key)+']=this.value;const b=this.parentNode.querySelector(\'[data-inv-why]\');if(b)b.hidden=this.value.trim()===\'\'">'+invWhyHTML(consCountWhy,'consCountWhy',r.key,String(consCountDraft[r.key]==null?'':consCountDraft[r.key]).trim()==='')+'</span>'}]),
+   row:i=>({attrs:' data-cons-row="'+esc(i.x.key)+'"'})})+'</div>';
 }
 function consPackUi(key,v){const r=consSetPack(key,v);consNotice=r.ok?'':r.error;render();}
 /* Во что покупают (владелец, 26.10.2026: «в боксах, в метрах, в кг —
@@ -49959,10 +50183,15 @@ function deliveryPrint(date,truckId,withPS){
 /* ----------------------- Master Data → Trucks ----------------------- */
 function viewMdTrucks(){
  const set=(t,field,value)=>`mdTruckSet('${esc(t.id)}','${field}',${value})`;
- const rows=(DB.truck||[]).map(t=>`<tr data-truck-row="${esc(t.id)}"${t.active?'':' class="mut"'}><td><input aria-label="Truck name" value="${esc(t.name)}" onchange="${set(t,'name','this.value')}"></td><td><input aria-label="Note" value="${esc(t.note)}" placeholder="Note" onchange="${set(t,'note','this.value')}"></td><td class="md-trucks-on"><input type="checkbox" aria-label="Active" ${t.active?'checked':''} onchange="${set(t,'active','this.checked')}"></td></tr>`).join('');
+ /* Таблица вида Sales (владелец 07.11.2026): фильтр, сортировка, ширина, порядок. */
+ const table=slTable('mdTrucks',{list:DB.truck||[],id:t=>t.id,empty:'No trucks yet',noun:r=>r.length+' truck'+(r.length===1?'':'s'),
+  columns:()=>[
+   {k:'name',label:'Name',type:'text',v:t=>t.name,cell:t=>`<input aria-label="Truck name" value="${esc(t.name)}" onchange="${set(t,'name','this.value')}">`},
+   {k:'note',label:'Note',type:'text',v:t=>t.note,cell:t=>`<input aria-label="Note" value="${esc(t.note)}" placeholder="Note" onchange="${set(t,'note','this.value')}">`},
+   {k:'active',label:'Active',type:'list',v:t=>t.active?'Yes':'No',cell:t=>`<input type="checkbox" aria-label="Active" ${t.active?'checked':''} onchange="${set(t,'active','this.checked')}">`}],
+  row:i=>({attrs:` data-truck-row="${esc(i.x.id)}"${i.x.active?'':' class="mut"'}`})});
  /* Ровная узкая таблица и «+ Truck» в строке инструментов (аудит D-6). */
- return `<div class="md-trucks"><div class="md-toolbar"><span class="mut">Trucks for the delivery plan.</span><span class="sp"></span><button class="pri" data-truck-add onclick="mdTruckAdd()">+ Truck</button></div>
-  <table><thead><tr><th>Name</th><th>Note</th><th class="md-trucks-on">Active</th></tr></thead><tbody>${rows||'<tr><td colspan="3" class="empty">No trucks yet</td></tr>'}</tbody></table></div>`;
+ return `<div class="md-trucks"><div class="md-toolbar"><span class="mut">Trucks for the delivery plan.</span><span class="sp"></span><button class="pri" data-truck-add onclick="mdTruckAdd()">+ Truck</button></div>${table}</div>`;
 }
 function mdTruckAdd(){const out=truckAdd('');if(!out.ok)alert(out.error);render();}
 function mdTruckSet(id,field,value){const out=truckSet(id,field,value);if(!out.ok)alert(out.error);render();}
@@ -50416,22 +50645,28 @@ let mdCarrierShow='all';   // Loaded · At customers · Empty · All — как 
 function viewMdCarriers(){
  const contents=carrierContents(),out=skidsOut(),list=(DB.carrier||[]).slice().sort((a,b)=>{const x=CARRIER_RE.exec(a.code),y=CARRIER_RE.exec(b.code);return x[1].localeCompare(y[1])||(+x[2])-(+y[2]);});
  const state=c=>(contents.get(c.code)||[]).length?'loaded':out.has(c.code)?'out':'empty',count=k=>list.filter(c=>k==='all'||state(c)===k).length;
- const rows=list.filter(c=>mdCarrierShow==='all'||state(c)===mdCarrierShow).map(c=>{
-  const t=carrierType(c.code),on=contents.get(c.code)||[],where=[...new Set(on.map(x=>x.place.waiting).filter(Boolean))],at=out.get(c.code);
-  return `<tr data-carrier="${esc(c.code)}"${c.active?'':' class="mut"'}><td><input type="checkbox" ${carrierSel.has(c.code)?'checked':''} onchange="carrierPick('${esc(c.code)}',this.checked)"></td>
-   <td class="mono"><button type="button" class="cw-code sm" data-carrier-open="${esc(c.code)}" title="What is on it" onclick="carrierWinOpen('${esc(c.code)}')">${esc(c.code)}</button></td><td>${esc(t.label)}</td>
-   <td>${on.length?`<b>${on.length}</b> glass${where.length?' · waiting at '+esc(where.join(', ')):''} <span class="mut">since ${esc(carrierSince(on))}</span> <button class="sm" data-carrier-empty="${esc(c.code)}" onclick="carrierEmptyAsk('${esc(c.code)}')">Empty</button>`:at?`<span data-carrier-out>at ${esc(salesCustomerDisplay(at.customerId))} since ${esc(docDate(finLocalDate(at.since)))} · ${esc(at.ps)}</span>`:'<span class="mut">empty</span>'}</td>
-   <td><input value="${esc(c.note)}" placeholder="Note" onchange="carrierSet('${esc(c.code)}','note',this.value)" style="max-width:220px"></td>
-   <td><label class="chk"><input type="checkbox" ${c.active?'checked':''} onchange="carrierSet('${esc(c.code)}','active',this.checked);render()"> Active</label></td>
-   <td><button class="sm" onclick="carrierPrintLabels(['${esc(c.code)}'])">Label</button></td></tr>`;
- }).join('');
+ const on=c=>contents.get(c.code)||[],where=c=>[...new Set(on(c).map(x=>x.place.waiting).filter(Boolean))];
+ const nowCell=c=>{const l=on(c),w=where(c),at=out.get(c.code);return l.length?`<b>${l.length}</b> glass${w.length?' · waiting at '+esc(w.join(', ')):''} <span class="mut">since ${esc(carrierSince(l))}</span> <button class="sm" data-carrier-empty="${esc(c.code)}" onclick="carrierEmptyAsk('${esc(c.code)}')">Empty</button>`:at?`<span data-carrier-out>at ${esc(salesCustomerDisplay(at.customerId))} since ${esc(docDate(finLocalDate(at.since)))} · ${esc(at.ps)}</span>`:'<span class="mut">empty</span>';};
+ const nowText=c=>{const l=on(c),at=out.get(c.code);return l.length?l.length+' glass'+(where(c).length?' · waiting at '+where(c).join(', '):''):at?'at '+salesCustomerDisplay(at.customerId)+' · '+at.ps:'empty';};
+ /* Таблица вида Sales (владелец 07.11.2026); Status, Glass, At customer, Since — в ⚙ Columns. */
+ const table=slTable('mdCarriers',{list:list.filter(c=>mdCarrierShow==='all'||state(c)===mdCarrierShow),id:c=>c.code,empty:'No dollies or skids yet',noun:l=>l.length+' dollies and skids',fill:'now',acts:80,
+  columns:()=>[
+   {k:'code',label:'Code',type:'text',v:c=>c.code,cell:c=>`<button type="button" class="cw-code sm" data-carrier-open="${esc(c.code)}" title="What is on it" onclick="carrierWinOpen('${esc(c.code)}')">${esc(c.code)}</button>`},
+   {k:'kind',label:'Type',type:'list',w:140,v:c=>carrierType(c.code).label},
+   {k:'now',label:'On it now',type:'text',v:nowText,cell:c=>nowCell(c)},
+   {k:'state',label:'Status',type:'list',def:false,v:c=>({loaded:'Loaded',out:'At customer',empty:'Empty'})[state(c)]},
+   {k:'glass',label:'Glass',type:'number',def:false,sum:true,v:c=>on(c).length||''},
+   {k:'customer',label:'At customer',type:'text',def:false,v:c=>{const at=out.get(c.code);return at?salesCustomerDisplay(at.customerId):'';}},
+   {k:'since',label:'Since',type:'date',def:false,v:c=>{const l=on(c),at=out.get(c.code),d=l.map(x=>x.scan.at).filter(Boolean).sort()[0]||(at&&at.since)||'';return d?finLocalDate(d):'';}},
+   {k:'note',label:'Note',type:'text',v:c=>c.note,cell:c=>`<input value="${esc(c.note)}" placeholder="Note" onchange="carrierSet('${esc(c.code)}','note',this.value)" style="max-width:220px">`},
+   {k:'active',label:'Active',type:'list',v:c=>c.active?'Yes':'No',cell:c=>`<label class="chk"><input type="checkbox" ${c.active?'checked':''} onchange="carrierSet('${esc(c.code)}','active',this.checked);render()"> Active</label>`}],
+  row:i=>({attrs:` data-carrier="${esc(i.x.code)}"${i.x.active?'':' class="mut"'}`,first:`<td class="sl-check"><input type="checkbox" ${carrierSel.has(i.x.code)?'checked':''} onchange="carrierPick('${esc(i.x.code)}',this.checked)"></td>`,last:`<button class="sm" onclick="carrierPrintLabels(['${esc(i.x.code)}'])">Label</button>`})});
  return `<div class="sub">DL · DA — dolly, SL · SA — skid.</div>
   <div class="row" style="margin:0 0 12px;gap:8px;flex-wrap:wrap">${CARRIER_TYPES.map(t=>`<button class="sm" data-carrier-add="${t.k}" onclick="carrierAdd('${t.k}',1);render()">+ ${esc(t.label)}</button>`).join('')}
    <span class="cb-seg">${[['loaded','Loaded'],['out','At customers'],['empty','Empty'],['all','All']].map(([k,l])=>`<button type="button" class="${mdCarrierShow===k?'on':''}" data-md-carrier-show="${k}" onclick="mdCarrierShow='${k}';render()">${l} <b>${count(k)}</b></button>`).join('')}</span>
    <span class="sp"></span><button class="sm" ${carrierSel.size?'':'disabled'} onclick="carrierPrintLabels([...carrierSel])">Print ${carrierSel.size||''} label${carrierSel.size===1?'':'s'}</button></div>
   ${carrierEmptied?`<div class="shipping-notice" data-carrier-emptied>${esc(carrierEmptied.code)} emptied · ${carrierEmptied.count} glass without a ${carrierEmptied.word} <button class="sm" data-carrier-empty-undo onclick="carrierEmptyBack()">Undo</button></div>`:''}
-  <table><thead><tr><th></th><th>Code</th><th>Type</th><th>On it now</th><th>Note</th><th>Active</th><th></th></tr></thead>
-  <tbody>${rows||'<tr><td colspan="7" class="empty">No dollies or skids yet</td></tr>'}</tbody></table>`;
+  ${table}`;
 }
 /* С какого дня на таре лежит самое старое: давно — значит, забыли снять. */
 function carrierSince(on){const at=on.map(x=>x.scan.at).filter(Boolean).sort()[0]||'',d=at?finLocalDate(at):'';return !d?'—':d===finToday()?new Date(at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):docDate(d);}
