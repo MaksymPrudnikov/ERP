@@ -146,8 +146,8 @@ module.exports=async function({page,eq}){
   const onStation=now(w);stationCode='CUT';tab='station';stationSwitch();tab='users';subtab='office';stationCode='';render();
   const office=now(DB.user.find(u=>u.name==='Demo Owner'));subtab='production';render();const offStation=now(w).split(':')[0];
   subtab='log';render();
-  const log={date:document.querySelector('[data-created-range]').textContent,heads:[...document.querySelectorAll('.users-log thead th')].map(t=>t.textContent.trim()),
-   rows:[...document.querySelectorAll('[data-auth-row]')].map(r=>[...r.children].slice(1,4).map(c=>c.textContent.trim()).join(' | ')),add:!!document.querySelector('[data-user-add]')};
+  const log={date:document.querySelector('[data-created-range]').textContent,heads:[...document.querySelectorAll('.users-log thead th')].map(t=>t.textContent.trim()).filter(Boolean),
+   rows:[...document.querySelectorAll('[data-auth-row]')].map(r=>[...r.children].slice(2,5).map(c=>c.textContent.trim()).join(' | ')),add:!!document.querySelector('[data-user-add]')};
   subtab='office';render();
   return {onStation,office,offStation,log,stored:DB.authEvent.map(e=>e.what+' '+e.where)};
  }),{onStation:'on:CUT',office:'on:Office',offStation:'off',log:{date:'When: Last 14 days▾',heads:['When','Who','What','Where','Note'],

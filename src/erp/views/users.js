@@ -53,7 +53,7 @@ function viewUsers(){
    .concat(prod?[{k:'pin',label:'PIN',type:'list',v:x=>userHasPin(x.u)?'set':'',cell:x=>userHasPin(x.u)?'<span class="pill ok">set</span>':'<span class="mut">—</span>'}]
     :[{k:'access',label:'Sections',type:'text',v:x=>plain(userAccessHTML(x.u)),cell:x=>`<span class="user-access-cell">${userAccessHTML(x.u)}</span>`},
       {k:'password',label:'Password',type:'list',v:x=>pw(x.u),cell:x=>pw(x.u)==='set'?'<span class="pill ok">set</span>':pw(x.u)==='server'?'<span class="pill ok" title="Server login">server</span>':'<span class="pill warn" title="Cannot sign in">not set</span>'}])
-   .concat(srv&&!prod?[{k:'server',label:'Server',type:'text',v:x=>x.u.email||'',cell:x=>userServerHTML(x.u).replace(/^<td[^>]*>|<\/td>$/g,'')}]:[])
+   .concat(srv&&!prod?[{k:'server',label:'Server',type:'text',v:x=>x.u.email||'',cell:x=>userServerHTML(x.u).replace(/^<td/,'<span').replace(/<\/td>$/,'</span>')}]:[])
    .concat([{k:'email',label:'Email',type:'text',def:false,v:x=>x.u.email||''}]),
   row:info=>{const u=info.x.u,on=uSel===u.viewProfileId;return {attrs:` data-user-row="${esc(u.viewProfileId)}"${on?' class="oq-selected"':''} ondblclick="userEditOpen(${info.x.i})"`,first:`<td class="sl-check"><input type="checkbox" aria-label="Select ${esc(u.name)}" ${on?'checked':''} onchange="uSel=this.checked?'${esc(u.viewProfileId)}':'';render()"></td>`};}});
  /* Вход ещё выключен (signinOn): пароля нет ни у кого с разделом Users. */

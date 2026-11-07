@@ -147,12 +147,12 @@ module.exports=async function({page,eq}){
   const sel=document.querySelector('[data-inv-stock-reason]');sel.value=sel.options[1].value;sel.dispatchEvent(new Event('change'));
   document.querySelector('[data-inv-stock-save]').click();
   invSelect('stock:STK-SD24');document.querySelector('[data-inv-stock-remove]').click();const q2=document.getElementById('inv_stock_qty');q2.value='1';q2.dispatchEvent(new Event('input'));document.querySelector('[data-inv-stock-save]').click();
-  const log=[...document.querySelectorAll('[data-inv-stock-log] tbody tr')].map(tr=>[...tr.children].slice(2,5).map(td=>td.textContent).join('|'));
+  const log=[...document.querySelectorAll('[data-inv-stock-log] tbody tr')].map(tr=>[...tr.children].slice(3,6).map(td=>td.textContent).join('|'));
   const e=DB.stockItemEvent[0];
   document.querySelector('[data-inv-row="stock:STK-SD24"] .inv-glass').click();const journal=[...document.querySelectorAll('[data-inv-row]')].map(tr=>tr.textContent).filter(x=>/Receipt|Count|Remove/.test(x)).length;
   return {head:head.slice(0,10),tiles,diff,hand:siNums('STK-SD24')[0],reason:!!e.reason,by:typeof e.by,log,view:invView,journal};
  }),{head:['Item','Code','Kind','Measurements','On hand','Reserved','Available','Status','Last count'],tiles:['Stock items','On hand, pcs','Reserved','Available','Short','Not counted'],diff:'−1',hand:3,reason:true,by:'string',
-  log:['Remove|—|−1','Count|5 → 4|−1'],view:'journal',journal:3});
+  log:['Remove|–|−1','Count|5 → 4|−1'],view:'journal',journal:3});
 
  eq('Reports → Stock counts: пересчёт двери — своей колонкой Stock items, pcs, не вместе с kg и ft',await run(async()=>{
   await siReset();sinvCount('STK-SD24',4);sinvCount('STK-SD24',3,{reason:'Damaged'});
