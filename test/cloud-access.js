@@ -64,7 +64,7 @@ module.exports=async function({page,eq}){
  })(),[['office@glass-erp.test',false,[]]]);
 
  eq('Cloud → Access: правила сервера, пусто — «Everyone»',await t.p.evaluate(()=>{tab='users';subtab='cloud';render();
-  return [...document.querySelectorAll('[data-rule-row]')].map(r=>[...r.cells].slice(0,3).map(c=>c.textContent.trim().replace(/\s+/g,' ')));}),
+  return [...document.querySelectorAll('[data-rule-row]')].map(r=>[...r.cells].slice(1,4).map(c=>c.textContent.trim().replace(/\s+/g,' ')));}),
   [['receipt','Finance Sales','Finance'],['refund','Finance Sales','Finance']]);
 
  eq('Edit галочками, Add rule, ×, Save access — на сервер весь список',await (async()=>{
@@ -77,7 +77,7 @@ module.exports=async function({page,eq}){
   await t.p.click('[data-rule-edit] [data-rule-side="write"] [data-rule-sec="customers"] input');
   await t.p.click('[data-rule-save]');await t.p.waitForFunction(()=>!cloudAccess.busy&&!cloudAccess.draft);
   return {sent:srv.calls.filter(c=>c[0]==='erp_rules_set').map(c=>c[1].rules),
-   shown:await t.p.evaluate(()=>[...document.querySelectorAll('[data-rule-row]')].map(r=>[...r.cells].slice(0,3).map(c=>c.textContent.trim().replace(/\s+/g,' '))))};
+   shown:await t.p.evaluate(()=>[...document.querySelectorAll('[data-rule-row]')].map(r=>[...r.cells].slice(1,4).map(c=>c.textContent.trim().replace(/\s+/g,' '))))};
  })(),{sent:[[{tbl:'receipt',read:'sales,production,finance',write:''},{tbl:'customer',read:'',write:'customers'}]],
   shown:[['receipt','Sales Production Finance','Everyone'],['customer','Everyone','Customers']]});
 

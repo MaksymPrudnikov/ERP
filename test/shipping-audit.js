@@ -251,7 +251,8 @@ module.exports=async function({page,eq,ok}){
   const s1=shippingCreate({customerId:cust,method:'pickup',shipTo:{},date:finToday(),items:[shippingItem(u)],extras:[]}).value;shippingMarkShipped(s1.id);shippingMarkDelivered(s1.id,'Client');
   unitCancel(id,salesRecord(id).lines[0].id,1,'Customer changed the design',{glass:'customer',chargeOverride:10});
   tab='shipping';shippingTab='ready';shippingSelection.clear();render();
-  document.querySelector('tr.shipping-order-row input[type=checkbox]').click();const ticked=shippingSelection.has('takes:'+id);
+  /* Ready — плоский список: строка «Cancelled · customer takes» со своей галочкой. */
+  document.querySelector(`tr[data-ready-order="${id}"][data-ready-line*="takes"] td.sl-check input`).click();const ticked=shippingSelection.has('takes:'+id);
   document.querySelector('[data-create-ps="'+cust+'"]').click();const shown=!!document.querySelector('[data-draft-takes]');
   document.querySelector('[data-save-ps]').click();
   const anyway=[...document.querySelectorAll('[data-dialog-button]')].find(b=>/anyway/i.test(b.textContent));if(anyway)anyway.click();

@@ -106,7 +106,8 @@ function slFromTable(scope,html,o){
  const head=ths.slice(from,to).map((th,i)=>({k:slug(lab(th))+'_'+(i+from),label:lab(th),n:th.classList.contains('n')||th.classList.contains('cs-n'),td:i+from}));
  const rows=[...tb.querySelectorAll(':scope > tbody > tr')],list=[];
  rows.forEach(tr=>{
-  if(tr.children.length===1&&tr.children[0].colSpan>1&&!list.length)return;
+  /* Строка с одной ячейкой на всю ширину: до данных — «пусто», после — пояснение под своей строкой. */
+  if(tr.children.length===1&&tr.children[0].colSpan>1){if(list.length)list[list.length-1].sub.push(tr.outerHTML);return;}
   if(o.sub&&tr.matches(o.sub)&&list.length){list[list.length-1].sub.push(tr.outerHTML);return;}
   list.push({html:tr.outerHTML,sub:[],tds:[...tr.children].map(td=>td.textContent.replace(/\s+/g,' ').trim())});
  });

@@ -193,14 +193,14 @@ function shippingReadyHTML(){
  const items=orders.flatMap(o=>{
   const q=shippingSummary(o),units=shippingUnits(o),free=units.filter(i=>i.ready&&!i.shipment),back=v=>q.shipped?v:'',keys=shippingOrderKeys(o);
   return q.lines.map((r,n)=>({r,n})).filter(x=>x.r.ready>0).map(({r,n})=>{
-   const mine=free.filter(i=>i.lineId===r.l.id),skids=[...new Set(units.filter(i=>i.lineId===r.l.id&&i.ready&&i.skid).map(i=>i.skid))];
-   return {kind:'line',o,q,r,n,id:o.id+':'+r.l.id,line:(n+1)+(r.l.mark?' · '+r.l.mark:''),size:docSize(r.l),makeup:salesMakeupSummary(salesMakeupById(o,r.l.makeupId)),skids,ready:r.ready,left:Math.max(0,r.ordered-r.physicalReady-r.shipped),back:back(r.back),labels:mine.map(i=>i.label),picked:mine.filter(i=>shippingSelection.has(i.label)).length};
+   const mine=free.filter(i=>i.lineId===r.l.id),skids=[...new Set(units.filter(i=>i.lineId===r.l.id&&i.ready&&i.skid).map(i=>i.skid))],loose=mine.filter(i=>!i.skid).length;
+   return {kind:'line',o,q,r,n,loose,id:o.id+':'+r.l.id,line:(n+1)+(r.l.mark?' · '+r.l.mark:''),size:docSize(r.l),makeup:salesMakeupSummary(salesMakeupById(o,r.l.makeupId)),skids,ready:r.ready,left:Math.max(0,r.ordered-r.physicalReady-r.shipped),back:back(r.back),labels:mine.map(i=>i.label),picked:mine.filter(i=>shippingSelection.has(i.label)).length};
   }).concat(shippingReadyExtras(o,q).map((e,k)=>({kind:'stock',o,q,id:o.id+':stock:'+k,line:'From stock',size:'',makeup:salesExtraItemName(e.x),skids:[],ready:e.ready,left:'',back:back(e.back),labels:keys.filter(x=>x==='stock:'+o.id)})),
    unitTakes(o).map((x,k)=>({kind:'takes',o,q,id:o.id+':takes:'+k,line:'Cancelled · customer takes · line '+x.line,size:docSize(x.l),makeup:x.pieces+' glass',skids:[],ready:'',left:'',back:'',labels:keys.filter(y=>y==='takes:'+o.id)})));
  });
  const on=x=>x.labels.length&&x.labels.every(l=>shippingSelection.has(l));
  const tick=x=>x.kind==='line'?`shippingSelectQty('${esc(x.o.id)}','${esc(x.r.l.id)}',this.checked?${x.labels.length}:0)`:`shippingSelect('${esc(x.o.customerId)}',${esc(JSON.stringify(x.labels))},this.checked)`;
- const table=slTable('shippingReady',{list:items,id:x=>x.id,empty:'No units ready for a packing slip.',fill:'makeup',acts:20,
+ const table=slTable('shippingReady',{list:items,id:x=>x.id,cls:'shipping-ready-table',empty:'No units ready for a packing slip.',fill:'makeup',acts:20,
   noun:l=>l.length+' line'+(l.length===1?'':'s')+' · '+new Set(l.map(i=>i.x.o.id)).size+' orders · '+(n=>n+' customer'+(n===1?'':'s'))(new Set(l.map(i=>i.x.o.customerId)).size),
   columns:()=>[
    {k:'customer',label:'Customer',type:'text',w:150,v:x=>salesCustomerDisplay(x.o.customerId),cell:x=>`<b>${esc(salesCustomerDisplay(x.o.customerId))}</b>`},
@@ -209,7 +209,8 @@ function shippingReadyHTML(){
    {k:'line',label:'Line / Mark',type:'text',w:96,v:x=>x.line},
    {k:'size',label:'Size',type:'text',w:96,v:x=>x.size},
    {k:'makeup',label:'Makeup',type:'text',v:x=>x.makeup},
-   {k:'skid',label:'Skid',type:'text',tokens:true,w:80,v:x=>x.skids.join(' · '),cell:x=>x.skids.map(c=>`<button type="button" class="gb-link" data-skid-sheet="${c}" title="Skid sheet" onclick="carrierWinOpen('${c}')">${c}</button>`).join(' ')},
+   /* Готовое без скида — жёлтым (владелец: стекло без тары видно, но ничего не блокирует). */
+   {k:'skid',label:'Skid',type:'text',tokens:true,w:120,v:x=>x.skids.concat(x.loose?['No skid']:[]).join(' · '),cell:x=>x.skids.map(c=>`<button type="button" class="gb-link" data-skid-sheet="${c}" title="Skid sheet" onclick="carrierWinOpen('${c}')">${c}</button>`).join(' ')+(x.loose?` <span class="pill warn shipping-noskid" data-no-skid>Without a skid · ${shippingCount(x.loose,'unit')}</span>`:'')},
    {k:'ready',label:'Ready',type:'number',sum:true,w:78,v:x=>x.ready},
    {k:'left',label:'Not ready',type:'number',sum:true,w:92,v:x=>x.left},
    {k:'back',label:'Back order',type:'number',w:96,v:x=>x.back},

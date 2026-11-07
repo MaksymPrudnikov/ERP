@@ -219,7 +219,9 @@ module.exports=async function({page,eq,ok}){
  }),{index:1,scans:0});
  // Real controls: create, dispatch, receipt scan, column filter, compact viewport.
  await t.p.evaluate(()=>{const [id]=shSeed();shippingTab='ready';tab='shipping';window.shCustomer=salesRecord(id).customerId;render();});
- await t.p.locator('[data-ready-customer] input[type=checkbox]').first().check();await t.p.locator('[data-create-ps]').click();await t.p.getByLabel('Method',{exact:true}).selectOption('pickup');await t.p.locator('[data-save-ps]').click();
+ /* Ready — плоский список: отметить все строки клиента. */
+ for(let i=0,n=await t.p.locator('[data-ready-customer] td.sl-check input').count();i<n;i++)await t.p.locator('[data-ready-customer] td.sl-check input').nth(i).check();
+ await t.p.locator('[data-create-ps]').click();await t.p.getByLabel('Method',{exact:true}).selectOption('pickup');await t.p.locator('[data-save-ps]').click();
  await t.p.getByRole('button',{name:'Ship',exact:true}).click();await t.p.getByRole('button',{name:'Ship all',exact:true}).click();await t.p.locator('[data-signed-ps]').fill('PS-0001');await t.p.locator('[data-signed-ps]').press('Enter');
  eq('Office controls create, ship and scan the signed PS; scan focus returns',await t.p.evaluate(()=>({status:DB.shipment[0].status,order:DB.salesOrder[0].status,focus:document.activeElement.id})),{status:'delivered',order:'done',focus:'shippingSigned'});
   await t.p.evaluate(()=>{shippingOpenId='';render();});

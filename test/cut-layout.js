@@ -386,7 +386,7 @@ module.exports=async function({page,eq,ok}){
   const dup=cutShopSizeAdd('96','130').error,bad=cutShopSizeAdd('abc','96').error;
   cutSheetTrimSet('144x96','borderY','2');
   tab='masterdata';mdSetTab('cutting');
-  const rows=[...document.querySelectorAll('[data-cut-sheet-row]')].map(r=>r.dataset.cutSheetRow+' '+r.children[1].textContent);
+  const rows=[...document.querySelectorAll('[data-cut-sheet-row]')].map(r=>r.dataset.cutSheetRow+' '+r.children[2].textContent);
   /* Размеры листов заводят в Inventory → Sheet sizes (план Master Data, этап 5). */
   tab='inventory';invGo('sizes');render();
   document.getElementById('invSizeW').value='84';document.getElementById('invSizeH').value='130';document.querySelector('[data-inv-size-add] button').click();
