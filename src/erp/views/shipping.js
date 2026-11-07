@@ -217,7 +217,7 @@ function shippingReadyHTML(){
    {k:'qty',label:'Select qty',type:'number',w:96,v:x=>x.kind==='line'?x.picked:'',cell:x=>x.kind==='line'?`<input aria-label="Select quantity for order ${esc(x.o.businessNumber)} line ${x.n+1}" type="number" min="0" max="${x.labels.length}" value="${x.picked}" onchange="shippingSelectQty('${esc(x.o.id)}','${esc(x.r.l.id)}',this.value)">`:'<span class="mut">In PS form</span>'},
    {k:'address',label:'Address',type:'text',def:false,v:x=>docAddressText(shippingDefaultAddress(salesFindCustomer(x.o.customerId)))||''},
    {k:'due',label:'Due',type:'date',def:false,v:x=>x.o.dueDate||''}],
-  row:i=>({attrs:` data-ready-line="${esc(i.x.kind==='line'?i.x.r.l.id:i.x.id)}" data-ready-customer="${esc(i.x.o.customerId)}"${on(i.x)?' class="oq-selected"':''}`,
+  row:i=>({attrs:` data-ready-line="${esc(i.x.kind==='line'?i.x.r.l.id:i.x.id)}" data-ready-order="${esc(i.x.o.id)}" data-ready-customer="${esc(i.x.o.customerId)}"${on(i.x)?' class="oq-selected"':''}`,
    first:`<td class="sl-check"><input type="checkbox" aria-label="Select ${esc(i.x.o.businessNumber)} ${esc(i.x.line)}" ${i.x.labels.length?'':'disabled'} ${on(i.x)?'checked':''} onchange="${tick(i.x)}"></td>`})});
  const bar=`<div class="sales-toolbar"><button type="button" class="sl-quiet" data-create-ps="${esc(cur)}" ${cur?'':'disabled'} title="${cur?'':'Tick a line'}" onclick="shippingOpen(shippingCustomer)">Create packing slip</button>${cur?`<b class="oq-sel" title="${esc(salesCustomerDisplay(cur))}">${shippingSelection.size} selected</b>`:''}<span class="sales-toolbar-sp"></span>${shippingBarRight()}</div>`;
  return `<div class="card sales-list-card sl-foot-pin">${bar}${shippingTabs()}${table}</div>`;

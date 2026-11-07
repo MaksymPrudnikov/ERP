@@ -108,7 +108,8 @@ module.exports=async function({page,eq,ok}){
   const st=normalizeSalesOrder({id:'SO-STOCK3',businessNumber:'ST3',customerId:c,status:'new',lines:[],extraItems:[{id:'EXT-S',table:'stockItem',itemId:'X',qty:1,priceOverride:20}]});DB.salesOrder.push(st);salesSetRecordStatus(st.id,'verified');
   tab='shipping';shippingTab='ready';render();
   const draft=()=>{shippingOpen(c);const d=shippingDraft,out=[d.items.length,[...new Set(d.items.map(i=>i.orderId))].map(id=>salesRecord(id).businessNumber).join(),d.extras.map(x=>x.extraId+'×'+x.qty).join()];shippingDraft=null;return out;};
-  const boxes=()=>[...document.querySelectorAll('.shipping-order-row input[type=checkbox]')].map(e=>(e.disabled?'off':'on')+(e.checked?'+':'')),A=salesRecord(a).businessNumber,B=ob.businessNumber,out={enabled:boxes()};
+  /* Ready — плоский список (вариант Б владельца, 07.11.2026): заказ «отмечен», когда отмечены все его строки. */
+  const boxes=()=>[a,b,st.id].map(id=>{const on=[...document.querySelectorAll(`[data-sl-scope="shippingReady"] tr[data-ready-order="${id}"] td.sl-check input`)].filter(e=>!e.disabled);return (on.length?'on':'off')+(on.length&&on.every(e=>e.checked)?'+':'');}),A=salesRecord(a).businessNumber,B=ob.businessNumber,out={enabled:boxes()};
   out.all=draft();shippingSelectOrder(a,true);out.a=draft();shippingSelectOrder(st.id,true);out.aStock=draft();out.ticked=boxes();
   shippingSelectOrder(a,false);out.stockOnly=draft();shippingSelectOrder(st.id,false);shippingSelectQty(b,ob.lines[0].id,1);out.bOne=draft();
   return [out,A,B].map((x,n)=>n?undefined:Object.assign(x,{all:x.all.join('|')===[6,A+','+B,'EXT-B×2,EXT-S×1'].join('|'),a:x.a.join('|')===[3,A,''].join('|'),aStock:x.aStock.join('|')===[3,A,'EXT-S×1'].join('|'),stockOnly:x.stockOnly.join('|')===[0,'','EXT-S×1'].join('|'),bOne:x.bOne.join('|')===[1,B,'EXT-B×2'].join('|')}))[0];
@@ -123,7 +124,7 @@ module.exports=async function({page,eq,ok}){
  eq('Shipments look like the Sales list: short date, status pill, PS contents as a table with the main action highlighted',await t.p.evaluate(()=>{
   const [id]=shSeed(),s=shCreate([id],null,'delivery').value;tab='shipping';shippingTab='shipments';shippingOpenId=s.id;render();
   const row=document.querySelector('[data-ps="'+s.number+'"]'),card=document.querySelector('.shipping-detail');
-  return {date:row.cells[3].textContent===salesListShortDay(finToday()),pill:row.querySelector('.pill.st-new').textContent,card:card.querySelector('.shipping-customer-head .pill').textContent,head:[...card.querySelectorAll('th')].map(e=>e.textContent).join('|'),main:card.querySelector('button.pri').textContent,toolbar:!!document.querySelector('.shipping-list-card [data-order-lookup]')};
+  return {date:row.cells[3].textContent===salesListShortDay(finToday()),pill:row.querySelector('.pill.st-new').textContent,card:card.querySelector('.shipping-customer-head .pill').textContent,head:[...card.querySelectorAll('th')].map(e=>e.textContent).filter(Boolean).join('|'),main:card.querySelector('button.pri').textContent,toolbar:!!document.querySelector('.shipping-list-card [data-order-lookup]')};
  }),{date:true,pill:'Planned',card:'Planned',head:'Line / Mark|Size|Makeup|Skids|Qty|Before|Back order',main:'Ship',toolbar:true});
  eq('Shipments: no days column (owner, 05.11.2026), the day is the Date filter, a quick view looks past the day, a status narrows the day',await t.p.evaluate(()=>{
   const ids=shSeed(2),a=shCreate([ids[0]],null,'delivery').value,b=shCreate([ids[1]],null,'delivery').value,old=salesListDay(new Date(Date.now()-3*864e5));
@@ -187,10 +188,12 @@ module.exports=async function({page,eq,ok}){
   const [id]=shSeed(),o=salesRecord(id),second=o.lines[1].id,u=shippingAvailable(o).find(i=>i.lineId===second);
   const rec=stationScansFor(u.pieces[0]).find(s=>s.station===shippingStations().ready);stationUndo(rec.id,{name:'QA'});
   tab='shipping';shippingTab='ready';render();
-  const lines=[...document.querySelectorAll('[data-ready-line]')].map(r=>r.getAttribute('data-ready-line')),before=document.querySelector('.shipping-order-row').children[4].textContent;
-  const s=shCreate([id],1).value;shippingMarkShipped(s.id);render();const after=document.querySelector('.shipping-order-row').children[4].textContent;
-  return {lines:lines.length===1&&lines[0]===o.lines[0].id,before,after};
- }),{lines:true,before:'—',after:'2'});
+  /* Back order — ячейка строки (плоский список, вариант Б). */
+  const back=()=>{const w=document.querySelector('[data-sl-scope="shippingReady"]'),i=[...w.querySelectorAll('thead th')].findIndex(x=>x.dataset.col==='back'),tr=w.querySelector('tr[data-ready-line]');return tr?tr.children[i].textContent.trim():'';};
+  const lines=[...document.querySelectorAll('[data-ready-line]')].map(r=>r.getAttribute('data-ready-line')),before=back();
+  const s=shCreate([id],1).value;shippingMarkShipped(s.id);render();const after=back(),want=String(shippingSummary(o).lines[0].back);
+  return {lines:lines.length===1&&lines[0]===o.lines[0].id,before,after:after===want};
+ }),{lines:true,before:'–',after:true});
  eq('Pickup: one scan of the signed PS ships and picks up; a failure rolls back both; delivery still needs Loaded',await t.p.evaluate(()=>{
   let [id]=shSeed(),s=shCreate([id]).value;const ship=shippingStations().ship;
   const bad=shippingScanSigned(s.number,'Front desk','2999-01-01'),rolled={ok:bad.ok,status:shippingFind(s.id).status,scans:DB.stationScan.filter(x=>x.station===ship&&!x.undoneAt).length};
