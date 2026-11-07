@@ -65,7 +65,9 @@ function slTable(scope,o){
     if(R){/* rowHTML: атрибуты строки, первая (галочка) и последняя (кнопки) ячейки — из неё. */
      const cell=n=>n==null?undefined:R.tds[n<0?R.tds.length+n:n];
      const f=cell(o.firstTd),l=cell(o.lastTd);
-     return {attrs:R.attrs+(r.attrs||'')+` data-sl-row="${esc(info.o.id)}"`,first:f?`<td${f.attrs}>${f.html}</td>`:r.first,last:l?l.html:r.last,after:R.after?()=>R.after:r.after};}
+     /* Галочка — ячейка sl-check: стоит под ⚙, как во всех таблицах. */
+     const fa=f?(/ class="/.test(f.attrs)?f.attrs.replace(/ class="/,' class="sl-check '):f.attrs+' class="sl-check"'):'';
+     return {attrs:R.attrs+(r.attrs||'')+` data-sl-row="${esc(info.o.id)}"`,first:f?`<td${fa}>${f.html}</td>`:r.first,last:l?l.html:r.last,after:R.after?()=>R.after:r.after};}
     return {attrs:(r.attrs||'')+` data-sl-row="${esc(info.o.id)}"`,first:r.first,last:r.last,after:r.after};},
    noun:rows=>o.noun?o.noun(rows):rows.length+' row'+(rows.length===1?'':'s'),empty:infos.length?'Nothing matches the filters.':(o.empty||'Nothing here yet.')});
  }finally{slScopeNow=was;}
