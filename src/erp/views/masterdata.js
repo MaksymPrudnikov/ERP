@@ -1405,7 +1405,7 @@ function mdFilmFields(r){
 }
 function mdFilmSupplyHTML(r){
  return `<div data-md-film-supplies><label>Supply</label><div class="sales-table-wrap">${slFromTable('mdFilmSupply',`<table class="ncr-table"><thead><tr><th>Supplier</th><th>Roll width, in</th><th>Thickness, mm</th>${accessCost()?'<th>Price, CAD</th><th>Per</th>':''}<th></th></tr></thead><tbody>${(r.supply||[]).map(mdFilmSupplyRow).join('')}</tbody></table>`)}</div>
-   <button type="button" onclick="this.previousElementSibling.querySelector('tbody').insertAdjacentHTML('beforeend',mdFilmSupplyRow())">+ Supply row</button></div>`;
+   <button type="button" data-md-film-add onclick="this.previousElementSibling.querySelector('tbody').insertAdjacentHTML('beforeend',mdFilmSupplyRow().replace('>','><td class=&quot;sl-check&quot;></td>'))">+ Supply row</button></div>`;
 }
 function mdFilmRead(){
  const ply=mdVal('md_filmPly');if(!(+ply>0))return {error:'Ply must be a positive number'};
