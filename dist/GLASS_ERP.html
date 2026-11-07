@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 200 модулей, 27 стиля.
+  Состав сборки: 201 модулей, 27 стиля.
 -->
 <html lang="en">
 <head>
@@ -1655,6 +1655,24 @@ table.cw-fixed tr[data-picked] td>select:has(+.line-locked-pill){width:calc(100%
 .com-form [data-com-customer] .dl{flex:none;width:auto;margin-left:auto}
 .com-form [data-com-add-customer]{margin-bottom:10px}
 .fin-tiles-row{padding:0 20px 10px}.sales-list-card.fin-card{padding:0}
+/* Allocate payments — две половины, итог строкой у кнопок (views/finance-allocate). */
+.fin-alloc-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 12px}
+.fin-alloc-ask{display:flex;align-items:center;gap:6px;margin:0 0 0 8px;font-size:13px;font-weight:400;color:var(--text)}.fin-alloc-ask input{width:auto;margin:0}
+.fin-alloc-say{margin-left:14px;font-size:13px;color:var(--text-2)}.fin-alloc-say b{color:var(--text);font-variant-numeric:tabular-nums}.fin-alloc-say b.fin-deposit{color:var(--accent)}
+.fin-alloc{display:flex;gap:14px;align-items:stretch}
+.fin-alloc-pane{flex:1;min-width:0;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.fin-alloc-pane-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--surface-2);border-radius:10px 10px 0 0}.fin-alloc-pane-head b{font-size:14px}
+.fin-alloc-pane .fin-table-wrap{margin:0;border:0;border-radius:0}
+.fin-alloc-pane-foot{margin-top:auto;display:flex;gap:18px;flex-wrap:wrap;padding:9px 14px;border-top:1px solid var(--line);font-size:12.5px;color:var(--text-2)}
+.fin-alloc-arrow-cell{width:18px;padding-left:0!important;padding-right:0!important}
+.fin-alloc-arrow{border:0;background:none;padding:2px 4px;color:var(--text-3);cursor:pointer;font-size:12px}
+.fin-alloc-link td{padding-top:4px;padding-bottom:4px}.fin-alloc-link td:nth-child(3){padding-left:14px}
+.fin-alloc-unlink{color:var(--danger)}
+@media(max-width:1100px){.fin-alloc{flex-direction:column}}
+/* Полоса сроков под Balance в Accounts (07.11.2026). */
+.fin-aging{display:flex;height:5px;width:110px;max-width:100%;margin:4px 0 0 auto;border-radius:3px;overflow:hidden;background:var(--surface-3)}
+.fin-aging span{display:block;height:100%}
+.fin-age-90{background:var(--danger)}.fin-age-60{background:var(--warning)}.fin-age-now{background:var(--series-3)}.fin-age-cur{background:var(--accent)}
 
 /* ---- src/styles/lifecycle.css ---- */
 /* Квота и заказ: галочки Show, фильтр статусов, цепочка шагов, замок строк
@@ -1976,6 +1994,8 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 /* Ряд кнопок без кнопок (ничего не отмечено, Open — правой кнопкой) места не занимает
    (владелец, 05.11.2026). */
 .card.sales-list-card>.sales-toolbar:not(:has(>:not(.sales-toolbar-sp,[hidden]))){display:none}
+/* Колонка Invoice (07.11.2026): таблетка плотнее — колонка влезает в экран без прокрутки. */
+.sl-table .sl-inv-pill{font-size:10.5px;padding:2px 6px}
 
 /* ---- src/styles/col-widths.css ---- */
 /* Ширина и порядок колонок (views/col-widths): Sales и Order Lines одинаково. */
@@ -4263,7 +4283,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='e5d57bd98fb1';
+var ERP_BUILD='f0f7f5004a05';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -15668,15 +15688,16 @@ function finCustomerAccount(c){
 }
 
 /* Зачёт депозита в заказ: деньги берутся из самых старых квитанций клиента, у
-   которых есть незачтённый остаток; в заказ ложится не больше его долга. */
-function finApplyDeposit(customerId,orderId,amount){
+   которых есть незачтённый остаток; в заказ ложится не больше его долга.
+   receiptIds — только из этих квитанций (окно Allocate payments). */
+function finApplyDeposit(customerId,orderId,amount,receiptIds){
  const order=(DB.salesOrder||[]).find(o=>o.id===orderId);
  if(!order||order.customerId!==customerId||!finOrderCounts(order)||finCurrency(order)!=='CAD')return 0;
  const b=finOrderBalance(order);if(b.status!=='due')return 0;
  let want=finMoney(Math.min(finMoney(amount),b.balance,finCustomerDeposit(customerId)));
  if(!(want>0))return 0;
  let done=0;const now=new Date().toISOString();
- finActiveReceipts().filter(r=>r.customerId===customerId&&finCurrency(r)===finCurrency(order)).sort((x,y)=>(x.date+x.number).localeCompare(y.date+y.number)).forEach(r=>{
+ finActiveReceipts().filter(r=>r.customerId===customerId&&finCurrency(r)===finCurrency(order)&&(!receiptIds||receiptIds.includes(r.id))).sort((x,y)=>(x.date+x.number).localeCompare(y.date+y.number)).forEach(r=>{
   const free=finReceiptOnAccount(r);if(want<=0||free<=0)return;
   finEnsureHistory(r);const before=finCopy(r);
   const take=finMoney(Math.min(free,want)),a=r.allocations.find(x=>x.orderId===orderId);
@@ -15684,6 +15705,32 @@ function finApplyDeposit(customerId,orderId,amount){
   r.updatedAt=now;want=finMoney(want-take);done=finMoney(done+take);finEvent('allocated',before,r,'Deposit applied to order '+finOrderNumber(orderId));
  });
  return done;
+}
+/* Окно Allocate payments: отмеченные квитанции (со старой) — в отмеченные
+   заказы по порядку orderIds, каждому не больше его долга. amount — потолок
+   (Ask amount); без него разносится сколько хватает. */
+function finAllocate(customerId,orderIds,receiptIds,amount){
+ let left=amount==null?Infinity:finMoney(amount),done=0;
+ (orderIds||[]).forEach(id=>{
+  const o=(DB.salesOrder||[]).find(x=>x.id===id);if(!o||!(left>0))return;
+  const b=finOrderBalance(o);if(b.status!=='due')return;
+  const got=finApplyDeposit(customerId,id,Math.min(left,b.balance),receiptIds||[]);
+  if(left!==Infinity)left=finMoney(left-got);done=finMoney(done+got);
+ });
+ return done;
+}
+/* Снять разнесение: деньги квитанции из заказа возвращаются на счёт клиента.
+   pairs — [{receiptId, orderId}], каждая пара снимается целиком. */
+function finUnallocate(customerId,pairs){
+ let moved=0;const now=new Date().toISOString();
+ (pairs||[]).forEach(p=>{
+  const r=(DB.receipt||[]).find(x=>x.id===p.receiptId),a=r&&r.allocations.find(x=>x.orderId===p.orderId);
+  if(!r||r.voided||r.customerId!==customerId||finCurrency(r)!=='CAD'||!a)return;
+  finEnsureHistory(r);const before=finCopy(r);
+  r.allocations=r.allocations.filter(x=>x!==a);r.updatedAt=now;moved=finMoney(moved+a.amount);
+  finEvent('released',before,r,'Allocation released from order '+finOrderNumber(p.orderId));
+ });
+ return moved;
 }
 /* Заказ подешевел после оплаты — лишнее уходит обратно на депозит, начиная с
    последних квитанций. */
@@ -24081,7 +24128,7 @@ function docSaleItem(model,line,index,order){
  return it;
 }
 function docItemBase(opts,line,index,m,q){
- return {n:index+1,mark:opts.mark?salesString(line.mark):'',prefix:opts.makeupShort&&m?docUnitLabel(m.unitType)+' '+m.code:'',short:opts.makeupShort&&m?docMakeupShort(m,opts):'',
+ return {n:index+1,mark:opts.mark?salesString(line.mark):'',prefix:opts.makeupShort&&m?docUnitLabel(m.unitType)+' '+m.code:'',panes:opts.makeupShort&&m?({single:1,double:2,triple:3})[m.unitType]||2:0,short:opts.makeupShort&&m?docMakeupShort(m,opts):'',
   size:opts.size?docSize(line):'',qty:'Qty '+q,amount:null,info:'',sub:[],full:[],drawing:null,groups:[],note:'',unitRow:null,lites:[],cavities:[]};
 }
 function docItemDetails(it,opts,line,m,order){
@@ -24360,8 +24407,12 @@ function docBuildModel(kind,order,opts){
  /* Строка итогов на первой странице: сколько к оплате видно сразу. */
  if(sale&&opts.totalsTop&&DOC_ORDER_SALE.includes(kind)){
   const st=salesOrderCommercialTotals(order),pd=typeof finOrderPaid==='function'?finOrderPaid(order.id).paid:0,cash=v=>st.complete?docMoney(v):'—';
-  model.strip=[{label:'Total '+order.currency,value:cash(st.grand)}].concat(pd>0?[{label:'Credits',value:'−'+docMoney(pd)}]:[],
-   [{label:'Balance due',value:cash(salesMoney(st.grand-pd))},{label:'Quantity',value:String(units)},{label:'Weight',value:w.kg==null?'—':docWeightText(w.kg,opts,w.estimated||!w.complete)},{label:'Area',value:docNum(area,0)+' ft²'}]);
+  /* Оплачено — чётко (владелец 07.11.2026): Paid зелёным, Balance due
+     красным, под строкой полоса «Paid … · % / Left …». */
+  const left=salesMoney(st.grand-pd),paidTone=pd>0&&st.complete;
+  model.strip=[{label:'Total '+order.currency,value:cash(st.grand)}].concat(pd>0?[{label:'Paid',value:docMoney(pd),tone:'paid',labelTone:true}]:[],
+   [{label:'Balance due',value:cash(left),tone:paidTone?left>0?'due':'paid':''},{label:'Quantity',value:String(units)},{label:'Weight',value:w.kg==null?'—':docWeightText(w.kg,opts,w.estimated||!w.complete)},{label:'Area',value:docNum(area,0)+' ft²'}]);
+  if(paidTone&&st.grand>0)model.stripPaid={paid:Math.min(pd,st.grand),left:Math.max(0,left)};
  }
  model.footerRight=[company.legalName,docName+' '+number].filter(Boolean).join(' · ');
  if(kind==='workOrder')model.lineTotals=(order.lines||[]).map(l=>docLineTotals(l,order));
@@ -24549,11 +24600,26 @@ function docCells(P,cells,y,h,valueSize){
  let x=W.left;
  cells.forEach((c,i)=>{
   if(i)P.line(x,y,x,y+h,{stroke:C.line,lw:.5});
-  docLabel(P,x+8,y+10.5,c.label);
-  P.text(x+8,y+h-7.5,docFit(c.value,valueSize,true,widths[i]-14),{size:valueSize,bold:true});
+  /* mark — квадратик цвета полосы под ячейками (сроки выписки); tone —
+     цвет суммы (Paid зелёным, Balance due красным). */
+  if(c.mark)P.rect(x+8,y+5.9,3.2,3.2,{fill:c.mark,r:.6});
+  docLabel(P,x+8+(c.mark?5:0),y+10.5,c.label,c.tone&&c.labelTone?{color:C[c.tone]}:null);
+  P.text(x+8,y+h-7.5,docFit(c.value,valueSize,true,widths[i]-14),{size:valueSize,bold:true,color:c.tone?C[c.tone]:C.ink});
   x+=widths[i];
  });
  return y+h;
+}
+/* Полоса оплаты счёта: зелёное — оплачено, красное — осталось; подписи под ней. */
+function docPaidBar(P,b,y){
+ const W=DOC_PAGE,C=DOC_COLOR,all=b.paid+b.left;if(!(all>0))return;
+ docBar(P,[{n:b.paid,color:C.paid},{n:b.left,color:C.due}],y,6);
+ P.text(W.left,y+15,'Paid '+docMoney(b.paid)+' · '+(b.left>0?Math.min(99.9,Math.round(1000*b.paid/all)/10):100).toFixed(1)+'%',{size:7.4,bold:true,color:C.paid});
+ if(b.left>0)P.text(W.right,y+15,'Left '+docMoney(b.left),{size:7.4,bold:true,color:C.due,align:'right'});
+}
+/* Полоса долей во всю ширину листа: parts — [{n, color}], пустые не рисуются. */
+function docBar(P,parts,y,h){
+ const W=DOC_PAGE,total=parts.reduce((s,p)=>s+Math.max(0,p.n),0);if(!(total>0))return;
+ let x=W.left;parts.forEach(p=>{if(!(p.n>0))return;const w=(W.right-W.left)*p.n/total;P.rect(x,y,Math.max(w,1.5),h,{fill:p.color});x+=w;});
 }
 /* Плашки адресов: высота известна до рисования (секция шаблона формы). */
 function docBoxesLay(boxes){
@@ -24593,7 +24659,9 @@ function docItemParts(m,it){
  if(it.size)segs.push({t:it.size,size:8.4,bold:true});
  if(it.info)segs.push({t:it.info,size:7.6});
  let rx=DOC_COL.amount;segs.forEach(s=>{s.x=rx;rx-=Math.max(docTextWidth(s.t,s.size,s.bold),s.min||0)+12;});
- const markW=it.mark?docTextWidth(it.mark,9,true)+10:0,xd=60+markW;
+ /* Значок вида (владелец 07.11.2026): одна, две, три черты — Single lite,
+    IGU, Triple IGU — видно до того, как прочтёшь название. */
+ const markW=it.mark?docTextWidth(it.mark,9,true)+10:0,paneW=it.panes?it.panes*2.8+8:0,xd=60+markW+paneW;
  const desc=[it.prefix,it.short].filter(Boolean).join(' ');
  const lines=desc?docWrap(desc,7.8,false,Math.max(60,rx-xd)).slice(0,3):[];
  const hb=18+Math.max(0,lines.length-1)*9.5;
@@ -24602,6 +24670,7 @@ function docItemParts(m,it){
   P.rect(DOC_PAGE.left,by,DOC_PAGE.right-DOC_PAGE.left,hb,{fill:C.bar,r:3});
   P.text(DOC_COL.item,base,String(it.n),{size:9,bold:true,color:C.navy});
   if(it.mark)P.text(60,base,it.mark,{size:9,bold:true});
+  for(let i=0;i<(it.panes||0);i++)P.rect(61+markW+i*2.8,base-7,1.5,8,{fill:C.navy});
   lines.forEach((l,k)=>{
    if(!k&&it.prefix&&l.indexOf(it.prefix)===0){P.text(xd,base,it.prefix,{size:7.8});const rest=l.slice(it.prefix.length).trim();if(rest)P.text(xd+docTextWidth(it.prefix+' ',7.8),base,rest,{size:7.8,color:C.mut});}
    else P.text(xd,base+k*9.5,l,{size:7.8,color:C.mut});
@@ -25405,11 +25474,12 @@ function docFormContext(m,tpl){
  if(!m.data)m=Object.assign({},m,{data:{}});
  const opts=m.opts||{company:true},by=new Map(docFormFields(m.kind).map(x=>[x.k,x])),added=new Set(docFormAdded(m.kind,tpl||docFormTemplate(m.kind,m.form)).map(x=>x.b.id)),cache=new Map();
  const sec={
-  strip:()=>m.strip&&m.strip.length?{h:32,draw(P,y){docCells(P,m.strip,y,32,10.5);}}:null,
+  strip:()=>m.strip&&m.strip.length?{h:m.stripPaid?56:32,draw(P,y){docCells(P,m.strip,y,32,10.5);if(m.stripPaid)docPaidBar(P,m.stripPaid,y+38);}}:null,
   meta:()=>m.meta.length?{h:38,draw(P,y){docCells(P,m.meta,y,28,7.8);}}:null,
   boxes:()=>{if(!m.boxes.length)return null;const L=docBoxesLay(m.boxes);return {h:L.h+12,draw:L.draw};},
   end:()=>m.end?docEndBlock(m):null,
-  summary:()=>m.summary?{h:m.summaryNote?58:44,draw(P,y){docCells(P,m.summary,y+12,32,10.5);if(m.summaryNote)P.text(DOC_PAGE.left,y+55,docFit(m.summaryNote,7.6,false,DOC_PAGE.right-DOC_PAGE.left),{size:7.6});}}:null,
+  /* summaryBar — полоса сроков выписки под ячейками, проценты под ней. */
+  summary:()=>{if(!m.summary)return null;const bar=m.summaryBar?26:0;return {h:(m.summaryNote?58:44)+bar,draw(P,y){docCells(P,m.summary,y+12,32,10.5);if(bar){docBar(P,m.summaryBar.parts,y+50,6);P.text(DOC_PAGE.left,y+65,m.summaryBar.text,{size:6,color:DOC_COLOR.mut});}if(m.summaryNote)P.text(DOC_PAGE.left,y+55+bar,docFit(m.summaryNote,7.6,false,DOC_PAGE.right-DOC_PAGE.left),{size:7.6});}};},
   signature:()=>m.signature?docSignatureBlock(m):null};
  return {field:k=>{const x=by.get(k);return x?x.v(m):undefined;},type:k=>(by.get(k)||{}).t||'',
   section:k=>{if(!cache.has(k))cache.set(k,sec[k]?sec[k]():null);return cache.get(k);},
@@ -26045,9 +26115,8 @@ function finDocLayout(m){
   if(sec.title){y+=si?10:0;P.text(W.left,y+11,sec.title,{size:9,bold:true,color:C.navy});y+=18;}
   cur=sec;head();
   sec.rows.forEach(r=>{
-   const h=15;if(y+h>W.bottom)start();
-   r.cells.forEach((v,i)=>{const c=sec.cols[i];if(!c)return;P.text(c.x,y+10.5,docFit(String(v==null?'':v),7.8,!!(c.bold||r.bold),c.w),{size:7.8,bold:!!(c.bold||r.bold),align:c.align||'left',color:r.hi||r.due&&c.due?C.due:r.mut?C.mut:C.ink});});
-   P.line(W.left,y+h,W.right,y+h,{stroke:C.line,lw:.5});y+=h;
+   const h=finDocRowH(r);if(y+h+(r.group?15:0)>W.bottom)start();
+   finDocRow(P,sec,r,y);y+=h;
   });
   if(!sec.rows.length&&sec.empty){P.text(W.left,y+12,sec.empty,{size:7.8,color:C.mut});y+=18;}
  });
@@ -26063,6 +26132,17 @@ function finDocLayout(m){
  });
  return pages;
 }
+/* Строка таблицы бланка. Обычная — ячейки по колонкам; group — заголовок
+   месяца; sub — подытог (Due now) красным; total — итог месяца под чертой. */
+function finDocRowH(r){return r.group?14:r.sub?12:r.total?16:15;}
+function finDocRow(P,sec,r,y){
+ const W=DOC_PAGE,C=DOC_COLOR;
+ if(r.group){P.text(W.left,y+10,r.group,{size:7.2,bold:true,color:C.navy});return;}
+ if(r.sub){P.text(W.left+16,y+8.5,r.sub,{size:6.6,bold:true,color:C.due});P.text(W.right,y+8.5,r.value,{size:6.6,bold:true,color:C.due,align:'right'});P.line(W.left,y+12,W.right,y+12,{stroke:C.line,lw:.5});return;}
+ if(r.total){P.line(W.left,y+2,W.right,y+2,{stroke:C.navy,lw:.5});P.text(W.left,y+11.5,r.total,{size:6.8,bold:true,color:C.navy});P.text(W.right,y+11.5,r.value,{size:6.8,bold:true,color:C.navy,align:'right'});return;}
+ r.cells.forEach((v,i)=>{const c=sec.cols[i];if(!c)return;P.text(c.x,y+10.5,docFit(String(v==null?'':v),7.8,!!(c.bold||r.bold),c.w),{size:7.8,bold:!!(c.bold||r.bold),align:c.align||'left',color:r.hi||r.due&&c.due?C.due:r.mut?C.mut:C.ink});});
+ P.line(W.left,y+15,W.right,y+15,{stroke:C.line,lw:.5});
+}
 /* Таблицы квитанции и выписки на листах шаблона формы (erp/documents/
    order-form): те же места, что у finDocLayout; шапка, итоги и низ — из
    шаблона. */
@@ -26076,9 +26156,8 @@ function finDocTable(f,m){
   if(sec.title){f.y+=si?10:0;f.P.text(W.left,f.y+11,sec.title,{size:9,bold:true,color:C.navy});f.y+=18;}
   cur=sec;head();
   sec.rows.forEach(r=>{
-   const h=15;if(f.y+h>f.bottom)start();
-   r.cells.forEach((v,i)=>{const c=sec.cols[i];if(!c)return;f.P.text(c.x,f.y+10.5,docFit(String(v==null?'':v),7.8,!!(c.bold||r.bold),c.w),{size:7.8,bold:!!(c.bold||r.bold),align:c.align||'left',color:r.hi||r.due&&c.due?C.due:r.mut?C.mut:C.ink});});
-   f.P.line(W.left,f.y+h,W.right,f.y+h,{stroke:C.line,lw:.5});f.y+=h;
+   const h=finDocRowH(r);if(f.y+h+(r.group?15:0)>f.bottom)start();
+   finDocRow(f.P,sec,r,f.y);f.y+=h;
   });
   if(!sec.rows.length&&sec.empty){f.P.text(W.left,f.y+12,sec.empty,{size:7.8,color:C.mut});f.y+=18;}
  });
@@ -26146,6 +26225,28 @@ function finStatementDoc(customerId,from,to,today,due,activity){const m=finState
    жёлтым, их сумма — Due now, остальное — Current. Было — в Excel руками. */
 function finStatementDueOpen(x){return !x.archived&&!!x.billed&&x.f.b.status!=='review'&&x.f.b.balance>0;}
 function finStatementDuePick(x,due){if(!due||!finStatementDueOpen(x))return false;const p=due.pick&&due.pick[x.o.id];return p!=null?!!p:!!due.by&&x.billed<=due.by;}
+/* Дни просрочки и «к оплате сейчас» — те же правила, что итоги внизу:
+   просрочка 60+ и 90+ всегда, моложе — выбранное бухгалтером (без выбора —
+   уже просроченное). */
+function finStatementLate(x,day){return x.f.dueOn&&x.f.dueOn<day?Math.floor((Date.parse(day)-Date.parse(x.f.dueOn))/864e5):0;}
+function finStatementNow(x,day,due){if(!finStatementDueOpen(x))return false;const d=finStatementLate(x,day);return d>=60||(due?finStatementDuePick(x,due):d>0);}
+/* Строки счетов по месяцам: заголовок месяца, счета, подытог Due now после
+   последнего счёта к оплате, итог месяца. Заказы в работе — группой In work. */
+function finStatementRows(orders,day,due){
+ const money=docMoney,groups=[];
+ orders.forEach(x=>{const k=x.billed?x.billed.slice(0,7):'';let g=groups[groups.length-1];if(!g||g.k!==k)groups.push(g={k,list:[]});g.list.push(x);});
+ const plural=(n,w)=>n+' '+w+(n===1?'':'s'),bal=l=>finMoney(l.filter(x=>x.f.b.status!=='review').reduce((s,x)=>s+x.f.b.balance,0));
+ return groups.flatMap(g=>{
+  const name=g.k?FIN_MONTH_NAMES[+g.k.slice(5,7)-1]+' '+g.k.slice(0,4):'In work',now=g.list.filter(x=>finStatementNow(x,day,due)),last=now[now.length-1],out=[{group:name}];
+  g.list.forEach(x=>{
+   const d=finStatementDueOpen(x)?finStatementLate(x,day):0;
+   out.push({hi:now.includes(x),due:d>0,mut:!x.billed,cells:[x.o.businessNumber,x.billed?docDate(x.billed):'In work',x.o.customerPo||'—',d>0?d+' d':'',money(x.f.b.total),x.f.b.status==='review'?'Review required':finSigned(x.f.b.balance)]});
+   if(x===last)out.push({sub:'Due now · '+plural(now.length,'invoice'),value:money(bal(now))});
+  });
+  out.push({total:name+' · '+plural(g.list.length,g.k?'invoice':'order'),value:finSigned(bal(g.list))});
+  return out;
+ });
+}
 function finStatementModel(customerId,from,to,today,due,activity){
  const c=salesFindCustomer(customerId);if(!c)return null;
  const day=today||finToday(),money=docMoney,company=DB.company||{},d=finStatementData(c.id,from,to);
@@ -26156,9 +26257,10 @@ function finStatementModel(customerId,from,to,today,due,activity){
  const orders=finStatementOrders(c.id,from,to,day);
  m.sections=[
   /* Счета как в таблице Spiel (владелец 06.11.2026): каждый один раз;
-     выбранные к оплате (Due now) — красным, сроки — в итогах внизу. */
-  {title:'Invoices',empty:'No invoices in this period.',cols:[{label:'Invoice No',x:36,w:70,bold:true},{label:'Date',x:112,w:74},{label:'Reference',x:192,w:220},{label:'Amount',x:486,w:80,align:'right'},{label:'Balance',x:576,w:80,align:'right',bold:true}],
-   rows:orders.map((x,i)=>({hi:finStatementDuePick(x,due),mut:!x.billed,cells:[x.o.businessNumber,x.billed?docDate(x.billed):'In work',x.o.customerPo||'—',money(x.f.b.total),x.f.b.status==='review'?'Review required':finSigned(x.f.b.balance)]}))},
+     к оплате сейчас — красным, сроки — в итогах внизу. 07.11.2026 — по
+     месяцам с итогом, подытог Due now и колонка Days late. */
+  {title:'Invoices',empty:'No invoices in this period.',cols:[{label:'Invoice No',x:36,w:70,bold:true},{label:'Date',x:112,w:74},{label:'Reference',x:192,w:180},{label:'Days late',x:432,w:50,align:'right',bold:true,due:true},{label:'Amount',x:486,w:80,align:'right'},{label:'Balance',x:576,w:80,align:'right',bold:true}],
+   rows:finStatementRows(orders,day,due)},
   activity&&{title:'Account activity',empty:'',cols:[{label:'Date',x:36,w:58},{label:'Document',x:98,w:52,bold:true},{label:'Description',x:154,w:204},{label:'Charges',x:418,w:58,align:'right'},{label:'Payments',x:494,w:58,align:'right'},{label:'Balance',x:576,w:66,align:'right',bold:true}],
    rows:[{mut:true,cells:[from?docDate(from):'','','Balance forward','','',finSigned(d.opening)]}].concat(d.rows.map(l=>({due:l.overdue,cells:[docDate(l.date),l.doc,l.text,l.charge?money(l.charge):'',l.payment?money(l.payment):'',finSigned(l.balance)]})))}
  ].filter(Boolean);
@@ -26172,10 +26274,15 @@ function finStatementModel(customerId,from,to,today,due,activity){
  /* Итоги по срокам (как у Spiel, вместе — весь долг по счетам): просрочка
     90+ и 60+ дней; Due now — выбранное бухгалтером (без выбора — уже
     просроченное); Current — остальное. */
- const open=orders.filter(finStatementDueOpen),late=x=>x.f.dueOn&&x.f.dueOn<day?Math.floor((Date.parse(day)-Date.parse(x.f.dueOn))/864e5):0,sum=l=>money(finMoney(l.reduce((s,x)=>s+x.f.b.balance,0)));
+ const open=orders.filter(finStatementDueOpen),late=x=>finStatementLate(x,day);
  if(open.length){
   const o90=open.filter(x=>late(x)>=90),o60=open.filter(x=>late(x)>=60&&late(x)<90),young=open.filter(x=>late(x)<60),chosen=!!due,now=young.filter(x=>chosen?finStatementDuePick(x,due):late(x)>0);
-  m.summary=[{label:'Overdue 90+ days',value:sum(o90)},{label:'Overdue 60+ days',value:sum(o60)},{label:'Due now',value:sum(now)},{label:'Current',value:sum(young.filter(x=>!now.includes(x)))}];
+  const cur=young.filter(x=>!now.includes(x)),C=DOC_COLOR,n=l=>finMoney(l.reduce((s,x)=>s+x.f.b.balance,0));
+  /* Полоса сроков (владелец 07.11.2026): доли долга цветом, проценты под ней. */
+  const parts=[['Overdue 90+ days',o90,C.due],['Overdue 60+ days',o60,C.adj],['Due now',now,C.warn],['Current',cur,C.paid]].map(([label,l,color])=>({label,n:n(l),color}));
+  m.summary=parts.map(p=>({label:p.label,value:money(p.n),mark:p.color}));
+  const all=parts.reduce((s,p)=>s+p.n,0);
+  if(all>0)m.summaryBar={parts,text:parts.filter(p=>p.n>0).map(p=>p.label.replace(' days','')+' '+Math.round(100*p.n/all)+'%').join(' · ')};
  }
  m.footerRight=finPeriodText(from,to);
  return m;
@@ -33921,7 +34028,8 @@ function finOpenReceipt(id){
  finDraft={customerId:r.customerId,date:r.date,method:r.method,reference:r.reference,amount:String(r.amount),note:r.note,apply:Object.fromEntries(r.allocations.map(a=>[a.orderId,String(a.amount)])),currency:finCurrency(r),reason:'',duplicate:false};
  finDraftBaseline=JSON.stringify(finDraft);render();
 }
-function finCloseReceipt(force,saved){if(!force&&!finCanLeave())return;finEdit=null;finDraft=null;finDraftBaseline='';const back=finBack;finBack=null;if(back)finGoBack(back,saved);render();}
+/* + Receipt из Allocate payments — после квитанции обратно в окно разнесения. */
+function finCloseReceipt(force,saved){if(!force&&!finCanLeave())return;finEdit=null;finDraft=null;finDraftBaseline='';const back=finBack;finBack=null;if(back)finGoBack(back,saved);if(finAlloc&&finAlloc.back){finAlloc.back=false;finTab='accounts';finAccountId=finAlloc.customerId;}render();}
 function finGoBack(back,r){
  tab=back.tab;subtab=back.subtab||null;if(!r)return;
  const text='Payment '+r.number+' saved · '+finFmt(r.amount);
@@ -34099,7 +34207,7 @@ function finCanLeave(){return !finHasWork()||confirm('Discard unsaved finance ch
 (window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(finHasWork);
 (window.NAV_GUARDS=window.NAV_GUARDS||[]).push(function(k,go){
  if(tab!=='finance')return false;if(!finCanLeave())return true;
- finDraft=null;finEdit=null;finAction=null;finApply=null;finPreview=null;finStatements=null;finRangeMenu=null;return false;
+ finDraft=null;finEdit=null;finAction=null;finApply=null;finAlloc=null;finPreview=null;finStatements=null;finRangeMenu=null;return false;
 });
 window.addEventListener('beforeunload',function(e){if(!finHasWork())return;e.preventDefault();e.returnValue='';});
 function finResetFilters(){finCustomerFilter='';finOrderFilter='';render();}
@@ -34138,13 +34246,14 @@ function finListDescription(){
  const p=salesListLoadPrefs(),parts=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k])).map(k=>salesListFilterSummary(salesListColumn(k),p.filters[k]));
  return parts.join(' · ');
 }
-function finOpenAccount(id){if(!finCanLeave())return;finDraft=null;finEdit=null;finAction=null;tab='finance';finTab='accounts';finAccountId=id;finAccountPaid=false;render();}
+function finOpenAccount(id){if(!finCanLeave())return;finAlloc=null;finDraft=null;finEdit=null;finAction=null;tab='finance';finTab='accounts';finAccountId=id;finAccountPaid=false;render();}
 function finStatusPill(f){return `<span class="pill ${f.tone}">${esc(f.status)}</span>`;}
 function finAccountHTML(){
+ if(finAllocOn())return finAllocHTML();
  const c=salesFindCustomer(finAccountId);if(!c)return '<p>Customer not found.</p>';
  const m=finAccountMetrics(c),a=m.account,x=m.money,open=m.rows.filter(x=>x.f.b.balance!==0),paid=m.rows.length-open.length,rows=finAccountPaid?m.rows:open;
  const receipts=DB.receipt.filter(r=>r.customerId===c.id).sort((x,y)=>(y.date+y.number).localeCompare(x.date+x.number)),refunds=DB.refund.filter(r=>r.customerId===c.id).sort((x,y)=>(y.date+y.number).localeCompare(x.date+x.number)),events=DB.financeEvent.filter(e=>e.customerId===c.id);
- return `<div class="fin-account-head"><div><button class="sm" onclick="finAccountId='';render()">← Accounts</button><h3>${raw(finCustomerName(c))}</h3><span class="mut">${raw(c.code)} · ${esc(a.terms)}${c.status==='archived'?' · Archived':''}${c.onHold?' · <b class="fin-due">On hold</b>':''}</span></div><div class="row"><button onclick="finOpenStatement('${esc(c.id)}')">Statement</button><button class="pri" onclick="finNewReceipt('${esc(c.id)}')">+ Receipt</button></div></div>
+ return `<div class="fin-account-head"><div><button class="sm" onclick="finAccountId='';render()">← Accounts</button><h3>${raw(finCustomerName(c))}</h3><span class="mut">${raw(c.code)} · ${esc(a.terms)}${c.status==='archived'?' · Archived':''}${c.onHold?' · <b class="fin-due">On hold</b>':''}</span></div><div class="row"><button data-fin-open-allocate onclick="finOpenAllocate('${esc(c.id)}')">Allocate</button><button onclick="finOpenStatement('${esc(c.id)}')">Statement</button><button class="pri" onclick="finNewReceipt('${esc(c.id)}')">+ Receipt</button></div></div>
  <div class="fin-account-totals"><span>Balance <b>${finFmt(x.balance)}</b></span><span>Overdue <b class="${x.overdue>0?'fin-due':''}">${finFmt(x.overdue)}</b></span><span>Prepaid <b>${finFmt(x.prepaid)}</b></span><span>On account <b class="fin-deposit">${finFmt(x.deposit)}</b>${x.deposit>0&&x.balance>0?`<button class="sm" onclick="finOpenApply('${esc(c.id)}')">Apply</button>`:''}</span>${a.creditLimit!=null?`<span>Credit limit <b class="${a.overLimit?'fin-due':''}">${finFmt(a.creditLimit)}</b></span>`:''}</div>
  <h4>Orders</h4>${finStaticTable('finAccOrders',[['order','Order / PO'],['billed','Billed'],['due','Due'],['total','Total','n'],['paid','Paid','n'],['balance','Balance','n'],['status','Status'],['act','']],rows.map(({o,f})=>`<tr data-order="${esc(o.id)}"><td><button class="fin-link" onclick="finOpenSales('${esc(o.id)}')">${esc(o.businessNumber)}</button><div class="mut small">${raw(o.customerPo||'—')}</div></td><td>${esc(finBillingDate(o)?finShortDate(finBillingDate(o)):'—')}</td><td class="${f.overdue?'fin-due':''}">${esc(f.dueOn?finShortDate(f.dueOn):'—')}</td><td class="n">${finFmt(f.b.total)}</td><td class="n">${finFmt(f.b.paid)}</td><td class="n"><b>${finFmt(f.b.balance)}</b></td><td>${finStatusPill(f)}</td><td class="fin-actions">${finInvoiceDate(o)?`<button class="sm" data-fin-invoice="${esc(o.businessNumber)}" onclick="finOpenInvoice('${esc(o.id)}')">Invoice</button> `:''}<button class="sm" onclick="finEditTerms('${esc(o.id)}')">Terms</button></td></tr>`).join('')||`<tr><td colspan="8" class="empty">No open orders</td></tr>`)}
  ${paid?`<button class="sm fin-more" onclick="finAccountPaid=!finAccountPaid;render()">${finAccountPaid?'Hide paid orders':'Show paid orders ('+paid+')'}</button>`:''}
@@ -34488,12 +34597,24 @@ function finListFooter(all,cols,noun){
 /* Списки Finance — вид Sales (этап 6, 03.11.2026): галочка строки, действия
    строки — сверху в шапке для отмеченной (r.acts: [label, onclick, атрибуты]),
    шестерёнка слева, ширина и порядок колонок, итог. */
-let finSel='';
+let finSel='',finListActs=new Map();
 function finSelect(id,on=true){finSel=on?id:'';render();}
+/* Правый клик по строке (как в Sales, владелец 07.11.2026): строка
+   отмечается, меню — те же действия, что кнопки над таблицей. */
+function finListContext(e,id){
+ if(e){e.preventDefault();e.stopPropagation();}
+ if(!finListActs.has(id))return;
+ finSel=id;salesListMenu={kind:'fin-context',id,x:(e&&e.clientX)||40,y:(e&&e.clientY)||40,w:220};render();
+}
+function finListContextHTML(m,style){
+ const acts=finListActs.get(m.id)||[];if(!acts.length)return '';
+ return `<div class="sl-ctx" style="${style}" role="menu" data-fin-context>${acts.map(([l,fn,attr])=>`<button type="button" role="menuitem" ${attr||''} onclick="salesListMenu=null;${fn}">${l}</button>`).join('')}</div>`;
+}
 function finListTable(infos,cell,rowAttrs,noun,empty,names){
  const p=salesListLoadPrefs(),rows=salesListRows(infos),cols=salesListColumns();
  if(finSel&&!rows.some(r=>r.o.id===finSel))finSel='';
- const body=rows.map(r=>{const on=finSel===r.o.id;return `<tr ${rowAttrs(r)}${on?' data-fin-sel':''}><td class="sl-check" onclick="event.stopPropagation()"><input type="checkbox" aria-label="Select ${esc(String(r.memo.number||r.memo.customer||r.o.id))}" ${on?'checked':''} onchange="finSelect('${esc(r.o.id)}',this.checked)"></td>${cols.map(c=>cell(r,c)).join('')}<td></td></tr>`;}).join('');
+ finListActs=new Map(rows.map(r=>[r.o.id,r.acts||[]]));
+ const body=rows.map(r=>{const on=finSel===r.o.id;return `<tr ${rowAttrs(r)}${on?' data-fin-sel':''} oncontextmenu="finListContext(event,'${esc(r.o.id)}')"><td class="sl-check" onclick="event.stopPropagation()"><input type="checkbox" aria-label="Select ${esc(String(r.memo.number||r.memo.customer||r.o.id))}" ${on?'checked':''} onchange="finSelect('${esc(r.o.id)}',this.checked)"></td>${cols.map(c=>cell(r,c)).join('')}<td></td></tr>`;}).join('');
  const cw=salesListCwTable(cols.map(c=>c.k),[44],20,{due:130,terms:150,days:110,balance:110,outstanding:110,limit:110,state:130,status:110}),sel=rows.find(r=>r.o.id===finSel);
  const acts=(sel&&sel.acts||[]).map(([l,fn,attr])=>`<button type="button" class="sl-quiet" ${attr||''} onclick="${fn}">${l}</button>`).join('');
  /* Ничего не отмечено — те же кнопки серыми, как в Sales: шапка не пустеет. */
@@ -34514,11 +34635,21 @@ function finAccountInfos(){
   return {o:{id:c.id,createdAt:c.createdAt||''},c,m,memo:{customer:finCustomerName(c),code:c.code||'',terms:a.terms,balance:x.balance,overdue:x.overdue,prepaid:x.prepaid,deposit:x.deposit,limit:a.creditLimit,orders:x.orders,state:finAccountState(c,a)}};
  }).filter(i=>finAccountAll?i.c.status!=='archived'||finAccountOpen(i.m):finAccountOpen(i.m));
 }
+/* Полоса сроков под Balance (владелец 07.11.2026): как итоги выписки —
+   просрочка 90+ и 60+, просрочено моложе (Due now) и Current. */
+const FIN_AGING=[['Overdue 90+','fin-age-90'],['Overdue 60+','fin-age-60'],['Due now','fin-age-now'],['Current','fin-age-cur']];
+function finAgingBar(rows){
+ const day=finToday(),v=[0,0,0,0];
+ (rows||[]).forEach(({f})=>{const b=f.b;if(b.status==='review'||!(b.balance>0))return;const d=f.dueOn&&f.dueOn<day?Math.floor((Date.parse(day)-Date.parse(f.dueOn))/864e5):0;v[d>=90?0:d>=60?1:d>0?2:3]+=b.balance;});
+ const all=v.reduce((s,n)=>s+n,0);if(!(all>0))return '';
+ const tip=FIN_AGING.map((a,i)=>v[i]>0?a[0]+' '+finFmt(finMoney(v[i])):'').filter(Boolean).join(' · ');
+ return `<div class="fin-aging" data-fin-aging title="${esc(tip)}">${v.map((n,i)=>n>0?`<span class="${FIN_AGING[i][1]}" style="width:${(100*n/all).toFixed(2)}%"></span>`:'').join('')}</div>`;
+}
 function finAccountCell(r,c){
  const v=salesListValue(r,c.k),x=r.m.money;
  switch(c.k){
   case 'customer':return `<td><button class="fin-link" onclick="finOpenAccount('${esc(r.c.id)}')">${raw(v)}</button>${x.review?'<span class="pill warn">Review required</span>':''}<div class="mut small">${raw(r.c.code||'')}${r.c.onHold?' · <b class="fin-due">On hold</b>':''}</div></td>`;
-  case 'balance':return `<td class="n">${v>0?`<b>${finFmt(v)}</b>`:'<span class="mut">—</span>'}${x.incomplete?`<div class="mut small">${x.incomplete} not priced</div>`:''}</td>`;
+  case 'balance':return `<td class="n">${v>0?`<b>${finFmt(v)}</b>${finAgingBar(r.m.rows)}`:'<span class="mut">—</span>'}${x.incomplete?`<div class="mut small">${x.incomplete} not priced</div>`:''}</td>`;
   case 'overdue':return `<td class="n">${v>0?`<b class="fin-due">${finFmt(v)}</b>`:'<span class="mut">—</span>'}</td>`;
   case 'deposit':return `<td class="n">${v>0?`<span class="fin-deposit">${finFmt(v)}</span>`:'<span class="mut">—</span>'}</td>`;
   case 'prepaid':return `<td class="n">${finMoneyText(v)}</td>`;
@@ -34531,8 +34662,8 @@ function finAccountCell(r,c){
 /* Строки таблицы Accounts после фильтров — для CSV, печати и тестов. */
 function finAccountsList(){return salesListRows(finAccountInfos()).map(r=>({c:r.c,m:r.m}));}
 function finAccountsWorkspace(){
- const infos=finAccountInfos();infos.forEach(r=>{r.acts=[['Open',`finOpenAccount('${esc(r.c.id)}')`]].concat(r.m.money.deposit>0&&r.m.money.balance>0?[['Apply deposit',`finOpenApply('${esc(r.c.id)}')`]]:[]);r.applyHint=r.m.money.deposit>0&&r.m.money.balance>0;});
- const t=finListTable(infos,finAccountCell,r=>`data-account="${esc(r.c.id)}"`,'customer',finAccountAll?'No customers yet':'No open balances',['Open','Apply deposit']);
+ const infos=finAccountInfos();infos.forEach(r=>{const id=esc(r.c.id);r.acts=[['Open',`finOpenAccount('${id}')`],['Allocate',`finOpenAllocate('${id}')`,'data-fin-row-allocate'],['Statement',`finOpenAccount('${id}');finOpenStatement('${id}')`]].concat(r.m.money.deposit>0&&r.m.money.balance>0?[['Apply deposit',`finOpenApply('${id}')`]]:[],[['+ Receipt',`finNewReceipt('${id}')`]]);r.applyHint=r.m.money.deposit>0&&r.m.money.balance>0;});
+ const t=finListTable(infos,finAccountCell,r=>`data-account="${esc(r.c.id)}"`,'customer',finAccountAll?'No customers yet':'No open balances',['Open','Allocate','Statement','Apply deposit']);
  return finFrame(`<button type="button" class="sl-quiet${finAccountAll?'':' on'}" data-accounts="open" onclick="finAccountAll=false;render()">Open accounts</button><button type="button" class="sl-quiet${finAccountAll?' on':''}" data-accounts="all" onclick="finAccountAll=true;render()">All customers</button>${t.acts}`,`<button type="button" class="sl-quiet" onclick="finOpenStatements()" title="Statements for all customers for a month">Statements</button><button type="button" class="sl-quiet" ${t.rows.length?'':'disabled'} onclick="finBalancesExport()">CSV</button><button type="button" class="sl-quiet" ${t.rows.length?'':'disabled'} onclick="finOpenPreview('balances')">Print</button>`,t.html);
 }
 
@@ -34604,6 +34735,135 @@ function finExportCsv(){
  const rows=finFilteredReceipts(),f=salesListLoadPrefs().filters.date,col=salesListColumn('date');
  const refunds=DB.refund.filter(x=>(!finCustomerFilter||x.customerId===finCustomerFilter)&&(!finOrderFilter||rows.some(r=>r.id===x.receiptId))&&(!f||salesListFilterTest(col,f,{o:{},memo:{date:x.date}})));
  customerDownload('payments_'+finToday()+'.csv',finMovementsCSV(rows,refunds),'text/csv;charset=utf-8');
+}
+
+/* ==== src/erp/views/finance-allocate.js ==== */
+/* =====================================================================
+   views/finance-allocate  ·  Allocate payments
+   Разнесение оплат «как в Spiel» (владелец, 06.11.2026: бухгалтер привыкла
+   к двум половинам). Слева заказы и счета клиента, справа квитанции с
+   остатком; фильтры Unpaid / Part paid / Fully paid у каждой половины.
+   Отметить слева и справа → Allocate selected; Unallocate selected — снять
+   разнесённое между отмеченными. Строка с оплатами раскрывается ▸ и
+   показывает, чем оплачено, с × Unallocate у каждой связи. Над таблицами
+   одной строкой — что будет (вариант D, выбран владельцем 06.11.2026).
+   Деньги считают команды finance/data: finAllocate (через finApplyDeposit)
+   и finUnallocate; окно ничего не считает само.
+   ===================================================================== */
+let finAlloc=null;
+const FIN_ALLOC_SHOW=[['unpaid','Unpaid'],['part','Part paid'],['paid','Fully paid']];
+function finOpenAllocate(customerId){
+ if(!salesFindCustomer(customerId)||!finCanLeave())return;
+ finDraft=null;finEdit=null;finAction=null;tab='finance';finTab='accounts';finAccountId=customerId;
+ finAlloc={customerId,orders:[],receipts:[],open:[],showO:['unpaid','part'],showR:['unpaid','part'],ask:false,back:false};render();
+}
+function finCloseAllocate(){finAlloc=null;render();}
+function finAllocOn(){return !!finAlloc&&finAlloc.customerId===finAccountId;}
+/* Заказы клиента, у которых посчитан долг; со старого: дата счёта, иначе дата заказа. */
+function finAllocOrderRows(cid){
+ const rows=[];let unpriced=0;
+ (DB.salesOrder||[]).filter(o=>o.customerId===cid&&finOrderCounts(o)&&finCurrency(o)==='CAD').forEach(o=>{
+  const b=finOrderBalance(o);if(b.status==='incomplete'||b.status==='review'){unpriced++;return;}if(b.status==='empty')return;
+  const inv=finInvoiceDate(o);
+  rows.push({o,b,type:inv?'Invoice':'Order',date:inv||finLocalDate(o.createdAt),show:b.balance>0?(b.paid>0?'part':'unpaid'):'paid'});
+ });
+ rows.sort((x,y)=>(x.date||'').localeCompare(y.date||'')||String(x.o.businessNumber).localeCompare(String(y.o.businessNumber)));
+ return {rows,unpriced};
+}
+function finAllocReceiptRows(cid){
+ return finActiveReceipts().filter(r=>r.customerId===cid&&finCurrency(r)==='CAD').sort((x,y)=>(x.date+x.number).localeCompare(y.date+y.number)).map(r=>{
+  const used=finReceiptApplied(r),left=finReceiptOnAccount(r),refunded=finRefunded(r.id);
+  return {r,used,left,refunded,show:left<=0?'paid':used>0||refunded>0?'part':'unpaid'};
+ });
+}
+/* Что сделает Allocate selected: жадно, как finAllocate — заказы по порядку,
+   квитанции со старой. Только для строки над таблицами. */
+function finAllocPlan(orders,receipts,cap){
+ const so=orders.filter(x=>finAlloc.orders.includes(x.o.id)&&x.b.balance>0),sr=receipts.filter(x=>finAlloc.receipts.includes(x.r.id)&&x.left>0);
+ const due=finMoney(so.reduce((s,x)=>s+x.b.balance,0)),free=finMoney(sr.reduce((s,x)=>s+x.left,0));
+ let total=finMoney(Math.min(due,free,cap==null?Infinity:cap));if(!(total>0))total=0;
+ const take=(list,v)=>{let n=0,acc=0;for(const x of list){if(acc>=total)break;acc=finMoney(acc+v(x));n++;}return list.slice(0,n);};
+ return {total,due,free,orders:total?take(so,x=>x.b.balance):[],receipts:total?take(sr,x=>x.left):[],stays:finMoney(free-total),still:finMoney(due-total)};
+}
+/* Unallocate selected: связи между отмеченными; отмечена одна сторона —
+   все связи отмеченных строк. */
+function finAllocPairs(cid){
+ const so=finAlloc.orders,sr=finAlloc.receipts,out=[];
+ finActiveReceipts().filter(r=>r.customerId===cid&&finCurrency(r)==='CAD').forEach(r=>r.allocations.forEach(a=>{
+  if(!(DB.salesOrder||[]).some(o=>o.id===a.orderId))return;
+  const okO=so.includes(a.orderId),okR=sr.includes(r.id);
+  if(so.length&&sr.length?okO&&okR:okO||okR)out.push({receiptId:r.id,orderId:a.orderId});
+ }));
+ return out;
+}
+function finAllocToggle(side,id){const k=side==='o'?'orders':'receipts',l=finAlloc[k];finAlloc[k]=l.includes(id)?l.filter(x=>x!==id):l.concat(id);render();}
+function finAllocShow(side,key){const k=side==='o'?'showO':'showR',l=finAlloc[k];finAlloc[k]=l.includes(key)?l.filter(x=>x!==key):l.concat(key);render();}
+function finAllocExpand(key){const l=finAlloc.open;finAlloc.open=l.includes(key)?l.filter(x=>x!==key):l.concat(key);render();}
+function finAllocCustomer(id){if(!salesFindCustomer(id))return;finAccountId=id;finAlloc=Object.assign(finAlloc,{customerId:id,orders:[],receipts:[],open:[]});render();}
+function finAllocRun(){
+ const cid=finAlloc.customerId,orders=finAllocOrderRows(cid).rows,receipts=finAllocReceiptRows(cid),max=finAllocPlan(orders,receipts).total;
+ let cap=null;
+ if(finAlloc.ask){
+  const v=window.prompt('Amount to allocate · max '+finFmt(max),max.toFixed(2));if(v===null)return;
+  cap=finCents(v);if(cap==null||cap<=0){alert('Enter a positive amount.');return;}cap=cap/100;
+ }
+ const ids=orders.filter(x=>finAlloc.orders.includes(x.o.id)).map(x=>x.o.id),rids=finAlloc.receipts.slice();
+ const out=finPersist(()=>{const done=finAllocate(cid,ids,rids,cap);finAssert(done>0,'Nothing allocated: check the selection.');return done;});
+ if(!out.ok)return fail(document.getElementById('e_fin_alloc'),out.error);
+ finAlloc.orders=[];finAlloc.receipts=[];render();
+}
+function finAllocRelease(pairs){
+ if(!pairs.length)return;
+ const out=finPersist(()=>{const moved=finUnallocate(finAlloc.customerId,pairs);finAssert(moved>0,'Nothing to unallocate.');return moved;});
+ if(!out.ok)return fail(document.getElementById('e_fin_alloc'),out.error);
+ finAlloc.orders=[];finAlloc.receipts=[];render();
+}
+function finAllocUnselected(){finAllocRelease(finAllocPairs(finAlloc.customerId));}
+function finAllocUnlink(receiptId,orderId){finAllocRelease([{receiptId,orderId}]);}
+/* Ссылки уводят из окна: заказ в Sales, квитанция — её форма. + Receipt
+   возвращает сюда после сохранения (finCloseReceipt). */
+function finAllocGoOrder(id){finAlloc=null;finOpenSales(id);}
+function finAllocGoReceipt(id){finAlloc=null;finOpenReceipt(id);}
+function finAllocNewReceipt(){const a=finAlloc;if(finNewReceipt(a.customerId)!==false)a.back=true;}
+
+function finAllocSeg(side,on){return `<div class="fin-seg" data-fin-alloc-show="${side}">${FIN_ALLOC_SHOW.map(([k,l])=>`<button type="button" class="${on.includes(k)?'on':''}" onclick="finAllocShow('${side}','${k}')">${l}</button>`).join('')}</div>`;}
+function finAllocPane(title,side,on,table,foot){
+ return `<section class="fin-alloc-pane" data-fin-alloc="${side}"><div class="fin-alloc-pane-head"><b>${title}</b>${finAllocSeg(side,on)}</div>
+ <div class="sales-table-wrap fin-table-wrap">${table}</div><div class="fin-alloc-pane-foot">${foot}</div></section>`;
+}
+function finAllocArrow(key,n){return n?`<button type="button" class="fin-alloc-arrow" aria-label="Show allocations" onclick="finAllocExpand('${esc(key)}')">${finAlloc.open.includes(key)?'▾':'▸'}</button>`:'';}
+function finAllocUnlinkBtn(rid,oid){return (DB.salesOrder||[]).some(o=>o.id===oid)?`<button type="button" class="fin-link fin-alloc-unlink" onclick="finAllocUnlink('${esc(rid)}','${esc(oid)}')">× Unallocate</button>`:'';}
+function finAllocNums(list,num,word){return list.length>3?list.length+' '+word:list.map(num).join(', ');}
+function finAllocHTML(){
+ const c=salesFindCustomer(finAlloc.customerId);if(!c){finAlloc=null;return '<p>Customer not found.</p>';}
+ const cid=c.id,a=finCustomerAccount(c),x=finCustomerMoney(cid),{rows:orders,unpriced}=finAllocOrderRows(cid),receipts=finAllocReceiptRows(cid);
+ const plan=finAllocPlan(orders,receipts),pairs=finAllocPairs(cid),selO=orders.filter(o=>finAlloc.orders.includes(o.o.id)),selR=receipts.filter(r=>finAlloc.receipts.includes(r.r.id));
+ const links={};receipts.forEach(r=>r.r.allocations.forEach(l=>(links[l.orderId]=links[l.orderId]||[]).push({r:r.r,amount:l.amount})));
+ const shownO=orders.filter(o=>finAlloc.showO.includes(o.show)),shownR=receipts.filter(r=>finAlloc.showR.includes(r.show));
+ const customers=(DB.customer||[]).filter(k=>k.status!=='archived'||k.id===cid);
+ const leftBody=shownO.map(o=>{const id=o.o.id,ls=links[id]||[],open=finAlloc.open.includes('o:'+id),sel=finAlloc.orders.includes(id);
+  return `<tr data-order="${esc(id)}" class="${sel?'sl-row-sel':''}"><td class="sl-check"><input type="checkbox" aria-label="Select order" ${sel?'checked':''} onchange="finAllocToggle('o','${esc(id)}')"></td><td class="fin-alloc-arrow-cell">${finAllocArrow('o:'+id,ls.length)}</td><td>${o.type}</td><td>${esc(o.date||'—')}</td>
+  <td><button type="button" class="fin-link" onclick="finAllocGoOrder('${esc(id)}')">${esc(o.o.businessNumber||'draft')}</button><div class="mut small">${raw(o.o.customerPo||'—')}</div></td><td class="n">${finFmt(o.b.total)}</td><td class="n">${finFmt(o.b.paid)}</td><td class="n"><b>${finFmt(o.b.balance)}</b></td></tr>`+
+  (open?ls.map(l=>`<tr class="fin-alloc-link"><td></td><td></td><td colspan="2" class="mut small">↳ ${esc(l.r.date)}</td><td class="small"><button type="button" class="fin-link" onclick="finAllocGoReceipt('${esc(l.r.id)}')">${esc(l.r.number)}</button> · ${finAllocUnlinkBtn(l.r.id,id)}</td><td></td><td class="n small">${finFmt(l.amount)}</td><td></td></tr>`).join(''):'');
+ }).join('')||'<tr><td colspan="8" class="mut">Nothing to show</td></tr>';
+ const rightBody=shownR.map(r=>{const id=r.r.id,ls=r.r.allocations,open=finAlloc.open.includes('r:'+id),sel=finAlloc.receipts.includes(id);
+  return `<tr data-receipt="${esc(id)}" class="${sel?'sl-row-sel':''}"><td class="sl-check"><input type="checkbox" aria-label="Select receipt" ${sel?'checked':''} onchange="finAllocToggle('r','${esc(id)}')"></td><td class="fin-alloc-arrow-cell">${finAllocArrow('r:'+id,ls.length)}</td><td>${esc(r.r.date)}</td>
+  <td><button type="button" class="fin-link" onclick="finAllocGoReceipt('${esc(id)}')">${esc(r.r.number)}</button><div class="mut small">${esc(finMethodLabel(r.r.method))} ${raw(r.r.reference||'')}${r.refunded?' · refunded '+finFmt(r.refunded):''}</div></td><td class="n">${finFmt(r.r.amount)}</td><td class="n">${finFmt(r.used)}</td><td class="n"><b class="${r.left>0?'fin-deposit':''}">${finFmt(r.left)}</b></td></tr>`+
+  (open?ls.map(l=>`<tr class="fin-alloc-link"><td></td><td></td><td colspan="2" class="mut small">↳ Order ${(DB.salesOrder||[]).some(o=>o.id===l.orderId)?`<button type="button" class="fin-link" onclick="finAllocGoOrder('${esc(l.orderId)}')">${esc(finOrderNumber(l.orderId))}</button>`:esc(finOrderNumber(l.orderId))} ${finAllocUnlinkBtn(id,l.orderId)?'· '+finAllocUnlinkBtn(id,l.orderId):''}</td><td></td><td class="n small">${finFmt(l.amount)}</td><td></td></tr>`).join(''):'');
+ }).join('')||'<tr><td colspan="7" class="mut">Nothing to show</td></tr>';
+ const sum=(l,v)=>finMoney(l.reduce((s,x)=>s+v(x),0));
+ const say=plan.total>0?`Allocate <b>${finFmt(plan.total)}</b> from <b>${esc(finAllocNums(plan.receipts,r=>r.r.number,'receipts'))}</b> to <b>${esc(finAllocNums(plan.orders,o=>o.o.businessNumber,'orders'))}</b> · <b class="fin-deposit">${finFmt(plan.stays)}</b> stays on account${plan.still>0?` · <b>${finFmt(plan.still)}</b> still due`:''}`
+  :selO.length||selR.length?'Select orders and receipts with a balance':'Select orders and receipts';
+ return `<div class="fin-account-head"><div><button class="sm" onclick="finCloseAllocate()">← ${raw(finCustomerName(c))}</button><h3>Allocate payments · ${raw(finCustomerName(c))}</h3><span class="mut">${raw(c.code)} · ${esc(a.terms)}${c.onHold?' · <b class="fin-due">On hold</b>':''}</span></div>
+ <div class="row"><select aria-label="Allocation customer" onchange="finAllocCustomer(this.value)">${customers.map(k=>`<option data-raw value="${esc(k.id)}" ${k.id===cid?'selected':''}>${esc(k.code||'')} · ${esc(finCustomerName(k))}</option>`).join('')}</select><button onclick="finOpenStatement('${esc(cid)}')">Statement</button><button class="pri" onclick="finAllocNewReceipt()">+ Receipt</button></div></div>
+ <div class="fin-account-totals"><span>Balance <b>${finFmt(x.balance)}</b></span><span>Overdue <b class="${x.overdue>0?'fin-due':''}">${finFmt(x.overdue)}</b></span><span>On account <b class="fin-deposit">${finFmt(x.deposit)}</b></span>${a.creditLimit!=null?`<span>Credit limit <b class="${a.overLimit?'fin-due':''}">${finFmt(a.creditLimit)}</b></span>`:''}</div>
+ <div class="fin-alloc-bar"><button type="button" class="pri" data-fin-allocate ${plan.total>0?'':'disabled'} onclick="finAllocRun()">Allocate selected</button><button type="button" data-fin-unallocate ${pairs.length?'':'disabled'} onclick="finAllocUnselected()">Unallocate selected</button>
+  <label class="fin-alloc-ask"><input type="checkbox" ${finAlloc.ask?'checked':''} onchange="finAlloc.ask=this.checked"> Ask amount</label><span class="fin-alloc-say" id="finAllocSay">${say}</span></div>
+ <div class="err" id="e_fin_alloc"></div>
+ <div class="fin-alloc">${finAllocPane('Orders & invoices','o',finAlloc.showO,`<table class="sl-table fin-table"><thead><tr><th class="sl-check"></th><th class="fin-alloc-arrow-cell"></th><th>Type</th><th>Date</th><th>Order / PO</th><th class="n">Amount</th><th class="n">Allocated</th><th class="n">Outstanding</th></tr></thead><tbody>${leftBody}</tbody></table>`,
+   `<span>Selected <b>${selO.length}</b> · <b>${finFmt(sum(selO,o=>Math.max(0,o.b.balance)))}</b></span><span>Shown ${shownO.length} of ${orders.length}</span>${unpriced?`<span>${unpriced} not priced</span>`:''}`)}
+  ${finAllocPane('Receipts & credits','r',finAlloc.showR,`<table class="sl-table fin-table"><thead><tr><th class="sl-check"></th><th class="fin-alloc-arrow-cell"></th><th>Date</th><th>Receipt</th><th class="n">Amount</th><th class="n">Allocated</th><th class="n">Outstanding</th></tr></thead><tbody>${rightBody}</tbody></table>`,
+   `<span>Selected <b>${selR.length}</b> · <b class="fin-deposit">${finFmt(sum(selR,r=>r.left))}</b></span><span>Shown ${shownR.length} of ${receipts.length}</span>`)}</div>`;
 }
 
 /* ==== src/erp/views/commissions.js ==== */
@@ -35499,6 +35759,10 @@ const SALES_LIST_COLUMNS=[
  {k:'created',label:'Created',type:'date',def:true},
  {k:'due',label:'Due',type:'date',def:true},
  {k:'status',label:'Status',type:'list',def:true},
+ /* Счёт (владелец 06.11.2026): Invoiced — бухгалтер напечатал или отправил
+    Invoice клиенту (журнал заказа); Not invoiced — всё выдано, счёта не было.
+    07.11.2026 — видна сразу, за Status, с фильтром ▾ как у других колонок. */
+ {k:'invoice',label:'Invoice',type:'list',def:true},
  {k:'priority',label:'Priority',type:'list',def:true},
  {k:'glass',label:'Glass',type:'text',def:true},
  {k:'orderItems',label:'Order Items',type:'text',def:true},
@@ -35507,9 +35771,6 @@ const SALES_LIST_COLUMNS=[
  {k:'total',label:'Total',type:'number',def:true,sum:true,money:true},
  {k:'receipts',label:'Receipts',type:'number',def:true,sum:true,money:true},
  {k:'balance',label:'Balance',type:'number',def:true,sum:true,money:true},
- /* Счёт (владелец 06.11.2026): Invoiced — бухгалтер напечатал или отправил
-    Invoice клиенту (журнал заказа); Not invoiced — всё выдано, счёта не было. */
- {k:'invoice',label:'Invoice',type:'list'},
  {k:'hold',label:'On Hold',type:'list'},
  {k:'delivery',label:'Delivery',type:'list'},
  {k:'rep',label:'Sales rep',type:'text'},
@@ -35533,8 +35794,9 @@ const SALES_LIST_PRESETS=[['today','Today'],['yesterday','Yesterday'],['thisWeek
 /* Сроки оплаты смотрят вперёд (Finance → Due dates): просрочено и ближайшие дни. */
 const SALES_LIST_DUE_PRESETS=[['overdue','Overdue'],['today','Today'],['next7','Next 7 days'],['next30','Next 30 days'],['thisMonth','This month'],['nextMonth','Next month']];
 const SALES_HOLD_REASONS=['Waiting for payment','Customer asked to wait','Sizes or drawing to confirm','Credit check'];
-/* Sales: колонка прячется на экране уже этой ширины (владелец, 2.11.2026). */
-const SALES_LIST_NARROW={orderItems:1800,glass:1620,created:1620,priority:1400,area:1400,units:1200,po:1200,receipts:1200};
+/* Sales: колонка прячется на экране уже этой ширины (владелец, 2.11.2026).
+   Created — до 1820 (07.11.2026): место колонке Invoice, таблица без прокрутки. */
+const SALES_LIST_NARROW={orderItems:1800,glass:1620,created:1820,priority:1400,area:1400,units:1200,po:1200,receipts:1200};
 /* Show at bottom: что считать под колонкой. Таблицы с итогом salesListFooter. */
 const SALES_LIST_CALC_NUMBER=[['sum','Sum'],['avg','Average'],['count','Count'],['min','Min'],['max','Max'],['none','None']];
 const SALES_LIST_CALC_TEXT=[['count','Count'],['unique','Unique'],['none','None']];
@@ -35608,6 +35870,12 @@ function salesListCleanPrefs(p){
  if(salesListCwId()){const w=cwClean(p.widths);if(Object.keys(w).length)clean.widths=w;}
  if(salesListScope()==='shippingPS')clean.dayInit=p.dayInit===true;
  if(tab==='inventory')clean.inventoryDateInitialized=true;
+ /* Колонка Invoice (07.11.2026) включается один раз и встаёт за Status —
+    и у списков, сохранённых раньше, где она была выключена. */
+ if(salesListScope()==='sales'){
+  if(p.invoiceShown!==true){const i=cols.findIndex(c=>c.k==='invoice');if(i>=0){const c=cols.splice(i,1)[0];c.on=true;const at=cols.findIndex(x=>x.k==='status');cols.splice(at>=0?at+1:cols.length,0,c);}}
+  clean.invoiceShown=true;
+ }
  return clean;
 }
 function salesListDefaultOp(col){return col.type==='number'?'gt':col.type==='date'?'between':'contains';}
@@ -35735,7 +36003,7 @@ function salesListValue(info,k){
   case 'rep':v=c.salesRep||'';break;
   case 'createdBy':{const e=orderCreatedBy(o.id);v=e?e.by:'';break;}
   case 'terms':v=finTermsFor(o).paymentMode==='credit'?'Credit':'Cash';break;
-  case 'invoice':v=q||!finInvoiceDate(o)?'':salesInvoicedSet().has(o.id)?'Invoiced':'Not invoiced';break;
+  case 'invoice':v=q?'':!finInvoiceDate(o)?'In work':salesInvoicedSet().has(o.id)?'Invoiced':'Not invoiced';break;
   case 'lines':v=lines.length;break;
   /* Пункт 14: известный вес всегда, неполный — с Partial (salesListWeightCell);
      число — для сортировки и фильтра, признак — в memo. */
@@ -35860,6 +36128,14 @@ function salesInvoicedSet(){
  const s=new Map();ev.forEach(e=>{if(e&&(e.what==='Printed'||e.what==='Emailed')&&e.note==='Invoice'){const d=String(e.at||'').slice(0,10);if(!s.has(e.orderId)||d<s.get(e.orderId))s.set(e.orderId,d);}});
  salesInvoicedCache={ev,n:ev.length,s};return s;
 }
+/* Ячейка Invoice: Invoiced зелёным; Not invoiced — сколько дней заказ
+   выдан без счёта, с 3 дней жёлтым; в работе — прочерк. */
+function salesInvoicePill(o,v){
+ if(v==='Invoiced')return '<span class="pill ok sl-inv-pill">Invoiced</span>';
+ if(v!=='Not invoiced')return v?`<span class="mut" title="${esc(v)}">—</span>`:'';
+ const d=Math.max(0,Math.round((Date.parse(finToday())-Date.parse(finInvoiceDate(o)))/864e5));
+ return `<span class="pill sl-inv-pill${d>=3?' warn':''}" title="Days without invoice">Not invoiced · ${d} d</span>`;
+}
 function salesQuickOpen(o){return !salesIsQuote(o)&&!['done','closed','cancelled'].includes(o.status);}
 function salesQuickTest(key,info){
  if(key==='all'||info.n)return key==='all';
@@ -35941,6 +36217,7 @@ function salesListCell(info,col){
   case 'customer':return `<td><b>${raw(v||'—')}</b></td>`;
   case 'created':case 'due':case 'validUntil':case 'updated':return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;
   case 'status':return `<td>${q?salesQuoteGroupPill(o):salesStatusPill(o)}${!q&&o.onHold?' <span class="pill hold">On Hold</span>':''}</td>`;
+  case 'invoice':return `<td>${salesInvoicePill(o,v)}</td>`;
   case 'glass':case 'orderItems':return `<td><span class="sl-glass" title="${esc(v)}">${raw(v||'—')}</span></td>`;
   case 'weight':return salesListWeightCell(v,info.memo.weightInfo);
   case 'units':case 'pcs':case 'lines':case 'shapes':case 'revisions':return `<td class="n">${salesListNum(v)}</td>`;
@@ -36026,7 +36303,7 @@ function salesListView(){
  },cols.length+2);
  const empty=`<tr><td colspan="${cols.length+2}" class="empty">${all.length?'Nothing matches the filters.':'No Sales Orders yet'}</td></tr>`;
  const wide=window.innerWidth>=1600,dateBtn=salesListDateButton(),chips=salesStatusChips(shown);salesListChipsNow=chips;
- return `<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">${salesListShowButton()}${openBtn}${deleteBtn}${holdBtn}${stickersBtn}${estBtn}<span class="sales-toolbar-sp"></span>${wide?'':dateBtn}<button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div><div class="sl-filter-row">${salesQuickHTML(filtered,anyDate,{cur:salesStatusFilter?'-':quick,set:'salesQuickPick',name:salesListShortLabel,invoice:true})}${salesListStatusPills(chips)}${wide?`<span class="sales-toolbar-sp"></span>${dateBtn}`:''}</div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${cw?cwTableClass('sales'):''}"${cw?cwTableAttrs('sales',keys):''}>${cw?cwColgroup('sales',keys):''}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
+ return `<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">${salesListShowButton()}${openBtn}${deleteBtn}${holdBtn}${stickersBtn}${estBtn}<span class="sales-toolbar-sp"></span>${wide?'':dateBtn}<button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div><div class="sl-filter-row">${salesQuickHTML(filtered,anyDate,{cur:salesStatusFilter?'-':quick,set:'salesQuickPick',name:salesListShortLabel,invoice:true})}${salesListStatusPills(chips)}${wide?`<span class="sales-toolbar-sp"></span>${dateBtn}`:''}</div>${salesListStatusRow(chips)}${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${cw?cwTableClass('sales'):''}"${cw?cwTableAttrs('sales',keys):''}>${cw?cwColgroup('sales',keys):''}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
 }
 
 /* ------------------------------ Меню ----------------------------------- */
@@ -36057,6 +36334,7 @@ function salesListMenuHTML(infos){
  if(m.kind==='date')return back+salesListDateMenuHTML(m,style);
  if(m.kind==='context')return back+salesListContextHTML(m,style);
  if(m.kind==='oq-context')return back+optimizationContextHTML(m,style);
+ if(m.kind==='fin-context'&&typeof finListContextHTML==='function')return back+finListContextHTML(m,style);
  if(m.kind==='columns')return back+salesListColumnsHTML(style);
  if(m.kind==='filter')return back+salesListFilterHTML(m,infos,style);
  return '';
@@ -36146,7 +36424,7 @@ function salesListMoveColumnTo(from,to,after){
  const [c]=cols.splice(a,1),b=cols.findIndex(x=>x.k===to);if(b<0){cols.splice(a,0,c);return;}
  cols.splice(after?b+1:b,0,c);salesListSavePrefs();render();
 }
-const SALES_LIST_WIDTH={type:76,number:96,customer:110,po:88,created:92,due:84,status:140,priority:84,glass:150,orderItems:160,batch:110,unitType:96,readyQty:80,units:76,area:92,total:100,receipts:100,balance:100,invoice:96};
+const SALES_LIST_WIDTH={type:76,number:96,customer:110,po:88,created:92,due:84,status:140,priority:84,glass:150,orderItems:160,batch:110,unitType:96,readyQty:80,units:76,area:92,total:100,receipts:100,balance:100,invoice:126};
 cwRegister('sales',{
  widths:()=>salesListLoadPrefs().widths||{},
  save:w=>{const p=salesListLoadPrefs();if(Object.keys(w).length)p.widths=w;else delete p.widths;salesListSavePrefs();},
@@ -36353,8 +36631,15 @@ function salesListShortLabel(s){return window.innerWidth>=1400?s:({'Due this wee
 function salesListStatusPills(chips){
  const cur=chips.find(c=>c.key===salesStatusFilter);
  if(window.innerWidth<1200)return `<button type="button" class="sl-quick-pill${cur?' on':''}" data-status-menu aria-haspopup="dialog" onclick="salesListOpenStatus(event)">Status: ${esc(cur?salesListShortLabel(cur.label):'All')}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`;
- if(salesListLoadPrefs().statusHidden)return '';
- return `<span class="sl-filter-sep" aria-hidden="true"></span>${chips.map(c=>`<button type="button" class="sl-quick-pill sl-status-pill${c.key===salesStatusFilter?' on':''}" aria-pressed="${c.key===salesStatusFilter}" data-status-chip="${esc(c.key)}" onclick="salesSetStatusFilter(${esc(JSON.stringify(c.key))})">${esc(salesListShortLabel(c.label))}<b>${c.n.toLocaleString('en-US')}</b></button>`).join('')}`;
+ return '';
+}
+/* Статусы — второй строкой и только при All (владелец 07.11.2026): на
+   Today, Not invoiced и других видах одна строка. Выбранный статус —
+   часть All, строка остаётся. */
+function salesListStatusRow(chips){
+ const p=salesListLoadPrefs();
+ if(window.innerWidth<1200||p.statusHidden||p.quick!=='all'&&!salesStatusFilter)return '';
+ return `<div class="sl-filter-row sl-status-row">${chips.map(c=>`<button type="button" class="sl-quick-pill sl-status-pill${c.key===salesStatusFilter?' on':''}" aria-pressed="${c.key===salesStatusFilter}" data-status-chip="${esc(c.key)}" onclick="salesSetStatusFilter(${esc(JSON.stringify(c.key))})">${esc(salesListShortLabel(c.label))}<b>${c.n.toLocaleString('en-US')}</b></button>`).join('')}</div>`;
 }
 function salesListOpenStatus(e){salesListMenu=Object.assign({kind:'status',scope:'sales'},salesListAt(e,220));render();}
 function salesListStatusMenuHTML(style){
