@@ -46,7 +46,8 @@ function viewCommissionsIn(){
   <div class="card sales-list-card sl-foot-pin">${tools}${table}</div>${salesListMenuHTML(infos)}${comDraft?comFormHTML():comOpen&&comFind(comOpen)?comDetailHTML(comFind(comOpen),range):''}`;
 }
 /* Таблицы человека — ширина колонок мышью (порядок постоянный, как в окнах). */
-function comStaticTable(id,head,body,attr){const t=cwStaticTable(id,head);return `<div class="sales-table-wrap"><table class="sl-table${t.cls}"${t.attrs}${attr?' '+attr:''}>${t.col}<thead><tr>${t.head}</tr></thead><tbody>${body}</tbody></table></div>`;}
+/* Таблицы человека — вид Sales (владелец 07.11.2026); attr — у обёртки. */
+function comStaticTable(id,head,body,attr){return `<div${attr?' '+attr:''}>${slHtmlTable(id,head,body,{acts:head.length&&!head[head.length-1][1]?90:20})}</div>`;}
 /* Заказы человека: начислено за период; «Paid out» и «Due» — за всё время
    по заказу. Выплата — галочками по заказам с долгом, сумма считается сама. */
 function comDetailHTML(r,range){

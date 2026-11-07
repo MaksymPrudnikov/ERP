@@ -39,7 +39,8 @@ function slCell(info,c){
  return `<td>${esc(String(v))}</td>`;
 }
 /* o: {columns:()=>[...], list, id(x), sort:{k,dir}, fill — колонка во всю ширину, acts — ширина колонки кнопок справа (px), c.w — ширина колонки, row(info)→{attrs, first, last, after(colspan) — строка под строкой},
-   rowHTML(x) — готовая строка экрана: колонки берут её ячейки (td:N), firstTd/lastTd — галочка и кнопки, noun(rows), empty, widths, cls}.
+   rowHTML(x) — готовая строка экрана: колонки берут её ячейки (td:N), firstTd/lastTd — галочка и кнопки,
+   tail(cols) — строки после списка (итог «All»), их фильтр не трогает, noun(rows), empty, widths, cls}.
    Колонки без def видны сразу; def:false — только в ⚙ Columns. Ключ 'type' не брать: в движке он
    прячется, когда в Sales один вид (заказы без квот). */
 function slTable(scope,o){
@@ -58,7 +59,7 @@ function slTable(scope,o){
   const reg=CW_TABLES[scope];if(reg){reg.fill=o.fill||(cols0.find(c=>c.type==='text')||cols0[0]||{}).k||'';reg.trail=o.acts||20;}
   const rows=salesListRows(infos);
   if(o.rowHTML)rows.forEach(i=>{i.row=slParseRow(o.rowHTML(i.x,i.i));});
-  html=salesListTableHTML({infos,rows,cls:o.cls,
+  html=salesListTableHTML({infos,rows,cls:o.cls,tail:o.tail,
    cell:(i,c)=>slCell(i,c),
    row:info=>{const r=o.row?o.row(info)||{}:{},R=info.row;
     if(R){/* rowHTML: атрибуты строки, первая (галочка) и последняя (кнопки) ячейки — из неё. */
@@ -69,4 +70,19 @@ function slTable(scope,o){
    noun:rows=>o.noun?o.noun(rows):rows.length+' row'+(rows.length===1?'':'s'),empty:infos.length?'Nothing matches the filters.':(o.empty||'Nothing here yet.')});
  }finally{slScopeNow=was;}
  return `<div class="sl-generic" data-sl-scope="${esc(scope)}">${html}</div>`;
+}
+/* Готовая таблица экрана — заголовки [[ключ, подпись, класс]] и строки HTML —
+   на движок Sales без переписывания строк: значения для фильтра и сортировки —
+   текст ячеек (у колонок с классом n — число). Колонка без подписи в конце —
+   кнопки строки. Строка с одной ячейкой на всю ширину — надпись «пусто». */
+function slHtmlTable(scope,head,body,o){
+ o=o||{};
+ const t=document.createElement('template');t.innerHTML='<table><tbody>'+(body||'')+'</tbody></table>';
+ const trs=[...t.content.querySelectorAll('tbody > tr')],data=trs.filter(tr=>!(tr.children.length===1&&tr.children[0].colSpan>1));
+ const empty=trs.length&&!data.length?trs[0].textContent.trim():o.empty;
+ const acts=head.length&&!head[head.length-1][1];
+ const list=data.map(tr=>({html:tr.outerHTML,tds:[...tr.children].map(td=>td.textContent.replace(/\s+/g,' ').trim())}));
+ const num=s=>{const n=parseFloat(String(s).replace(/[^\d.\-]/g,''));return Number.isFinite(n)?(/^\s*[−-]/.test(s)?-Math.abs(n):n):'';};
+ return slTable(scope,Object.assign({list,rowHTML:x=>x.html,lastTd:acts?-1:undefined,empty},o,{
+  columns:()=>head.slice(0,acts?-1:head.length).map(([k,label,cls],i)=>{const n=/\bn\b/.test(cls||'');return {k,label,type:n?'number':'text',td:i,v:x=>n?num(x.tds[i]):x.tds[i]};})}));
 }
