@@ -285,7 +285,7 @@ function sfReportHTML(rep){
    <b>Rows accepted: ${rep.accepted}</b> — ${rep.added} new, ${rep.updated} updated. Rejected: ${rep.rejected.length}.
    ${rep.missing.length?`<div style="margin-top:6px">Not in the file, left as they were: ${rep.missing.map(c=>`<b>${esc(c)}</b>`).join(', ')}</div>`:''}
   </div>
-  ${rejected?`<table style="margin-top:10px"><thead><tr><th>Line</th><th>Code</th><th>Why rejected</th></tr></thead><tbody>${rejected}</tbody></table>`:''}`;
+  ${rejected?`${slFromTable('prodRejected',`<table style="margin-top:10px"><thead><tr><th>Line</th><th>Code</th><th>Why rejected</th></tr></thead><tbody>${rejected}</tbody></table>`)}`:''}`;
 }
 function sfImportCsv(inp){
  const f=inp.files[0]; inp.value='';

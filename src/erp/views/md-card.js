@@ -38,5 +38,5 @@ function mdPriceListsHTML(target){
  (DB.priceList||[]).forEach(l=>l.rows.forEach(r=>{if(r.target!==target&&!gIds.has(r.target))return;
   const c=l.kind==='customer'?(DB.customer||[]).find(x=>x.id===l.customerId):null;
   rows.push(`<tr><td>${l.kind==='customer'?'Personal · '+raw(c?(c.displayName||c.legalName||c.code||c.id):l.customerId):'Group · '+raw(l.name||'Unnamed')}</td><td>${r.target===target?'This item':'Item group · '+raw((itemGroupById(r.target.slice(6))||{}).name||'')}</td><td class="n mono">${esc(priceListRowText(r,v=>Number(v).toFixed(2)))||'<span class="mut">empty</span>'}</td></tr>`);}));
- return `<h4>Customer price lists</h4>${rows.length?`<div class="sales-table-wrap"><table class="ncr-table" data-md-card-lists><thead><tr><th>List</th><th>Row</th><th class="n">Price</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>`:'<p class="mut" data-md-card-lists>In no customer list. Edited in Prices.</p>'}`;
+ return `<h4>Customer price lists</h4>${rows.length?`<div class="sales-table-wrap">${slFromTable('mdCardPriceLists',`<table class="ncr-table" data-md-card-lists><thead><tr><th>List</th><th>Row</th><th class="n">Price</th></tr></thead><tbody>${rows.join('')}</tbody></table>`)}</div>`:'<p class="mut" data-md-card-lists>In no customer list. Edited in Prices.</p>'}`;
 }

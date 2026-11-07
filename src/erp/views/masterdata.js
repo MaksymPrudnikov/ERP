@@ -378,13 +378,13 @@ function mdGlassForm(){
  const measure=`<div class="grid">${mdSaleRulesFields(r,['minAreaFt2','minWidthIn','minHeightIn','maxWidthIn','maxHeightIn'])}</div>`;
  const sheets=isNew?[]:glassSheetsFor(r.code);
  const cost=accessCost();
- const purchase=sheets.length?`<div class="sales-table-wrap"><table class="ncr-table" data-md-glass-supply><thead><tr><th>Supplier</th><th>Sheet</th>${cost?'<th class="n">Price</th>':''}<th>Unit</th><th>Date</th><th class="n">Lead, days</th></tr></thead><tbody>${sheets.map(x=>`<tr><td>${raw(x.supplier||'—')}</td><td class="mono">${x.sheetWIn!=null&&x.sheetHIn!=null?esc(x.sheetWIn+' × '+x.sheetHIn+' in'):'—'}</td>${cost?`<td class="n mono">${money(x.purchasePrice)} <span class="mut">${esc(x.currency||'')}</span></td>`:''}<td>${esc(mdUnitName(x.purchaseUnit))}</td><td class="mono">${esc(x.priceDate||'—')}</td><td class="n mono">${x.leadTimeDays==null?'—':esc(String(x.leadTimeDays))}</td></tr>`).join('')}</tbody></table></div><p class="mut">Edited in Supply points.</p>`:`<p class="mut" data-md-glass-supply>No supply rows.</p>${isNew?'':`<button type="button" class="sm" data-md-glass-supply-add onclick="mdSheetNewFor('${esc(r.code)}')">+ Supply row</button>`}`;
+ const purchase=sheets.length?`<div class="sales-table-wrap">${slFromTable('mdGlassSupply',`<table class="ncr-table" data-md-glass-supply><thead><tr><th>Supplier</th><th>Sheet</th>${cost?'<th class="n">Price</th>':''}<th>Unit</th><th>Date</th><th class="n">Lead, days</th></tr></thead><tbody>${sheets.map(x=>`<tr><td>${raw(x.supplier||'—')}</td><td class="mono">${x.sheetWIn!=null&&x.sheetHIn!=null?esc(x.sheetWIn+' × '+x.sheetHIn+' in'):'—'}</td>${cost?`<td class="n mono">${money(x.purchasePrice)} <span class="mut">${esc(x.currency||'')}</span></td>`:''}<td>${esc(mdUnitName(x.purchaseUnit))}</td><td class="mono">${esc(x.priceDate||'—')}</td><td class="n mono">${x.leadTimeDays==null?'—':esc(String(x.leadTimeDays))}</td></tr>`).join('')}</tbody></table>`)}</div><p class="mut">Edited in Supply points.</p>`:`<p class="mut" data-md-glass-supply>No supply rows.</p>${isNew?'':`<button type="button" class="sm" data-md-glass-supply-add onclick="mdSheetNewFor('${esc(r.code)}')">+ Supply row</button>`}`;
  const price=(id,k,label)=>mdField(label,`<input id="${id}" type="number" step="0.01" min="0" value="${r[k]==null?'':r[k]}" placeholder="—">`,'Empty — no price.');
  const prices=`<div class="grid">${price('md_priceAN','salePriceAnnealed','Price annealed, CAD')}${price('md_priceFT','salePriceTempered','Price tempered, CAD')}${mdSaleRulesFields(r,['minCharge'])}</div>
   ${isNew?'':mdPriceListsHTML('glass:'+r.id+':salePriceAnnealed').replace('<h4>Customer price lists</h4>','<h4>Customer price lists · annealed</h4>')+mdPriceListsHTML('glass:'+r.id+':salePriceTempered').replace('<h4>Customer price lists</h4>','<h4>Customer price lists · tempered</h4>')}`;
  const racks=isNew||r.cut===false?[]:invSheetRows().filter(x=>x.code.toUpperCase()===String(r.code).toUpperCase());
  const stock=`<div class="row"><label class="chk"><input type="checkbox" id="md_stocked" ${r.stocked?'checked':''}> Kept in stock</label></div>
-  ${racks.length?`<div class="sales-table-wrap"><table class="ncr-table" data-md-glass-stock><thead><tr><th>Sheet</th><th class="n">On rack</th><th class="n">Reserved</th><th class="n">Free</th><th class="n">Min</th><th>Status</th></tr></thead><tbody>${racks.map(x=>`<tr><td class="mono">${esc(invSizeText(x))}</td><td class="n mono">${x.onRack}</td><td class="n mono">${x.reserved}</td><td class="n mono">${x.free}</td><td class="n mono">${x.min==null?'—':x.min}</td><td>${esc(x.status)}</td></tr>`).join('')}</tbody></table></div><p class="mut">Sizes and counts: Inventory.</p>`:`<p class="mut">No sheet size. Add a supply row.</p>${isNew?'':`<button type="button" class="sm" onclick="mdSheetNewFor('${esc(r.code)}')">+ Supply row</button>`}`}`;
+  ${racks.length?`<div class="sales-table-wrap">${slFromTable('mdGlassStock',`<table class="ncr-table" data-md-glass-stock><thead><tr><th>Sheet</th><th class="n">On rack</th><th class="n">Reserved</th><th class="n">Free</th><th class="n">Min</th><th>Status</th></tr></thead><tbody>${racks.map(x=>`<tr><td class="mono">${esc(invSizeText(x))}</td><td class="n mono">${x.onRack}</td><td class="n mono">${x.reserved}</td><td class="n mono">${x.free}</td><td class="n mono">${x.min==null?'—':x.min}</td><td>${esc(x.status)}</td></tr>`).join('')}</tbody></table>`)}</div><p class="mut">Sizes and counts: Inventory.</p>`:`<p class="mut">No sheet size. Add a supply row.</p>${isNew?'':`<button type="button" class="sm" onclick="mdSheetNewFor('${esc(r.code)}')">+ Supply row</button>`}`}`;
  return mdCardHTML({form:'glass',crumb:['Materials','Glass'].concat(r.manufacturer?[r.manufacturer]:[]),
   title:isNew?'New catalog item':raw(r.name||r.code),status:isNew?null:r.active===false?['discontinued','warn']:r.stocked?[glassLabel('stock','stocked'),'ok']:[glassLabel('stock','preorder'),'info'],code:isNew?'':r.code,
   tabs:[{k:'general',label:'General',html:general},{k:'production',label:'Production',html:prod},{k:'units',label:'Units',html:units},{k:'measure',label:'Measurements',html:measure},
@@ -643,13 +643,13 @@ function mdSurchargeTable(){
   .concat((DB.spandrelProduct||[]).map(x=>({x:x,kind:'spandrelProduct',group:'Spandrel'})));
  if(!rows.length)return '';
  return `<div class="sub" style="margin-top:22px">Added per sq ft of glass.</div>
-  <div class="customer-table-wrap"><table><thead><tr><th>Product</th><th>Kind</th><th>Surcharge, sq ft</th><th></th></tr></thead>
+  <div class="customer-table-wrap">${slFromTable('mdProducts',`<table><thead><tr><th>Product</th><th>Kind</th><th>Surcharge, sq ft</th><th></th></tr></thead>
   <tbody>${rows.map(r=>`<tr>
    <td><b>${raw(r.x.name)}</b><div class="mut mono">${raw(r.x.code||r.x.id)}</div></td>
    <td>${esc(r.group)}</td>
    <td><input class="md-mm" type="number" step="0.01" min="0" style="width:88px" value="${r.x.salePrice==null?'':r.x.salePrice}" placeholder="—" onchange="mdSurchargeSet('${esc(r.kind)}','${esc(r.x.id)}',this.value)"></td>
    <td>${r.x.active===false?'<span class="pill warn">off</span>':'<span class="pill ok">active</span>'}</td>
-  </tr>`).join('')}</tbody></table></div>`;
+  </tr>`).join('')}</tbody></table>`)}</div>`;
 }
 function mdSurchargeSet(kind,id,v){
  const row=(DB[kind]||[]).find(x=>x.id===id);if(!row)return;
@@ -673,8 +673,8 @@ function viewMdSpacer(){
  });
  /* Счётчики этого списка — в шапке каталога (mdCatalogHealth), здесь их нет. */
  return `<div class="md-toolbar"><span class="mut">Price, weight and recipe per spacer.</span><span class="sp"></span><button class="pri" onclick="mdSpacerNew()">+ New spacer</button></div>
-  <div class="customer-table-wrap"><table><thead><tr><th>System</th><th>Nominal</th><th>Actual, mm</th><th>Price</th><th>Weight</th><th>Recipe</th><th>Availability</th><th></th></tr></thead>
-  <tbody>${all.map(mdSpacerRow).join('')||'<tr><td colspan="8" class="empty">no spacers</td></tr>'}</tbody></table></div>
+  <div class="customer-table-wrap">${slFromTable('mdSystems',`<table><thead><tr><th>System</th><th>Nominal</th><th>Actual, mm</th><th>Price</th><th>Weight</th><th>Recipe</th><th>Availability</th><th></th></tr></thead>
+  <tbody>${all.map(mdSpacerRow).join('')||'<tr><td colspan="8" class="empty">no spacers</td></tr>'}</tbody></table>`)}</div>
   ${mdSpacerSystemsTable()}
   ${mdSurchargeTable()}`;
 }
@@ -748,7 +748,7 @@ function mdSpacerForm(){
  const st=isNew?null:consRows().find(x=>x.key===consKey('spacerVariant',r.id));
  const q=v=>esc((Math.round(v*10)/10).toFixed(1))+' ft';
  const stock=st?`<dl class="md-kv" data-md-stock><dt>On hand</dt><dd>${q(st.onHand)}</dd><dt>Reserved</dt><dd>${q(st.reserved)}</dd><dt>Free</dt><dd>${q(st.free)}</dd><dt>Status</dt><dd>${esc(st.status)}</dd></dl><p class="mut">Counted in Inventory → Consumables.</p>`:'<p class="mut">Save first.</p>';
- const parts=rec?`<table class="ncr-table" data-md-recipe-parts><thead><tr><th>Part</th><th class="n">Amount</th><th class="n">Waste</th></tr></thead><tbody>${rec.rows.map(x=>`<tr><td>${raw(surroundPartLabel(x.part))}</td><td class="n mono">${x.amount==null?(x.part==='spacer'||x.part==='gas'?'<span class="mut">by size</span>':'<span class="pill warn">no norm</span>'):esc(String(x.amount))+' <span class="mut">'+esc(SURROUND_PER[x.per])+'</span>'}</td><td class="n mono">${esc(String(x.wastePct||0))}%</td></tr>`).join('')}</tbody></table>`:'';
+ const parts=rec?`${slFromTable('mdRecipeParts',`<table class="ncr-table" data-md-recipe-parts><thead><tr><th>Part</th><th class="n">Amount</th><th class="n">Waste</th></tr></thead><tbody>${rec.rows.map(x=>`<tr><td>${raw(surroundPartLabel(x.part))}</td><td class="n mono">${x.amount==null?(x.part==='spacer'||x.part==='gas'?'<span class="mut">by size</span>':'<span class="pill warn">no norm</span>'):esc(String(x.amount))+' <span class="mut">'+esc(SURROUND_PER[x.per])+'</span>'}</td><td class="n mono">${esc(String(x.wastePct||0))}%</td></tr>`).join('')}</tbody></table>`)}`:'';
  const use=`<div class="grid">${mdField('Surround recipe',`<select id="md_spRecipe"><option value="">— no recipe —</option>${(DB.surroundRecipe||[]).map(x=>`<option value="${esc(x.id)}" ${x.id===r.recipeId?'selected':''}>${esc(x.name||x.id)}</option>`).join('')}</select>`,'Edited in Surround recipes.')}</div>${parts}`;
  return mdCardHTML({form:'spacer',crumb:['Materials','IGU assembly','Spacers'].concat(r.system?[r.system]:[]),
   title:isNew?'New spacer':raw(r.name||r.id),status:isNew?null:[glassLabel('availability',r.availability),r.availability==='stock'?'ok':r.availability==='inactive'?'warn':'info'],code:isNew?'':(r.code||r.id),
@@ -1023,7 +1023,7 @@ function mdAllowanceShow(v){
 function viewMdAllowance(){
  const rows=mdAllowanceSorted();
  return `<div class="sub" style="margin-top:6px">Stock removal per side. Narrowest row wins.</div>
-  <div class="customer-table-wrap"><table><thead><tr><th>Operation</th><th>Measured by</th><th>From, mm</th><th>To, mm</th><th>Allowance</th><th>Preview</th><th></th></tr></thead>
+  <div class="customer-table-wrap">${slFromTable('mdOperations',`<table><thead><tr><th>Operation</th><th>Measured by</th><th>From, mm</th><th>To, mm</th><th>Allowance</th><th>Preview</th><th></th></tr></thead>
   <tbody>${rows.map(r=>`<tr>
    <td><select onchange="mdAllowanceSet('${esc(r.id)}','op',this.value)">${SHAPE_EDGE_OPS.map(o=>`<option value="${esc(o)}" ${o===r.op?'selected':''}>${esc(o)}</option>`).join('')}</select></td>
    <td><select onchange="mdAllowanceSet('${esc(r.id)}','scope',this.value)">${MD_ALLOWANCE_SCOPES.map(s=>`<option value="${s.k}" ${s.k===r.scope?'selected':''}>${esc(s.label)}</option>`).join('')}</select></td>
@@ -1032,14 +1032,14 @@ function viewMdAllowance(){
    <td><input style="width:92px" value="${esc(String(r.allowance))}" placeholder="1/16" onchange="mdAllowanceSet('${esc(r.id)}','allowance',this.value)"></td>
    <td>${mdAllowanceShow(r.allowance)}${r.note?`<div class="mut">${esc(r.note)}</div>`:''}</td>
    <td><button class="btn-ghost" onclick="mdAllowanceRemove('${esc(r.id)}')">×</button></td>
-  </tr>`).join('')}</tbody></table></div>
+  </tr>`).join('')}</tbody></table>`)}</div>
   <div style="margin-top:10px"><button class="btn-ghost" onclick="mdAllowanceAdd()">+ row</button></div>
   <div class="sub" style="margin-top:22px">What the current values produce</div>
-  <div class="customer-table-wrap"><table><thead><tr><th>Case</th><th>Allowance per side</th></tr></thead>
+  <div class="customer-table-wrap">${slFromTable('mdAllowance',`<table><thead><tr><th>Case</th><th>Allowance per side</th></tr></thead>
   <tbody>${MD_ALLOWANCE_SAMPLES.map(s=>{
     const r=ShapeModule.productionAllowanceRule(s.op,s.mm,s.scope);
     return `<tr><td>${esc(s.label)}</td><td>${r.ok?`<b class="mono">${r.value?'+'+esc(dimIn(r.value)):'0″'}</b>`:'<span class="pill warn">no rule — cutting is blocked</span>'}</td></tr>`;
-  }).join('')}</tbody></table></div>`;
+  }).join('')}</tbody></table>`)}</div>`;
 }
 function mdAllowanceSet(id,field,v){
  const row=(DB.edgeAllowance||[]).find(x=>x.id===id);if(!row)return;
@@ -1333,9 +1333,9 @@ function mdCatForm(){
     <div><label class="chk"><input type="checkbox" id="md_ruleOnTop" ${r.rule.onTop?'checked':''}> On top of earlier surcharges</label></div>`:''}`:''}
    </div>`;
   const prices=`${r.rule?'<p class="mut">Value: Applies tab.</p>':`<label>Price by glass thickness</label>
-   <table class="md-work-tiers" data-md-tiers><thead><tr><th>From, mm</th><th>To, mm</th><th>Price, CAD</th><th></th></tr></thead><tbody>
+   ${slFromTable('mdTiers',`<table class="md-work-tiers" data-md-tiers><thead><tr><th>From, mm</th><th>To, mm</th><th>Price, CAD</th><th></th></tr></thead><tbody>
     ${(r.tiers||[]).map((t,i)=>`<tr data-md-tier="${esc(t.id)}"><td><input id="md_tierFrom${i}" type="number" step="any" min="0" value="${v(t.from)}" placeholder="no limit" style="width:90px"></td><td><input id="md_tierTo${i}" type="number" step="any" min="0" value="${v(t.to)}" placeholder="no limit" style="width:90px"></td><td><input id="md_tierPrice${i}" type="number" step="0.01" min="0" value="${v(t.price)}" placeholder="no price" style="width:90px"></td><td><button class="sm dl" title="Remove row" onclick="mdWorkTierRemove(${i})">×</button></td></tr>`).join('')}
-   </tbody></table>
+   </tbody></table>`)}
    <div class="row"><button class="sm" data-md-tier-add onclick="mdWorkTierAdd()">+ Row</button><span class="hint">From and to included. Empty: no limit.</span></div>
    <div class="grid">
     <div><label>Round quantity up to</label><input id="md_catRoundTo" type="number" step="any" min="0" value="${v(r.roundTo)}" placeholder="no rounding"><div class="hint">In the work's unit</div></div>
@@ -1404,7 +1404,7 @@ function mdFilmFields(r){
   <div><label>Thicknesses, mm</label><input id="md_filmThick" value="${esc((r.thicknessesMm||[]).join(', '))}"><div class="hint">Offered in the order</div></div>`;
 }
 function mdFilmSupplyHTML(r){
- return `<div data-md-film-supplies><label>Supply</label><div class="sales-table-wrap"><table class="ncr-table"><thead><tr><th>Supplier</th><th>Roll width, in</th><th>Thickness, mm</th>${accessCost()?'<th>Price, CAD</th><th>Per</th>':''}<th></th></tr></thead><tbody>${(r.supply||[]).map(mdFilmSupplyRow).join('')}</tbody></table></div>
+ return `<div data-md-film-supplies><label>Supply</label><div class="sales-table-wrap">${slFromTable('mdFilmSupply',`<table class="ncr-table"><thead><tr><th>Supplier</th><th>Roll width, in</th><th>Thickness, mm</th>${accessCost()?'<th>Price, CAD</th><th>Per</th>':''}<th></th></tr></thead><tbody>${(r.supply||[]).map(mdFilmSupplyRow).join('')}</tbody></table>`)}</div>
    <button type="button" onclick="this.previousElementSibling.querySelector('tbody').insertAdjacentHTML('beforeend',mdFilmSupplyRow())">+ Supply row</button></div>`;
 }
 function mdFilmRead(){
@@ -1435,7 +1435,7 @@ function mdStockMeasureRow(m){m=m||{};
  return `<tr data-md-measure><td><input data-k="name" aria-label="Measurement" value="${esc(m.name||'')}"></td><td><input data-k="value" aria-label="Value" type="number" min="0" step="any" value="${m.value==null?'':esc(m.value)}"></td><td><input data-k="unit" aria-label="Unit" list="md_stockUnits" value="${esc(m.unit||'')}"></td><td><button type="button" class="sm dl" aria-label="Remove" onclick="this.closest('tr').remove()">×</button></td></tr>`;}
 function mdStockMeasuresHTML(r,isNew){
  const preset=isNew&&!(r.measures||[]).length?(STOCK_MEASURE_PRESET[String(r.subcategory||'').toLowerCase()]||[]).map(([name,unit])=>({name,unit})):(r.measures||[]);
- return `<div data-md-measures><div class="sales-table-wrap md-stock-measures"><table class="ncr-table"><thead><tr><th>Measurement</th><th>Value</th><th>Unit</th><th></th></tr></thead><tbody>${preset.map(mdStockMeasureRow).join('')}</tbody></table></div>
+ return `<div data-md-measures><div class="sales-table-wrap md-stock-measures">${slFromTable('mdMeasures',`<table class="ncr-table"><thead><tr><th>Measurement</th><th>Value</th><th>Unit</th><th></th></tr></thead><tbody>${preset.map(mdStockMeasureRow).join('')}</tbody></table>`)}</div>
   <datalist id="md_stockUnits">${MD_STOCK_UNITS.map(u=>`<option value="${u}">`).join('')}</datalist>
   <div class="row"><button type="button" class="sm" data-md-measure-add onclick="document.querySelector('[data-md-measures] tbody').insertAdjacentHTML('beforeend',mdStockMeasureRow())">+ Measurement</button><button type="button" class="sm" data-md-measure-name onclick="mdStockNameFromMeasures()">Name from measurements</button><span class="hint">Another value — another stock item.</span></div></div>`;
 }

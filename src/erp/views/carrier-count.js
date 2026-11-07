@@ -84,7 +84,7 @@ function carrierCountScreen(){
    <div class="cc-place"><span class="mut">Place</span><span class="cb-seg">${CARRIER_COUNT_PLACES.map(p=>`<button type="button" class="${carrierCountPlace===p?'on':''}" data-count-place="${p}" onclick="carrierCountPlace='${p}';render()">${p}</button>`).join('')}</span></div>
    <div class="cb-tile cc-found" data-count-found><b>${found} of ${exp.length}</b><span>in the shop found</span></div></div>`:''}
   <div class="card cc-card"><div class="cc-sec"><h3>Scanned · ${got.size}</h3><span class="cw-sp"></span>${open?'<button type="button" class="sm" data-count-nolabel onclick="carrierCountNoLabelAsk()">+ No label</button>':''}</div>
-   ${rows?`<table class="cc-table"><thead><tr><th>Code</th><th>Result</th><th>By</th><th>Time</th></tr></thead><tbody>${rows}</tbody></table>`:'<div class="empty">Scan the first dolly or skid</div>'}</div></div>
+   ${rows?`${slFromTable('carrierCount',`<table class="cc-table"><thead><tr><th>Code</th><th>Result</th><th>By</th><th>Time</th></tr></thead><tbody>${rows}</tbody></table>`)}`:'<div class="empty">Scan the first dolly or skid</div>'}</div></div>
   <div class="card cc-card cc-right"><div class="cc-sec"><h3>${open?'Not seen yet':'Not found'} · ${missing.length}</h3></div>${cap(missing,c=>ns(c,desc(c)))||'<div class="mut">All found</div>'}
    ${open&&atCust.length?`<div class="cc-sec"><h3>At customers · ${atCust.length}</h3></div>${cap(atCust,x=>ns(x.code,salesCustomerDisplay(x.customerId)+' · '+x.ps+' · '+stationPlural(skidDays(x.since),'day','days')))}`:''}
    ${open&&unconf.length?`<div class="cc-sec"><h3>Not confirmed yet · ${unconf.length}</h3><span class="mut">a scan here confirms</span></div>${cap(unconf,c=>ns(c.code,'never used'))}`:''}</div></div></div>`;

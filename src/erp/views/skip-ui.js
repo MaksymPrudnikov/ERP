@@ -64,7 +64,7 @@ function skipDialogHTML(){
   <div class="sales-dialog-body ncr-form">
    <p class="mut">${esc([salesCustomerDisplay(o.customerId),o.customerPo,salesStatusLabel(o)].filter(Boolean).join(' · '))}</p>
    <label class="skip-all"><input type="checkbox" data-skip-all ${d.all?'checked':''} onchange="skipSetAll(this.checked)"> Whole order</label>
-   <div class="ncr-lines-wrap"><table class="ncr-lines"><thead><tr><th>Line</th><th>Size</th><th>Glass</th><th class="n">Qty</th><th class="n">Left</th><th>Skip</th></tr></thead><tbody>${rows}${extras}</tbody></table></div>
+   <div class="ncr-lines-wrap">${slFromTable('skipLines',`<table class="ncr-lines"><thead><tr><th>Line</th><th>Size</th><th>Glass</th><th class="n">Qty</th><th class="n">Left</th><th>Skip</th></tr></thead><tbody>${rows}${extras}</tbody></table>`)}</div>
    <label><span class="ncr-label">GLASS ID OR UNIT</span><input type="text" data-skip-codes value="${esc(d.codes)}" placeholder="Scan G- or U-" oninput="skipSet('codes',this.value)"></label>
    <div class="ncr-pick">
     <label><span class="ncr-label">TO</span><select data-skip-to onchange="skipSet('to',this.value,true)"><option value="${SKIP_PICKUP}" ${pickup?'selected':''}>Picked up</option><option value="${SKIP_DELIVERED}" ${delivered?'selected':''}>Delivered</option>${stations.map(s=>`<option value="${esc(s.code)}" ${d.to===s.code?'selected':''}>${s.code===shippingStations().ship?'Shipped · ':''}${esc(s.code)} done</option>`).join('')}</select></label>

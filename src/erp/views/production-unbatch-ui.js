@@ -35,7 +35,7 @@ function productionUnbatchDialogHTML(){
   <div class="sales-service-modal-head"><h3>Unbatch · Order ${esc(o.businessNumber)}</h3><button type="button" aria-label="Close" onclick="productionUnbatchClose()">×</button></div>
   <div class="sales-dialog-body ncr-form"><p class="mut">${esc([salesCustomerDisplay(o.customerId),salesStatusLabel(o)].join(' · '))}</p>
   <label class="skip-all"><input type="checkbox" data-unbatch-all ${d.all?'checked':''} onchange="productionUnbatchSetAll(this.checked)"> Whole order · glass only</label>
-  <div class="ncr-lines-wrap"><table class="ncr-lines"><thead><tr><th>Line</th><th>Size</th><th class="n">Units</th><th>Unbatch</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="ncr-lines-wrap">${slFromTable('unbatchLines',`<table class="ncr-lines"><thead><tr><th>Line</th><th>Size</th><th class="n">Units</th><th>Unbatch</th></tr></thead><tbody>${rows}</tbody></table>`)}</div>
   <label><span class="ncr-label">GLASS ID OR UNIT</span><input type="text" data-unbatch-codes value="${esc(d.codes)}" placeholder="Scan G- or U-" onchange="productionUnbatchSet('codes',this.value)"></label>
   <label><span class="ncr-label">TO</span><select data-unbatch-target onchange="productionUnbatchSet('target',this.value)">${targets.map(t=>`<option value="${esc(t.id)}" ${d.target===t.id?'selected':''}>${esc(t.label)}</option>`).join('')}</select></label>
   <label><span class="ncr-label">REASON</span><input type="text" data-unbatch-reason maxlength="200" value="${esc(d.reason)}" placeholder="Optional" oninput="productionUnbatchSet('reason',this.value)"></label>

@@ -38,7 +38,7 @@ function slCell(info,c){
  if(c.type==='number')return `<td class="n">${c.money?esc(finFmt(v)):esc(typeof v==='number'?v.toLocaleString('en-US',{maximumFractionDigits:c.digits==null?2:c.digits}):String(v))}</td>`;
  return `<td>${esc(String(v))}</td>`;
 }
-/* o: {columns:()=>[...], list, id(x), sort:{k,dir}, fill — колонка во всю ширину, acts — ширина колонки кнопок справа (px), c.w — ширина колонки, row(info)→{attrs, first, last, after(colspan) — строка под строкой},
+/* o: {columns:()=>[...], list, id(x), sort:{k,dir}, fill — колонка во всю ширину, acts — ширина колонки кнопок справа (px), lead — ширина первой (галочка), c.w — ширина колонки, row(info)→{attrs, first, last, after(colspan) — строка под строкой},
    rowHTML(x) — готовая строка экрана: колонки берут её ячейки (td:N), firstTd/lastTd — галочка и кнопки,
    tail(cols) — строки после списка (итог «All»), их фильтр не трогает, noun(rows), empty, widths, cls}.
    Колонки без def видны сразу; def:false — только в ⚙ Columns. Ключ 'type' не брать: в движке он
@@ -54,9 +54,9 @@ function slTable(scope,o){
   if(cols0.some(c=>!p.cols.some(x=>x.k===c.k))||p.cols.some(x=>!keys.has(x.k)))delete salesQueuePrefs[scope];
   const cols=salesListColumns(),infos=slInfos(o.list,o.id||((x,i)=>i),cols0);
   const defs=Object.assign({},...cols0.filter(c=>c.w).map(c=>({[c.k]:c.w})),o.widths||{});
-  salesListCwTable(cols.map(c=>c.k),[44],o.acts||20,defs);
+  salesListCwTable(cols.map(c=>c.k),[o.lead||44],o.acts||20,defs);
   /* Колонка, что забирает остаток ширины (как Customer в Sales): своя или первая текстовая. */
-  const reg=CW_TABLES[scope];if(reg){reg.fill=o.fill||(cols0.find(c=>c.type==='text')||cols0[0]||{}).k||'';reg.trail=o.acts||20;}
+  const reg=CW_TABLES[scope];if(reg){reg.fill=o.fill||(cols0.find(c=>c.type==='text')||cols0[0]||{}).k||'';reg.trail=o.acts||20;reg.lead=[o.lead||44];}
   const rows=salesListRows(infos);
   if(o.rowHTML)rows.forEach(i=>{i.row=slParseRow(o.rowHTML(i.x,i.i));});
   html=salesListTableHTML({infos,rows,cls:o.cls,tail:o.tail,
@@ -85,4 +85,36 @@ function slHtmlTable(scope,head,body,o){
  const num=s=>{const n=parseFloat(String(s).replace(/[^\d.\-]/g,''));return Number.isFinite(n)?(/^\s*[−-]/.test(s)?-Math.abs(n):n):'';};
  return slTable(scope,Object.assign({list,rowHTML:x=>x.html,lastTd:acts?-1:undefined,empty},o,{
   columns:()=>head.slice(0,acts?-1:head.length).map(([k,label,cls],i)=>{const n=/\bn\b/.test(cls||'');return {k,label,type:n?'number':'text',td:i,v:x=>n?num(x.tds[i]):x.tds[i]};})}));
+}
+/* Готовая таблица экрана целиком (<table>…</table>) — на движок Sales:
+   заголовки и строки как есть. Пустой заголовок первой колонки — галочка
+   строки, пустой последней — кнопки строки. Строки с классом o.sub
+   (подстроки связей) идут под своей строкой, фильтр их не считает; строки
+   tfoot — под списком. Класс и data-атрибуты таблицы — у обёртки. */
+function slFromTable(scope,html,o){
+ o=o||{};
+ const t=document.createElement('template');t.innerHTML=html;const tb=t.content.querySelector('table');if(!tb)return html;
+ let ths=[...tb.querySelectorAll('thead th')];const lab=th=>th.textContent.replace(/\s+/g,' ').trim();
+ /* Несколько пустых колонок слева (галочка и ▸) — одна первая ячейка. */
+ let lead=0;while(lead<ths.length-1&&!lab(ths[lead])&&!ths[lead].querySelector('input'))lead++;
+ if(lead>1){tb.querySelectorAll('tr').forEach(tr=>{const c=[...tr.children];if(c.length<lead||c[0].colSpan>1)return;for(let i=1;i<lead;i++){c[0].insertAdjacentHTML('beforeend',' '+c[i].innerHTML);c[i].remove();}});ths=[...tb.querySelectorAll('thead th')];}
+ const first=ths.length>1&&!lab(ths[0]),last=ths.length>1&&!lab(ths[ths.length-1]);
+ const from=first?1:0,to=last?ths.length-1:ths.length;
+ const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'')||'c';
+ const head=ths.slice(from,to).map((th,i)=>({k:slug(lab(th))+'_'+(i+from),label:lab(th),n:th.classList.contains('n')||th.classList.contains('cs-n'),td:i+from}));
+ const rows=[...tb.querySelectorAll(':scope > tbody > tr')],list=[];
+ rows.forEach(tr=>{
+  if(tr.children.length===1&&tr.children[0].colSpan>1&&!list.length)return;
+  if(o.sub&&tr.matches(o.sub)&&list.length){list[list.length-1].sub.push(tr.outerHTML);return;}
+  list.push({html:tr.outerHTML,sub:[],tds:[...tr.children].map(td=>td.textContent.replace(/\s+/g,' ').trim())});
+ });
+ const emptyRow=rows.find(tr=>tr.children.length===1&&tr.children[0].colSpan>1);
+ const foot=[...tb.querySelectorAll('tfoot tr')].map(tr=>tr.outerHTML).join('');
+ const num=s=>{const n=parseFloat(String(s).replace(/[^\d.\-]/g,''));return Number.isFinite(n)?(/^\s*[−-]/.test(s)?-Math.abs(n):n):'';};
+ const attrs=[...tb.attributes].filter(a=>a.name!=='class'&&a.name!=='style').map(a=>` ${a.name}="${esc(a.value)}"`).join('');
+ const cls=[...tb.classList].filter(c=>c!=='sl-table').join(' ');
+ const out=slTable(scope,Object.assign({list,rowHTML:x=>x.html+x.sub.join(''),firstTd:first?0:undefined,lastTd:last?-1:undefined,
+  empty:emptyRow?emptyRow.textContent.trim():undefined,cls,acts:last?90:20,tail:foot?()=>foot:undefined,noun:l=>l.length+' row'+(l.length===1?'':'s'),
+  columns:()=>head.map(h=>({k:h.k,label:h.label,type:h.n?'number':'text',td:h.td,v:x=>h.n?num(x.tds[h.td]):x.tds[h.td]}))},o));
+ return attrs?`<div${attrs}>${out}</div>`:out;
 }

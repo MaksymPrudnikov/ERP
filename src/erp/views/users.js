@@ -130,7 +130,7 @@ function usersCloudAccessHTML(){
  const add=`<select id="cl_rule_tbl" ${busy?'disabled':''}>${free.map(t=>`<option>${esc(t)}</option>`).join('')}</select><button class="sm" data-rule-add ${busy?'disabled':''} onclick="usersRuleAdd()">Add rule</button>`;
  return `<h3>Access</h3><div class="hint">No rule — everyone.</div>
   ${a.error?`<div class="hint warn" data-cloud-access-error>${esc(a.error)}</div>`:''}
-  <table data-cloud-rules><thead><tr><th>Table</th><th>Read</th><th>Write</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="empty">No rules</td></tr>'}</tbody></table>
+  ${slFromTable('cloudRules',`<table data-cloud-rules><thead><tr><th>Table</th><th>Read</th><th>Write</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="empty">No rules</td></tr>'}</tbody></table>`)}
   <div class="row">${add}${d?`<button class="pri" data-rule-save ${busy?'disabled':''} onclick="cloudRulesSave(cloudAccess.draft)">Save access</button><button ${busy?'disabled':''} onclick="cloudAccess.draft=null;cloudAccess.open='';render()">Cancel</button>`:`<button class="sm" ${busy?'disabled':''} onclick="cloudAccessLoad()">Refresh</button>`}</div>`;
 }
 function usersRuleDraft(){if(!cloudAccess.draft)cloudAccess.draft=(cloudAccess.rules||[]).map(r=>({tbl:r.tbl,read:r.read||'',write:r.write||''}));return cloudAccess.draft;}
