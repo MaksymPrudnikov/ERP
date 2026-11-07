@@ -101,27 +101,29 @@ let sfSel='';
 function sfSelect(code,on){sfSel=on?code:'';render();}
 function viewSfStations(edit,framed){
  const steps=new Map();DB.station.forEach(s=>steps.set(s.seq,(steps.get(s.seq)||0)+1));
- const rows=DB.station.map((s,i)=>{
-  const w=stationOperations(s.code),par=steps.get(s.seq)>1;
-  return `<tr data-sf-station="${esc(s.code)}"${framed&&sfSel===s.code?' class="oq-selected"':''}>${framed?`<td class="sl-check"><input type="checkbox" data-sf-check aria-label="Select ${esc(s.code)}" ${sfSel===s.code?'checked':''} onchange="sfSelect('${esc(s.code)}',this.checked)"></td>`:''}<td style="white-space:nowrap">${edit?`<input class="sf-step" type="number" min="1" step="1" value="${s.seq}" data-sf-step="${esc(s.code)}" onchange="sfStationSetStep(${i},this.value)">`:`<b class="mono">${s.seq}</b>`}${par?' <span class="pill info" title="Same step as another station">parallel</span>':''}</td>
-   <td class="mono"><b>${raw(s.code)}</b></td><td>${sfLabel(s)}</td>
-   <td><span class="pill ${s.always?'ok':'info'}">${s.always?'always':'when required'}</span></td>
-   <td class="mono">${sfDimText(s)}</td>
-   <td>${sfPutsOnCell(s,edit)}</td>
-   <td style="white-space:nowrap">${typeof carrierSheetCell==='function'?carrierSheetCell(s,edit):''}</td>
-   <td>${w.length?w.slice(0,6).map(o=>`<span class="pill info" data-raw>${esc(o.name||o.id)}</span>`).join(' ')+(w.length>6?` <span class="mut">+${w.length-6}</span>`:''):'<span class="mut">none</span>'}</td>
-   <td class="mut" style="max-width:260px">${raw(s.note||'')}</td>
-   <td style="white-space:nowrap">${framed?'':`<button class="sm" onclick="stationOpen('${esc(s.code)}')" title="Open the scan screen">Screen</button>`}
-   ${edit?`<button class="sm" onclick="stEditOpen(${i})">Edit</button>
-   <button class="sm dl" data-sf-del="${esc(s.code)}" onclick="delSfStation(${i})">×</button>`:''}</td></tr>`+
+ const plain=h=>String(h||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+ const works=s=>stationOperations(s.code).map(o=>o.name||o.id);
+ /* Таблица вида Sales (владелец 07.11.2026): фильтр, сортировка, ширина, порядок. */
+ const table=slTable(edit?'mdStations':'prodStations',{list:DB.station,id:s=>s.code,empty:'empty',noun:l=>l.length+' station'+(l.length===1?'':'s'),fill:'works',
+  columns:()=>[
+   {k:'step',label:'Step',type:'number',v:s=>s.seq,cell:(s,v,info)=>`<span style="white-space:nowrap">${edit?`<input class="sf-step" type="number" min="1" step="1" value="${s.seq}" data-sf-step="${esc(s.code)}" onchange="sfStationSetStep(${info.i},this.value)">`:`<b class="mono">${s.seq}</b>`}${steps.get(s.seq)>1?' <span class="pill info" title="Same step as another station">parallel</span>':''}</span>`},
+   {k:'code',label:'Code',type:'text',v:s=>s.code,cell:s=>`<b class="mono">${raw(s.code)}</b>`},
+   {k:'name',label:'Name',type:'text',v:s=>plain(sfLabel(s)),cell:s=>sfLabel(s)},
+   {k:'route',label:'In route',type:'list',v:s=>s.always?'always':'when required',cell:s=>`<span class="pill ${s.always?'ok':'info'}">${s.always?'always':'when required'}</span>`},
+   {k:'size',label:'Size, W × L',type:'text',v:s=>plain(sfDimText(s)),cell:s=>`<span class="mono">${sfDimText(s)}</span>`},
+   {k:'putsOn',label:'Puts on',type:'list',v:s=>plain(sfPutsOnCell(s,false)),cell:s=>sfPutsOnCell(s,edit)},
+   {k:'sheet',label:'Dolly / skid sheet',type:'text',v:s=>typeof carrierSheetCell==='function'?plain(carrierSheetCell(s,false)):'',cell:s=>`<span style="white-space:nowrap">${typeof carrierSheetCell==='function'?carrierSheetCell(s,edit):''}</span>`},
+   {k:'works',label:'Works',type:'text',tokens:true,v:s=>works(s).join(' · '),cell:s=>{const w=works(s);return w.length?w.slice(0,6).map(n=>`<span class="pill info" data-raw>${esc(n)}</span>`).join(' ')+(w.length>6?` <span class="mut">+${w.length-6}</span>`:''):'<span class="mut">none</span>';}},
+   {k:'note',label:'Note',type:'text',v:s=>s.note||'',cell:s=>`<span class="mut">${raw(s.note||'')}</span>`}],
+  row:info=>{const s=info.x;return {attrs:` data-sf-station="${esc(s.code)}"${framed&&sfSel===s.code?' class="oq-selected"':''}`,
+   first:framed?`<td class="sl-check"><input type="checkbox" data-sf-check aria-label="Select ${esc(s.code)}" ${sfSel===s.code?'checked':''} onchange="sfSelect('${esc(s.code)}',this.checked)"></td>`:undefined,
+   last:`<span style="white-space:nowrap">${framed?'':`<button class="sm" onclick="stationOpen('${esc(s.code)}')" title="Open the scan screen">Screen</button>`}${edit?` <button class="sm" onclick="stEditOpen(${info.i})">Edit</button> <button class="sm dl" data-sf-del="${esc(s.code)}" onclick="delSfStation(${info.i})">×</button>`:''}</span>`,
    /* Колонки листа долли/скида станции — под её строкой (views/carriers-board). */
-   (edit&&typeof sfSheetEdit!=='undefined'&&sfSheetEdit===s.code?`<tr class="sf-sheet-row"><td colspan="10">${carrierSheetEditorHTML(s.code)}</td></tr>`:'');
- }).join('');
+   after:edit&&typeof sfSheetEdit!=='undefined'&&sfSheetEdit===s.code?n=>`<tr class="sf-sheet-row"><td colspan="${n}">${carrierSheetEditorHTML(s.code)}</td></tr>`:null};}});
  return `${edit&&stEdit!==null?sfStationForm():''}
   ${framed?'':`<div class="sub">${edit?'Same step — parallel stations.':'Route steps in order. Stations are added, removed and ordered in Master Data → Stations.'}</div>`}
   ${edit||framed?'':`<div class="row" style="margin:0 0 10px"><button class="sm" data-sf-to-md onclick="tab='masterdata';mdSetTab('stations')">Edit in Master Data</button></div>`}
-  <div class="sales-table-wrap"><table${framed?' class="sl-table"':''}><thead><tr>${framed?'<th class="sl-check"></th>':''}<th>Step</th><th>Code</th><th>Name</th><th>In route</th><th>Size, W × L</th><th title="What glass goes on after this station">Puts on</th><th title="Columns of the printed dolly or skid sheet">Dolly / skid sheet</th><th>Works</th><th>Note</th><th></th></tr></thead>
-  <tbody>${rows||'<tr><td colspan="11" class="empty">empty</td></tr>'}</tbody></table></div>
+  ${table}
   ${edit&&stEdit===null?'<div class="row"><button class="pri" data-sf-add onclick="stEdit=&quot;new&quot;;render()">Add station</button><button data-sf-tidy onclick="sfStationsTidy()" title="Renumber steps 1, 2, 3… keeping parallel stations together">Tidy step numbers</button></div>':''}`;
 }
 /* На что кладут стекло после станции — ставит владелец (6.10.2026). Без
@@ -226,12 +228,14 @@ function sfTerminalsBar(){
 }
 function viewSfTerminals(){
  if(tmSel!==null&&!DB.terminal[tmSel])tmSel=null;
- const rows=DB.terminal.map((t,i)=>`<tr${tmSel===i?' class="oq-selected"':''} ondblclick="tmEdit=${i};render()"><td class="sl-check"><input type="checkbox" aria-label="Select ${esc(t.code)}" ${tmSel===i?'checked':''} onchange="tmSel=this.checked?${i}:null;render()"></td><td class="mono"><b>${raw(t.code)}</b></td><td>${sfLabel(t)}</td>
-   <td>${(t.stations||[]).map(c=>`<span class="pill info" data-raw>${esc(c)}</span>`).join(' ')||'<span class="warn pill">no stations</span>'}</td>
-   <td class="mut" style="max-width:260px">${raw(t.note||'')}</td></tr>`).join('');
+ const table=slTable('prodTerminals',{list:DB.terminal,id:t=>t.code,empty:'No terminals yet. Add one for each scanning screen in the shop.',noun:l=>l.length+' terminal'+(l.length===1?'':'s'),fill:'stations',
+  columns:()=>[{k:'code',label:'Code',type:'text',v:t=>t.code,cell:t=>`<b class="mono">${raw(t.code)}</b>`},
+   {k:'name',label:'Name',type:'text',v:t=>String(sfLabel(t)).replace(/<[^>]*>/g,' ').trim(),cell:t=>sfLabel(t)},
+   {k:'stations',label:'Stations',type:'text',tokens:true,v:t=>(t.stations||[]).join(' · '),cell:t=>(t.stations||[]).map(c=>`<span class="pill info" data-raw>${esc(c)}</span>`).join(' ')||'<span class="warn pill">no stations</span>'},
+   {k:'note',label:'Note',type:'text',v:t=>t.note||'',cell:t=>`<span class="mut">${raw(t.note||'')}</span>`}],
+  row:info=>({attrs:`${tmSel===info.i?' class="oq-selected"':''} ondblclick="tmEdit=${info.i};render()"`,first:`<td class="sl-check"><input type="checkbox" aria-label="Select ${esc(info.x.code)}" ${tmSel===info.i?'checked':''} onchange="tmSel=this.checked?${info.i}:null;render()"></td>`})});
  return `${tmEdit!==null?'<div style="padding:0 20px">'+sfTerminalForm()+'</div>':''}
-  <div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"></th><th>Code</th><th>Name</th><th>Stations</th><th>Note</th></tr></thead>
-  <tbody>${rows||'<tr><td colspan="5" class="empty">No terminals yet. Add one for each scanning screen in the shop.</td></tr>'}</tbody>${DB.terminal.length?`<tfoot><tr class="sl-foot"><td></td><td colspan="4"><b>${DB.terminal.length} terminal${DB.terminal.length===1?'':'s'}</b></td></tr></tfoot>`:''}</table></div>`;
+  ${table}`;
 }
 function sfTerminalForm(){
  const r = tmEdit==='new' ? {code:'',name:'',nameEn:'',stations:[],note:''} : DB.terminal[tmEdit];

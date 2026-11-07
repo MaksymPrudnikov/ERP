@@ -18,7 +18,8 @@ document.addEventListener('pointerdown',e=>{const w=e.target&&e.target.closest?e
 
 /* Строки: memo — значения всех колонок (фильтр и сортировка читают их). */
 function slInfos(list,id,cols){
- return (list||[]).map((x,i)=>{const memo={};cols.forEach(c=>{let v;try{v=c.v(x,i);}catch(e){v='';}memo[c.k]=v==null?'':v;});return {o:{id:String(id(x,i)),createdAt:''},x,i,memo};});
+ /* tokens — колонка со списком через « · »: фильтр по каждому значению отдельно. */
+ return (list||[]).map((x,i)=>{const memo={},tokens={};cols.forEach(c=>{let v;try{v=c.v(x,i);}catch(e){v='';}memo[c.k]=v==null?'':v;if(c.tokens)tokens[c.k]=String(memo[c.k]).split(' · ').filter(Boolean);});return {o:{id:String(id(x,i)),createdAt:''},x,i,memo,tokens};});
 }
 /* Ячейка по типу колонки, если у колонки нет своей. */
 function slCell(info,c){
@@ -29,7 +30,7 @@ function slCell(info,c){
  if(c.type==='number')return `<td class="n">${c.money?esc(finFmt(v)):esc(typeof v==='number'?v.toLocaleString('en-US',{maximumFractionDigits:c.digits==null?2:c.digits}):String(v))}</td>`;
  return `<td>${esc(String(v))}</td>`;
 }
-/* o: {columns:()=>[...], list, id(x), sort:{k,dir}, fill — колонка во всю ширину, row(info)→{attrs, first, last}, noun(rows), empty, widths, cls}.
+/* o: {columns:()=>[...], list, id(x), sort:{k,dir}, fill — колонка во всю ширину, row(info)→{attrs, first, last, after(colspan) — строка под строкой}, noun(rows), empty, widths, cls}.
    Колонки без def видны сразу; def:false — только в ⚙ Columns. Ключ 'type' не брать: в движке он
    прячется, когда в Sales один вид (заказы без квот). */
 function slTable(scope,o){
@@ -44,7 +45,7 @@ function slTable(scope,o){
   const rows=salesListRows(infos);
   html=salesListTableHTML({infos,rows,cls:o.cls,
    cell:(i,c)=>slCell(i,c),
-   row:info=>{const r=o.row?o.row(info)||{}:{};return {attrs:(r.attrs||'')+` data-sl-row="${esc(info.o.id)}"`,first:r.first,last:r.last};},
+   row:info=>{const r=o.row?o.row(info)||{}:{};return {attrs:(r.attrs||'')+` data-sl-row="${esc(info.o.id)}"`,first:r.first,last:r.last,after:r.after};},
    noun:rows=>o.noun?o.noun(rows):rows.length+' row'+(rows.length===1?'':'s'),empty:infos.length?'Nothing matches the filters.':(o.empty||'Nothing here yet.')});
  }finally{slScopeNow=was;}
  return `<div class="sl-generic" data-sl-scope="${esc(scope)}">${html}</div>`;
