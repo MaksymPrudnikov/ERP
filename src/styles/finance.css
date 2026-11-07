@@ -28,8 +28,22 @@
 .fin-summary b{font-variant-numeric:tabular-nums}
 .fin-over{color:var(--danger)}
 .fin-form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
-.fin-due-now{gap:8px;align-items:center}
-.fin-due-picks{display:flex;flex-wrap:wrap;gap:4px 14px;margin:2px 0 8px;font-size:12px}
+/* Statement: период From · To и Due now одной строкой, галочки счетов — следом. */
+.fin-period{display:inline-flex;align-items:baseline;gap:10px}
+.fin-date-field{display:inline-flex;align-items:baseline;gap:6px;margin:0;white-space:nowrap;font-size:13px;color:var(--text-2)}
+.fin-date-field input{width:auto}
+.fin-due-now{gap:8px 12px;align-items:center;flex-wrap:wrap}
+.fin-due-picks{display:flex;flex-wrap:wrap;gap:4px 14px;flex-basis:100%;font-size:12px}
+.fin-due-picks label.fin-due{color:var(--danger)}
+/* Одна высота и одна линия у всего в строках окна (владелец 07.11.2026:
+   «текст кривой, ячейки скачут вверх и вниз»). */
+/* Подписи и цифры дат — по одной линии текста (baseline), не по середине коробки. */
+.fin-preview .fin-preview-period{flex:none;min-height:52px;box-sizing:border-box;align-items:baseline}
+.fin-preview .fin-preview-period :is(button,label.chk,input[type=date]){height:32px;box-sizing:border-box;margin:0;font-size:13px;line-height:1;vertical-align:middle}
+.fin-preview .fin-preview-period button{display:inline-flex;align-items:center;padding:0 12px}
+.fin-preview .fin-preview-period label.chk{padding:0 10px;gap:6px;white-space:nowrap;align-self:center}
+.fin-preview .fin-preview-period input[type=date]{padding:0 8px}
+.fin-preview .fin-due-picks label.chk{height:28px;margin:0;font-size:12px}
 .fin-modal{width:min(560px,96vw)}
 .fin-modal-body{padding:16px}
 .sales-editor-top .fin-strip{margin-left:auto;margin-right:12px}
@@ -81,7 +95,6 @@
 .fin-list td.fin-actions,.fin-list th.fin-actions{text-align:right;width:1%}
 .fin-list tr.fin-void td{color:var(--text-3)}
 .fin-list td .small{font-size:11px}
-.sl-backdrop.fin-range-back{z-index:139}.sl-menu.fin-range-menu{z-index:140}
 .fin-preview .sales-toolbar.fin-preview-period{margin:0;padding:10px 16px;border-bottom:1px solid var(--line,var(--accent-line))}
 /* Commissions (view/commissions): период кнопками, галочка With HST, выплата строкой. */
 .com-period{display:inline-flex;gap:6px}

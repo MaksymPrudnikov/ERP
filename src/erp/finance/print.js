@@ -138,23 +138,25 @@ function finStatementDoc(customerId,from,to,today,due,activity){const m=finState
    жёлтым, их сумма — Due now, остальное — Current. Было — в Excel руками. */
 function finStatementDueOpen(x){return !x.archived&&!!x.billed&&x.f.b.status!=='review'&&x.f.b.balance>0;}
 function finStatementDuePick(x,due){if(!due||!finStatementDueOpen(x))return false;const p=due.pick&&due.pick[x.o.id];return p!=null?!!p:!!due.by&&x.billed<=due.by;}
-/* Дни просрочки и «к оплате сейчас» — те же правила, что итоги внизу:
-   просрочка 60+ и 90+ всегда, моложе — выбранное бухгалтером (без выбора —
-   уже просроченное). */
+/* Дни просрочки и «к оплате сейчас»: просроченный счёт — всегда (он не
+   может быть Current), ещё не просроченный — если его выбрал бухгалтер. */
 function finStatementLate(x,day){return x.f.dueOn&&x.f.dueOn<day?Math.floor((Date.parse(day)-Date.parse(x.f.dueOn))/864e5):0;}
-function finStatementNow(x,day,due){if(!finStatementDueOpen(x))return false;const d=finStatementLate(x,day);return d>=60||(due?finStatementDuePick(x,due):d>0);}
+function finStatementNow(x,day,due){return finStatementDueOpen(x)&&(finStatementLate(x,day)>0||finStatementDuePick(x,due));}
 /* Строки счетов по месяцам: заголовок месяца, счета, подытог Due now после
-   последнего счёта к оплате, итог месяца. Заказы в работе — группой In work. */
+   последнего счёта к оплате, итог месяца. Заказы в работе — группой In work.
+   Красные строки — всё к оплате сейчас; в подытог Due now — то же, что в
+   ячейку Due now внизу (без 60+ и 90+, у них свои ячейки): сумма подытогов
+   месяцев равна ячейке (владелец 07.11.2026). */
 function finStatementRows(orders,day,due){
  const money=docMoney,groups=[];
  orders.forEach(x=>{const k=x.billed?x.billed.slice(0,7):'';let g=groups[groups.length-1];if(!g||g.k!==k)groups.push(g={k,list:[]});g.list.push(x);});
  const plural=(n,w)=>n+' '+w+(n===1?'':'s'),bal=l=>finMoney(l.filter(x=>x.f.b.status!=='review').reduce((s,x)=>s+x.f.b.balance,0));
  return groups.flatMap(g=>{
-  const name=g.k?FIN_MONTH_NAMES[+g.k.slice(5,7)-1]+' '+g.k.slice(0,4):'In work',now=g.list.filter(x=>finStatementNow(x,day,due)),last=now[now.length-1],out=[{group:name}];
+  const name=g.k?FIN_MONTH_NAMES[+g.k.slice(5,7)-1]+' '+g.k.slice(0,4):'In work',now=g.list.filter(x=>finStatementNow(x,day,due)),sub=now.filter(x=>finStatementLate(x,day)<60),last=sub[sub.length-1],out=[{group:name}];
   g.list.forEach(x=>{
    const d=finStatementDueOpen(x)?finStatementLate(x,day):0;
    out.push({hi:now.includes(x),due:d>0,mut:!x.billed,cells:[x.o.businessNumber,x.billed?docDate(x.billed):'In work',x.o.customerPo||'—',d>0?d+' d':'',money(x.f.b.total),x.f.b.status==='review'?'Review required':finSigned(x.f.b.balance)]});
-   if(x===last)out.push({sub:'Due now · '+plural(now.length,'invoice'),value:money(bal(now))});
+   if(x===last)out.push({sub:'Due now · '+plural(sub.length,'invoice'),value:money(bal(sub))});
   });
   out.push({total:name+' · '+plural(g.list.length,g.k?'invoice':'order'),value:finSigned(bal(g.list))});
   return out;
@@ -185,11 +187,11 @@ function finStatementModel(customerId,from,to,today,due,activity){
  if(d.refunded>0)rows.push({label:'Refunds',value:money(d.refunded)});
  m.end={left,rows,grand:review&&d.closing<0?{label:'Review required',value:finSigned(d.closing)}:d.closing>=0?{label:'Balance due',value:money(d.closing)}:{label:'Credit balance',value:money(-d.closing)},paid:d.overdue>0?[{label:'Overdue now',value:money(d.overdue),tone:'due'}]:null};
  /* Итоги по срокам (как у Spiel, вместе — весь долг по счетам): просрочка
-    90+ и 60+ дней; Due now — выбранное бухгалтером (без выбора — уже
-    просроченное); Current — остальное. */
+    90+ и 60+ дней; Due now — просроченное моложе 60 дней и выбранное
+    бухгалтером; Current — остальное. */
  const open=orders.filter(finStatementDueOpen),late=x=>finStatementLate(x,day);
  if(open.length){
-  const o90=open.filter(x=>late(x)>=90),o60=open.filter(x=>late(x)>=60&&late(x)<90),young=open.filter(x=>late(x)<60),chosen=!!due,now=young.filter(x=>chosen?finStatementDuePick(x,due):late(x)>0);
+  const o90=open.filter(x=>late(x)>=90),o60=open.filter(x=>late(x)>=60&&late(x)<90),young=open.filter(x=>late(x)<60),now=young.filter(x=>late(x)>0||finStatementDuePick(x,due));
   const cur=young.filter(x=>!now.includes(x)),C=DOC_COLOR,n=l=>finMoney(l.reduce((s,x)=>s+x.f.b.balance,0));
   /* Полоса сроков (владелец 07.11.2026): доли долга цветом, проценты под ней. */
   const parts=[['Overdue 90+ days',o90,C.due],['Overdue 60+ days',o60,C.adj],['Due now',now,C.warn],['Current',cur,C.paid]].map(([label,l,color])=>({label,n:n(l),color}));
