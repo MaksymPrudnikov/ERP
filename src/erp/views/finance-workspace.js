@@ -14,7 +14,7 @@ function finCanLeave(){return !finHasWork()||confirm('Discard unsaved finance ch
 (window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(finHasWork);
 (window.NAV_GUARDS=window.NAV_GUARDS||[]).push(function(k,go){
  if(tab!=='finance')return false;if(!finCanLeave())return true;
- finDraft=null;finEdit=null;finAction=null;finApply=null;finAlloc=null;finPreview=null;finStatements=null;finRangeMenu=null;return false;
+ finDraft=null;finEdit=null;finAction=null;finApply=null;finAlloc=null;finPreview=null;finStatements=null;return false;
 });
 window.addEventListener('beforeunload',function(e){if(!finHasWork())return;e.preventDefault();e.returnValue='';});
 function finResetFilters(){finCustomerFilter='';finOrderFilter='';render();}
@@ -28,7 +28,7 @@ function finWorkspaceHTML(){
  /* Списки — вид Sales (finFrame); карточка клиента и форма оплаты — как были. */
  return (list?`<div class="card fin-card sales-list-card sl-foot-pin">${finTab==='accounts'?finAccountsWorkspace():finTab==='schedule'?finScheduleHTML():finReceiptsView()}</div>`:`<div class="card fin-card"><div class="fin-workspace-head">${finOverviewHTML()}<button type="button" class="pri" data-fin-new onclick="finNewReceiptHere()">+ New receipt</button></div>
  ${finPills()}
- ${finTab==='accounts'?finAccountHTML():finReceiptForm()}</div>`)+`${finApplyModal()}${finActionHTML()}${finStatementsHTML()}${finPreviewHTML()}${finRangeMenuHTML()}`;
+ ${finTab==='accounts'?finAccountHTML():finReceiptForm()}</div>`)+`${finApplyModal()}${finActionHTML()}${finStatementsHTML()}${finPreviewHTML()}`;
 }
 /* Четыре цифры по всем клиентам и переход к списку за каждой. Сколько
    должны нам, сколько из этого просрочено, и сколько денег клиентов у нас:
@@ -106,9 +106,11 @@ function finJournalTable(rows){return `<div class="fin-history">${rows.slice().s
 /* ------------------------- Бланки: просмотр -------------------------- */
 /* Квитанция, выписка и списки открываются как в Documents: лист на экране,
    Print и Email PDF (PDF в Загрузки + Gmail с готовым адресом и текстом).
-   У выписки сверху период: прошлый месяц, этот месяц или свои даты. */
+   У выписки сверху период — две даты From и To (владелец 07.11.2026: «окно
+   периода С По, а не набор слов»; To — сегодня, From — любая прошлая). */
 function finOpenPreview(kind,id){finPreview={kind,id:id||'',status:''};render();}
-function finOpenStatement(id,range){const r=range||finMonthRange(-1);finPreview={kind:'statement',id,from:r.from,to:r.to,status:''};render();}
+function finStatementRange(){return {from:finMonthRange(-1).from,to:finToday()};}
+function finOpenStatement(id,range){const r=range||finStatementRange();finPreview={kind:'statement',id,from:r.from,to:r.to,status:''};render();}
 function finClosePreview(){finPreview=null;render();}
 function finPeriodError(p){return p.from&&!finDateValid(p.from)||p.to&&!finDateValid(p.to)||p.from&&p.to&&p.from>p.to?'From must be on or before To.':'';}
 function finPreviewPages(){
@@ -142,22 +144,24 @@ function finPreviewInfo(){
 }
 function finStatementControls(p){
  const err=finPeriodError(p),skipped=err?[]:finStatementData(p.id,p.from,p.to).skipped;
- return `<div class="sales-toolbar fin-preview-period">${finRangeButton('preview')}<label class="chk" title="Every charge and payment by date"><input type="checkbox" data-statement-activity ${p.activity?'checked':''} onchange="finPreview.activity=this.checked;render()"> Account activity</label><label class="chk fin-statement-invoices" title="Invoices for the period after the statement"><input type="checkbox" data-statement-invoices ${p.invoices?'checked':''} onchange="finStatementInvoices(this.checked)"> Invoices</label><span class="sales-toolbar-sp"></span><button type="button" ${err?'disabled':''} onclick="finStatementExport()" title="Account activity for the customer's books">CSV</button></div>${err?'':finStatementDueHTML(p)}
+ return `<div class="sales-toolbar fin-preview-period">${finPeriodInputs('preview')}<label class="chk" title="Every charge and payment by date"><input type="checkbox" data-statement-activity ${p.activity?'checked':''} onchange="finPreview.activity=this.checked;render()"> Account activity</label><label class="chk fin-statement-invoices" title="Invoices for the period after the statement"><input type="checkbox" data-statement-invoices ${p.invoices?'checked':''} onchange="finStatementInvoices(this.checked)"> Invoices</label><span class="sales-toolbar-sp"></span><button type="button" ${err?'disabled':''} onclick="finStatementExport()" title="Account activity for the customer's books">CSV</button></div>${err?'':finStatementDueHTML(p)}
  ${err?`<p role="alert" class="fin-due fin-preview-note">${esc(err)}</p>`:''}${skipped.length?`<p class="fin-hint fin-preview-note">Not priced, left out: ${esc(skipped.map(o=>o.businessNumber).join(', '))}</p>`:''}${p.invoices&&!err?`<p class="fin-hint fin-preview-note" data-statement-invoices-note>${p.invoicePages?p.invoiceCount?p.invoiceCount+' invoice'+(p.invoiceCount===1?'':'s')+' after the statement':'No invoices in this period':'Preparing invoices…'}</p>`:''}`;
 }
 /* Счета за период к выписке (владелец, 22.10.2026: «выслать клиенту все
    инвойсы, информацию за год»): Invoice каждого заказа, выданного в
    периоде, — после выписки, одним PDF. Ушедшие в архив читаются с диска на
    время сборки (archiveWith). */
-/* Due now: до даты и галочки по счёту (finStatementDuePick). */
+/* Due now: дата «up to» отмечает счета до неё, галочки — по одному
+   (finStatementDuePick). Просроченный счёт к оплате всегда — его галочка
+   стоит и не снимается (владелец 07.11.2026: просрочка не может быть
+   Current). Кнопок Last Monday / Last Friday / Today нет: дата и так есть. */
 function finStatementDue(p){return p&&(p.dueBy||Object.keys(p.duePick||{}).length)?{by:p.dueBy||'',pick:p.duePick||{}}:null;}
-function finStatementDueBy(v){const p=finPreview;if(!p)return;p.dueBy=v||'';p.duePick={};p.status='';render();}
-function finStatementDueToggle(id,on){const p=finPreview;if(!p)return;p.duePick=Object.assign({},p.duePick,{[id]:!!on});render();}
-function finLastWeekday(wd){const d=new Date(finToday()+'T12:00:00');while(d.getDay()!==wd)d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);}
+function finStatementDueBy(v){const p=finPreview;if(!p)return;p.dueBy=finDateValid(v)?v:'';p.duePick={};p.status='';render();}
+function finStatementDueToggle(id,on){const p=finPreview;if(!p)return;p.duePick=Object.assign({},p.duePick,{[id]:!!on});p.status='';render();}
 function finStatementDueHTML(p){
- const due=finStatementDue(p),open=finStatementOrders(p.id,p.from,p.to).filter(finStatementDueOpen);if(!open.length)return '';
- const picks=due?`<div class="fin-due-picks" data-statement-due-picks>${open.map(x=>`<label class="chk"><input type="checkbox" data-statement-due-pick="${esc(x.o.id)}" ${finStatementDuePick(x,due)?'checked':''} onchange="finStatementDueToggle('${esc(x.o.id)}',this.checked)"> ${esc(x.o.businessNumber)} · ${esc(docDate(x.billed))} · ${esc(docMoney(x.f.b.balance))}</label>`).join('')}</div>`:'';
- return `<div class="sales-toolbar fin-preview-period fin-due-now"><b>Due now</b><label class="chk">up to <input type="date" data-statement-due value="${esc(p.dueBy||'')}" onchange="finStatementDueBy(this.value)"></label><button type="button" onclick="finStatementDueBy(finLastWeekday(1))">Last Monday</button><button type="button" onclick="finStatementDueBy(finLastWeekday(5))">Last Friday</button><button type="button" onclick="finStatementDueBy(finToday())">Today</button>${due?'<button type="button" onclick="finStatementDueBy(\'\')">Clear</button>':''}</div>${picks}`;
+ const due=finStatementDue(p),day=finToday(),open=finStatementOrders(p.id,p.from,p.to,day).filter(finStatementDueOpen);if(!open.length)return '';
+ const picks=open.map(x=>{const late=finStatementLate(x,day)>0,on=late||finStatementDuePick(x,due);return `<label class="chk${late?' fin-due':''}"${late?' title="Overdue · always due"':''}><input type="checkbox" data-statement-due-pick="${esc(x.o.id)}" ${on?'checked':''} ${late?'disabled':''} onchange="finStatementDueToggle('${esc(x.o.id)}',this.checked)"> ${esc(x.o.businessNumber)} · ${esc(docDate(x.billed))} · ${esc(docMoney(x.f.b.balance))}</label>`;}).join('');
+ return `<div class="sales-toolbar fin-preview-period fin-due-now"><b>Due now</b><label class="fin-date-field">up to <input type="date" data-statement-due value="${esc(p.dueBy||'')}" max="${esc(day)}" onchange="finStatementDueBy(this.value)"></label>${due?'<button type="button" data-statement-due-clear onclick="finStatementDueBy(\'\')">Clear</button>':''}<div class="fin-due-picks" data-statement-due-picks>${picks}</div></div>`;
 }
 function finStatementInvoices(on){const p=finPreview;if(!p)return;p.invoices=!!on;p.status='';render();}
 async function finStatementInvoiceBuild(p,key){
@@ -205,7 +209,7 @@ function finEmailPreview(){
 /* ----------------------- Выписки за месяц всем ---------------------- */
 /* Раз в месяц: список клиентов, у которых было движение или есть остаток,
    с суммами периода; у каждого — посмотреть и отправить PDF. */
-function finOpenStatements(){const r=finMonthRange(-1);finStatements={from:r.from,to:r.to,sent:{}};render();}
+function finOpenStatements(){const r=finStatementRange();finStatements={from:r.from,to:r.to,sent:{}};render();}
 function finCloseStatements(){finStatements=null;render();}
 function finStatementsList(){
  const p=finStatements;if(!p||finPeriodError(p))return [];
@@ -221,37 +225,22 @@ function finStatementsEmail(id){
 function finStatementsHTML(){
  const p=finStatements;if(!p)return '';const err=finPeriodError(p),list=finStatementsList();
  return `<div class="sales-service-modal-back fin-modal-back" onclick="if(event.target===this)finCloseStatements()"><div class="sales-service-modal fin-statements" role="dialog" aria-modal="true" aria-label="Statements"><div class="sales-service-modal-head"><h3>Statements · ${esc(err?'':finPeriodText(p.from,p.to))}</h3><button type="button" aria-label="Close" onclick="finCloseStatements()">×</button></div>
- <div class="fin-modal-body"><div class="sales-toolbar">${finRangeButton('statements')}</div>
+ <div class="fin-modal-body"><div class="sales-toolbar">${finPeriodInputs('statements')}</div>
  ${err?`<p role="alert" class="fin-due">${esc(err)}</p>`:''}
  <div class="fin-table-wrap">${slFromTable('finStatementsList',`<table class="fin-table"><thead><tr><th>Customer</th><th>Email</th><th class="n">Balance forward</th><th class="n">Billed</th><th class="n">Paid</th><th class="n">Balance</th><th></th></tr></thead><tbody>${list.map(({c,d})=>{const to=finEmailTo(c,'statement');return `<tr data-statement="${esc(c.id)}"><td><b>${raw(finCustomerName(c))}</b><div class="mut small">${raw(c.code)}</div></td><td>${to?esc(to):'<span class="mut">no email</span>'}</td><td class="n">${finSigned(d.opening)}</td><td class="n">${d.billed?finFmt(d.billed):'<span class="mut">—</span>'}</td><td class="n">${d.paid?finFmt(d.paid):'<span class="mut">—</span>'}</td><td class="n"><b>${finSigned(d.closing)}</b></td><td class="fin-actions">${p.sent[c.id]?'<span class="pill good">Emailed</span> ':''}<button class="sm" onclick="finOpenStatement('${esc(c.id)}',{from:finStatements.from,to:finStatements.to})">View</button><button class="sm pri" onclick="finStatementsEmail('${esc(c.id)}')">Email PDF</button></td></tr>`;}).join('')||`<tr><td colspan="7" class="empty">${err?'Correct the dates.':'No activity in this period.'}</td></tr>`}</tbody></table>`)}</div>
  ${Object.keys(p.sent).length?'<p class="mut small">PDFs are in Downloads — drag each into its Gmail message.</p>':''}</div></div></div>`;
 }
 
-/* ----------------------- Период: блок дат как у Sales ------------------ */
-/* Выписке нужен закрытый период, поэтому быстрые кнопки — месяцы; вид и
-   поведение — как блок Created в Sales. */
-let finRangeMenu=null;
-const FIN_STATEMENT_RANGE=[['lastMonth','Last month'],['thisMonth','This month'],['thisYear','This year'],['lastYear','Last year']];
+/* ----------------------- Период: From и To ------------------------- */
+/* Две даты прямо в строке, без меню и слов (владелец 07.11.2026). Ошибка
+   «From после To» — строкой под ней (finPeriodError), лист не строится. */
 function finRangeState(target){return target==='statements'?finStatements:finPreview;}
-function finRangeLabel(s){const k=FIN_STATEMENT_RANGE.find(x=>{const r=salesListPresetRange(x[0]);return r&&r[0]===s.from&&r[1]===s.to;});return k?k[1]:s.from&&s.to?salesListShortDay(s.from)+' – '+salesListShortDay(s.to):'Choose dates';}
-function finRangeButton(target){const s=finRangeState(target);return s?`<button type="button" class="sl-quiet sl-date-toggle" data-period="${target}" aria-haspopup="dialog" onclick="finRangeOpen(event,'${target}')">Period: ${esc(finRangeLabel(s))}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`:'';}
-function finRangeOpen(e,target){const s=finRangeState(target);if(!s)return;finRangeMenu=Object.assign({target,from:s.from,to:s.to,error:''},salesListAt(e,340));render();}
-function finRangePreset(k){const r=salesListPresetRange(k);if(!finRangeMenu||!r)return;Object.assign(finRangeMenu,{from:r[0],to:r[1],error:''});render();}
-function finRangeInput(k,v){if(finRangeMenu){finRangeMenu[k]=v;finRangeMenu.error='';}}
-function finRangeApply(){
- const m=finRangeMenu,s=m&&finRangeState(m.target);if(!s)return;
- if(!m.from||!m.to||!salesListValidDay(m.from)||!salesListValidDay(m.to)||m.from>m.to){m.error='Choose a valid range. From must not be after To.';render();return;}
- s.from=m.from;s.to=m.to;if('status' in s)s.status='';finRangeMenu=null;render();
+function finPeriodInputs(target){
+ const s=finRangeState(target);if(!s)return '';const day=finToday();
+ const field=(k,label)=>`<label class="fin-date-field">${label} <input type="date" data-period-${k}="${target}" value="${esc(s[k]||'')}" max="${esc(day)}" aria-label="${label}" onchange="finPeriodSet('${target}','${k}',this.value)"></label>`;
+ return `<span class="fin-period" data-period="${target}">${field('from','From')}${field('to','To')}</span>`;
 }
-function finRangeClose(){finRangeMenu=null;render();}
-function finRangeMenuHTML(){
- const m=finRangeMenu;if(!m||!finRangeState(m.target))return '';
- const top=Math.max(8,Math.min(m.y,window.innerHeight-80)),style=`left:${Math.max(8,Math.min(m.x,window.innerWidth-(m.w||340)-8))}px;top:${top}px`;
- return `<div class="sl-backdrop fin-range-back" onclick="finRangeClose()"></div><div class="sl-menu sl-date-menu fin-range-menu" style="${style}" role="dialog" aria-label="Statement period"><div class="sl-date-presets">${FIN_STATEMENT_RANGE.map(([k,v])=>{const r=salesListPresetRange(k),on=r&&r[0]===m.from&&r[1]===m.to;return `<button type="button" class="sl-btn${on?' on':''}" data-range-preset="${k}" onclick="finRangePreset('${k}')">${v}</button>`;}).join('')}</div>
-  <div class="sl-date-inputs"><label>From<input type="date" data-range-from value="${esc(m.from)}" oninput="finRangeInput('from',this.value)"></label><label>To<input type="date" data-range-to value="${esc(m.to)}" oninput="finRangeInput('to',this.value)"></label></div>
-  ${m.error?`<p class="sl-range-error" role="alert">${esc(m.error)}</p>`:''}<div class="sl-date-actions"><span class="sp"></span><button type="button" class="pri" data-range-apply onclick="finRangeApply()">Apply</button></div></div>`;
-}
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&finRangeMenu){e.preventDefault();finRangeClose();}});
+function finPeriodSet(target,k,v){const s=finRangeState(target);if(!s)return;s[k]=finDateValid(v)?v:'';if('status' in s)s.status='';render();}
 
 /* -------------------------------- CSV -------------------------------- */
 /* Движение денег для переноса в QuickBooks: оплаты и возвраты одной

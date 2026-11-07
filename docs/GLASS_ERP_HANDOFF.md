@@ -2,6 +2,29 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Statement: период From · To, Due now без кнопок, руководство Finance · 7 ноября 2026
+
+Владелец 07.11.2026: «окно периода С По, а не набор слов», «зачем Last Monday, Last Friday, если есть дата»,
+«up to кривой, ячейки скачут», «протестируй, не бьёт ли ошибку, если что-то неправильно и нелогично».
+
+- Период окна Statement и окна Statements — две даты в строке (`finPeriodInputs`, `finPeriodSet`,
+  `data-period-from/to`); меню периода (`finRangeMenu`, кнопки Last month и др.) убрано. По умолчанию
+  `finStatementRange()`: From — 1-е число прошлого месяца, To — сегодня. Неверная дата — пусто; From после To —
+  `finPeriodError`, листа нет.
+- Due now: дата «up to» и Clear (`finLastWeekday` и три кнопки убраны); галочки счетов видны всегда.
+  Просроченный счёт к оплате всегда (`finStatementNow`: просрочка > 0 или выбран) — галочка стоит и заблокирована;
+  раньше снятая галочка уводила просрочку в Current.
+- Подытог месяца «Due now · N invoices» (`finStatementRows`) — те же счета, что ячейка Due now внизу: без 60+ и 90+
+  (у них свои ячейки). Красные строки — по-прежнему всё к оплате сейчас. Сумма подытогов = ячейка Due now.
+- Вид: одна высота 32 px у полей, кнопок и галочек строки, подписи по линии текста (`align-items:baseline`), строки
+  окна не сжимаются (`flex:none`) — `styles/finance.css`.
+- Руководство `docs/manual/finance.ru.md` и `finance.en.md` переписано целиком: как считаются деньги заказа и статусы, все вкладки,
+  карточка клиента, Terms, квитанция, возврат, депозит, QuickBooks, Allocate, Statement с Due now, Statements.
+  `forms.ru.md` и `forms.en.md` — про подытог Due now.
+- Тесты `test/finance-visual.js` (+4): период From/To и ошибка From > To; Due now — дата, галочки, блок
+  просроченных, сумма подытогов = ячейка; оплата после выбора, неверная и ранняя дата, Clear, текст письма и CSV;
+  окно Statements.
+
 ## Все таблицы как Sales, часть 2: окна, Ready, Cutting · 7 ноября 2026
 
 - Адаптер `views/sl-generic.js`: `slHtmlTable(scope, head, body, o)` — заголовки `[[k, label, cls]]` и строки

@@ -114,8 +114,9 @@ form per document. Turned off or deleted — the usual document prints again.
 - **Receipt** and **Statement** — the same header, cells, addresses and totals as the order forms; the program draws the
   table (orders, money movements). The live sheet — the latest receipts; a statement — a customer for this month.
 - The **Statement** lists invoices by month: a month heading, the invoices, the month total under a rule. The Days
-  late column shows how many days an invoice is overdue, in red. Invoices to pay now are red, and after the last of
-  them in a month comes a “Due now · N invoices” subtotal. At the bottom, four aging amounts with a colour mark and a
+  late column shows how many days an invoice is overdue, in red. Invoices to pay now are red (overdue and chosen under Due now
+  in the Statement window, see [finance.en.md](finance.en.md)); after the last of them in a month comes a “Due now ·
+  N invoices” subtotal holding the same as the Due now cell at the bottom (60+ and 90+ have their own cells). At the bottom, four aging amounts with a colour mark and a
   bar of shares with percents under it.
 - **Purchase order** — the top of every page (PURCHASE ORDER and the number), the first page (company details, dates,
   supplier, contacts, terms — each line a block with its own PO Customize tick), the lines (drawn by the program),
