@@ -2,6 +2,31 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Все таблицы как Sales и быстрый фильтр в заголовке · 7 ноября 2026
+
+Владелец 07.11.2026: «все таблицы должны быть одинакового формата, все до одной» — фильтр, сортировка, ширина,
+перетаскивание столбцов; «если где-то не хватает данных в колонках — добавь»; быстрый фильтр — в самой ячейке
+заголовка, стрелочка ▾ слева. Задание и список ДО — `docs/ЗАДАЧА_ТАБЛИЦЫ.md`.
+
+- `views/sl-generic.js`: `slTable(scope, o)` — таблица экрана на движке Sales (`salesListTableHTML`). Колонки
+  `{k, label, type, v(x), cell?, td?, def?, tokens?}`, значения — в `info.memo`; `rowHTML` — готовая строка экрана,
+  колонки берут её ячейки по `td`. Scope на время отрисовки (`slScopeNow`) и по pointerdown внутри
+  `[data-sl-scope]` (`slScopePin`) — `salesListScope()` смотрит их первыми, `salesListCatalog`/`DefaultSort` берут
+  колонки из `SL_GENERIC`. Две таблицы на экране — у каждой свои настройки (`glass_erp_<scope>_list_v1`). Ключ
+  колонки `type` не брать: движок прячет его, когда в Sales один вид.
+- `views/sl-quick-filter.js`: нажатие на `[data-cw-label]` → поле; условие колонки (Starts with по умолчанию,
+  другое — из ▾) со значением; после отрисовки (`salesListFit` → `salesListQuickDecorate`) поле или «знак значение»
+  в заголовке. Заголовки не правились: ▾ слева — CSS `order:-1`. Starts with — и у чисел, и у дат (по тексту).
+- Переведены: Data (Trucks, NCR, Stock reasons, Dollies & Skids, Setup ×2, Data overview, журнал, план импорта,
+  Prices — все 7 таблиц, Stations, стекло, каталоги Works и др., Hardware ×2), Production Stations и Terminals,
+  Inventory (Sheet sizes, Consumables, Today), Users (Office, Production), ⚙ в Sign-in log. Новые колонки в ⚙ —
+  у тары Status / Glass / At customer / Since, у стекла Manufacturer / Deposition / Legacy code / Note, у
+  расходников Group / Code / Unit, у прайса Changed и др.
+- Не тронуты: Cutting (`cut-layout-ui.js` — раскрой), Shipping → Ready (таблица с группами клиент → заказ →
+  строка), окна (строки заказа, Activity log, карточка клиента в Finance, Allocate) и мелкие таблицы в карточках
+  Data — следующая часть, см. задание.
+- Тесты: `test/tables-like-sales.js` (6); ожидания `sales-list.js` (Starts with у чисел) и `run.js` (пустой PIN «–»).
+
 ## Деньги на виду: Statement, Invoice, Accounts, Sales · 7 ноября 2026
 
 Владелец 07.11.2026 выбрал по картинкам восемь правок (`~/Documents/ERP_PLAN/spiel-samples/visual/`, v2 и v3) — в том

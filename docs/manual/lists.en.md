@@ -12,8 +12,12 @@ Customers, Agents, Users and Data.
 - **Tick a row** to act on it; right click gives the same actions where the screen has a menu.
 - **Gear** (left of the headers) — Columns: tick to show, untick to hide, drag to reorder; Standard view and Reset
   widths.
-- **Header** — filter and sort in each column; drag the edge of a header to change its width, drag the header to move
-  the column. Widths and order are kept in this browser, per list.
+- **Header** — the ▾ arrow left of the name: filter, condition and sort of the column; drag the edge of a header to
+  change its width, drag the header to move the column. Widths and order are kept in this browser, per list.
+- **Quick filter** — click a column name: a field takes its place and filters as you type (Starts with — “76” finds
+  76025; for dates “Oct” or “2026-10”). Enter or a click elsewhere leaves the typed text in the header in green, ▾ in
+  green; clear it to remove the filter. Another condition (greater, less, equal, Contains…) is in ▾, and the header
+  shows its sign: “> 1000”. If values are ticked in ▾, clicking the name opens ▾.
 - **Freeze** — the pin in the Sort row of the column menu: the column moves to the left and stays when the table
   scrolls sideways; its header shows the pin, the edge of the frozen columns has a shadow (text goes under them).
   Click again to unfreeze; Standard view unfreezes all.
@@ -28,8 +32,11 @@ Customers, Agents, Users and Data.
   Period and With HST sit in the top row.
 - Windows (Activity log, Cut preview), Shipping → Ready, the customer card in Finance (Orders, Payments, Refunds)
   and a person's tables in Agents: column widths drag; the order stays.
-- Settings in Data (Cutting, Stations, Trucks, Prices and others) are forms with fields in rows, not lists: they
-  stay as they were.
+- **Every table works like Sales** (owner, 7 Nov 2026): settings in Data too (Trucks, NCR, Stock reasons, Dollies &
+  Skids, Setup, Prices, Stations, Data overview), the catalog (glass, Works, Hardware), Production → Stations and
+  Terminals, Inventory → Sheet sizes and Consumables, Users. Fields in rows are edited as before. ⚙ Columns also has
+  columns the screen did not show (e.g. Manufacturer for glass, Status and At customer for dollies). Cutting keeps its
+  table for now.
 - Boards and windows keep what they do (the dolly board, the truck day, the window of a dolly or skid); only their
   header follows this look.
 
