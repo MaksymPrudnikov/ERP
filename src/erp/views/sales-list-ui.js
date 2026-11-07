@@ -60,8 +60,8 @@ const SALES_LIST_COLUMNS=[
 ];
 const SALES_LIST_OPS={
  text:[['contains','Contains'],['notContains','Does not contain'],['startsWith','Starts with'],['endsWith','Ends with'],['equals','Equals'],['notEqual','Not equal'],['empty','Is empty'],['notEmpty','Is not empty']],
- number:[['gt','> Greater than'],['gte','≥ At least'],['lt','< Less than'],['lte','≤ At most'],['eq','= Equal to'],['ne','≠ Not equal'],['between','Between'],['empty','Is empty']],
- date:[['between','Between'],['on','On'],['before','Before'],['after','After'],['empty','Is empty']],
+ number:[['startsWith','Starts with'],['gt','> Greater than'],['gte','≥ At least'],['lt','< Less than'],['lte','≤ At most'],['eq','= Equal to'],['ne','≠ Not equal'],['between','Between'],['empty','Is empty']],
+ date:[['between','Between'],['startsWith','Starts with'],['on','On'],['before','Before'],['after','After'],['empty','Is empty']],
  list:[]
 };
 const SALES_LIST_PRESETS=[['today','Today'],['yesterday','Yesterday'],['thisWeek','This week'],['last7','Last 7 days'],['last14','Last 14 days'],['last30','Last 30 days'],['thisMonth','This month'],['lastMonth','Last month'],['thisYear','This year']];
@@ -306,6 +306,12 @@ function salesListCondTest(type,c,val){
  const empty=val==null||val==='';
  if(c.op==='empty')return empty;
  if(c.op==='notEmpty')return !empty;
+ /* Starts with у чисел и дат (быстрый фильтр в заголовке): по тексту
+    значения — «76» находит 76025, «2026-10» и «Oct» — даты октября. */
+ if(c.op==='startsWith'&&type!=='text'&&type!=='list'){
+  if(empty)return false;const x=String(c.v==null?'':c.v).trim().toLowerCase().replace(/[$,]/g,'');
+  return String(val).toLowerCase().startsWith(x)||type==='date'&&String(salesListShortDay(val)).toLowerCase().startsWith(x);
+ }
  if(type==='number'){
   if(empty)return false;
   const a=Number(c.v),b=Number(c.v2);if(!Number.isFinite(a))return true;

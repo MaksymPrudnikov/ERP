@@ -46,6 +46,7 @@ function salesListStatusMenuHTML(style){
    пока обёртка таблицы не прокручивается. Шире экрана (включили колонку,
    потянули ширины) — таблица крутится сама, итоги внизу её окна. */
 function salesListFit(){
+ if(typeof salesListQuickDecorate==='function')salesListQuickDecorate();
  document.querySelectorAll('#app table.sl-table').forEach(salesListTableFit);
  const wrap=document.querySelector('#app .sl-foot-pin .sales-table-wrap');if(!wrap||!wrap.firstElementChild)return;
  const foot=(document.querySelector('.app-foot')||{}).offsetHeight||0,wide=wrap.firstElementChild.offsetWidth>wrap.clientWidth+1;
