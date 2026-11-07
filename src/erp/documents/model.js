@@ -215,7 +215,7 @@ function docSaleItem(model,line,index,order){
  return it;
 }
 function docItemBase(opts,line,index,m,q){
- return {n:index+1,mark:opts.mark?salesString(line.mark):'',prefix:opts.makeupShort&&m?docUnitLabel(m.unitType)+' '+m.code:'',short:opts.makeupShort&&m?docMakeupShort(m,opts):'',
+ return {n:index+1,mark:opts.mark?salesString(line.mark):'',prefix:opts.makeupShort&&m?docUnitLabel(m.unitType)+' '+m.code:'',panes:opts.makeupShort&&m?({single:1,double:2,triple:3})[m.unitType]||2:0,short:opts.makeupShort&&m?docMakeupShort(m,opts):'',
   size:opts.size?docSize(line):'',qty:'Qty '+q,amount:null,info:'',sub:[],full:[],drawing:null,groups:[],note:'',unitRow:null,lites:[],cavities:[]};
 }
 function docItemDetails(it,opts,line,m,order){
@@ -494,8 +494,12 @@ function docBuildModel(kind,order,opts){
  /* Строка итогов на первой странице: сколько к оплате видно сразу. */
  if(sale&&opts.totalsTop&&DOC_ORDER_SALE.includes(kind)){
   const st=salesOrderCommercialTotals(order),pd=typeof finOrderPaid==='function'?finOrderPaid(order.id).paid:0,cash=v=>st.complete?docMoney(v):'—';
-  model.strip=[{label:'Total '+order.currency,value:cash(st.grand)}].concat(pd>0?[{label:'Credits',value:'−'+docMoney(pd)}]:[],
-   [{label:'Balance due',value:cash(salesMoney(st.grand-pd))},{label:'Quantity',value:String(units)},{label:'Weight',value:w.kg==null?'—':docWeightText(w.kg,opts,w.estimated||!w.complete)},{label:'Area',value:docNum(area,0)+' ft²'}]);
+  /* Оплачено — чётко (владелец 07.11.2026): Paid зелёным, Balance due
+     красным, под строкой полоса «Paid … · % / Left …». */
+  const left=salesMoney(st.grand-pd),paidTone=pd>0&&st.complete;
+  model.strip=[{label:'Total '+order.currency,value:cash(st.grand)}].concat(pd>0?[{label:'Paid',value:docMoney(pd),tone:'paid',labelTone:true}]:[],
+   [{label:'Balance due',value:cash(left),tone:paidTone?left>0?'due':'paid':''},{label:'Quantity',value:String(units)},{label:'Weight',value:w.kg==null?'—':docWeightText(w.kg,opts,w.estimated||!w.complete)},{label:'Area',value:docNum(area,0)+' ft²'}]);
+  if(paidTone&&st.grand>0)model.stripPaid={paid:Math.min(pd,st.grand),left:Math.max(0,left)};
  }
  model.footerRight=[company.legalName,docName+' '+number].filter(Boolean).join(' · ');
  if(kind==='workOrder')model.lineTotals=(order.lines||[]).map(l=>docLineTotals(l,order));

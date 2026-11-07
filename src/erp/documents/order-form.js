@@ -130,11 +130,12 @@ function docFormContext(m,tpl){
  if(!m.data)m=Object.assign({},m,{data:{}});
  const opts=m.opts||{company:true},by=new Map(docFormFields(m.kind).map(x=>[x.k,x])),added=new Set(docFormAdded(m.kind,tpl||docFormTemplate(m.kind,m.form)).map(x=>x.b.id)),cache=new Map();
  const sec={
-  strip:()=>m.strip&&m.strip.length?{h:32,draw(P,y){docCells(P,m.strip,y,32,10.5);}}:null,
+  strip:()=>m.strip&&m.strip.length?{h:m.stripPaid?56:32,draw(P,y){docCells(P,m.strip,y,32,10.5);if(m.stripPaid)docPaidBar(P,m.stripPaid,y+38);}}:null,
   meta:()=>m.meta.length?{h:38,draw(P,y){docCells(P,m.meta,y,28,7.8);}}:null,
   boxes:()=>{if(!m.boxes.length)return null;const L=docBoxesLay(m.boxes);return {h:L.h+12,draw:L.draw};},
   end:()=>m.end?docEndBlock(m):null,
-  summary:()=>m.summary?{h:m.summaryNote?58:44,draw(P,y){docCells(P,m.summary,y+12,32,10.5);if(m.summaryNote)P.text(DOC_PAGE.left,y+55,docFit(m.summaryNote,7.6,false,DOC_PAGE.right-DOC_PAGE.left),{size:7.6});}}:null,
+  /* summaryBar — полоса сроков выписки под ячейками, проценты под ней. */
+  summary:()=>{if(!m.summary)return null;const bar=m.summaryBar?26:0;return {h:(m.summaryNote?58:44)+bar,draw(P,y){docCells(P,m.summary,y+12,32,10.5);if(bar){docBar(P,m.summaryBar.parts,y+50,6);P.text(DOC_PAGE.left,y+65,m.summaryBar.text,{size:6,color:DOC_COLOR.mut});}if(m.summaryNote)P.text(DOC_PAGE.left,y+55+bar,docFit(m.summaryNote,7.6,false,DOC_PAGE.right-DOC_PAGE.left),{size:7.6});}};},
   signature:()=>m.signature?docSignatureBlock(m):null};
  return {field:k=>{const x=by.get(k);return x?x.v(m):undefined;},type:k=>(by.get(k)||{}).t||'',
   section:k=>{if(!cache.has(k))cache.set(k,sec[k]?sec[k]():null);return cache.get(k);},

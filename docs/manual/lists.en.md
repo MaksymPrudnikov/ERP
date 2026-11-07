@@ -37,6 +37,10 @@ Section details: [Optimization](optimization.en.md), [Shipping](shipping.en.md),
 
 ## Sales: invoiced or not
 
-Invoice column (add it in the column list): Invoiced — the order's Invoice was printed or emailed; Not invoiced — the
-order is fully picked up but no invoice yet; empty — not all picked up. The Not invoiced tab at the top of Sales shows
-only those orders; it appears when there are any.
+The Invoice column is shown right after Status, with a ▾ filter like the other columns: **Invoiced** (green) — the
+order's Invoice was printed or emailed; **Not invoiced · N d** — the order is fully picked up and has had no invoice
+for N days (yellow from 3 days); a dash — not all picked up (In work in the filter). The Not invoiced tab at the top of
+Sales shows only those orders; it appears when there are any.
+
+The status buttons (Draft, New, Verified…) sit on a second row, only on All; Today, Due this week, Needs attention and
+Not invoiced keep one row. All again hides and shows the statuses.

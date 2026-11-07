@@ -50,7 +50,8 @@ function finOpenReceipt(id){
  finDraft={customerId:r.customerId,date:r.date,method:r.method,reference:r.reference,amount:String(r.amount),note:r.note,apply:Object.fromEntries(r.allocations.map(a=>[a.orderId,String(a.amount)])),currency:finCurrency(r),reason:'',duplicate:false};
  finDraftBaseline=JSON.stringify(finDraft);render();
 }
-function finCloseReceipt(force,saved){if(!force&&!finCanLeave())return;finEdit=null;finDraft=null;finDraftBaseline='';const back=finBack;finBack=null;if(back)finGoBack(back,saved);render();}
+/* + Receipt из Allocate payments — после квитанции обратно в окно разнесения. */
+function finCloseReceipt(force,saved){if(!force&&!finCanLeave())return;finEdit=null;finDraft=null;finDraftBaseline='';const back=finBack;finBack=null;if(back)finGoBack(back,saved);if(finAlloc&&finAlloc.back){finAlloc.back=false;finTab='accounts';finAccountId=finAlloc.customerId;}render();}
 function finGoBack(back,r){
  tab=back.tab;subtab=back.subtab||null;if(!r)return;
  const text='Payment '+r.number+' saved · '+finFmt(r.amount);

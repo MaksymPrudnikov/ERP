@@ -28,8 +28,15 @@ function salesListShortLabel(s){return window.innerWidth>=1400?s:({'Due this wee
 function salesListStatusPills(chips){
  const cur=chips.find(c=>c.key===salesStatusFilter);
  if(window.innerWidth<1200)return `<button type="button" class="sl-quick-pill${cur?' on':''}" data-status-menu aria-haspopup="dialog" onclick="salesListOpenStatus(event)">Status: ${esc(cur?salesListShortLabel(cur.label):'All')}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`;
- if(salesListLoadPrefs().statusHidden)return '';
- return `<span class="sl-filter-sep" aria-hidden="true"></span>${chips.map(c=>`<button type="button" class="sl-quick-pill sl-status-pill${c.key===salesStatusFilter?' on':''}" aria-pressed="${c.key===salesStatusFilter}" data-status-chip="${esc(c.key)}" onclick="salesSetStatusFilter(${esc(JSON.stringify(c.key))})">${esc(salesListShortLabel(c.label))}<b>${c.n.toLocaleString('en-US')}</b></button>`).join('')}`;
+ return '';
+}
+/* Статусы — второй строкой и только при All (владелец 07.11.2026): на
+   Today, Not invoiced и других видах одна строка. Выбранный статус —
+   часть All, строка остаётся. */
+function salesListStatusRow(chips){
+ const p=salesListLoadPrefs();
+ if(window.innerWidth<1200||p.statusHidden||p.quick!=='all'&&!salesStatusFilter)return '';
+ return `<div class="sl-filter-row sl-status-row">${chips.map(c=>`<button type="button" class="sl-quick-pill sl-status-pill${c.key===salesStatusFilter?' on':''}" aria-pressed="${c.key===salesStatusFilter}" data-status-chip="${esc(c.key)}" onclick="salesSetStatusFilter(${esc(JSON.stringify(c.key))})">${esc(salesListShortLabel(c.label))}<b>${c.n.toLocaleString('en-US')}</b></button>`).join('')}</div>`;
 }
 function salesListOpenStatus(e){salesListMenu=Object.assign({kind:'status',scope:'sales'},salesListAt(e,220));render();}
 function salesListStatusMenuHTML(style){

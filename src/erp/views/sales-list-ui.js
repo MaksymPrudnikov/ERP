@@ -33,6 +33,10 @@ const SALES_LIST_COLUMNS=[
  {k:'created',label:'Created',type:'date',def:true},
  {k:'due',label:'Due',type:'date',def:true},
  {k:'status',label:'Status',type:'list',def:true},
+ /* Счёт (владелец 06.11.2026): Invoiced — бухгалтер напечатал или отправил
+    Invoice клиенту (журнал заказа); Not invoiced — всё выдано, счёта не было.
+    07.11.2026 — видна сразу, за Status, с фильтром ▾ как у других колонок. */
+ {k:'invoice',label:'Invoice',type:'list',def:true},
  {k:'priority',label:'Priority',type:'list',def:true},
  {k:'glass',label:'Glass',type:'text',def:true},
  {k:'orderItems',label:'Order Items',type:'text',def:true},
@@ -41,9 +45,6 @@ const SALES_LIST_COLUMNS=[
  {k:'total',label:'Total',type:'number',def:true,sum:true,money:true},
  {k:'receipts',label:'Receipts',type:'number',def:true,sum:true,money:true},
  {k:'balance',label:'Balance',type:'number',def:true,sum:true,money:true},
- /* Счёт (владелец 06.11.2026): Invoiced — бухгалтер напечатал или отправил
-    Invoice клиенту (журнал заказа); Not invoiced — всё выдано, счёта не было. */
- {k:'invoice',label:'Invoice',type:'list'},
  {k:'hold',label:'On Hold',type:'list'},
  {k:'delivery',label:'Delivery',type:'list'},
  {k:'rep',label:'Sales rep',type:'text'},
@@ -67,8 +68,9 @@ const SALES_LIST_PRESETS=[['today','Today'],['yesterday','Yesterday'],['thisWeek
 /* Сроки оплаты смотрят вперёд (Finance → Due dates): просрочено и ближайшие дни. */
 const SALES_LIST_DUE_PRESETS=[['overdue','Overdue'],['today','Today'],['next7','Next 7 days'],['next30','Next 30 days'],['thisMonth','This month'],['nextMonth','Next month']];
 const SALES_HOLD_REASONS=['Waiting for payment','Customer asked to wait','Sizes or drawing to confirm','Credit check'];
-/* Sales: колонка прячется на экране уже этой ширины (владелец, 2.11.2026). */
-const SALES_LIST_NARROW={orderItems:1800,glass:1620,created:1620,priority:1400,area:1400,units:1200,po:1200,receipts:1200};
+/* Sales: колонка прячется на экране уже этой ширины (владелец, 2.11.2026).
+   Created — до 1820 (07.11.2026): место колонке Invoice, таблица без прокрутки. */
+const SALES_LIST_NARROW={orderItems:1800,glass:1620,created:1820,priority:1400,area:1400,units:1200,po:1200,receipts:1200};
 /* Show at bottom: что считать под колонкой. Таблицы с итогом salesListFooter. */
 const SALES_LIST_CALC_NUMBER=[['sum','Sum'],['avg','Average'],['count','Count'],['min','Min'],['max','Max'],['none','None']];
 const SALES_LIST_CALC_TEXT=[['count','Count'],['unique','Unique'],['none','None']];
@@ -142,6 +144,12 @@ function salesListCleanPrefs(p){
  if(salesListCwId()){const w=cwClean(p.widths);if(Object.keys(w).length)clean.widths=w;}
  if(salesListScope()==='shippingPS')clean.dayInit=p.dayInit===true;
  if(tab==='inventory')clean.inventoryDateInitialized=true;
+ /* Колонка Invoice (07.11.2026) включается один раз и встаёт за Status —
+    и у списков, сохранённых раньше, где она была выключена. */
+ if(salesListScope()==='sales'){
+  if(p.invoiceShown!==true){const i=cols.findIndex(c=>c.k==='invoice');if(i>=0){const c=cols.splice(i,1)[0];c.on=true;const at=cols.findIndex(x=>x.k==='status');cols.splice(at>=0?at+1:cols.length,0,c);}}
+  clean.invoiceShown=true;
+ }
  return clean;
 }
 function salesListDefaultOp(col){return col.type==='number'?'gt':col.type==='date'?'between':'contains';}
@@ -269,7 +277,7 @@ function salesListValue(info,k){
   case 'rep':v=c.salesRep||'';break;
   case 'createdBy':{const e=orderCreatedBy(o.id);v=e?e.by:'';break;}
   case 'terms':v=finTermsFor(o).paymentMode==='credit'?'Credit':'Cash';break;
-  case 'invoice':v=q||!finInvoiceDate(o)?'':salesInvoicedSet().has(o.id)?'Invoiced':'Not invoiced';break;
+  case 'invoice':v=q?'':!finInvoiceDate(o)?'In work':salesInvoicedSet().has(o.id)?'Invoiced':'Not invoiced';break;
   case 'lines':v=lines.length;break;
   /* Пункт 14: известный вес всегда, неполный — с Partial (salesListWeightCell);
      число — для сортировки и фильтра, признак — в memo. */
@@ -394,6 +402,14 @@ function salesInvoicedSet(){
  const s=new Map();ev.forEach(e=>{if(e&&(e.what==='Printed'||e.what==='Emailed')&&e.note==='Invoice'){const d=String(e.at||'').slice(0,10);if(!s.has(e.orderId)||d<s.get(e.orderId))s.set(e.orderId,d);}});
  salesInvoicedCache={ev,n:ev.length,s};return s;
 }
+/* Ячейка Invoice: Invoiced зелёным; Not invoiced — сколько дней заказ
+   выдан без счёта, с 3 дней жёлтым; в работе — прочерк. */
+function salesInvoicePill(o,v){
+ if(v==='Invoiced')return '<span class="pill ok sl-inv-pill">Invoiced</span>';
+ if(v!=='Not invoiced')return v?`<span class="mut" title="${esc(v)}">—</span>`:'';
+ const d=Math.max(0,Math.round((Date.parse(finToday())-Date.parse(finInvoiceDate(o)))/864e5));
+ return `<span class="pill sl-inv-pill${d>=3?' warn':''}" title="Days without invoice">Not invoiced · ${d} d</span>`;
+}
 function salesQuickOpen(o){return !salesIsQuote(o)&&!['done','closed','cancelled'].includes(o.status);}
 function salesQuickTest(key,info){
  if(key==='all'||info.n)return key==='all';
@@ -475,6 +491,7 @@ function salesListCell(info,col){
   case 'customer':return `<td><b>${raw(v||'—')}</b></td>`;
   case 'created':case 'due':case 'validUntil':case 'updated':return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;
   case 'status':return `<td>${q?salesQuoteGroupPill(o):salesStatusPill(o)}${!q&&o.onHold?' <span class="pill hold">On Hold</span>':''}</td>`;
+  case 'invoice':return `<td>${salesInvoicePill(o,v)}</td>`;
   case 'glass':case 'orderItems':return `<td><span class="sl-glass" title="${esc(v)}">${raw(v||'—')}</span></td>`;
   case 'weight':return salesListWeightCell(v,info.memo.weightInfo);
   case 'units':case 'pcs':case 'lines':case 'shapes':case 'revisions':return `<td class="n">${salesListNum(v)}</td>`;
@@ -560,7 +577,7 @@ function salesListView(){
  },cols.length+2);
  const empty=`<tr><td colspan="${cols.length+2}" class="empty">${all.length?'Nothing matches the filters.':'No Sales Orders yet'}</td></tr>`;
  const wide=window.innerWidth>=1600,dateBtn=salesListDateButton(),chips=salesStatusChips(shown);salesListChipsNow=chips;
- return `<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">${salesListShowButton()}${openBtn}${deleteBtn}${holdBtn}${stickersBtn}${estBtn}<span class="sales-toolbar-sp"></span>${wide?'':dateBtn}<button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div><div class="sl-filter-row">${salesQuickHTML(filtered,anyDate,{cur:salesStatusFilter?'-':quick,set:'salesQuickPick',name:salesListShortLabel,invoice:true})}${salesListStatusPills(chips)}${wide?`<span class="sales-toolbar-sp"></span>${dateBtn}`:''}</div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${cw?cwTableClass('sales'):''}"${cw?cwTableAttrs('sales',keys):''}>${cw?cwColgroup('sales',keys):''}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
+ return `<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">${salesListShowButton()}${openBtn}${deleteBtn}${holdBtn}${stickersBtn}${estBtn}<span class="sales-toolbar-sp"></span>${wide?'':dateBtn}<button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div><div class="sl-filter-row">${salesQuickHTML(filtered,anyDate,{cur:salesStatusFilter?'-':quick,set:'salesQuickPick',name:salesListShortLabel,invoice:true})}${salesListStatusPills(chips)}${wide?`<span class="sales-toolbar-sp"></span>${dateBtn}`:''}</div>${salesListStatusRow(chips)}${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${cw?cwTableClass('sales'):''}"${cw?cwTableAttrs('sales',keys):''}>${cw?cwColgroup('sales',keys):''}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
 }
 
 /* ------------------------------ Меню ----------------------------------- */
@@ -591,6 +608,7 @@ function salesListMenuHTML(infos){
  if(m.kind==='date')return back+salesListDateMenuHTML(m,style);
  if(m.kind==='context')return back+salesListContextHTML(m,style);
  if(m.kind==='oq-context')return back+optimizationContextHTML(m,style);
+ if(m.kind==='fin-context'&&typeof finListContextHTML==='function')return back+finListContextHTML(m,style);
  if(m.kind==='columns')return back+salesListColumnsHTML(style);
  if(m.kind==='filter')return back+salesListFilterHTML(m,infos,style);
  return '';
@@ -680,7 +698,7 @@ function salesListMoveColumnTo(from,to,after){
  const [c]=cols.splice(a,1),b=cols.findIndex(x=>x.k===to);if(b<0){cols.splice(a,0,c);return;}
  cols.splice(after?b+1:b,0,c);salesListSavePrefs();render();
 }
-const SALES_LIST_WIDTH={type:76,number:96,customer:110,po:88,created:92,due:84,status:140,priority:84,glass:150,orderItems:160,batch:110,unitType:96,readyQty:80,units:76,area:92,total:100,receipts:100,balance:100,invoice:96};
+const SALES_LIST_WIDTH={type:76,number:96,customer:110,po:88,created:92,due:84,status:140,priority:84,glass:150,orderItems:160,batch:110,unitType:96,readyQty:80,units:76,area:92,total:100,receipts:100,balance:100,invoice:126};
 cwRegister('sales',{
  widths:()=>salesListLoadPrefs().widths||{},
  save:w=>{const p=salesListLoadPrefs();if(Object.keys(w).length)p.widths=w;else delete p.widths;salesListSavePrefs();},

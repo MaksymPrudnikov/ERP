@@ -136,6 +136,7 @@
   "src/erp/views/finance-workspace.js",
   "src/erp/views/finance-schedule.js",
   "src/erp/views/finance-lists.js",
+  "src/erp/views/finance-allocate.js",
   "src/erp/views/commissions.js",
   "src/erp/views/purchasing.js",
   "src/erp/views/purchase-orders.js",

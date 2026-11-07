@@ -92,12 +92,24 @@ function finListFooter(all,cols,noun){
 /* Списки Finance — вид Sales (этап 6, 03.11.2026): галочка строки, действия
    строки — сверху в шапке для отмеченной (r.acts: [label, onclick, атрибуты]),
    шестерёнка слева, ширина и порядок колонок, итог. */
-let finSel='';
+let finSel='',finListActs=new Map();
 function finSelect(id,on=true){finSel=on?id:'';render();}
+/* Правый клик по строке (как в Sales, владелец 07.11.2026): строка
+   отмечается, меню — те же действия, что кнопки над таблицей. */
+function finListContext(e,id){
+ if(e){e.preventDefault();e.stopPropagation();}
+ if(!finListActs.has(id))return;
+ finSel=id;salesListMenu={kind:'fin-context',id,x:(e&&e.clientX)||40,y:(e&&e.clientY)||40,w:220};render();
+}
+function finListContextHTML(m,style){
+ const acts=finListActs.get(m.id)||[];if(!acts.length)return '';
+ return `<div class="sl-ctx" style="${style}" role="menu" data-fin-context>${acts.map(([l,fn,attr])=>`<button type="button" role="menuitem" ${attr||''} onclick="salesListMenu=null;${fn}">${l}</button>`).join('')}</div>`;
+}
 function finListTable(infos,cell,rowAttrs,noun,empty,names){
  const p=salesListLoadPrefs(),rows=salesListRows(infos),cols=salesListColumns();
  if(finSel&&!rows.some(r=>r.o.id===finSel))finSel='';
- const body=rows.map(r=>{const on=finSel===r.o.id;return `<tr ${rowAttrs(r)}${on?' data-fin-sel':''}><td class="sl-check" onclick="event.stopPropagation()"><input type="checkbox" aria-label="Select ${esc(String(r.memo.number||r.memo.customer||r.o.id))}" ${on?'checked':''} onchange="finSelect('${esc(r.o.id)}',this.checked)"></td>${cols.map(c=>cell(r,c)).join('')}<td></td></tr>`;}).join('');
+ finListActs=new Map(rows.map(r=>[r.o.id,r.acts||[]]));
+ const body=rows.map(r=>{const on=finSel===r.o.id;return `<tr ${rowAttrs(r)}${on?' data-fin-sel':''} oncontextmenu="finListContext(event,'${esc(r.o.id)}')"><td class="sl-check" onclick="event.stopPropagation()"><input type="checkbox" aria-label="Select ${esc(String(r.memo.number||r.memo.customer||r.o.id))}" ${on?'checked':''} onchange="finSelect('${esc(r.o.id)}',this.checked)"></td>${cols.map(c=>cell(r,c)).join('')}<td></td></tr>`;}).join('');
  const cw=salesListCwTable(cols.map(c=>c.k),[44],20,{due:130,terms:150,days:110,balance:110,outstanding:110,limit:110,state:130,status:110}),sel=rows.find(r=>r.o.id===finSel);
  const acts=(sel&&sel.acts||[]).map(([l,fn,attr])=>`<button type="button" class="sl-quiet" ${attr||''} onclick="${fn}">${l}</button>`).join('');
  /* Ничего не отмечено — те же кнопки серыми, как в Sales: шапка не пустеет. */
@@ -118,11 +130,21 @@ function finAccountInfos(){
   return {o:{id:c.id,createdAt:c.createdAt||''},c,m,memo:{customer:finCustomerName(c),code:c.code||'',terms:a.terms,balance:x.balance,overdue:x.overdue,prepaid:x.prepaid,deposit:x.deposit,limit:a.creditLimit,orders:x.orders,state:finAccountState(c,a)}};
  }).filter(i=>finAccountAll?i.c.status!=='archived'||finAccountOpen(i.m):finAccountOpen(i.m));
 }
+/* Полоса сроков под Balance (владелец 07.11.2026): как итоги выписки —
+   просрочка 90+ и 60+, просрочено моложе (Due now) и Current. */
+const FIN_AGING=[['Overdue 90+','fin-age-90'],['Overdue 60+','fin-age-60'],['Due now','fin-age-now'],['Current','fin-age-cur']];
+function finAgingBar(rows){
+ const day=finToday(),v=[0,0,0,0];
+ (rows||[]).forEach(({f})=>{const b=f.b;if(b.status==='review'||!(b.balance>0))return;const d=f.dueOn&&f.dueOn<day?Math.floor((Date.parse(day)-Date.parse(f.dueOn))/864e5):0;v[d>=90?0:d>=60?1:d>0?2:3]+=b.balance;});
+ const all=v.reduce((s,n)=>s+n,0);if(!(all>0))return '';
+ const tip=FIN_AGING.map((a,i)=>v[i]>0?a[0]+' '+finFmt(finMoney(v[i])):'').filter(Boolean).join(' · ');
+ return `<div class="fin-aging" data-fin-aging title="${esc(tip)}">${v.map((n,i)=>n>0?`<span class="${FIN_AGING[i][1]}" style="width:${(100*n/all).toFixed(2)}%"></span>`:'').join('')}</div>`;
+}
 function finAccountCell(r,c){
  const v=salesListValue(r,c.k),x=r.m.money;
  switch(c.k){
   case 'customer':return `<td><button class="fin-link" onclick="finOpenAccount('${esc(r.c.id)}')">${raw(v)}</button>${x.review?'<span class="pill warn">Review required</span>':''}<div class="mut small">${raw(r.c.code||'')}${r.c.onHold?' · <b class="fin-due">On hold</b>':''}</div></td>`;
-  case 'balance':return `<td class="n">${v>0?`<b>${finFmt(v)}</b>`:'<span class="mut">—</span>'}${x.incomplete?`<div class="mut small">${x.incomplete} not priced</div>`:''}</td>`;
+  case 'balance':return `<td class="n">${v>0?`<b>${finFmt(v)}</b>${finAgingBar(r.m.rows)}`:'<span class="mut">—</span>'}${x.incomplete?`<div class="mut small">${x.incomplete} not priced</div>`:''}</td>`;
   case 'overdue':return `<td class="n">${v>0?`<b class="fin-due">${finFmt(v)}</b>`:'<span class="mut">—</span>'}</td>`;
   case 'deposit':return `<td class="n">${v>0?`<span class="fin-deposit">${finFmt(v)}</span>`:'<span class="mut">—</span>'}</td>`;
   case 'prepaid':return `<td class="n">${finMoneyText(v)}</td>`;
@@ -135,8 +157,8 @@ function finAccountCell(r,c){
 /* Строки таблицы Accounts после фильтров — для CSV, печати и тестов. */
 function finAccountsList(){return salesListRows(finAccountInfos()).map(r=>({c:r.c,m:r.m}));}
 function finAccountsWorkspace(){
- const infos=finAccountInfos();infos.forEach(r=>{r.acts=[['Open',`finOpenAccount('${esc(r.c.id)}')`]].concat(r.m.money.deposit>0&&r.m.money.balance>0?[['Apply deposit',`finOpenApply('${esc(r.c.id)}')`]]:[]);r.applyHint=r.m.money.deposit>0&&r.m.money.balance>0;});
- const t=finListTable(infos,finAccountCell,r=>`data-account="${esc(r.c.id)}"`,'customer',finAccountAll?'No customers yet':'No open balances',['Open','Apply deposit']);
+ const infos=finAccountInfos();infos.forEach(r=>{const id=esc(r.c.id);r.acts=[['Open',`finOpenAccount('${id}')`],['Allocate',`finOpenAllocate('${id}')`,'data-fin-row-allocate'],['Statement',`finOpenAccount('${id}');finOpenStatement('${id}')`]].concat(r.m.money.deposit>0&&r.m.money.balance>0?[['Apply deposit',`finOpenApply('${id}')`]]:[],[['+ Receipt',`finNewReceipt('${id}')`]]);r.applyHint=r.m.money.deposit>0&&r.m.money.balance>0;});
+ const t=finListTable(infos,finAccountCell,r=>`data-account="${esc(r.c.id)}"`,'customer',finAccountAll?'No customers yet':'No open balances',['Open','Allocate','Statement','Apply deposit']);
  return finFrame(`<button type="button" class="sl-quiet${finAccountAll?'':' on'}" data-accounts="open" onclick="finAccountAll=false;render()">Open accounts</button><button type="button" class="sl-quiet${finAccountAll?' on':''}" data-accounts="all" onclick="finAccountAll=true;render()">All customers</button>${t.acts}`,`<button type="button" class="sl-quiet" onclick="finOpenStatements()" title="Statements for all customers for a month">Statements</button><button type="button" class="sl-quiet" ${t.rows.length?'':'disabled'} onclick="finBalancesExport()">CSV</button><button type="button" class="sl-quiet" ${t.rows.length?'':'disabled'} onclick="finOpenPreview('balances')">Print</button>`,t.html);
 }
 

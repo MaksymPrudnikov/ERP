@@ -90,8 +90,8 @@ module.exports=async function({page,eq}){
  await run(()=>{salesListMenu=null;localStorage.removeItem(SALES_LIST_PREFS_KEY);salesListPrefs=null;salesListLoadPrefs().filters={};tab='sales';render();});
  await carry('th[data-col="status"] [data-cw-label]','th[data-col="glass"]');
  const fl=await box('th[data-col="po"] [data-cw-label]');if(fl)await t.p.mouse.click(fl.x+3,fl.y+3);
- eq('Sales: заголовок Status перетащили за Glass — порядок записан, как из меню Columns; простой клик по заголовку ничего не делает',await run(()=>({heads:cwHeads().slice(4,9),saved:salesListLoadPrefs().cols.filter(c=>c.on&&c.k!=='type').map(c=>c.k).slice(4,9),menu:!!salesListMenu,widths:salesListLoadPrefs().widths||null})),
-  {heads:['due','priority','glass','status','orderItems'],saved:['due','priority','glass','status','orderItems'],menu:false,widths:null});
+ eq('Sales: заголовок Status перетащили за Glass — порядок записан, как из меню Columns; простой клик по заголовку ничего не делает',await run(()=>({heads:cwHeads().slice(5,10),saved:salesListLoadPrefs().cols.filter(c=>c.on&&c.k!=='type').map(c=>c.k).slice(5,10),menu:!!salesListMenu,widths:salesListLoadPrefs().widths||null})),
+  {heads:['invoice','priority','glass','status','orderItems'],saved:['invoice','priority','glass','status','orderItems'],menu:false,widths:null});
 
  /* ---------------- Order Lines: тот же механизм, свои ширины ---------------- */
  await run(()=>{const id=cwOrder([{mu:['4CLEAR','4E272'],qty:4},{mu:['4CLEAR','4Q272'],qty:4},{mu:['4CLEAR','4E272'],qty:2}]);window.cwLines=id;salesListLoadPrefs().widths={glass:150};salesListSavePrefs();

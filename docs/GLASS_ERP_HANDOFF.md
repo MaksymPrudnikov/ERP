@@ -2,6 +2,60 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Деньги на виду: Statement, Invoice, Accounts, Sales · 7 ноября 2026
+
+Владелец 07.11.2026 выбрал по картинкам восемь правок (`~/Documents/ERP_PLAN/spiel-samples/visual/`, v2 и v3) — в том
+же PR, что окно Allocate.
+
+- **Statement** (finance/print): счета по месяцам — `finStatementRows`: строка `group` (месяц), счета, `sub` — подытог
+  «Due now · N invoices» после последнего счёта к оплате, `total` — итог месяца под чертой; заказы в работе — группой
+  In work. К оплате сейчас (`finStatementNow`) — те же правила, что итоги внизу: просрочка 60+ и 90+ всегда, моложе —
+  выбранное бухгалтером, без выбора — просроченное; такие строки красные. Колонка Days late (`finStatementLate`).
+  Строки рисует общий `finDocRow` (finDocLayout и finDocTable). Итоги сроков — с цветной меткой (`docCells` cell.mark),
+  под ними полоса `m.summaryBar` (`docBar`) и проценты.
+- **Invoice / Proforma / Confirmation**: в строке итогов Credits → **Paid** зелёным, Balance due красным (оплачено всё
+  — зелёным; `docCells` cell.tone), под строкой полоса `docPaidBar` из `m.stripPaid` — только когда есть оплата.
+  Полоса — часть секции Totals strip, в конструкторе ходит вместе с ней. Процент — до десятой, 100% только без
+  остатка. Значок вида перед названием строки: `it.panes` 1 / 2 / 3 черты (Single lite / IGU / Triple IGU).
+- **Accounts — Allocate без захода в клиента** (владелец 07.11.2026, «два способа»): у строки действия Open,
+  Allocate, Statement, Apply deposit, + Receipt — кнопками над таблицей при галочке и меню правого клика
+  (`finListContext`, `salesListMenu.kind='fin-context'`, действия строки из `finListActs`). Меню есть у всех списков
+  Finance на `finListTable`.
+- **Accounts**: под Balance полоса сроков `finAgingBar` (views/finance-lists, классы `.fin-age-*` на токенах),
+  суммы — в title.
+- **Sales**: колонка Invoice видна по умолчанию, за Status (у сохранённых списков включается один раз —
+  `invoiceShown`); ячейка `salesInvoicePill`: Invoiced — `pill ok`, «Not invoiced · N d» — с 3 дней `pill warn`, в
+  работе — прочерк, значение фильтра In work. Статусы — `salesListStatusRow`: второй строкой, только на All (или
+  когда выбран статус); на узком экране — прежняя кнопка Status.
+  Колонка Invoice 126 px (таблетка `.sl-inv-pill` плотнее); чтобы таблица осталась без прокрутки, Created теперь
+  прячется на экране уже 1820 px (было 1620) — `SALES_LIST_NARROW`.
+- Тесты: `test/finance-visual.js` (5); `test/finance.js` ждёт Paid вместо Credits; `test/sales-list.js` берёт счёт
+  статусов из `salesListChipsNow` — на Today кнопок больше нет.
+- Замечено, не правил: в Accounts итоги внизу (строка «19 customers») стоят на колонку левее своих — было и до этой
+  правки.
+
+## Finance: окно Allocate payments как в Spiel · 6 ноября 2026
+
+Владелец 06.11.2026: бухгалтер привыкла к экрану разнесения Spiel (Debit | Credit Transactions). Вид выбран по
+картинкам — вариант D (`~/Documents/ERP_PLAN/spiel-samples/allocation/`): две половины как в A, из C — итог одной
+строкой у кнопок и раскрытие связей.
+
+- Finance → Accounts → клиент → **Allocate** (`finOpenAllocate`, views/finance-allocate). Слева Orders & invoices
+  (Type Order / Invoice по `finInvoiceDate`, дата — счёта или заказа, со старого), справа Receipts & credits (активные
+  CAD-квитанции клиента, Allocated / Outstanding = `finReceiptApplied` / `finReceiptOnAccount`). Фильтры Unpaid / Part
+  paid / Fully paid у каждой половины, по умолчанию Fully paid скрыт. Заказы без полной цены не показываются («N not
+  priced» внизу), пустые — тоже.
+- **Allocate selected** — `finAllocate(customerId, orderIds, receiptIds, cap)`: заказы по порядку, каждому
+  `finApplyDeposit(..., receiptIds)` — у него новый необязательный аргумент «только эти квитанции» (без него — как
+  было, все квитанции клиента). **Ask amount** — `prompt` суммы, она потолок.
+- **Unallocate selected** — `finUnallocate(customerId, pairs)`, пара {receiptId, orderId} снимается целиком, событие
+  `released` «Allocation released from order …». Пары: связи между отмеченными; отмечена одна сторона — все её связи.
+  Связь с заказом, которого нет в базе (архив), не снимается из окна.
+- Строка «что будет» (`finAllocPlan`) — тот же жадный порядок: итог = min(долг отмеченных, остаток отмеченных, потолок).
+- Ссылки уводят из окна (заказ в Sales, форма квитанции); + Receipt возвращает в окно после Save / Cancel
+  (`finAlloc.back` в `finCloseReceipt`). Уход из Finance и открытие другой карточки клиента окно закрывают.
+- Сторож: test/finance-allocate.js. Руководство: docs/manual/finance.*.md (раздел Finance заведён этим PR).
+
 ## Бланк Spiel: Invoice по ответам бухгалтера и свои формы · 6 ноября 2026
 
 Владелец 06.11.2026: «наш бланк лучше Spiel — доделывать наш»; бухгалтер: Credits раздельно, Balance — по заказу.

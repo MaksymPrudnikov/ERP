@@ -98,3 +98,21 @@
 .com-form [data-com-customer] .dl{flex:none;width:auto;margin-left:auto}
 .com-form [data-com-add-customer]{margin-bottom:10px}
 .fin-tiles-row{padding:0 20px 10px}.sales-list-card.fin-card{padding:0}
+/* Allocate payments — две половины, итог строкой у кнопок (views/finance-allocate). */
+.fin-alloc-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 12px}
+.fin-alloc-ask{display:flex;align-items:center;gap:6px;margin:0 0 0 8px;font-size:13px;font-weight:400;color:var(--text)}.fin-alloc-ask input{width:auto;margin:0}
+.fin-alloc-say{margin-left:14px;font-size:13px;color:var(--text-2)}.fin-alloc-say b{color:var(--text);font-variant-numeric:tabular-nums}.fin-alloc-say b.fin-deposit{color:var(--accent)}
+.fin-alloc{display:flex;gap:14px;align-items:stretch}
+.fin-alloc-pane{flex:1;min-width:0;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.fin-alloc-pane-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--surface-2);border-radius:10px 10px 0 0}.fin-alloc-pane-head b{font-size:14px}
+.fin-alloc-pane .fin-table-wrap{margin:0;border:0;border-radius:0}
+.fin-alloc-pane-foot{margin-top:auto;display:flex;gap:18px;flex-wrap:wrap;padding:9px 14px;border-top:1px solid var(--line);font-size:12.5px;color:var(--text-2)}
+.fin-alloc-arrow-cell{width:18px;padding-left:0!important;padding-right:0!important}
+.fin-alloc-arrow{border:0;background:none;padding:2px 4px;color:var(--text-3);cursor:pointer;font-size:12px}
+.fin-alloc-link td{padding-top:4px;padding-bottom:4px}.fin-alloc-link td:nth-child(3){padding-left:14px}
+.fin-alloc-unlink{color:var(--danger)}
+@media(max-width:1100px){.fin-alloc{flex-direction:column}}
+/* Полоса сроков под Balance в Accounts (07.11.2026). */
+.fin-aging{display:flex;height:5px;width:110px;max-width:100%;margin:4px 0 0 auto;border-radius:3px;overflow:hidden;background:var(--surface-3)}
+.fin-aging span{display:block;height:100%}
+.fin-age-90{background:var(--danger)}.fin-age-60{background:var(--warning)}.fin-age-now{background:var(--series-3)}.fin-age-cur{background:var(--accent)}

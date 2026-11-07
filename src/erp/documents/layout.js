@@ -164,11 +164,26 @@ function docCells(P,cells,y,h,valueSize){
  let x=W.left;
  cells.forEach((c,i)=>{
   if(i)P.line(x,y,x,y+h,{stroke:C.line,lw:.5});
-  docLabel(P,x+8,y+10.5,c.label);
-  P.text(x+8,y+h-7.5,docFit(c.value,valueSize,true,widths[i]-14),{size:valueSize,bold:true});
+  /* mark — квадратик цвета полосы под ячейками (сроки выписки); tone —
+     цвет суммы (Paid зелёным, Balance due красным). */
+  if(c.mark)P.rect(x+8,y+5.9,3.2,3.2,{fill:c.mark,r:.6});
+  docLabel(P,x+8+(c.mark?5:0),y+10.5,c.label,c.tone&&c.labelTone?{color:C[c.tone]}:null);
+  P.text(x+8,y+h-7.5,docFit(c.value,valueSize,true,widths[i]-14),{size:valueSize,bold:true,color:c.tone?C[c.tone]:C.ink});
   x+=widths[i];
  });
  return y+h;
+}
+/* Полоса оплаты счёта: зелёное — оплачено, красное — осталось; подписи под ней. */
+function docPaidBar(P,b,y){
+ const W=DOC_PAGE,C=DOC_COLOR,all=b.paid+b.left;if(!(all>0))return;
+ docBar(P,[{n:b.paid,color:C.paid},{n:b.left,color:C.due}],y,6);
+ P.text(W.left,y+15,'Paid '+docMoney(b.paid)+' · '+(b.left>0?Math.min(99.9,Math.round(1000*b.paid/all)/10):100).toFixed(1)+'%',{size:7.4,bold:true,color:C.paid});
+ if(b.left>0)P.text(W.right,y+15,'Left '+docMoney(b.left),{size:7.4,bold:true,color:C.due,align:'right'});
+}
+/* Полоса долей во всю ширину листа: parts — [{n, color}], пустые не рисуются. */
+function docBar(P,parts,y,h){
+ const W=DOC_PAGE,total=parts.reduce((s,p)=>s+Math.max(0,p.n),0);if(!(total>0))return;
+ let x=W.left;parts.forEach(p=>{if(!(p.n>0))return;const w=(W.right-W.left)*p.n/total;P.rect(x,y,Math.max(w,1.5),h,{fill:p.color});x+=w;});
 }
 /* Плашки адресов: высота известна до рисования (секция шаблона формы). */
 function docBoxesLay(boxes){
@@ -208,7 +223,9 @@ function docItemParts(m,it){
  if(it.size)segs.push({t:it.size,size:8.4,bold:true});
  if(it.info)segs.push({t:it.info,size:7.6});
  let rx=DOC_COL.amount;segs.forEach(s=>{s.x=rx;rx-=Math.max(docTextWidth(s.t,s.size,s.bold),s.min||0)+12;});
- const markW=it.mark?docTextWidth(it.mark,9,true)+10:0,xd=60+markW;
+ /* Значок вида (владелец 07.11.2026): одна, две, три черты — Single lite,
+    IGU, Triple IGU — видно до того, как прочтёшь название. */
+ const markW=it.mark?docTextWidth(it.mark,9,true)+10:0,paneW=it.panes?it.panes*2.8+8:0,xd=60+markW+paneW;
  const desc=[it.prefix,it.short].filter(Boolean).join(' ');
  const lines=desc?docWrap(desc,7.8,false,Math.max(60,rx-xd)).slice(0,3):[];
  const hb=18+Math.max(0,lines.length-1)*9.5;
@@ -217,6 +234,7 @@ function docItemParts(m,it){
   P.rect(DOC_PAGE.left,by,DOC_PAGE.right-DOC_PAGE.left,hb,{fill:C.bar,r:3});
   P.text(DOC_COL.item,base,String(it.n),{size:9,bold:true,color:C.navy});
   if(it.mark)P.text(60,base,it.mark,{size:9,bold:true});
+  for(let i=0;i<(it.panes||0);i++)P.rect(61+markW+i*2.8,base-7,1.5,8,{fill:C.navy});
   lines.forEach((l,k)=>{
    if(!k&&it.prefix&&l.indexOf(it.prefix)===0){P.text(xd,base,it.prefix,{size:7.8});const rest=l.slice(it.prefix.length).trim();if(rest)P.text(xd+docTextWidth(it.prefix+' ',7.8),base,rest,{size:7.8,color:C.mut});}
    else P.text(xd,base+k*9.5,l,{size:7.8,color:C.mut});

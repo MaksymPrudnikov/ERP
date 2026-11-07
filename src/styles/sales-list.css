@@ -207,3 +207,5 @@
 /* Ряд кнопок без кнопок (ничего не отмечено, Open — правой кнопкой) места не занимает
    (владелец, 05.11.2026). */
 .card.sales-list-card>.sales-toolbar:not(:has(>:not(.sales-toolbar-sp,[hidden]))){display:none}
+/* Колонка Invoice (07.11.2026): таблетка плотнее — колонка влезает в экран без прокрутки. */
+.sl-table .sl-inv-pill{font-size:10.5px;padding:2px 6px}

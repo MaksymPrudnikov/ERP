@@ -89,8 +89,11 @@ print time (the bottom of the sheet says "Printed … · status from station sca
 
 - Under Total, every payment on its own line (Deposit before the invoice date, Payment after), receipt number and
   date; then Credits total. What is left on this order is in the “Balance · this order” frame. No payments — no lines.
-- Page 1, under the addresses: the totals strip — Total, Credits, Balance due, Quantity, Weight, Area (Proforma,
-  Order confirmation, Invoice). To hide it, untick Totals strip in ✎ Customize or remove the block in the builder.
+- Page 1, under the addresses: the totals strip — Total, Paid, Balance due, Quantity, Weight, Area (Proforma,
+  Order confirmation, Invoice). Paid is green, Balance due red (green when all is paid); under the strip a bar
+  “Paid $… · % / Left $…”. No payments — no Paid and no bar. To hide it, untick Totals strip in ✎ Customize or remove
+  the block in the builder; the bar moves with the strip.
+- Before a line's name, a type mark: one bar — Single lite, two — IGU, three — Triple IGU.
 - Each item line shows its weight: “17.2 kg × 2 = 34.5 kg”. Tick Weight in lb for pounds.
 - Bottom left: terms (Data → Company, Terms) and GST/HST No. (Data → Company, HST number).
 - Fields for your own forms: Credits, Payments one per line, Total weight lb (Insert field, Totals group).
@@ -110,6 +113,10 @@ form per document. Turned off or deleted — the usual document prints again.
 
 - **Receipt** and **Statement** — the same header, cells, addresses and totals as the order forms; the program draws the
   table (orders, money movements). The live sheet — the latest receipts; a statement — a customer for this month.
+- The **Statement** lists invoices by month: a month heading, the invoices, the month total under a rule. The Days
+  late column shows how many days an invoice is overdue, in red. Invoices to pay now are red, and after the last of
+  them in a month comes a “Due now · N invoices” subtotal. At the bottom, four aging amounts with a colour mark and a
+  bar of shares with percents under it.
 - **Purchase order** — the top of every page (PURCHASE ORDER and the number), the first page (company details, dates,
   supplier, contacts, terms — each line a block with its own PO Customize tick), the lines (drawn by the program),
   then the total, notes, supplier invoices and payments, company terms. A blank line between parts is a frame without
