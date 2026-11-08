@@ -88,7 +88,8 @@ function finListFooter(all,cols,noun){
   return `<td class="n" data-sum="${c.k}">${c.money?finFmt(finMoney(total)):total.toLocaleString('en-US')}</td>`;
  }).join('');
  const count=`<b>${typeof noun==='function'?noun(live):rows.length+' '+noun+(rows.length===1?'':'s')}</b>${voids?` <span class="mut" data-foot-void>· ${voids} void not counted</span>`:''}`;
- return `<tfoot><tr class="sl-foot">${lead?`<td colspan="${lead}" class="sl-foot-head" data-foot-count>${count}</td>`:''}${sums}<td${lead?'':' data-foot-count'}>${lead?'':count}</td></tr></tfoot>`;
+ /* +1 — колонка галочки слева: без неё суммы вставали под колонку левее (08.11.2026). */
+ return `<tfoot><tr class="sl-foot"><td colspan="${lead+1}"${lead?' class="sl-foot-head" data-foot-count':''}>${lead?count:''}</td>${sums}<td${lead?'':' data-foot-count'}>${lead?'':count}</td></tr></tfoot>`;
 }
 /* Списки Finance — вид Sales (этап 6, 03.11.2026): галочка строки, действия
    строки — сверху в шапке для отмеченной (r.acts: [label, onclick, атрибуты]),
@@ -251,10 +252,7 @@ function finPaymentCell(r,c){
 }
 function finFilteredReceipts(){return salesListRows(finPaymentInfos()).filter(i=>i.kind==='receipt').map(i=>i.r);}
 /* Строки журнала без фильтра Method — для сумм по способам и By method. */
-function finJournalNoMethod(infos){
- const p=salesListLoadPrefs(),keep=p.filters.method;delete p.filters.method;
- try{return salesListRows(infos);}finally{if(keep)p.filters.method=keep;}
-}
+function finJournalNoMethod(infos){return salesListRows(infos,['method']);}
 function finMethodTotals(rows){
  const map=new Map(),add=(label,f)=>{if(!map.has(label))map.set(label,{label,n:0,amount:0,refunds:0,rows:[]});f(map.get(label));};
  FIN_METHODS.filter(m=>!m.legacy).forEach(m=>add(m.label,()=>{}));

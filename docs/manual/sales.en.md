@@ -62,3 +62,16 @@ Each row has two light icons on the right (owner, 8 Nov 2026, variant E2):
   just remove it.
 - Edgework and makeup work have no ×: edges change in Edgework, frit and spandrel in the makeup.
 - Red only on hover over ×. A line already in production (glass scanned) cannot be edited.
+
+## Where the product is now — Production window
+
+Owner, 8 Nov 2026: a customer calls the front desk, gives the PO and asks where the product is.
+
+- Find the order by PO: ▾ on the PO column → the number. Tick the order and press the **factory** icon in the header
+  next to ✂ (Cut preview) — or right-click the order → **Production**.
+- The window shows the order lines (number, mark, size, units) and under each the glass of the unit (glass code, Lite,
+  how many); columns are the route stations. The cell is the same as in Production → In production: a **number** — glass
+  waiting at this station now, under it the **dolly or skid** and how many are on it (click — the carrier window: what
+  is on it in order, where it stands); **✓** — all passed; **·** — not there yet. The order line is the total of its
+  glass.
+- An order not in the shop yet (not batched) shows "Not in production yet" and the order status.

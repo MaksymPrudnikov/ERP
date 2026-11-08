@@ -409,7 +409,10 @@ function salesListRows(infos,skip){
  const p=salesListLoadPrefs(),active=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k])&&!(skip||[]).includes(k));
  const rows=infos.filter(info=>active.every(k=>salesListFilterTest(salesListColumn(k),p.filters[k],info)));
  const d=salesListDefaultSort(),s=p.sort||d,col=salesListColumn(s.k)||salesListColumn(d.k),cmp=col?salesListCompare(col,s.dir):()=>0;
- return rows.sort((a,b)=>cmp(a,b)||salesListPlainOrder.compare(String(b.o.createdAt||''),String(a.o.createdAt||'')));
+ const out=rows.sort((a,b)=>cmp(a,b)||salesListPlainOrder.compare(String(b.o.createdAt||''),String(a.o.createdAt||'')));
+ /* Что показано в таблице — для Excel в меню ⚙ (views/sl-excel). */
+ if(!skip&&typeof salesListLastRows!=='undefined')salesListLastRows[salesListScope()]=out;
+ return out;
 }
 /* Быстрые виды Sales (владелец, 1 октября 2026): таблетки над таблицей.
    Работают поверх фильтров колонок, кроме даты создания: заказ, созданный
@@ -591,6 +594,9 @@ function salesListView(){
     (views/sales-cut-estimate). */
  const estN=typeof salesCutEstimateIds==='function'?salesCutEstimateIds().length:0;
  const estBtn=typeof salesCutEstimateOpen==='function'?`<button type="button" class="sl-quiet sl-est-btn" data-cut-est-open title="Cut preview${estN?' · '+estN+' selected':': select orders or quotes'}" aria-label="Cut preview" ${estN?'':'disabled'} onclick="salesCutEstimateOpen(salesCutEstimateIds())">${ico('cut')}${estN?`<b>${estN}</b>`:''}</button>`:'';
+ /* Где продукт сейчас (views/sales-production): один отмеченный заказ. */
+ const prodOrder=selOrders.length===1&&!salesIsQuote(salesRecord(selOrders[0])||{})?selOrders[0]:'';
+ const prodBtn=typeof salesProdOpen==='function'?`<button type="button" class="sl-quiet sl-est-btn" data-prod-open title="Production" aria-label="Production" ${prodOrder?'':'disabled'} onclick="salesProdOpen('${esc(prodOrder)}')">${ico('factory')}</button>`:'';
  const rowIds=rows.filter(r=>!r.n&&!r.a).map(r=>r.o.id),allSel=rowIds.length>0&&rowIds.every(id=>salesListSel.has(id));
  /* Ширина и порядок за заголовок — только у списка Sales (views/col-widths). */
  const cw=salesListScope()==='sales',keys=cols.map(c=>c.k);
@@ -604,7 +610,7 @@ function salesListView(){
  },cols.length+2);
  const empty=`<tr><td colspan="${cols.length+2}" class="empty">${all.length?'Nothing matches the filters.':'No Sales Orders yet'}</td></tr>`;
  const wide=window.innerWidth>=1600,dateBtn=salesListDateButton(),chips=salesStatusChips(shown);salesListChipsNow=chips;
- return `<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">${salesListShowButton()}${openBtn}${deleteBtn}${holdBtn}${stickersBtn}${estBtn}<span class="sales-toolbar-sp"></span>${wide?'':dateBtn}<button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div><div class="sl-filter-row">${salesQuickHTML(filtered,anyDate,{cur:salesStatusFilter?'-':quick,set:'salesQuickPick',name:salesListShortLabel,invoice:true})}${salesListStatusPills(chips)}${wide?`<span class="sales-toolbar-sp"></span>${dateBtn}`:''}</div>${salesListStatusRow(chips)}${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${cw?cwTableClass('sales'):''}"${cw?cwTableAttrs('sales',keys):''}>${cw?cwColgroup('sales',keys):''}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
+ return `<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">${salesListShowButton()}${openBtn}${deleteBtn}${holdBtn}${stickersBtn}${estBtn}${prodBtn}<span class="sales-toolbar-sp"></span>${wide?'':dateBtn}<button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div><div class="sl-filter-row">${salesQuickHTML(filtered,anyDate,{cur:salesStatusFilter?'-':quick,set:'salesQuickPick',name:salesListShortLabel,invoice:true})}${salesListStatusPills(chips)}${wide?`<span class="sales-toolbar-sp"></span>${dateBtn}`:''}</div>${salesListStatusRow(chips)}${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${cw?cwTableClass('sales'):''}"${cw?cwTableAttrs('sales',keys):''}>${cw?cwColgroup('sales',keys):''}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
 }
 
 /* ------------------------------ Меню ----------------------------------- */
@@ -696,7 +702,7 @@ function salesListApplyFilter(){const m=salesListMenu;if(!m||m.kind!=='filter')r
 function salesListColumnsHTML(style){
  const p=salesListLoadPrefs();
  const rows=p.cols.map((c,i)=>{const col=salesListColumn(c.k);return `<div class="sl-cols-row" draggable="true" data-col-row="${c.k}" ondragstart="salesListDragKey='${c.k}'" ondragover="event.preventDefault()" ondrop="event.preventDefault();salesListDropColumn('${c.k}')"><span class="h" aria-hidden="true">⋮⋮</span><label><input type="checkbox" data-col-toggle="${c.k}" ${c.on&&!salesListAutoHidden(c.k)?'checked':''} onchange="salesListSetColumn('${c.k}',this.checked)"> ${esc(col.label)}</label><button type="button" class="sm" aria-label="Move ${esc(col.label)} up" ${i===0?'disabled':''} onclick="salesListMoveColumn('${c.k}',-1)">↑</button><button type="button" class="sm" aria-label="Move ${esc(col.label)} down" ${i===p.cols.length-1?'disabled':''} onclick="salesListMoveColumn('${c.k}',1)">↓</button></div>`;}).join('');
- return `<div class="sl-menu sl-cols" style="${style}" role="dialog" aria-label="Columns"><h5>Columns · drag to reorder</h5>${rows}<div class="sl-actions"><button type="button" class="sl-btn" data-standard-view onclick="salesListStandardView()">Standard view</button>${salesListCwId()?`<button type="button" class="sl-btn" data-reset-widths ${cwFixed(salesListCwId())?'':'disabled'} onclick="salesListResetWidths()">Reset widths</button>`:''}</div></div>`;
+ return `<div class="sl-menu sl-cols" style="${style}" role="dialog" aria-label="Columns"><button type="button" class="sl-btn sl-excel" data-excel onclick="salesListExcel()" title="This table to Excel">${ico('download')}Excel</button><h5>Columns · drag to reorder</h5>${rows}<div class="sl-actions"><button type="button" class="sl-btn" data-standard-view onclick="salesListStandardView()">Standard view</button>${salesListCwId()?`<button type="button" class="sl-btn" data-reset-widths ${cwFixed(salesListCwId())?'':'disabled'} onclick="salesListResetWidths()">Reset widths</button>`:''}</div></div>`;
 }
 /* Шестерёнка на узком экране: включённая колонка видна всегда (прокрутка вбок),
    снятая снова прячется только здесь, а на широком экране остаётся. */
@@ -799,7 +805,7 @@ function salesListContextHTML(m,style){
  const q=salesIsQuote(o),ids=salesListSelectedOrders(),many=ids.length>1&&ids.includes(o.id);
  const item=(act,label,cls)=>`<button type="button" role="menuitem" class="${cls||''}" data-menu="${act}" onclick="salesListMenuRun('${act}')">${label}</button>`;
  const hold=q?'':o.onHold?item('release',many?'Release · '+ids.length+' orders':'Release'):item('hold',many?'⛔ On Hold… · '+ids.length+' orders':'⛔ On Hold…');
- return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${item('copy','Copy')}${typeof orderLogOpen==='function'?item('log','Activity log'):''}${typeof skipAllowed==='function'&&!many&&skipAllowed()&&skipCanOpen(o)?item('skip','Skip…'):''}${hold}<hr>${item('documents','Documents')}${item('drawings','Drawings')}${typeof salesCutEstimateOpen==='function'&&cutEstUsable(o)?item('cutpreview',salesCutEstimateIds().length>1?'Cut preview · '+salesCutEstimateIds().length+' selected':'Cut preview'):''}${!q&&o.status!=='cancelled'?item('stickers','Print stickers…'):''}${!q&&typeof productionUnbatchAllowed==='function'&&productionUnbatchAllowed()&&productionUnbatchCanOpen(o)?item('unbatch','Unbatch order…'):''}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
+ return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${item('copy','Copy')}${!q&&typeof salesProdOpen==='function'?item('production','Production'):''}${typeof orderLogOpen==='function'?item('log','Activity log'):''}${typeof skipAllowed==='function'&&!many&&skipAllowed()&&skipCanOpen(o)?item('skip','Skip…'):''}${hold}<hr>${item('documents','Documents')}${item('drawings','Drawings')}${typeof salesCutEstimateOpen==='function'&&cutEstUsable(o)?item('cutpreview',salesCutEstimateIds().length>1?'Cut preview · '+salesCutEstimateIds().length+' selected':'Cut preview'):''}${!q&&o.status!=='cancelled'?item('stickers','Print stickers…'):''}${!q&&typeof productionUnbatchAllowed==='function'&&productionUnbatchAllowed()&&productionUnbatchCanOpen(o)?item('unbatch','Unbatch order…'):''}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
 }
 function salesListMenuRun(act){
  const m=salesListMenu;salesListMenu=null;
@@ -808,6 +814,7 @@ function salesListMenuRun(act){
  if(act==='open')salesOrderEdit(o.id);
  /* Copy — только заказ этой строки, даже при нескольких отмеченных. */
  else if(act==='copy')salesCopyOrder(o.id);
+ else if(act==='production')salesProdOpen(o.id);
  else if(act==='log')orderLogOpen(o.id);
  else if(act==='skip')skipOpen(o.id);
  else if(act==='hold')salesHoldOpen(ids.filter(id=>!held(id)));

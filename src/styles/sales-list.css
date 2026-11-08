@@ -29,6 +29,8 @@
 .sl-backdrop{position:fixed;inset:0;z-index:59;background:transparent}
 .sl-menu{position:fixed;z-index:60;width:340px;max-width:calc(100vw - 16px);overflow:auto;background:var(--surface);border:1px solid var(--line-strong);border-radius:12px;box-shadow:0 16px 40px rgba(16,24,40,.22);padding:12px;font-size:13px;color:var(--text)}
 .sl-menu.sl-cols{width:300px}
+/* Excel — первым в меню ⚙ (views/sl-excel, владелец 08.11.2026). */
+.sl-cols .sl-excel{display:flex;align-items:center;gap:8px;width:100%;justify-content:flex-start;margin:0 0 8px;padding:6px 8px}.sl-cols .sl-excel svg{width:15px;height:15px}
 .sl-menu h5{margin:10px 0 6px;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-2)}
 .sl-menu h5:first-child{margin-top:0}
 .sl-row{display:flex;gap:6px;align-items:center;margin:4px 0}
@@ -228,3 +230,7 @@ th.n .sl-th [data-cw-label]:has(.sl-qf){flex:1 1 auto}th.n .sl-qf{text-align:rig
 .sl-table:not(:has(thead th.sl-check input)) th.sl-check:has(.sl-header-tools){padding-left:4px;padding-right:4px}
 .sl-table:not(:has(thead th.sl-check input)) td.sl-check{text-align:center;padding-left:4px;padding-right:4px}
 .sl-settings{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0}
+/* Окно Production из Sales (views/sales-production, владелец 08.11.2026): клетки — как In production. */
+.sales-prod-modal{width:min(1000px,96vw)}.sales-prod-table td.pb-st,.sales-prod-table th.pb-st{text-align:center}
+.sales-prod-line td{background:var(--surface-2);font-weight:600}.sales-prod-glass td:first-child{padding-left:26px;border-left:3px solid var(--accent-line)}
+.sales-prod-empty{padding:18px 4px}
