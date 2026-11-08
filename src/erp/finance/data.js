@@ -68,6 +68,10 @@ function normalizeReceipts(){
  DB.receipt.forEach(r=>{if(!r.number)r.number=finNextReceiptNumber();});
 }
 
+/* Порядок документов денег: дата, затем номер числом — R-10000 после R-9999
+   (строкой «R-10000» < «R-9999», и квитанция показывала чужой остаток; аудит
+   Codex 08.11.2026, C10). */
+function finDocOrder(x,y){return String(x.date).localeCompare(String(y.date))||String(x.number||'').localeCompare(String(y.number||''),'en',{numeric:true});}
 function finActiveReceipts(){return (DB.receipt||[]).filter(r=>!r.voided);}
 function finReceiptApplied(r){return finMoney((r.allocations||[]).reduce((s,a)=>s+a.amount,0));}
 function finReceiptOnAccount(r){return r.voided?0:finMoney(r.amount-finReceiptApplied(r)-finRefunded(r.id));}
@@ -191,8 +195,9 @@ function finApplyDeposit(customerId,orderId,amount,receiptIds){
  const b=finOrderBalance(order);if(b.status!=='due')return 0;
  let want=finMoney(Math.min(finMoney(amount),b.balance,finCustomerDeposit(customerId)));
  if(!(want>0))return 0;
+ if(typeof cloudGuardOrder==='function')cloudGuardOrder(orderId);
  let done=0;const now=new Date().toISOString();
- finActiveReceipts().filter(r=>r.customerId===customerId&&finCurrency(r)===finCurrency(order)&&(!receiptIds||receiptIds.includes(r.id))).sort((x,y)=>(x.date+x.number).localeCompare(y.date+y.number)).forEach(r=>{
+ finActiveReceipts().filter(r=>r.customerId===customerId&&finCurrency(r)===finCurrency(order)&&(!receiptIds||receiptIds.includes(r.id))).sort(finDocOrder).forEach(r=>{
   const free=finReceiptOnAccount(r);if(want<=0||free<=0)return;
   finEnsureHistory(r);const before=finCopy(r);
   const take=finMoney(Math.min(free,want)),a=r.allocations.find(x=>x.orderId===orderId);
@@ -214,6 +219,17 @@ function finAllocate(customerId,orderIds,receiptIds,amount){
  });
  return done;
 }
+/* Заказ ушёл в архив, а его квитанция осталась (на ней свободный остаток).
+   Снять с него деньги (Void, правка, Unallocate) можно, только вернув его в
+   работу: архив так и показывал бы заказ оплаченным, а долг пропал бы из
+   Accounts (аудит Codex 08.11.2026, C1). Экран возвращает их сам
+   (finBringBack), команда без этого откажет. */
+function finArchivedOrders(ids){return [...new Set(ids||[])].filter(id=>id&&!salesRecord(id)&&typeof archiveKnown==='function'&&!!archiveKnown(id));}
+function finArchivedGuard(ids){const a=finArchivedOrders(ids);finAssert(!a.length,'Order '+a.map(finOrderNumber).join(', ')+' is archived. Open it first.');}
+async function finBringBack(ids){
+ for(const id of finArchivedOrders(ids)){const out=await archiveReturn(id);if(!out.ok)return out;if(!salesRecord(id))return {ok:false,error:'This archived order could not be read.'};}
+ return {ok:true};
+}
 /* Снять разнесение: деньги квитанции из заказа возвращаются на счёт клиента.
    pairs — [{receiptId, orderId}], каждая пара снимается целиком. */
 function finUnallocate(customerId,pairs){
@@ -221,6 +237,7 @@ function finUnallocate(customerId,pairs){
  (pairs||[]).forEach(p=>{
   const r=(DB.receipt||[]).find(x=>x.id===p.receiptId),a=r&&r.allocations.find(x=>x.orderId===p.orderId);
   if(!r||r.voided||r.customerId!==customerId||finCurrency(r)!=='CAD'||!a)return;
+  finArchivedGuard([p.orderId]);
   finEnsureHistory(r);const before=finCopy(r);
   r.allocations=r.allocations.filter(x=>x!==a);r.updatedAt=now;moved=finMoney(moved+a.amount);
   finEvent('released',before,r,'Allocation released from order '+finOrderNumber(p.orderId));
@@ -232,7 +249,7 @@ function finUnallocate(customerId,pairs){
 function finReleaseOverpayment(order){
  const b=finOrderBalance(order);if(b.status!=='overpaid')return 0;
  let extra=finMoney(-b.balance),moved=0;const now=new Date().toISOString();
- finActiveReceipts().slice().sort((x,y)=>(y.date+y.number).localeCompare(x.date+x.number)).forEach(r=>{
+ finActiveReceipts().slice().sort((x,y)=>finDocOrder(y,x)).forEach(r=>{
   const a=r.allocations.find(x=>x.orderId===order.id);if(extra<=0||!a)return;
   finEnsureHistory(r);const before=finCopy(r);
   const take=finMoney(Math.min(a.amount,extra));
@@ -253,10 +270,24 @@ function finReleaseOrder(orderId){
  });
  return finMoney(moved);
 }
+/* Заказ сменил валюту, а на нём оплаты в прежней (оплаты — только CAD):
+   разнесение в другой валюте база не примет — деньги уходят на счёт клиента
+   в своей валюте, как при Delete, и Save спрашивает об этом. Пересчёт по дню
+   оплаты владелец делает сам (аудит Codex 08.11.2026, C2). */
+function finCurrencyMoved(order){return (DB.receipt||[]).filter(r=>finCurrency(r)!==finCurrency(order)&&r.allocations.some(a=>a.orderId===order.id));}
+function finReleaseCurrency(order){
+ const now=new Date().toISOString();
+ finCurrencyMoved(order).forEach(r=>{
+  finEnsureHistory(r);const before=finCopy(r);
+  r.allocations=r.allocations.filter(a=>a.orderId!==order.id);r.updatedAt=now;
+  finEvent('released',before,r,'Order currency changed to '+finCurrency(order)+'; allocation returned to deposit.');
+ });
+}
 /* Ошибочная квитанция не удаляется, а аннулируется с причиной: остаётся в
    списке для сверки с QuickBooks и перестаёт считаться в балансах. */
 function finVoidReceipt(id,reason){
  const r=(DB.receipt||[]).find(x=>x.id===id);if(!r||r.voided||!String(reason||'').trim()||finRefunded(id)>0)return false;
+ finArchivedGuard(r.allocations.map(a=>a.orderId));
  finEnsureHistory(r);const before=finCopy(r);
  r.voided=true;r.voidReason=String(reason||'').trim().slice(0,300);r.voidedAt=new Date().toISOString();r.updatedAt=r.voidedAt;finEvent('voided',before,r,r.voidReason);
  return true;

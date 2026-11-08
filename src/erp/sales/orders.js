@@ -234,7 +234,7 @@ function salesRebaseDraft(current){
    29.10.2026, А4). */
 function salesOrderScope(id){
  const own=id&&id!=='new'?[id]:[];
- return {salesOrder:own,financeTerms:own,financeEvent:[],glassPiece:true,glassPieceSeq:true,glassUnitId:true,glassUnitIdSeq:true,glassBatch:own.length?glassBatchEntries(id).map(x=>x.batch.number):[]};
+ return {salesOrder:own,financeTerms:own,financeEvent:[],receipt:own.length?(DB.receipt||[]).filter(r=>r.allocations.some(a=>a.orderId===id)).map(r=>r.id):[],glassPiece:true,glassPieceSeq:true,glassUnitId:true,glassUnitIdSeq:true,glassBatch:own.length?glassBatchEntries(id).map(x=>x.batch.number):[]};
 }
 /* opts.bg — кнопка: большой заказ сохраняется в фоне (erp/sales/save-job);
    opts.noRender — экран нарисует он сам, opts.failed — ему текст отказа:
@@ -282,6 +282,9 @@ function salesOrderSaveCommand(opts){
  previousOrder=DB.salesOrder.find(o=>o.id===soDraft.id);
  const shippingError=shippingSaveGuard(soDraft,previousOrder);if(shippingError)return fail(e,shippingError);
  if(previousOrder&&previousOrder.customerId!==soDraft.customerId&&(DB.receipt||[]).some(r=>r.allocations.some(a=>a.orderId===soDraft.id)))return fail(e,'This order has payment records. Its customer cannot change.');
+ /* Другая валюта — оплаты в прежней уходят на счёт клиента (C2). */
+ const curMoved=typeof finCurrencyMoved==='function'?finCurrencyMoved(soDraft).filter(r=>!r.voided):[];
+ if(curMoved.length&&!ask('Order currency is now '+soDraft.currency+'. Payments '+curMoved.map(r=>r.number).join(', ')+' ('+curMoved.map(r=>'$'+r.allocations.find(a=>a.orderId===soDraft.id).amount.toFixed(2)+' '+finCurrency(r)).join(', ')+') go back to the customer account.\n\nSave the order?')){render();return false;}
  /* Строки из батча: стекло уже на резке (владелец, 15 сентября 2026). Новый
     размер — новая строка или новый заказ, а не правка строки. */
  if(!opts.unlock){const broken=salesLockViolations(soDraft,soEdit!=='new'?DB.salesOrder.find(x=>x.id===soEdit):null);if(broken.length)return fail(e,'Batched lines cannot change: '+broken.join('; ')+'. Add a new line or open a new order.');
@@ -335,6 +338,7 @@ function salesOrderSaveCommand(opts){
  else soDraft.priceBook=salesPriceBookOf(soDraft);
  if(soEdit==='new')DB.salesOrder.push(soDraft);else{const i=DB.salesOrder.findIndex(x=>x.id===soEdit);if(i>=0)DB.salesOrder[i]=soDraft;else DB.salesOrder.push(soDraft);}
  if(typeof finCaptureTerms==='function')finCaptureTerms(soDraft);
+ if(typeof finReleaseCurrency==='function')finReleaseCurrency(soDraft);
  normalizeSalesOrderIn(soDraft.id);if(typeof glassPieceEnsure==='function'){glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));salesDropStaleHolds(DB.salesOrder.find(x=>x.id===soDraft.id));}shippingSyncOrder(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();salesMeasureWrite(DB.salesOrder.find(x=>x.id===soDraft.id),pre&&pre.measures);soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();return true;
 }
 /* Экран рисует salesOrderSave после записи: внутри команды указатели

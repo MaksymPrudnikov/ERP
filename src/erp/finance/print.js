@@ -83,8 +83,7 @@ function finDocText(pages){return (pages||[]).flatMap(p=>p.items.filter(x=>x.t==
 /* Оплачено по заказу на момент этой квитанции: более поздние оплаты в её
    «остаток после» не входят, иначе старая квитанция врала бы задним числом. */
 function finOrderPaidThrough(orderId,receipt){
- const key=r=>r.date+'|'+r.number,upTo=key(receipt);
- return finMoney((DB.receipt||[]).filter(r=>(!r.voided||r.id===receipt.id)&&finCurrency(r)===finCurrency(receipt)&&key(r)<=upTo)
+ return finMoney((DB.receipt||[]).filter(r=>(!r.voided||r.id===receipt.id)&&finCurrency(r)===finCurrency(receipt)&&finDocOrder(r,receipt)<=0)
   .reduce((s,r)=>s+r.allocations.filter(a=>a.orderId===orderId).reduce((t,a)=>t+a.amount,0),0));
 }
 function finReceiptDoc(id){const m=finReceiptModel(id);return m?finDocPages(m):[];}

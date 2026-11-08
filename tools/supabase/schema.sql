@@ -169,15 +169,34 @@ $$;
 --             и в строке списка (рейс — список PS); PO клиента, Mark и Notes
 --             с тем же текстом не меняются (аудит 25.10.2026, A-4). Так же
 --             меняет очередь ERP — cloudRenumber в erp/cloud-sync.js.
+--   grp     — {id, part, total}: один Save, разбитый ERP на части (больше 500
+--             строк или 1 МБ). Части до последней ждут в erp_stage и ничего
+--             не пишут ({ok, staged}); последняя сверяет и пишет все части
+--             вместе — конфликт в любой отклоняет Save целиком (аудит Codex
+--             08.11.2026, C3). Части нет (пропала) — отказ всего Save.
 -- Ответ: {ok, rev, vers:{"tbl|id":ver}, numbers:{"tbl|id":"номер"}} или
 --        {ok:false, conflict:[{tbl,id,ver,now}]}.
-create or replace function public.erp_apply(command_id text, build text, device text, expect jsonb, changes jsonb)
+create table if not exists public.erp_stage (
+  grp text not null,
+  part int not null,
+  total int not null,
+  user_id uuid not null,
+  expect jsonb not null,
+  changes jsonb not null,
+  at timestamptz not null default now(),
+  primary key (grp, part)
+);
+alter table public.erp_stage enable row level security;
+revoke all on public.erp_stage from public, anon, authenticated;
+drop function if exists public.erp_apply(text, text, text, jsonb, jsonb);
+create or replace function public.erp_apply(command_id text, build text, device text, expect jsonb, changes jsonb, grp jsonb default null)
 returns jsonb language plpgsql volatile security definer set search_path = public, pg_temp as $$
 declare
   me public.erp_member := public.erp_me();
   prev jsonb; e jsonb; c jsonb; cur bigint; bad jsonb := '[]'::jsonb;
   r bigint; d jsonb; n bigint; vers jsonb := '{}'::jsonb; nums jsonb := '{}'::jsonb; res jsonb;
   v text; pre text; t text; swap jsonb := '[]'::jsonb; i int; txt text; keys text;
+  g text; g_part int; g_total int; st record;
 begin
   if coalesce(command_id, '') = '' then raise exception 'Command id is required.'; end if;
   if jsonb_typeof(coalesce(changes, 'null')) <> 'array' or jsonb_typeof(coalesce(expect, '[]')) <> 'array' then
@@ -187,6 +206,34 @@ begin
   perform pg_advisory_xact_lock(7240001);
   select result into prev from public.erp_command where id = command_id;
   if found then return prev; end if;
+
+  -- Save частями: до последней — в erp_stage; последняя забирает все.
+  if grp is not null and coalesce((grp->>'total')::int, 1) > 1 then
+    g := grp->>'id'; g_part := (grp->>'part')::int; g_total := (grp->>'total')::int;
+    if coalesce(g, '') = '' or g_part is null or g_part < 0 or g_part >= g_total then raise exception 'Bad command group.'; end if;
+    if g_part < g_total - 1 then
+      delete from public.erp_stage where at < now() - interval '2 days';
+      insert into public.erp_stage (grp, part, total, user_id, expect, changes)
+        values (g, g_part, g_total, me.user_id, coalesce(expect, '[]'::jsonb), changes) on conflict on constraint erp_stage_pkey do nothing;
+      res := jsonb_build_object('ok', true, 'staged', true);
+      insert into public.erp_command (id, user_id, device, build, result)
+        values (command_id, me.user_id, coalesce(device, ''), coalesce(build, ''), res);
+      return res;
+    end if;
+    if (select count(*) from public.erp_stage s where s.grp = g and s.user_id = me.user_id and s.total = g_total) <> g_total - 1 then
+      delete from public.erp_stage s where s.grp = g;
+      res := jsonb_build_object('ok', false, 'conflict', '[]'::jsonb, 'lost', true);
+      insert into public.erp_command (id, user_id, device, build, result)
+        values (command_id, me.user_id, coalesce(device, ''), coalesce(build, ''), res);
+      return res;
+    end if;
+    e := '[]'::jsonb; c := '[]'::jsonb;
+    for st in select s.expect, s.changes from public.erp_stage s where s.grp = g order by s.part loop
+      e := e || st.expect; c := c || st.changes;
+    end loop;
+    delete from public.erp_stage s where s.grp = g;
+    expect := e || coalesce(expect, '[]'::jsonb); changes := c || changes;
+  end if;
 
   -- Таблица чужого раздела — отказ всей команды, ничего не записано.
   select coalesce(jsonb_agg(distinct x->>'tbl'), '[]'::jsonb) into bad
@@ -402,14 +449,14 @@ begin
   return public.erp_rules();
 end $$;
 
-revoke all on function public.erp_me(), public.erp_apply(text, text, text, jsonb, jsonb), public.erp_take(text, int, bigint),
+revoke all on function public.erp_me(), public.erp_apply(text, text, text, jsonb, jsonb, jsonb), public.erp_take(text, int, bigint),
   public.erp_changes(bigint, int), public.erp_cold(jsonb), public.erp_cold_of(jsonb), public.erp_get(jsonb), public.erp_size(), public.erp_whoami(),
   public.erp_member_set(text, text, boolean, boolean, text[]), public.erp_members(), public.erp_rules(), public.erp_rules_set(jsonb)
   from public, anon;
 revoke all on function public.erp_me() from authenticated;
 revoke all on function public.erp_can(public.erp_member, text), public.erp_can_read(public.erp_member, text),
   public.erp_can_write(public.erp_member, text), public.erp_can_read_row(public.erp_member, text, text) from public, anon, authenticated;
-grant execute on function public.erp_apply(text, text, text, jsonb, jsonb), public.erp_take(text, int, bigint),
+grant execute on function public.erp_apply(text, text, text, jsonb, jsonb, jsonb), public.erp_take(text, int, bigint),
   public.erp_changes(bigint, int), public.erp_cold(jsonb), public.erp_cold_of(jsonb), public.erp_get(jsonb), public.erp_size(), public.erp_whoami(),
   public.erp_member_set(text, text, boolean, boolean, text[]), public.erp_members(), public.erp_rules(), public.erp_rules_set(jsonb)
   to authenticated;
