@@ -81,6 +81,16 @@ function archiveContext(){
  (DB.receipt||[]).forEach(r=>{if(r.voided)return;(r.allocations||[]).forEach(a=>add(pays,a.orderId,r));});
  return {ships,pays,hot:new Set((DB.salesOrder||[]).map(o=>o.id))};
 }
+/* Заказы, чей счёт, оплата или возврат ещё не ушли в QuickBooks: из архива
+   выгрузка их бы уже не увидела (аудит Codex 08.11.2026, C7). Пока файл
+   QuickBooks не выгружали ни разу (владелец, 08.11.2026: бухгалтерия ещё не
+   работает в ERP) — ждать нечего, null. */
+function archiveQbPending(){
+ if(typeof finExportPending!=='function'||!(DB.financeExportBatch||[]).length)return null;
+ const ids=new Set(),orders=r=>(r&&r.allocations||[]).forEach(a=>ids.add(a.orderId));
+ finExportPending().forEach(({kind,x})=>{if(kind==='invoice')ids.add(x.id);else if(kind==='receipt')orders(x);else orders((DB.receipt||[]).find(r=>r.id===x.receiptId));});
+ return ids;
+}
 function archiveDayOf(o,ctx){
  const d=o.statusDates||{},days=['done','closed','cancelled'].map(k=>d[k]);
  (ctx.ships.get(o.id)||[]).forEach(s=>days.push(s.shippedAt,s.deliveredAt));
@@ -90,7 +100,7 @@ function archiveDayOf(o,ctx){
 /* Заказ закрыт: отгружен целиком (или закрыт офисом) и оплачен без долга и
    переплаты, или отменён без денег на нём; накладной в пути нет; не Hold. */
 function archiveOrderClosed(o,ctx){
- if(!o||salesIsQuote(o)||o.onHold)return false;
+ if(!o||salesIsQuote(o)||o.onHold||ctx.qb&&ctx.qb.has(o.id))return false;
  if(o.status==='cancelled'){if((ctx.pays.get(o.id)||[]).length)return false;}
  else if(!['done','closed'].includes(o.status))return false;
  else if(!['paid','empty'].includes(finOrderBalance(o).status))return false;
@@ -100,7 +110,7 @@ function archiveOrderClosed(o,ctx){
    исходный заказ уходят только вместе; квота без ответа — через тот же срок
    после последней ревизии; выигравшая квота — вместе со своим заказом. */
 function archiveDue(day){
- const ctx=archiveContext(),cut=archiveCutoff(day),due=new Set();
+ const ctx=Object.assign(archiveContext(),{qb:archiveQbPending()}),cut=archiveCutoff(day),due=new Set();
  (DB.salesOrder||[]).forEach(o=>{if(!salesIsQuote(o)&&archiveOrderClosed(o,ctx)&&archiveDayOf(o,ctx)<=cut)due.add(o.id);});
  const links=(DB.ncr||[]).filter(n=>n.remakeOrderId).map(n=>[n.orderId,n.remakeOrderId]);
  for(let changed=true;changed;){changed=false;links.forEach(([a,b])=>{if(due.has(a)!==due.has(b)&&(due.has(a)?ctx.hot.has(b):ctx.hot.has(a))){due.delete(a);due.delete(b);changed=true;}});}
@@ -372,6 +382,7 @@ function archiveRun(day,opts){
    if(x.tbl==='glassBatch')archiveFloorRaise('batch',num(x.row.number,/^B-(\d+)$/));
    if(x.tbl==='ncr')archiveFloorRaise('ncr',num(x.row.number,/^NCR(\d+)$/));
    if(x.tbl==='receipt')archiveFloorRaise('receipt',num(x.row.number,/^R-(\d+)$/));
+   if(x.tbl==='refund')archiveFloorRaise('refund',num(x.row.number,/^RF-(\d+)$/));
    if(x.tbl==='financeEvent')archiveFloorRaise('financeEvent',+x.row.seq||0);
   });
   const before=archiveInvState(),ledger=archiveLedgerOf(set);

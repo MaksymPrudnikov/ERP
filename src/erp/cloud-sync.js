@@ -21,8 +21,8 @@
    курсор erp_changes; n — счётчик очереди; v␀tbl␀id — версия строки;
    o␀000000000001 — команда в очереди; b␀scan — блоки внутренних номеров;
    r␀tbl␀id — строка, которую сервер перенумеровал: опрос возьмёт её копию.
-   Номера (владелец, 23.10.2026): заказы, квоты, счета, PS, NCR и документы
-   закупки — подряд с сервера: компьютер ставит свой следующий, сервер при
+   Номера (владелец, 23.10.2026): заказы, квоты, счета, возвраты (с 08.11),
+   PS, NCR и документы закупки — подряд с сервера: компьютер ставит свой следующий, сервер при
    записи даёт следующий по счётчику (занят — следующий свободный). Стёкла,
    юниты, сканы, обрезки и батчи — блоками с сервера (номер — ключ строки
    или уже на стикере, менять его нельзя); пропуски допустимы. Счётчики
@@ -33,7 +33,7 @@ const CLOUD_CHUNK=500,CLOUD_CHUNK_BYTES=1e6,CLOUD_POLL_MS=5000;
 /* Номер документа новой строки: [счётчик, поле, префикс, цифр не меньше]. */
 const CLOUD_NUMBER={
  salesOrder:o=>o.kind==='quote'?['quote','businessNumber','Q-',0]:['order','businessNumber','',0],
- receipt:()=>['receipt','number','R-',4],shipment:()=>['shipment','number','PS-',4],ncr:()=>['ncr','number','NCR',0],
+ receipt:()=>['receipt','number','R-',4],refund:()=>['refund','number','RF-',4],shipment:()=>['shipment','number','PS-',4],ncr:()=>['ncr','number','NCR',0],
  purchaseOrder:()=>['po','number','PO-',4],purchaseInvoice:()=>['pi','number','PI-',4],purchasePayment:()=>['pp','number','PP-',4],
  purchaseReceipt:()=>['gr','number','GR-',4],purchaseDeliveryRequest:()=>['dr','number','DR-',4]};
 /* Блоки внутренних номеров: [размер, последний номер в базе]. Осталось
@@ -41,7 +41,7 @@ const CLOUD_NUMBER={
 const CLOUD_BLOCK={
  glass:[1000,()=>DB.glassPieceSeq],unit:[500,()=>DB.glassUnitIdSeq],scan:[1000,()=>DB.stationScanSeq],
  offcut:[100,()=>DB.stockOffcutSeq],batch:[20,()=>typeof salesBatchTop==='function'?salesBatchTop():0],journal:[50,()=>finJournalTop()]};
-let cloudSync={loaded:false,on:false,ref:'',since:0,n:0,vers:new Map(),out:[],early:[],lost:new Set(),blocks:new Map(),blockDirty:new Set(),refresh:new Set(),
+let cloudSync={loaded:false,on:false,ref:'',since:0,n:0,vers:new Map(),out:[],early:[],lost:new Set(),lostGrp:new Set(),blocks:new Map(),blockDirty:new Set(),refresh:new Set(),
  uploading:false,dirty:null,running:false,timer:null,wait:CLOUD_POLL_MS,busy:'',error:'',warn:'',offline:false,at:''};
 const CLOUD_NO_BLOCK='No server numbers here yet. IDs may repeat.';
 function cloudKey(tbl,id){return tbl+'\u0000'+id;}
@@ -154,6 +154,19 @@ async function cloudLoad(){
  const early=s.early;s.early=[];
  if(s.on&&early.length){const out=cloudOutbox([].concat(...early));if(out){storageWrite([],out.ops);out.done();}}
 }
+/* Строки, по которым команда решала (свободный остаток квитанции, юниты
+   заказа, остаток склада, долг заказа), едут в команде как есть: сервер
+   сверяет их версию и пишет заново. Второй компьютер, решивший по старой
+   копии, получает конфликт — а не второй возврат тех же денег, вторую PS на
+   те же юниты или вторую недостачу (аудит Codex 08.11.2026, C4, C12, C13).
+   Только с сервером; строки без версии на сервере (ещё не отправленные) —
+   своей командой и так. Только внутри команды (storageCommand): проверка
+   формы до неё ничего не добавляет. */
+function cloudGuard(tbl,id){const s=cloudSync;if(!s.on||!id||!storageDepth)return;(s.guard||(s.guard=new Map())).set(cloudKey(tbl,id),{tbl,id:String(id)});}
+/* Заказ — по его условиям оплаты (financeTerms, строка маленькая); нет их —
+   по самому заказу. */
+function cloudGuardOrder(id){const t=storageBase.get('financeTerms');cloudGuard(t&&t.has(id)?'financeTerms':'salesOrder',id);}
+function cloudGuardDrop(){cloudSync.guard=null;}
 /* Набор изменений записи → команды очереди (ops — в ту же транзакцию, done —
    после того, как запись принята). Версия известна — сервер сверит её; новой
    строки — её не должно быть на сервере (ver 0). Строка уже есть в очереди —
@@ -161,7 +174,7 @@ async function cloudLoad(){
    сети спорила бы с первой). */
 function cloudOutbox(changes){
  const s=cloudSync;
- const rows=changes.filter(c=>!c.coldClear&&c.tbl&&!(c.tbl==='_meta'&&/Seq$/.test(c.id)));
+ const rows=changes.filter(c=>!c.coldClear&&c.tbl&&!(c.tbl==='_meta'&&/Seq$/.test(c.id))),guard=s.guard;s.guard=null;
  const ops=[...s.blockDirty].map(name=>['b\u0000'+name,s.blocks.get(name)]);s.blockDirty.clear();
  if(!rows.length||!s.loaded||!s.on||s.uploading){
   if(!s.loaded&&rows.length&&cloudConfig().session)s.early.push(rows);
@@ -170,19 +183,29 @@ function cloudOutbox(changes){
  }
  const cmds=[],queued=new Set();let n=s.n;
  s.out.forEach(cmd=>cmd.changes.forEach(c=>queued.add(cloudKey(c.tbl,c.id))));
- cloudChunks(rows).forEach(part=>{
+ if(guard){const have=new Set(rows.map(c=>cloudKey(c.tbl,c.id)));guard.forEach((x,k)=>{const b=storageBase.get(x.tbl),r=b&&b.get(x.id);if(have.has(k)||!r||!s.vers.has(k)&&!queued.has(k))return;rows.push({tbl:x.tbl,id:x.id,seq:r.s,data:r.t});});}
+ /* Набор больше одной части — группа: сервер пишет её целиком последней
+    частью (erp_apply grp, C3). keys — все строки группы: ответ и отказ
+    касаются их всех. */
+ const parts=cloudChunks(rows),grp=parts.length>1?{id:cloudId(),total:parts.length}:null,keys=[];
+ parts.forEach((part,pi)=>{
   const expect=[],fresh=new Set();
   part.forEach(c=>{const k=cloudKey(c.tbl,c.id),v=s.vers.get(k);
    if(queued.has(k))expect.push({tbl:c.tbl,id:c.id,chain:true});else if(v)expect.push({tbl:c.tbl,id:c.id,ver:v});else if(!c.del){expect.push({tbl:c.tbl,id:c.id,ver:0});fresh.add(c);}
    queued.add(k);});
   const cmd={id:cloudId(),expect,changes:part.map(cloudChange)};
   cmd.changes.forEach((x,i)=>{const num=fresh.has(part[i])&&!x.cold&&cloudNumber(part[i]);if(num)x.number=num;});
+  if(grp){cmd.grp=Object.assign({part:pi},grp);cmd.changes.forEach(x=>keys.push(cloudRowOf(x)));if(pi===grp.total-1)cmd.keys=keys;}
   const key='o\u0000'+String(++n).padStart(12,'0');
   cmds.push(Object.assign({key},cmd));ops.push([key,cmd]);
  });
  ops.push(['n',n]);
  return {ops,done(){s.n=n;s.out.push(...cmds);cloudSoon();}};
 }
+/* Строка команды коротко: ключ, удаление, номер документа. */
+function cloudRowOf(c){const x={tbl:c.tbl,id:c.id};if(c.data===null)x.del=true;if(c.number)x.num=c.number.value;return x;}
+/* Строки, о которых ответ сервера: вся группа или сама команда. */
+function cloudCmdRows(cmd){return cmd.keys||cmd.changes.map(cloudRowOf);}
 /* Строка набора изменений → строка команды erp_apply. */
 function cloudChange(c){
  const x={tbl:c.tbl,id:c.id,seq:c.seq||0,data:c.del?null:c.data};
@@ -204,6 +227,7 @@ async function cloudColdOf(owners){
 function cloudApplyServer(rows,asked,ops){
  const s=cloudSync,list=[],seen=new Set();
  rows.forEach(r=>{
+  if(r.tbl===CLOUD_UPLOAD.tbl)return;
   const k=cloudKey(r.tbl,r.id);seen.add(k);
   if(r.deleted){
    const b=storageBase.get(r.tbl);
@@ -260,33 +284,39 @@ async function cloudPushAll(){
  const s=cloudSync;
  while(s.out.length){
   const cmd=s.out[0],ops=[[cmd.key,null]];
-  /* Строка, чья прошлая команда не прошла, не уходит и следующей. */
-  const lost=cmd.expect.some(e=>e.chain&&s.lost.has(cloudKey(e.tbl,e.id)));
+  /* Строка, чья прошлая команда не прошла, не уходит и следующей; часть
+     группы, которая не ушла, — и вся группа (сервер откажет последней). */
+  const lost=cmd.expect.some(e=>e.chain&&s.lost.has(cloudKey(e.tbl,e.id)))||!!cmd.grp&&s.lostGrp.has(cmd.grp.id);
   const expect=cmd.expect.map(e=>e.chain?{tbl:e.tbl,id:e.id,ver:s.vers.get(cloudKey(e.tbl,e.id))||0}:e);
-  const r=lost?{ok:false,conflict:[]}:await cloudRpc('erp_apply',{command_id:cmd.id,build:storageBuildId(),device:cloudDevice(),expect,changes:cmd.changes});
+  if(lost&&cmd.grp&&!cmd.keys){s.lostGrp.add(cmd.grp.id);s.out.shift();cloudWriteLocal([],ops);continue;}
+  const r=lost?{ok:false,conflict:[]}:await cloudRpc('erp_apply',Object.assign({command_id:cmd.id,build:storageBuildId(),device:cloudDevice(),expect,changes:cmd.changes},cmd.grp?{grp:cmd.grp}:{}));
   if(s.out[0]!==cmd)return;
+  /* Часть группы принята на хранение — версии даст последняя. */
+  if(r&&r.ok&&r.staged){s.out.shift();cloudWriteLocal([],ops);continue;}
+  if(cmd.keys)s.lostGrp.delete(cmd.grp.id);
+  const rows=cloudCmdRows(cmd);
   if(r&&r.ok){
-   cmd.changes.forEach(c=>{const k=cloudKey(c.tbl,c.id),v=r.vers&&r.vers[c.tbl+'|'+c.id];
-    if(c.data===null||!v){s.vers.delete(k);ops.push(['v\u0000'+k,null]);}else{s.vers.set(k,v);ops.push(['v\u0000'+k,v]);}});
+   rows.forEach(c=>{const k=cloudKey(c.tbl,c.id),v=r.vers&&r.vers[c.tbl+'|'+c.id];
+    if(c.del||!v){s.vers.delete(k);ops.push(['v\u0000'+k,null]);}else{s.vers.set(k,v);ops.push(['v\u0000'+k,v]);}});
    s.out.shift();
    /* Номер занят: сервер дал следующий. Строки команды — серверной копией
       с опросом; в очереди и в открытом заказе старый номер меняется. */
-   const moved=cmd.changes.map(c=>c.number&&[c.number.value,r.numbers&&r.numbers[c.tbl+'|'+c.id]]).filter(m=>m&&m[1]&&m[1]!==m[0]);
+   const moved=rows.map(c=>c.num&&[c.num,r.numbers&&r.numbers[c.tbl+'|'+c.id]]).filter(m=>m&&m[1]&&m[1]!==m[0]);
    if(moved.length){
-    s.out.forEach(o=>{if(cloudRenumber(o.changes,moved)){o.renum=true;ops.push([o.key,{id:o.id,expect:o.expect,changes:o.changes,renum:true}]);}});
+    s.out.forEach(o=>{if(cloudRenumber(o.changes,moved)){o.renum=true;const{key,...keep}=o;ops.push([key,keep]);}});
     if(typeof soDraft!=='undefined'&&soDraft)moved.forEach(([a,b])=>{if(soDraft.businessNumber===a)soDraft.businessNumber=b;});
    }
-   if(moved.length||cmd.renum)cmd.changes.forEach(c=>{if(c.data===null)return;const k=cloudKey(c.tbl,c.id);s.refresh.add(k);ops.push(['r\u0000'+k,1]);});
-   if(!s.out.length)s.lost.clear();cloudWriteLocal([],ops);continue;
+   if(moved.length||cmd.renum)rows.forEach(c=>{if(c.del)return;const k=cloudKey(c.tbl,c.id);s.refresh.add(k);ops.push(['r\u0000'+k,1]);});
+   if(!s.out.length){s.lost.clear();s.lostGrp.clear();}cloudWriteLocal([],ops);continue;
   }
-  /* Отказ: строки команды — как на сервере сейчас. */
-  const keys=cmd.changes.map(c=>({tbl:c.tbl,id:c.id}));
+  /* Отказ: строки команды (группы — все) — как на сервере сейчас. */
+  const keys=rows.map(c=>({tbl:c.tbl,id:c.id}));
   const now=await cloudRpc('erp_get',{keys});
   if(s.out[0]!==cmd)return;
   s.out.shift();keys.forEach(k=>s.lost.add(cloudKey(k.tbl,k.id)));cloudApplyServer(Array.isArray(now)?now:[],keys,ops);
   /* Заказ людям виден номером, а не внутренним ключом строки. */
-  const names=[...new Set((r&&r.conflict||[]).map(x=>{const o=x.tbl==='salesOrder'&&salesRecord(x.id);return o?o.businessNumber||'order':x.id;}))].slice(0,3).join(', ');
-  if(!s.out.length)s.lost.clear();
+  const names=[...new Set((r&&r.conflict||[]).map(x=>{const o=(x.tbl==='salesOrder'||x.tbl==='financeTerms')&&salesRecord(x.id),d=!o&&['receipt','refund','shipment','stockItem'].includes(x.tbl)&&(DB[x.tbl]||[]).find(y=>y.id===x.id);return o?o.businessNumber||'order':d?d.number||d.name||x.id:x.id;}))].slice(0,3).join(', ');
+  if(!s.out.length){s.lost.clear();s.lostGrp.clear();}
   s.warn=r&&r.denied?'No access on server: '+r.denied.join(', ')+'. Server copy shown.':'Changed on another computer: '+(names||'rows')+'. Server copy shown.';s.warnAt=Date.now();
  }
 }
@@ -362,16 +392,32 @@ async function cloudRun(label,fn){
 function cloudRecords(){
  return storageHotRecords().filter(r=>r.tbl!=='_archive'&&!(r.id==='*'&&r.data==='[]'&&!(storageBase.get(r.tbl)||new Map()).has('*')));
 }
+/* Отметка Upload на сервере (строка _upload|state): начат — {id, device,
+   done:false}, дошёл до конца — done:true. Обрыв посреди — тот же компьютер
+   продолжает (части пишутся заново), Download такой половины не берёт:
+   неполная база заменила бы полную (аудит Codex 08.11.2026, C8). Сервер,
+   залитый до отметки, — как раньше. В базу ERP строка не попадает. */
+const CLOUD_UPLOAD={tbl:'_upload',id:'state'};
+async function cloudUploadState(){
+ const got=await cloudRpc('erp_get',{keys:[CLOUD_UPLOAD]}),r=Array.isArray(got)&&got.find(x=>x.tbl===CLOUD_UPLOAD.tbl&&!x.deleted);
+ try{return r?JSON.parse(cloudText(r.data)):null;}catch(e){return null;}
+}
+function cloudUploadMark(state){return {tbl:CLOUD_UPLOAD.tbl,id:CLOUD_UPLOAD.id,seq:0,data:JSON.stringify(state)};}
 function cloudUpload(){
  return cloudRun('Uploading…',async()=>{
   const me=await cloudRpc('erp_whoami');
   if(!me||!me.admin)throw new Error('Only a server admin can upload.');
   const first=await cloudRpc('erp_changes',{since:0,lim:1});
-  if(first&&(+first.last>0))throw new Error('The server already has data. Use Download.');
-  if(!confirm('Send this database to the server?\n\nOther computers will download it from there.'))return false;
+  let resume=null;
+  if(first&&(+first.last>0)){
+   resume=await cloudUploadState();
+   if(!resume||resume.done)throw new Error('The server already has data. Use Download.');
+   if(resume.device!==cloudDevice())throw new Error('Upload from another computer is not finished.');
+  }
+  if(!confirm(resume?'Finish sending this database to the server?\n\nThe last upload stopped halfway.':'Send this database to the server?\n\nOther computers will download it from there.'))return false;
   await storageFlush();
-  const s=cloudSync,vers=new Map(),url=cloudConfig().url;
-  const recs=cloudRecords().concat((await storageIdbColdAll()).map(r=>({tbl:r.tbl,id:r.id,seq:r.seq,data:r.data,cold:true,month:r.month,owners:r.owners})),
+  const s=cloudSync,vers=new Map(),url=cloudConfig().url,mark={id:resume?resume.id:cloudId(),device:cloudDevice(),done:false};
+  const recs=[cloudUploadMark(mark)].concat(cloudRecords(),(await storageIdbColdAll()).map(r=>({tbl:r.tbl,id:r.id,seq:r.seq,data:r.data,cold:true,month:r.month,owners:r.owners})),
    (await storageIdbArchiveAll()).map(a=>({tbl:'_archive',id:a.id,seq:0,data:JSON.stringify(a.row)})));
   s.uploading=true;s.dirty=new Map();
   let last=0;
@@ -382,9 +428,12 @@ function cloudUpload(){
     const r=await cloudRpc('erp_apply',{command_id:'up-'+cloudId(),build:storageBuildId(),device:cloudDevice(),expect:[],
      changes:part.map(cloudChange)});
     if(!r||!r.ok)throw new Error(r&&r.denied?'No access on server: '+r.denied.join(', '):'Upload refused by the server.');
-    part.forEach(c=>{const v=r.vers&&r.vers[c.tbl+'|'+c.id];if(v)vers.set(cloudKey(c.tbl,c.id),v);});
+    part.forEach(c=>{const v=r.vers&&r.vers[c.tbl+'|'+c.id];if(v&&c.tbl!==CLOUD_UPLOAD.tbl)vers.set(cloudKey(c.tbl,c.id),v);});
     last=+r.rev||last;
    }
+   const end=await cloudRpc('erp_apply',{command_id:'up-'+cloudId(),build:storageBuildId(),device:cloudDevice(),expect:[],changes:[cloudChange(cloudUploadMark(Object.assign(mark,{done:true,rows:recs.length-1})))]});
+   if(!end||!end.ok)throw new Error('Upload refused by the server.');
+   last=+end.rev||last;
    await cloudSaveAll(url,last,vers);
   }finally{s.uploading=false;}
   /* Правки во время отправки — следом обычной командой. */
@@ -412,6 +461,9 @@ function cloudDownload(){
    const last=+r.last||since;if(last===since)break;since=last;
    s.busy='Downloading '+got.size;afterRender();
   }
+  const mark=got.get(cloudKey(CLOUD_UPLOAD.tbl,CLOUD_UPLOAD.id));got.delete(cloudKey(CLOUD_UPLOAD.tbl,CLOUD_UPLOAD.id));
+  let up=null;try{up=mark&&!mark.deleted?JSON.parse(cloudText(mark.data)):null;}catch(e){}
+  if(up&&!up.done)throw new Error('Upload to the server is not finished. Finish it on the computer that started it.');
   const all=[...got.values()].filter(x=>!x.deleted),vers=new Map(all.map(x=>[cloudKey(x.tbl,x.id),x.ver]));
   const rows=all.filter(x=>!x.cold&&x.tbl!=='_archive'),archive=all.filter(x=>x.tbl==='_archive').map(x=>({id:x.id,row:JSON.parse(cloudText(x.data))}));
   if(!rows.length)throw new Error('The server is empty. Upload a database first.');

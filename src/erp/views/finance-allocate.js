@@ -31,7 +31,7 @@ function finAllocOrderRows(cid){
  return {rows,unpriced};
 }
 function finAllocReceiptRows(cid){
- return finActiveReceipts().filter(r=>r.customerId===cid&&finCurrency(r)==='CAD').sort((x,y)=>(x.date+x.number).localeCompare(y.date+y.number)).map(r=>{
+ return finActiveReceipts().filter(r=>r.customerId===cid&&finCurrency(r)==='CAD').sort(finDocOrder).map(r=>{
   const used=finReceiptApplied(r),left=finReceiptOnAccount(r),refunded=finRefunded(r.id);
   return {r,used,left,refunded,show:left<=0?'paid':used>0||refunded>0?'part':'unpaid'};
  });
@@ -74,6 +74,9 @@ function finAllocRun(){
 }
 function finAllocRelease(pairs){
  if(!pairs.length)return;
+ /* Связь с заказом в архиве — сначала заказ в работу (C1). */
+ const back=finArchivedOrders(pairs.map(p=>p.orderId));
+ if(back.length){finBringBack(back).then(x=>{if(!x.ok)return fail(document.getElementById('e_fin_alloc'),x.error);finAllocRelease(pairs);});return;}
  const out=finPersist(()=>{const moved=finUnallocate(finAlloc.customerId,pairs);finAssert(moved>0,'Nothing to unallocate.');return moved;});
  if(!out.ok)return fail(document.getElementById('e_fin_alloc'),out.error);
  finAlloc.orders=[];finAlloc.receipts=[];render();

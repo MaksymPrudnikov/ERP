@@ -13,7 +13,8 @@ function shippingValidateSelection(d,exceptId){
  const items=[],extras=[],seen=new Set(),available=new Map();
  (d.items||[]).forEach(i=>{
   const o=salesRecord(i.orderId);shippingAssert(o&&!salesIsQuote(o)&&o.customerId===d.customerId&&!['cancelled','closed'].includes(o.status),'Check the customer and orders.');
-  if(!available.has(o.id))available.set(o.id,shippingAvailable(o,exceptId));
+  /* Свободные юниты заказа — с сервером они сверяются у всех (C12). */
+  if(!available.has(o.id)){available.set(o.id,shippingAvailable(o,exceptId));if(typeof cloudGuardOrder==='function')cloudGuardOrder(o.id);}
   const hit=available.get(o.id).find(x=>x.lineId===i.lineId&&x.unit===i.unit&&x.label===i.label);
   shippingAssert(hit&&!seen.has(shippingKey(i)),'The selected glass is no longer available. Review the packing slip.');
   seen.add(shippingKey(i));items.push(shippingItem(hit));
@@ -26,6 +27,7 @@ function shippingValidateSelection(d,exceptId){
   const o=salesRecord(i.orderId),x=o&&(o.extraItems||[]).find(x=>x.id===i.extraId),k=i.orderId+'|'+i.extraId;
   shippingAssert(o&&x&&!salesIsQuote(o)&&o.customerId===d.customerId&&!['new','closed','cancelled'].includes(o.status)&&!o.onHold,'Stock order is not ready.');
   const used=shippingForOrder(o.id).filter(s=>shippingActive(s)&&s.id!==exceptId).flatMap(s=>s.extras).filter(a=>a.extraId===x.id).reduce((n,a)=>n+a.qty,0);
+  if(typeof cloudGuardOrder==='function')cloudGuardOrder(o.id);
   shippingAssert(Number.isSafeInteger(i.qty)&&i.qty>0&&i.qty<=x.qty-used&&!seen.has(k),'Check the available stock quantity.');
   seen.add(k);extras.push({orderId:o.id,extraId:x.id,qty:i.qty});
  });
