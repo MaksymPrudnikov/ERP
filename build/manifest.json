@@ -148,7 +148,7 @@
   "src/erp/views/list-window.js",
   "src/erp/views/sales-list-ui.js",
   "src/erp/views/sales-list-controls.js",
-  "src/erp/views/sl-generic.js",
+  "src/erp/views/sl-generic.js", "src/erp/views/sl-excel.js", "src/erp/views/sales-production.js",
   "src/erp/views/sl-quick-filter.js",
   "src/erp/sales/line-hold.js",
   "src/erp/sales/unit-cancel.js",

@@ -12,6 +12,11 @@ Customers, Agents, Users and Data.
 - **Tick a row** to act on it; right click gives the same actions where the screen has a menu.
 - **Gear** (left of the headers) — Columns: tick to show, untick to hide, drag to reorder; Standard view and Reset
   widths.
+- **Excel** — the first item in the gear menu of every table (owner, 8 Nov 2026: "it is inside the table and is about
+  the table"). An `.xlsx` file: visible columns in screen order, rows after filters, dates and sorting — the same as in
+  the table; at the bottom, totals of the columns that sum in the footer. Numbers as numbers, money with two decimals,
+  dates as Excel dates, the first row frozen with Excel filters. In Sales: rows ticked — only they go to the file. File
+  name — the table and the date (`sales_2026-11-08.xlsx`).
 - **Header** — the ▾ arrow left of the name: filter, condition and sort of the column; drag the edge of a header to
   change its width, drag the header to move the column. Widths and order are kept in this browser, per list.
   One rule in every table, as in Excel: drag an edge — only that column changes, the columns to its left stay put,
