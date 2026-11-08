@@ -127,8 +127,12 @@ function storageColdMoveAll(tbl,list){
    «Created» (erp/sales/order-log). */
 function storageColdMoving(tbl,id){const k=tbl+'\u0000'+id,v=storageVisit.get(tbl);return storageColdPending.has(k)||storageColdWarm.has(k)||!!v&&v.has(id);}
 /* Одна запись из архива — на своё место по seq (внутри действия). */
+/* Запись уже в работе (общая оплата двух заказов вернулась с первым из них,
+   а сервер до отправки ещё отдаёт её из архива) — остаётся своя, она новее:
+   вторая копия удваивала деньги (аудит Codex 08.11.2026, C9). */
 function storageColdPut(r){
  if(!Array.isArray(DB[r.tbl]))DB[r.tbl]=[];const rows=DB[r.tbl],base=storageBase.get(r.tbl)||new Map(),seqOf=x=>{const b=base.get(storageRowKey(r.tbl,x));return b?b.s:Infinity;};
+ if(base.has(r.id))return;
  let lo=0,hi=rows.length;while(lo<hi){const mid=(lo+hi)>>1;if(seqOf(rows[mid])<r.seq)lo=mid+1;else hi=mid;}
  rows.splice(lo,0,JSON.parse(r.data));storageColdWarm.add(r.tbl+'\u0000'+r.id);
 }
@@ -295,7 +299,7 @@ function storageCommand(fn,scope){
   if(scopeBefore)storageScopeCheck(scopeBefore);
   if(scope)storageSweepLater();
   return {ok:true,value};
- }catch(e){storageDepth=0;storageCommanding=false;storageColdPending.clear();storageColdImport=null;storageColdWarm.clear();storageArchivePending.clear();storageRollback(before);dirty=wasDirty;if(draftBefore!==null&&JSON.stringify(soDraft)!==draftBefore)soDraft=JSON.parse(draftBefore);storageInvalidate();storageLastError=e.message;return {ok:false,error:e.message};}
+ }catch(e){storageDepth=0;storageCommanding=false;if(typeof cloudGuardDrop==='function')cloudGuardDrop();storageColdPending.clear();storageColdImport=null;storageColdWarm.clear();storageArchivePending.clear();storageRollback(before);dirty=wasDirty;if(draftBefore!==null&&JSON.stringify(soDraft)!==draftBefore)soDraft=JSON.parse(draftBefore);storageInvalidate();storageLastError=e.message;return {ok:false,error:e.message};}
 }
 /* Запись правки, сделанной до вызова (раскрой: Build и правки листа, порядок
    батчей): touch() только по области scope, как у storageCommand. Вне
@@ -332,7 +336,7 @@ function touch(){
   let diff=storageDiff(DB,only);if(typeof mdLogCapture==='function'&&mdLogCapture(diff))diff=storageDiff(DB,only);
   const changes=storageColdApply(diff);
   /* Ничего не изменилось (старт без новых граф) — и отмечать нечего. */
-  if(!changes.length){storageLastError=storageFailed?storageLastError:'';storageScopeMark();return true;}
+  if(!changes.length){if(typeof cloudGuardDrop==='function')cloudGuardDrop();storageLastError=storageFailed?storageLastError:'';storageScopeMark();return true;}
   /* Сервер (erp/cloud-sync.js): набор встаёт в очередь отправки той же записью. */
   const out=typeof cloudOutbox==='function'?cloudOutbox(changes):null;
   storageWrite(changes,out&&out.ops);if(out)out.done();storageBaseApply(changes);if(typeof archiveIndexApply==='function')archiveIndexApply(changes.filter(c=>c.tbl==='_archive').map(c=>[c.id,c.del?null:JSON.parse(c.data)]),changes.some(c=>c.coldClear));
@@ -662,11 +666,23 @@ function storageExportParts(cold,archive){
 }
 /* Вся база целиком — дело администратора (раздел Users, erp/access): Import
    заменяет и людей с их правами, Export отдаёт и Finance. */
+/* Архив не прочитался (нет связи с сервером) или в нём нет заказа из списка
+   архива — файла нет: неполная копия выглядела бы полной, и Import принял
+   бы её (аудит Codex 08.11.2026, C6). */
 async function doExport(){
  if(!accessCan(ACCESS_ADMIN))return;
- await storageFlush();const cold=storageIdb?await storageColdAll().catch(()=>storageIdbColdAll()).catch(()=>[]):[],archive=storageIdb?await storageIdbArchiveAll().catch(()=>[]):[];
+ await storageFlush();
+ let cold=[],archive=[];
+ if(storageIdb)try{cold=await storageColdAll();archive=await storageIdbArchiveAll();}catch(e){alert('Archive not read: '+e.message+'\nNothing exported. Try again when online.');return;}
+ const lost=storageArchiveMissing(cold,archive);
+ if(lost.length){alert('Archive incomplete: '+lost.length+' archived order'+(lost.length>1?'s':'')+' not read.\nNothing exported. Try again when online.');return;}
  storageDownload('glazing_system_data.ndjson',storageExportParts(cold,archive),'application/x-ndjson');
  storageBackupAt=new Date().toISOString();dirty=false;if(storageFailed)storageFailedExported=true;render();
+}
+/* Заказы списка архива, чьих записей нет в архиве cold. */
+function storageArchiveMissing(cold,archive){
+ const have=new Set((cold||[]).filter(r=>r.tbl==='salesOrder').map(r=>r.id));
+ return (archive||[]).filter(a=>!String(a.id).startsWith('L:')&&!have.has(a.id)).map(a=>a.id);
 }
 /* Записи как они лежат, без нормализации, — то, что не прочиталось. */
 function storageExportRecovery(){
@@ -692,6 +708,10 @@ async function storageImportState(raw,opts){
  /* С сервером замена базы ушла бы всем компьютерам (проверка 02.11.2026). */
  if(!opts.cloud&&typeof cloudSync!=='undefined'&&cloudSync.on){alert('This computer is connected to the server. Stop sync first: Import would replace the data for everyone.');return false;}
  const payload=raw&&raw.format==='glass-erp'?raw.data:raw;
+ /* Файл со списком архива без самих заказов — неполная копия (C6). Download
+    с сервера (cloud) архив на диск не берёт: он на сервере; Restore
+    возвращает базу ровно такой, какой она была. */
+ if(!opts.cloud&&!opts.restore){const lost=storageArchiveMissing(opts.cold,opts.archive);if(lost.length)throw new Error('the file is incomplete: '+lost.length+' archived order'+(lost.length>1?'s are':' is')+' missing.');}
  if(!payload||!Array.isArray(payload.customer)||!Array.isArray(payload.salesOrder)||!Array.isArray(payload.station))throw new Error('Choose a complete GLASS ERP backup. A partial data file cannot replace this database.');
  if(storageTest&&!opts.test&&!opts.restore){alert('Test data here. Clear database first.');return false;}
  /* Проверка и нормализация файла знают его архив (erp/archive): записи в

@@ -125,7 +125,12 @@ function newCustomerDraft(){
 function customerHasReferences(id){
  if(!id)return false;
  const collections=['salesOrder','salesOrders','orderRevision','orderRevisions','receipt','refund','financeEvent','financeTerms'];
- return collections.some(k=>Array.isArray(DB[k])&&DB[k].some(x=>x&&x.customerId===id));
+ if(collections.some(k=>Array.isArray(DB[k])&&DB[k].some(x=>x&&x.customerId===id)))return true;
+ /* Заказы, оплаты и выписка в архиве — тоже история клиента: без карточки
+    его выписка не открылась бы (аудит Codex 08.11.2026, C5). */
+ if(typeof archiveLedgerFor==='function'&&archiveLedgerFor(id).length)return true;
+ if(typeof archiveIndex!=='undefined')for(const a of archiveIndex.values())if(a&&a.customerId===id)return true;
+ return false;
 }
 
 /* ------------------------ customer-only export ----------------------- */
