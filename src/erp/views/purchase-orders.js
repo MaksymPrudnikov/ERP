@@ -9,7 +9,7 @@ const PUR_VIEWS=[['orders','Purchase orders'],['receipts','Receipts'],['backorde
 function purNav(){return '<button type="button" class="sl-quiet" data-pur-sections aria-haspopup="dialog" onclick="purSectionsOpen(event)">'+esc((PUR_VIEWS.find(v=>v[0]===purView)||PUR_VIEWS[0])[1])+'<span class="sl-disclosure">▾</span></button>';}
 function purSectionsOpen(e){salesListMenu=Object.assign({kind:'pur-sections',scope:salesListScope()},salesListAt(e,240));render();}
 function purSectionsMenuHTML(style){return '<div class="sl-menu sl-show-menu" style="'+style+'" role="dialog" aria-label="Purchasing sections">'+PUR_VIEWS.map(([k,n])=>'<label><input type="radio" name="pur-section" '+(k===purView?'checked':'')+' onchange="purGo(\''+k+'\')">'+n+'</label>').join('')+(purView==='orders'?'<hr><label><input type="checkbox" '+(purShowDeleted?'checked':'')+' onchange="purShowDeleted=this.checked;render()">Include deleted</label>':'')+'</div>';}
-function purGo(v){if(!purMoneyLeave()||!purFulfilLeave()||!purOrderLeave())return;purSupplierDraft=null;purView=v;purNotice='';purNewSupplier=null;salesListMenu=null;render();}
+function purGo(v){if(!purSupplierLeave()||!purMoneyLeave()||!purFulfilLeave()||!purOrderLeave())return;purView=v;purNotice='';purNewSupplier=null;salesListMenu=null;render();}
 function purOrderLeave(){
  if(purOrderDraft&&JSON.stringify(purOrderDraft)!==purOrderOriginal&&!confirm('Discard unsaved purchase order changes?'))return false;
  purOrderDraft=null;purPicker=null;purDoc=null;return true;
@@ -35,7 +35,7 @@ function purOrderList(){
 }
 function purHistoryOpen(entity,id){if(PUR_MONEY[entity])purMoneyEdit(entity,id);else if(PUR_FULFIL[entity])purFulfilEdit(entity,id);else if(entity==='po')purOrderEdit(id);else purSupplierEdit(id);}
 function purOrderEdit(id){
- if(!accessCan('purchasing')||!purMoneyLeave()||!purFulfilLeave())return;
+ if(!accessCan('purchasing')||!purSupplierLeave()||!purMoneyLeave()||!purFulfilLeave())return;
  const p=id?purOrderFind(id):null;if(id&&!p)return;
  purSupplierDraft=null;purView='orders';purPicker=null;purDoc=null;purNotice='';purNewSupplier=null;purGlassFilter={};
  purOrderDraft=purClone(p||purOrderClean({date:finToday(),lines:[purCatalogueLine('')]}));

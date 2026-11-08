@@ -19,7 +19,8 @@ lookup and **Open a trip** on the right; the table, the total at the bottom. In 
   time). Columns include **ft²**, **Weight kg**, **Glass** and **Balance**.
 - **Delivery** — all stops of the day in one list; pills by truck, Not on a truck, Pickups. Tick a stop: Move up /
   down, Off the truck. The truck of the pill or of the ticked stop shows its load, **Driver**, **Trip sheet**, **With
-  packing slips** and km. A packing slip without a truck has **Choose truck** in its row.
+  packing slips** and km. Km remember the route: change a packing slip or shop address, the order or the set of stops —
+  "stops changed" appears, press **Recalculate km**. A packing slip without a truck has **Choose truck** in its row.
 - **Skids** — skids at customers, one row each; the customer is faded when repeated. Tick a row: **Checked**, **Skid
   from …**. Click a skid code to see what went on it. **Over 30 days** pill.
 - **Backorders** — what is left of each line, its glass (**Order Items**) and where it is in the shop.

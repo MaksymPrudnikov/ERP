@@ -475,9 +475,10 @@ function storageRerenderQuiet(){
    window.STORAGE_UNSAVED, по одной на форму) и набранное в полях. Форма
    держит ввод в своём черновике, а у её полей нет id, — по одним полям
    набранного клиента не было видно (проверка Codex 22.10.2026). */
+function storageFormsUnsaved(){return (window.STORAGE_UNSAVED||[]).some(f=>{try{return !!f();}catch(e){return false;}});}
 function storageHasWork(){
  if(typeof salesDraftHasWork==='function'&&salesDraftHasWork())return true;
- if((window.STORAGE_UNSAVED||[]).some(f=>{try{return !!f();}catch(e){return false;}}))return true;
+ if(storageFormsUnsaved())return true;
  return storageTypedFields().length>0;
 }
 /* Вкладка устарела: открыта другая сборка. Ничего не начато — вкладка сама
@@ -620,9 +621,11 @@ function storageStart(){
 /* Черновик заказа живёт только в памяти: F5 или закрытие вкладки стирали его
    без предупреждения. Спрашиваем ровно тогда, когда есть что терять — иначе
    браузер показывал бы диалог на каждом уходе со страницы. Запись, которая
-   ещё идёт или не удалась, — тоже потеря. */
+   ещё идёт или не удалась, — тоже потеря. Формы разделов (поставщик,
+   агент, Master Data…) — тот же список STORAGE_UNSAVED: F5 стирал их молча
+   (аудит Codex 09.11.2026, F14). */
 window.addEventListener('beforeunload',function(e){
- const draft=typeof salesDraftHasWork==='function'&&salesDraftHasWork();
+ const draft=typeof salesDraftHasWork==='function'&&salesDraftHasWork()||storageFormsUnsaved();
  if(!draft&&!storageQueued&&!storageFailed&&!(storageBusy&&!storageStale))return;
  e.preventDefault();e.returnValue='';return '';
 });

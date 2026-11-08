@@ -14,7 +14,11 @@
 const SL_GENERIC={};
 let slScopeNow='',slScopePin='';
 function slGenericScope(){return slScopeNow||slScopePin||'';}
-document.addEventListener('pointerdown',e=>{const w=e.target&&e.target.closest?e.target.closest('[data-sl-scope]'):null;slScopePin=w?w.dataset.slScope:'';},true);
+/* Клавиатура — как мышь: Enter в меню слева после клика в таблице станций
+   оставлял Sales с колонками станций (аудит Codex 09.11.2026, F04). */
+function slScopePinAt(e){const w=e.target&&e.target.closest?e.target.closest('[data-sl-scope]'):null;slScopePin=w?w.dataset.slScope:'';}
+document.addEventListener('pointerdown',slScopePinAt,true);
+document.addEventListener('keydown',slScopePinAt,true);
 
 /* Строки: memo — значения всех колонок (фильтр и сортировка читают их). */
 function slInfos(list,id,cols){

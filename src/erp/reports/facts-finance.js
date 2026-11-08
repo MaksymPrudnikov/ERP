@@ -21,7 +21,7 @@
 let repPayCache={stamp:'',rows:null},repComCache={stamp:'',rows:null};
 function repPayStamp(){
  return [(DB.receipt||[]).map(r=>r.id+(r.voided?'v':'')+r.date+':'+(r.allocations||[]).map(a=>a.orderId+'='+a.amount).join(';')).join(','),
-  (DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')+o.status).join(','),(DB.financeTerms||[]).length].join('|');
+  (DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')+o.status).join(','),repCustomerStamp()].join('|');
 }
 /* Заказ оплаты: живой или строка указателя архива. */
 function repPayOrder(id){
@@ -30,7 +30,7 @@ function repPayOrder(id){
  return a?{o:null,number:a.number||'',customerId:a.customerId||'',created:String(a.createdAt||'').slice(0,10)}:{o:null,number:'Deleted order',customerId:'',created:''};
 }
 function repPayOrderFacts(){
- const stamp=readMemo('repPayStamp',[DB.receipt,DB.salesOrder,DB.financeTerms],repPayStamp);
+ const stamp=readMemo('repPayStamp',[DB.receipt,DB.salesOrder,DB.financeTerms,DB.customer],repPayStamp);
  if(repPayCache.stamp===stamp&&repPayCache.rows)return repPayCache.rows;
  const rows=[],orders=new Map();
  finActiveReceipts().forEach(r=>{

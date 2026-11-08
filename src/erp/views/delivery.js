@@ -54,7 +54,7 @@ function deliveryHTML(){
  const truckCell=x=>x.kind==='pickup'?'<span class="mut">Pickup</span>':x.kind==='free'?(x.s.status==='delivered'?'<span class="mut">Not on a truck</span>':`<select aria-label="Truck for ${esc(x.s.number)}" onchange="deliveryRun(deliveryAssign('${esc(x.s.id)}',this.value))"><option value="">Choose truck</option>${active.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('')}</select>`):esc(x.t.name);
  /* Строки — тот же список вида Sales, что у всех: Columns, фильтры, ширина, итог. */
  const infos=all.map(x=>{const load=deliveryLoad(x.s);return {o:{id:x.s.id},x,load,memo:{truck:x.kind==='truck'?x.t.name:x.kind==='free'?'Not on a truck':'Pickup',stop:x.kind==='truck'?x.i+1:null,departs:x.s.departAt||'',ps:x.s.number,customer:salesCustomerDisplay(x.s.customerId),address:x.kind==='pickup'?'':docAddressText(x.s.shipTo)||'',city:(x.s.shipTo&&x.s.shipTo.city)||'',skids:load.skids.join(', '),units:x.s.items.length,kg:Math.round(load.kg*10)/10,status:shippingStatus(x.s)}};});
- const shown=new Set(rows.map(x=>x.s.id)),list=salesListRows(infos).filter(i=>shown.has(i.x.s.id));
+ const shown=new Set(rows.map(x=>x.s.id)),list=salesListShown(salesListRows(infos).filter(i=>shown.has(i.x.s.id)));
  const cell=(i,c)=>{const x=i.x,s=x.s,v=i.memo[c.k],locked=s.status==='delivered';switch(c.k){
   case 'truck':return `<td>${truckCell(x)}</td>`;
   case 'stop':return `<td class="n">${v==null?'':v}</td>`;

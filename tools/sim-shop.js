@@ -485,7 +485,10 @@ function simPage() {
     const g = c && glassProductById(c.glassId), mm = g ? g.thicknessMm : 6, w = l.width16 / 16, hh = l.height16 / 16;
     const circle = spec.shape === 'circle';
     /* Площадь фигуры — по её чертежу (геометрия, а не отчёт). */
-    let area = w * hh / 144, perim = circle ? Math.PI * w : 2 * (w + hh);
+    /* Кромка прямоугольника — каждая сторона вверх до целого дюйма, как в
+       счёте ERP: правило рынка (владелец, 09.11.2026). Точный периметр
+       давал расхождение 1% по кромке в --check (аудит Codex 09.11.2026). */
+    let area = w * hh / 144, perim = circle ? Math.PI * w : 2 * (Math.ceil(w - 1e-9) + Math.ceil(hh - 1e-9));
     if (spec.shape) { try { const sh = salesShapeByRef(l.shapeRef), r = sh && ShapeModule.compute(sh); if (r && r.valid && r.area > 0) { area = r.area / 144; const len = (r.edges || []).reduce((n, e) => n + (+e.length || 0), 0); if (len > 0) perim = len; } } catch (e) {} }
     const pane = spec.panes ? spec.panes[c ? c.index : 0] || spec.panes[0] : { ht: 'HT-AN' };
     p = { o: h.orderId, l: h.lineId, key: h.key, unit: h.unit, idx: c ? c.index : 0, ply: c ? c.ply : '', glass: c ? c.glass : '', mm, w, h: hh, area, perim, ht: spec.lam ? spec.lam.ht : pane.ht,
