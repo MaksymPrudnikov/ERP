@@ -61,5 +61,26 @@ module.exports=async function({page,eq}){
   const other=oqOrder(oqCustomer({legalName:'Not Yet'}));salesProdOpen(other);const empty=(document.querySelector('[data-prod-empty]')||{}).textContent||'';salesProdClose();
   return {off,on,lines,glass,po,carrier:/^DL-[12]$/.test(carrier||''),ctx,viaCtx,empty:empty.startsWith('Not in production yet')};
  }),{off:true,on:true,lines:2,glass:4,po:true,carrier:true,ctx:true,viaCtx:true,empty:true});
+ /* Владелец: «а зачем тогда мне CSV» — в Reports один значок выгрузки, Excel. */
+ const rep=sheet(await run(async()=>{
+  const rows=[{id:'1',at:'2024-01-01',k:'A',n:5.5},{id:'2',at:'2024-02-01',k:'B',n:2}];
+  REP_SRC.qx={label:'QX',group:'Sales',rows:()=>rows,date:['at'],fields:()=>[REP_F.date('at','Date'),REP_F.dim('k','K'),REP_F.num('n','N')],metrics:[{k:'count',label:'Rows',agg:'count'}]};
+  const r=repClean({id:'RP-xls',name:'XLS QA',share:'all',date:{preset:'all'},pages:[{widgets:[{type:'table',q:{source:'qx',dims:['k'],metrics:['n']}}]}]}),keep=DB.report;DB.report=keep.concat([r]);
+  try{tab='reports';repOpen(r.id);render();const btn=!!document.querySelector('[data-rep-excel]'),csvBtn=!!document.querySelector('[data-rep-csv]');window.xpRep={btn,csvBtn};
+   window.storageDownload=(name,parts)=>{window.xpCaught.push({name,blob:new Blob(parts)});};try{repExcel(r.pages[0].widgets[0].id);}finally{window.storageDownload=window.xpKeep;}
+   const x=window.xpCaught.pop();const b=new Uint8Array(await x.blob.arrayBuffer());let s='';b.forEach(v=>s+=String.fromCharCode(v));return {name:x.name,b64:btoa(s)};
+  }finally{DB.report=keep;repOpenId='';delete REP_SRC.qx;}}));
+ const repBtn=await t.p.evaluate(()=>window.xpRep);
+ eq('Reports: значок выгрузки — Excel (CSV-кнопки нет); строки и Total — те же, что CSV, числа — числами',{btn:repBtn,head:rep&&rep.head,rows:rep&&rep.rows,last:rep&&rep.last},
+  {btn:{btn:true,csvBtn:false},head:['K','N'],rows:3,last:['Total',7.5]});
+ /* Владелец: «а как будет отображаться, когда разные размеры» — у стекла свой размер. */
+ eq('Production: у каждого стекла свой размер; у ступенчатого пакета меньший лайт выделен',await run(()=>{
+  const id=oqOrder(oqCustomer({legalName:'Step Size'}));salesOrderEdit(id);const sh=salesLineGeometryShape(soDraft.lines[0]);
+  sh.lites={'0':{inset:{A:'1',B:'1',C:'1',D:'1'},edgeOps:{},mirror:false}};salesOrderSave();salesDraftDrop();
+  salesSetRecordStatus(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});const o=salesRecord(id),pm=glassPieceMap(id),who={id:'w',name:'S'};
+  o.lines.forEach(l=>glassBatchComponents(o,l).forEach(c=>{const r=pm.get(c.key);if(r)r.ids.forEach(pid=>{const ch=stationCheck('CUT',pid);if(STATION_RECORDED.includes(ch.kind))stationMove('CUT',ch,who);});}));touch();
+  salesProdOpen(id);const sizes=[...document.querySelectorAll('[data-sales-prod] [data-lite-size]')].map(td=>[td.textContent,td.classList.contains('sales-prod-own')]);salesProdClose();
+  return sizes.slice(0,2);
+ }),[['35 × 69',true],['37 × 71',false]]);
  await t.c.close();
 };

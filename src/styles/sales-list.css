@@ -233,4 +233,4 @@ th.n .sl-th [data-cw-label]:has(.sl-qf){flex:1 1 auto}th.n .sl-qf{text-align:rig
 /* Окно Production из Sales (views/sales-production, владелец 08.11.2026): клетки — как In production. */
 .sales-prod-modal{width:min(1000px,96vw)}.sales-prod-table td.pb-st,.sales-prod-table th.pb-st{text-align:center}
 .sales-prod-line td{background:var(--surface-2);font-weight:600}.sales-prod-glass td:first-child{padding-left:26px;border-left:3px solid var(--accent-line)}
-.sales-prod-empty{padding:18px 4px}
+.sales-prod-empty{padding:18px 4px}.sales-prod-own{font-weight:700;color:var(--accent)}

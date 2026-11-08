@@ -34,9 +34,14 @@ function salesProdHTML(){
   const route=[];bd.lines.forEach(l=>l.lites.forEach(t=>Object.keys(t.route||{}).forEach(c=>{if(!route.includes(c))route.push(c);})));
   const R=route.filter(c=>c!==(typeof shippingStations==='function'?shippingStations().ship:'SHIP'));
   const cells=(st,on)=>R.map(c=>`<td class="pb-st">${prodStation(st[c],c,on[c])}</td>`).join('');
-  const rows=bd.lines.map(l=>{const s=salesProdSum(l.lites);
+  /* Размер стекла — свой у каждого лайта ступенчатого пакета (salesLineStepInfo);
+     такой же, как у строки, — серым, другой — виден сразу (владелец 08.11.2026:
+     «а как будет, когда разные размеры»). */
+  const liteSize=(line,lite)=>{const info=line&&typeof salesLineStepInfo==='function'?salesLineStepInfo(line,o):null,k=parseInt(lite,10)-1,x=info&&info.step&&info.lites&&info.lites[k];return x?frac16(x.w)+' × '+frac16(x.h):'';};
+  const rows=bd.lines.map(l=>{const s=salesProdSum(l.lites),line=(o.lines||[])[l.no-1];
    return `<tr class="sales-prod-line" data-prod-line="${l.no}"><td><b>${l.no}</b> ${esc(l.mark)}</td><td>${esc(l.size)}</td><td class="n">${esc(l.units)}</td>${cells(s.route,s.on)}</tr>`+
-    l.lites.map((t,i)=>`<tr class="sales-prod-glass"><td class="mono">${esc(glassCodeLabel(t.glass))}</td><td class="mut">Lite ${t.lite!=null&&t.lite!==''?esc(String(t.lite)):i+1}</td><td class="n mut">${t.total}</td>${cells(t.route||{},t.onAt||{})}</tr>`).join('');}).join('');
+    l.lites.map((t,i)=>{const lite=t.lite!=null&&t.lite!==''?String(t.lite):String(i+1),own=liteSize(line,lite),diff=own&&own!==l.size;
+     return `<tr class="sales-prod-glass"><td><span class="mono">${esc(glassCodeLabel(t.glass))}</span> <span class="mut">· Lite ${esc(lite)}</span></td><td class="${diff?'sales-prod-own':'mut'}" data-lite-size>${esc(diff?own:l.size)}</td><td class="n mut">${t.total}</td>${cells(t.route||{},t.onAt||{})}</tr>`;}).join('');}).join('');
   body=`<div class="sales-table-wrap"><table class="sl-table sales-prod-table" data-prod-table><thead><tr><th>Line · glass</th><th>Size</th><th class="n">Qty</th>${R.map(c=>`<th class="pb-st">${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
  }
  return `<div class="sales-service-modal-back" onclick="if(event.target===this)salesProdClose()"><div class="sales-service-modal sales-prod-modal" role="dialog" aria-label="Production" data-sales-prod>${head}${body}</div></div>`;
