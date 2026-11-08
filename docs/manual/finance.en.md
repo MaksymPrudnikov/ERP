@@ -80,13 +80,28 @@ Terms, Total, Paid, Outstanding, Status; in ⚙ Columns also Days to due and Pic
 orders), **Terms**. **CSV** and **Print** — the list as on screen. Orders without a price — a line under the table,
 “N not priced — not in totals”.
 
-## Payments — receipts
+## Payments — money journal
 
-Receipts for the last 30 days (dates above the table: 7 days, 30 days, This month, Last month, All time or your own).
-Columns: Date, Receipt, Customer, Method, Reference, Amount, Applied to orders, On account; in ⚙ Columns also
-Refunded, Status, QuickBooks. A void receipt is not in the total. Click a row to open the receipt.
+Owner, 8 Nov 2026: the in-house bookkeeper sees here everything that goes to QuickBooks for the outside accountant,
+without opening every customer. By default — the last 30 days (dates above the table: 7 days, 30 days, This month,
+Last month, All time or your own).
 
-- **CSV** — payments and refunds of this list in one table by date (a refund is negative).
+- **Rows are the same as in the QuickBooks file:** payments (Payment), refunds (Refund, negative) and invoices
+  (Invoice — when the customer received the last unit; an invoice's Method is the payment terms, Reference is the PO).
+  Columns: Date, Type, Document, Customer, Method, Reference, Amount, Applied to orders, On account, QuickBooks; in
+  ⚙ Columns also Refunded, Status.
+- **QuickBooks** — New (not exported yet), Corrected (changed after the export), Voided (cancelled after the export),
+  Exported with the export date.
+- **Footer** — how many payments, refunds and invoices; Amount is money received minus refunds (invoices are not
+  money and are not in the sum). Void is not in the total.
+- **Method sums line** under the tiles: Cash, Cheque, E-transfer, Debit, Credit card, Refunds and Net (payments minus
+  refunds) — for the same dates and filters as the table. Click a method to keep only it in the journal, click again
+  to clear.
+- **Journal | By method** — By method: one row per method — payments, Amount, Refunds, Net, share; click a row to open
+  its payments and refunds right under it (click a payment to open the receipt), click again to close.
+- **To QuickBooks · N** — the journal shows only what the next QuickBooks file exports.
+- Click a payment or refund to open the receipt; an invoice has Open account (the customer).
+- **CSV** — the rows of this list (same filters and dates) in one table by date.
 - **QuickBooks · N new** — a file with only what QuickBooks does not have yet or what changed after the export:
   invoices, payments, refunds (New, Corrected, Voided). After the file they count as exported. **Last file** — the same
   file again if the last one was lost.

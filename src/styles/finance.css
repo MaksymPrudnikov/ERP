@@ -132,3 +132,16 @@
 /* Allocate на движке Sales (07.11.2026): галочка и ▸ в одной ячейке, связи — целиком. */
 .fin-alloc .sl-table td.sl-check{overflow:visible;text-overflow:clip;white-space:nowrap;text-align:left;padding-left:21px}
 .fin-alloc tr.fin-alloc-link td{overflow:visible;text-overflow:clip;white-space:nowrap}
+/* Журнал денег Payments (владелец, 08.11.2026): тип строки, статус QuickBooks,
+   суммы по способам тихой строкой, By method с раскрытием. */
+.fin-type{display:inline-flex;font-size:10px;font-weight:700;letter-spacing:.03em;padding:2px 7px;border-radius:999px;background:var(--surface-3);color:var(--text-2);margin-right:6px}
+.fin-type.refund{background:var(--warning-soft);color:var(--warning)}.fin-type.invoice{background:var(--violet-soft);color:var(--violet)}
+.fin-neg{color:var(--danger)}.fin-qb{display:inline-flex;font-size:10px;font-weight:700;letter-spacing:.03em;padding:2px 7px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
+.fin-pay-views{display:inline-flex;gap:6px;margin-left:12px;padding-left:12px;border-left:1px solid var(--line)}
+.fin-method-strip{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;padding:2px 2px 10px;font-size:12px;color:var(--text-2)}
+.fin-method-strip button{border:0;background:transparent;box-shadow:none;min-height:0;padding:3px 6px;border-radius:6px;font:inherit;color:var(--text-2);cursor:pointer}
+.fin-method-strip b{color:var(--text);font-variant-numeric:tabular-nums;margin-left:5px}.fin-method-strip button:hover{background:var(--surface-2)}
+.fin-method-strip button.on{background:var(--accent-soft);color:var(--accent)}.fin-method-strip button.on b{color:var(--accent)}.fin-method-strip b.fin-neg{color:var(--danger)}
+.fin-method-net{margin-left:auto;font-weight:600;color:var(--text)}.fin-method-net b{font:750 13px ui-monospace,monospace;color:var(--success)}
+.fin-method-row{cursor:pointer}.fin-method-row.open td{background:var(--accent-soft)}.fin-method-tog{display:inline-block;width:14px;color:var(--accent);font-weight:700}
+.fin-method-sub td{background:var(--surface-2);font-size:12px}.fin-method-sub td:first-child{border-left:3px solid var(--accent-line);padding-left:22px}.fin-method-sub .mut{display:inline-block;min-width:52px}
