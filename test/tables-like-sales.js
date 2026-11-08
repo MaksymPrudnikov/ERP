@@ -18,7 +18,7 @@ module.exports=async function({page,eq}){
   const heads=[...w.querySelectorAll('thead th[data-col]')].map(th=>th.dataset.col),gear=!!w.querySelector('[data-columns-button]'),grips=w.querySelectorAll('thead .cw-grip').length;
   tlPress(w.querySelector('th[data-col="name"] .sl-fbtn'));const menu=!!document.querySelector('[data-filter-menu="name"]');
   salesListSort('name','desc');const desc=tlNames();
-  slScopePin='mdTrucks';const p=salesListLoadPrefs();p.cols.find(c=>c.k==='note').on=false;salesListSavePrefs();slScopePin='';render();
+  slScopePin='mdTrucks';slScopePinTab=tab;const p=salesListLoadPrefs();p.cols.find(c=>c.k==='note').on=false;salesListSavePrefs();slScopePin='';render();
   const after=[...document.querySelectorAll('[data-sl-scope="mdTrucks"] thead th[data-col]')].map(th=>th.dataset.col);
   return {heads,gear,grips,menu,desc,after,saved:!!localStorage.getItem('glass_erp_mdTrucks_list_v1'),sales:!!localStorage.getItem('glass_erp_sales_list_v1')&&JSON.parse(localStorage.getItem('glass_erp_sales_list_v1')).sort&&JSON.parse(localStorage.getItem('glass_erp_sales_list_v1')).sort.k==='name'};
  }),{heads:['name','note','active'],gear:true,grips:3,menu:true,desc:['Charlie','Bravo','Alpha'],after:['name','active'],saved:true,sales:false});
@@ -28,7 +28,7 @@ module.exports=async function({page,eq}){
   const before=[cards(),charges()],name=orderSetup().cardNetworks[0].name;
   tlPress(document.querySelector('[data-sl-scope="mdSetupCards"] th[data-col="name"] .sl-fbtn'));
   salesListSetFilter('name',{mode:'include',conds:[{op:'equals',v:name,v2:'',join:'and'}],values:null,preset:''});
-  const after=[cards(),charges()];slScopePin='mdSetupCards';salesListSetFilter('name',null);slScopePin='';
+  const after=[cards(),charges()];slScopePin='mdSetupCards';slScopePinTab=tab;salesListSetFilter('name',null);slScopePin='';
   return {more:before[0]>1,after,charges:before[1]};
  }),{more:true,after:[1,5],charges:5});
  eq('quick filter in the header: click the name → a field; typing filters Starts with; Enter shows the value; ▾ sits left of the name',await t.p.evaluate(async()=>{
@@ -39,14 +39,14 @@ module.exports=async function({page,eq}){
   const typed=tlNames(),still=document.activeElement&&document.activeElement.classList.contains('sl-qf');
   document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
   const head=w().querySelector('th[data-col="name"] [data-cw-label]').textContent,on=w().querySelector('th[data-col="name"] .sl-fbtn').classList.contains('on');
-  slScopePin='mdTrucks';const f=salesListLoadPrefs().filters.name;salesListSetFilter('name',null);slScopePin='';
+  slScopePin='mdTrucks';slScopePinTab=tab;const f=salesListLoadPrefs().filters.name;salesListSetFilter('name',null);slScopePin='';
   return {left,focus,typed,still,head,on,op:f.conds[0].op};
  }),{left:true,focus:true,typed:['Bravo'],still:true,head:'br…',on:true,op:'startsWith'});
  eq('Starts with works on numbers and dates; another condition from ▾ shows its sign in the header',await t.p.evaluate(()=>{
   const n=salesListCondTest('number',{op:'startsWith',v:'76'},76025),no=salesListCondTest('number',{op:'startsWith',v:'76'},176),d=salesListCondTest('date',{op:'startsWith',v:'2026-10'},'2026-10-22'),txt=salesListCondTest('date',{op:'startsWith',v:'Oct'},'2026-10-22');
-  tlTrucks();slScopePin='mdTrucks';salesListSetFilter('name',{mode:'include',conds:[{op:'contains',v:'ar',v2:'',join:'and'}],values:null,preset:''});slScopePin='';
+  tlTrucks();slScopePin='mdTrucks';slScopePinTab=tab;salesListSetFilter('name',{mode:'include',conds:[{op:'contains',v:'ar',v2:'',join:'and'}],values:null,preset:''});slScopePin='';
   const head=document.querySelector('[data-sl-scope="mdTrucks"] th[data-col="name"] [data-cw-label]').textContent,rows=tlNames();
-  slScopePin='mdTrucks';salesListSetFilter('name',null);slScopePin='';
+  slScopePin='mdTrucks';slScopePinTab=tab;salesListSetFilter('name',null);slScopePin='';
   return {n,no,d,txt,head,rows};
  }),{n:true,no:false,d:true,txt:true,head:'∗ ar',rows:['Charlie']});
  eq('converted screens open on the engine: Data, Production, Inventory, Users',await t.p.evaluate(()=>{
@@ -66,7 +66,7 @@ module.exports=async function({page,eq}){
   const heads=[...box.querySelectorAll('thead th[data-col]')].map(th=>th.textContent.trim()),btns=box.querySelectorAll('thead .sl-fbtn').length,wrap=!!box.querySelector('[data-tl-x]');
   const rows=()=>[...box.querySelectorAll('tbody tr')].map(r=>r.dataset.r||r.className.replace(/\s+/g,' ').trim());
   const before=rows(),check=!!box.querySelector('tr[data-r="a"] td.sl-check input'),btn=!!box.querySelector('tr[data-r="a"] .sl-row-acts button');
-  slScopePin='tlFrom';salesListSetFilter(heads.length?salesListColumns()[1].k:'',{mode:'include',conds:[{op:'gt',v:'100',v2:'',join:'and'}],values:null,preset:''});draw();const after=rows();
+  slScopePin='tlFrom';slScopePinTab=tab;salesListSetFilter(heads.length?salesListColumns()[1].k:'',{mode:'include',conds:[{op:'gt',v:'100',v2:'',join:'and'}],values:null,preset:''});draw();const after=rows();
   salesListSetFilter(salesListColumns()[1].k,null);slScopePin='';box.remove();
   return {heads,btns,wrap,before,check,btn,after};
  }),{heads:['Item','Amount'],btns:2,wrap:true,before:['a','lnk','b'],check:true,btn:true,after:['b']});
@@ -88,7 +88,7 @@ module.exports=async function({page,eq}){
  const again=await t.p.evaluate(()=>(document.querySelector('.sl-qf')||{}).value);
  await t.p.keyboard.press('Escape');
  const esc=await t.p.evaluate(()=>({field:!!document.querySelector('.sl-qf'),rows:tlNames()}));
- await t.p.evaluate(()=>{slScopePin='mdTrucks';salesListSetFilter('name',null);slScopePin='';});
+ await t.p.evaluate(()=>{slScopePin='mdTrucks';slScopePinTab=tab;salesListSetFilter('name',null);slScopePin='';});
  eq('real mouse · Data › Trucks: a click on the column name opens the field with the cursor in it, typing filters, Enter shows the value, a second click edits it, Escape closes',{opened,typed,head,again,esc},
   {opened:{field:true,focus:true},typed:['Charlie'],head:'ch…',again:'ch',esc:{field:false,rows:['Charlie']}});
  /* Sales: свой список без обёртки scope; двойной клик — то же поле. */

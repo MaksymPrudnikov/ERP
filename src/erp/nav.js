@@ -72,7 +72,7 @@ function renderNav(){
    про заказы по-прежнему не знает. */
 function navGo(k){
  if(!accessCan(k))return;
- const go=()=>{tab=k;subtab=null;navMoreOpen=false;if(typeof slScopePin!=='undefined')slScopePin='';render();};
+ const go=()=>{tab=k;subtab=null;navMoreOpen=false;render();};
  if((window.NAV_GUARDS||[]).some(g=>g(k,go)))return;
  go();
 }
