@@ -84,7 +84,7 @@ module.exports=async function({page,eq}){
   salesListPrefs=null;const p=salesListLoadPrefs();
   localStorage.setItem(SALES_LIST_PREFS_KEY,JSON.stringify({cols:[{k:'glass',on:true},{k:'units',on:true}]}));salesListPrefs=null;const old=salesListLoadPrefs();
   const k=old.cols.map(c=>c.k);return {w:p.widths,old:old.widths||null,items:k.slice(k.indexOf('glass'),k.indexOf('glass')+3).map(x=>x+(old.cols.find(c=>c.k===x).on?'+':'-'))};
- }),{w:{number:40,customer:1200,po:120},old:null,items:['glass+','orderItems+','units+']});
+ }),{w:{number:40,customer:4000,po:120},old:null,items:['glass+','orderItems+','units+']});
 
  /* ---------------- Sales: перенос колонки за заголовок ---------------- */
  await run(()=>{salesListMenu=null;localStorage.removeItem(SALES_LIST_PREFS_KEY);salesListPrefs=null;salesListLoadPrefs().filters={};tab='sales';render();});

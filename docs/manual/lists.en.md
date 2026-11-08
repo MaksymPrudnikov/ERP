@@ -14,10 +14,21 @@ Customers, Agents, Users and Data.
   widths.
 - **Header** — the ▾ arrow left of the name: filter, condition and sort of the column; drag the edge of a header to
   change its width, drag the header to move the column. Widths and order are kept in this browser, per list.
+  One rule in every table, as in Excel: drag an edge — only that column changes, the columns to its left stay put,
+  those to its right shift as a whole; no column shrinks by itself. A table wider than the screen scrolls sideways,
+  a narrower one leaves empty space at the end. Until widths are touched, the long column (Customer, Glass, Name…)
+  takes the rest of the screen.
+- **Alignment** — one rule in every table, set by the column type: text and dates (Customer, PO, Status, Due,
+  Makeup…) on the left, numbers and money (Units, Area ft², Ready, Total, Balance, Qty, days…) on the right, as in
+  Excel and in accounting: digits line up (cents under cents), and SUM at the bottom sits under its column. The
+  header “▾ name” sits where the column's content is: on the left for text, on the right above the digits for
+  numbers. Widen a column — the content stays at its edge, the empty space is on the other side.
 - **Quick filter** — click a column name: a field takes its place and filters as you type (Starts with — “76” finds
   76025; for dates “Oct” or “2026-10”). Enter or a click elsewhere leaves the typed text in the header in green, ▾ in
   green; clear it to remove the filter. Another condition (greater, less, equal, Contains…) is in ▾, and the header
-  shows its sign: “> 1000”. If values are ticked in ▾, clicking the name opens ▾.
+  shows its sign: “> 1000”. If values are ticked in ▾ or a date column has a period (Last 30 days and so on),
+  clicking the name opens ▾. Esc closes the field. One click anywhere on the name is enough; dragging the header
+  moves the column and opens no field.
 - **Freeze** — the pin in the Sort row of the column menu: the column moves to the left and stays when the table
   scrolls sideways; its header shows the pin, the edge of the frozen columns has a shadow (text goes under them).
   Click again to unfreeze; Standard view unfreezes all.

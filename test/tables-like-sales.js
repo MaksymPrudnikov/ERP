@@ -9,8 +9,9 @@ module.exports=async function({page,eq}){
    ['mdTrucks','mdSetupCharges','mdSetupCards'].forEach(s=>{localStorage.removeItem('glass_erp_'+s+'_list_v1');delete salesQueuePrefs[s];});
    salesListMenu=null;salesListQuick=null;slScopePin='';navGo('masterdata');mdSetTab('trucks');render();};
   window.tlNames=()=>[...document.querySelectorAll('[data-sl-scope="mdTrucks"] tbody tr[data-truck-row]')].map(r=>r.querySelector('input').value);
-  /* Нажатие внутри таблицы — как мышью: сначала pointerdown (scope), потом click. */
-  window.tlPress=el=>{el.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));el.click();};
+  /* Нажатие внутри таблицы — как мышью: pointerdown (scope), pointerup, click. Без
+     pointerup перенос колонки (col-widths) считал бы кнопку зажатой. */
+  window.tlPress=el=>{el.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));el.dispatchEvent(new PointerEvent('pointerup',{bubbles:true}));el.click();};
  });
  eq('Data › Trucks on the Sales engine: ⚙ Columns, filter ▾ on every column, sort Z → A, Note hidden from Columns, prefs of its own',await t.p.evaluate(()=>{
   tlTrucks();const w=document.querySelector('[data-sl-scope="mdTrucks"]');
@@ -71,6 +72,73 @@ module.exports=async function({page,eq}){
  }),{heads:['Item','Amount'],btns:2,wrap:true,before:['a','lnk','b'],check:true,btn:true,after:['b']});
  eq('Sales: Columns has the order fields that were not on screen — Account, Contact, Currency, Picked up, Payment due, Days late, Hold reason, Notes',await t.p.evaluate(()=>SALES_LIST_COLUMNS.filter(c=>['account','contact','currency','billed','payDue','daysLate','holdReason','notes'].includes(c.k)).map(c=>c.label+(c.def?' on':''))),
   ['Account','Contact','Currency','Picked up','Payment due','Days late','Hold reason','Notes']);
+ /* Настоящая мышь (08.11.2026, владелец: «выделяется, но не работает как быстрый
+    поиск»): нажатие на заголовок начинает перенос колонки и захватывает
+    указатель на th — клик приходит в ячейку, а не в название. Проверки выше
+    кликали кодом и этого не видели; здесь — мышью Playwright. */
+ const qfState=()=>t.p.evaluate(()=>({field:!!document.querySelector('.sl-qf'),focus:!!(document.activeElement&&document.activeElement.classList.contains('sl-qf'))}));
+ await t.p.evaluate(()=>tlTrucks());
+ await t.p.locator('[data-sl-scope="mdTrucks"] th[data-col="name"] [data-cw-label]').click();
+ const opened=await qfState();
+ await t.p.keyboard.type('ch');await t.p.waitForTimeout(400);
+ const typed=await t.p.evaluate(()=>tlNames());
+ await t.p.keyboard.press('Enter');
+ const head=await t.p.evaluate(()=>document.querySelector('[data-sl-scope="mdTrucks"] th[data-col="name"] [data-cw-label]').textContent);
+ await t.p.locator('[data-sl-scope="mdTrucks"] th[data-col="name"] [data-cw-label]').click();
+ const again=await t.p.evaluate(()=>(document.querySelector('.sl-qf')||{}).value);
+ await t.p.keyboard.press('Escape');
+ const esc=await t.p.evaluate(()=>({field:!!document.querySelector('.sl-qf'),rows:tlNames()}));
+ await t.p.evaluate(()=>{slScopePin='mdTrucks';salesListSetFilter('name',null);slScopePin='';});
+ eq('real mouse · Data › Trucks: a click on the column name opens the field with the cursor in it, typing filters, Enter shows the value, a second click edits it, Escape closes',{opened,typed,head,again,esc},
+  {opened:{field:true,focus:true},typed:['Charlie'],head:'ch…',again:'ch',esc:{field:false,rows:['Charlie']}});
+ /* Sales: свой список без обёртки scope; двойной клик — то же поле. */
+ await t.p.evaluate(()=>{
+  const c1=normalizeCustomer({id:'CUS-QA',code:'QA',legalName:'Alpha Glass'}),c2=normalizeCustomer({id:'CUS-QB',code:'QB',legalName:'Bravo Windows'});DB.customer=[c1,c2];
+  DB.salesOrder=[['SO-Q1','93001',c1.id],['SO-Q2','93002',c2.id]].map(([id,n,cid])=>normalizeSalesOrder({id,businessNumber:n,customerId:cid,customerPo:'PO-'+n,createdAt:new Date().toISOString(),lines:[]}));
+  localStorage.removeItem(SALES_LIST_PREFS_KEY);salesListPrefs=null;salesStatusFilter='';soDraft=null;soEdit=null;tab='sales';salesShow={orders:true,quotes:false,ncr:false};salesQuickSet('all');
+ });
+ const salesRows=()=>t.p.evaluate(()=>[...document.querySelectorAll('tbody tr[data-order-row]')].map(r=>r.dataset.orderRow));
+ await t.p.locator('th[data-col="customer"] [data-cw-label]').click();
+ const sOpen=await qfState();await t.p.keyboard.type('bra');await t.p.waitForTimeout(400);
+ const sRows=await salesRows();await t.p.keyboard.press('Enter');
+ await t.p.locator('th[data-col="customer"] [data-cw-label]').dblclick();
+ const sDbl=await qfState();await t.p.keyboard.press('Escape');
+ await t.p.evaluate(()=>salesListSetFilter('customer',null));
+ eq('real mouse · Sales: click on Customer opens the field, typing “bra” leaves Bravo Windows; a double click opens the same field',{sOpen,sRows,sDbl},{sOpen:{field:true,focus:true},sRows:['SO-Q2'],sDbl:{field:true,focus:true}});
+ /* Перенос колонки и ширина мышью — поле не открывают; ▾ — меню, не поле. */
+ const order=()=>t.p.evaluate(()=>[...document.querySelectorAll('thead th[data-col]')].map(th=>th.dataset.col).slice(0,3));
+ const before=await order();
+ const lab=await t.p.locator('th[data-col="customer"] [data-cw-label]').boundingBox(),num=await t.p.locator('th[data-col="number"]').boundingBox();
+ await t.p.mouse.move(lab.x+lab.width/2,lab.y+lab.height/2);await t.p.mouse.down();await t.p.mouse.move(lab.x-20,lab.y+5,{steps:4});await t.p.mouse.move(num.x+2,num.y+num.height/2,{steps:6});await t.p.mouse.up();
+ const moved={order:await order(),field:(await qfState()).field};
+ const grip=await t.p.locator('th[data-col="customer"] .cw-grip').boundingBox();
+ await t.p.mouse.move(grip.x+grip.width/2,grip.y+grip.height/2);await t.p.mouse.down();await t.p.mouse.move(grip.x+40,grip.y+grip.height/2,{steps:5});await t.p.mouse.up();
+ const resized=(await qfState()).field;
+ await t.p.locator('th[data-col="customer"] .sl-fbtn').click();
+ const menu=await t.p.evaluate(()=>({menu:!!document.querySelector('[data-filter-menu="customer"]'),field:!!document.querySelector('.sl-qf')}));
+ await t.p.evaluate(()=>{salesListMenu=null;localStorage.removeItem(SALES_LIST_PREFS_KEY);salesListPrefs=null;render();});
+ eq('real mouse · Sales: dragging the column moves it and opens no field, dragging the edge changes width and opens no field, ▾ opens the menu',{before,moved,resized,menu},
+  {before:['number','customer','po'],moved:{order:['customer','number','po'],field:false},resized:false,menu:{menu:true,field:false}});
+ /* Две таблицы на экране (Data › Setup): поле открывается в той, где нажали. */
+ await t.p.evaluate(()=>{tlTrucks();navGo('masterdata');mdSetTab('setup');render();});
+ await t.p.locator('[data-sl-scope="mdSetupCards"] th[data-col="name"] [data-cw-label]').click();
+ const two=await t.p.evaluate(()=>{const i=document.querySelector('.sl-qf');return {scope:i&&i.closest('[data-sl-scope]').dataset.slScope,count:document.querySelectorAll('.sl-qf').length};});
+ await t.p.keyboard.press('Escape');
+ eq('real mouse · two tables on one screen (Data › Setup): the field opens in the table that was clicked',two,{scope:'mdSetupCards',count:1});
+ /* Ширина (владелец 08.11.2026: «в других таблицах тянешь вправо — сужается слева, текст по правому краю»):
+    колонки левее тянущейся стоят на месте, край идёт за мышью; остаток — fill справа или пустой конец. */
+ await t.p.evaluate(()=>{slScopePin='';localStorage.removeItem(SALES_LIST_PREFS_KEY);salesListPrefs=null;navGo('sales');salesQuickSet('all');});
+ const edges=()=>t.p.evaluate(()=>Object.fromEntries([...document.querySelectorAll('#app table[data-cw-table] thead th[data-cw-key]')].map(th=>{const r=th.getBoundingClientRect();return [th.dataset.cwKey,[Math.round(r.left),Math.round(r.right)]];})));
+ const pull=async(k,dx)=>{const g=await t.p.locator(`#app table[data-cw-table] th[data-cw-key="${k}"] .cw-grip`).boundingBox();await t.p.mouse.move(g.x+g.width/2,g.y+5);await t.p.mouse.down();await t.p.mouse.move(g.x+g.width/2+dx,g.y+5,{steps:5});await t.p.mouse.up();};
+ const w0=await edges(),ks=Object.keys(w0),ci=ks.indexOf('customer'),R1=ks[ci+1],R2=ks[ci+2];
+ await pull(R2,40);const w1=await edges();
+ await pull('customer',-30);const w2=await edges();await pull(R1,30);const w3=await edges();
+ const same=(a,b,keys)=>keys.every(k=>Math.abs(a[k][0]-b[k][0])<=1&&Math.abs(a[k][1]-b[k][1])<=1);
+ const gap=await t.p.evaluate(()=>{const th=document.querySelector('#app th.n[data-cw-key]');const l=th.querySelector('[data-cw-label]'),f=th.querySelector('.sl-fbtn'),r=document.createRange();r.selectNodeContents(l);return Math.round(r.getBoundingClientRect().left-f.getBoundingClientRect().right)<=6;});
+ await t.p.evaluate(()=>{localStorage.removeItem(SALES_LIST_PREFS_KEY);salesListPrefs=null;render();});
+ eq('real mouse · widths: the 2nd column right of Customer (+40) — columns to its left stay, the edge follows; then Customer itself (−30) and the column after it (+30) — the same; a number header sits right after ▾',
+  {status:same(w0,w1,ks.slice(0,ci+2))&&Math.abs(w1[R2][1]-w0[R2][1]-40)<=3,customer:same(w1,w2,ks.slice(0,ci))&&Math.abs(w2.customer[1]-w1.customer[1]+30)<=3,due:same(w2,w3,ks.slice(0,ci+1))&&Math.abs(w3[R1][1]-w2[R1][1]-30)<=3,gap},
+  {status:true,customer:true,due:true,gap:true});
  eq('no browser errors',t.errs,[]);
  await t.c.close();
 };

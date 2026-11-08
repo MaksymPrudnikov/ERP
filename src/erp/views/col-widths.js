@@ -19,7 +19,8 @@
      Её ширина не запоминается, пока её не потянули руками.
    ===================================================================== */
 
-const CW_MIN=40,CW_MAX=1200;
+/* CW_MAX — защита от мусора в настройках; «резина» на широком экране бывает шире 1200 px (08.11.2026). */
+const CW_MIN=40,CW_MAX=4000;
 const CW_TABLES={};
 /* id → {widths(), save(widths), def(key), min(key), move(from,to,after),
    lead: [px служебных колонок слева], trail: px кнопок справа, fill: ключ
@@ -55,10 +56,16 @@ function cwGrip(){return '<span class="cw-grip" data-cw-grip aria-hidden="true">
 /* ------------------------------ Жесты ---------------------------------- */
 let cwDrag=null;
 function cwKeys(table){return [...table.querySelectorAll('thead th[data-cw-key]')];}
-/* Ширины всех видимых колонок такими, как они на экране, — один раз, при первом жесте. */
-function cwSnapshot(table,id){
- const w=cwWidths(id);if(Object.keys(w).length)return w;
- cwKeys(table).forEach(th=>{if(th.dataset.cwKey!==CW_TABLES[id].fill)w[th.dataset.cwKey]=Math.max(CW_MIN,Math.ceil(th.getBoundingClientRect().width));});
+/* Ширины видимых колонок такими, как они на экране, — в начале каждого жеста, чтобы
+   ничего не прыгнуло. Правило одно для всех таблиц, как в Excel (владелец 08.11.2026:
+   «то, как двигает колонки Excel, — этого хватает, он логичный»): тянешь край — меняется
+   только эта колонка, левее ничего не двигается, правее всё сдвигается целиком; ни одна
+   колонка сама не сужается. Таблица шире экрана — прокрутка вбок, уже — пустое место в
+   конце (пустая колонка без ширины). Колонка fill занимает остаток только до первого
+   жеста; с ним её ширина, как у всех, — какая на экране. */
+function cwSnapshot(table){
+ const w={};
+ cwKeys(table).forEach(th=>{w[th.dataset.cwKey]=Math.max(CW_MIN,Math.round(th.getBoundingClientRect().width));});
  return w;
 }
 /* Таблица на экране — в режим ширин без перерисовки (ввод и фокус на месте). */
@@ -92,7 +99,7 @@ function cwDown(e){
  const id=table.dataset.cwTable,key=th.dataset.cwKey;
  if(e.target.closest('[data-cw-grip]')){
   e.preventDefault();e.stopPropagation();
-  const w=cwSnapshot(table,id);cwApply(table,id,w);
+  const w=Object.assign(cwWidths(id),cwSnapshot(table));cwApply(table,id,w);
   cwDrag={kind:'resize',id,key,table,th,w,start:w[key]||th.getBoundingClientRect().width,x:e.clientX,pointer:e.pointerId};
   try{e.target.setPointerCapture(e.pointerId);}catch(x){}
   document.body.classList.add('cw-resizing');th.classList.add('cw-active');cwGuide(th.getBoundingClientRect().right,table);
@@ -126,7 +133,7 @@ function cwMove(e){
 }
 function cwUp(e){
  const d=cwDrag;if(!d||(e&&e.pointerId!==d.pointer))return;cwDrag=null;cwClear();
- if(d.kind==='resize'){CW_TABLES[d.id].save(cwClean(d.w));cwSwallowClick();if(typeof salesListFit==='function')salesListFit();return;}
+ if(d.kind==='resize'){const w=cwClean(d.w);CW_TABLES[d.id].save(w);cwApply(d.table,d.id,w);cwSwallowClick();if(typeof salesListFit==='function')salesListFit();return;}
  if(!d.on)return;cwSwallowClick();
  const t=d.target;if(!t||t.th===d.th)return;
  CW_TABLES[d.id].move(d.key,t.th.dataset.cwKey,t.after);
