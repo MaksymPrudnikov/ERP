@@ -102,6 +102,8 @@ declare r jsonb;
 begin
   r := public.erp_apply('adm-1', 'b1', 'pc1', '[]', '[{"tbl":"receipt","id":"R-1","data":{"id":"R-1","amount":100}}]');
   assert (r->>'ok')::boolean, 'админ не записал оплату: ' || r;
+  r := public.erp_apply('adm-up', 'b1', 'pc1', '[]', '[{"tbl":"_upload","id":"state","data":"{\"done\":true}"}]');
+  assert (r->>'ok')::boolean, 'админ не записал отметку Upload: ' || r;
 end $$;
 reset role;
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
@@ -124,6 +126,9 @@ begin
   assert not exists (select 1 from jsonb_array_elements(public.erp_changes(0)->'rows') x where x->>'tbl' = 'authEvent'), 'журнал входов виден без Users';
   r := public.erp_apply('off-3', 'b1', 'pc2', '[]', '[{"tbl":"user","id":"U-1","data":{"id":"U-1"}}]');
   assert r->'denied' = '["user"]', 'люди без Users: ' || r;
+  -- Отметку Upload — только админ (F07): Download ей верит.
+  r := public.erp_apply('off-up', 'b1', 'pc2', '[]', '[{"tbl":"_upload","id":"state","data":"{\"done\":false}"}]');
+  assert r->'denied' = '["_upload"]', 'отметка Upload без админа: ' || r;
 end $$;
 reset role;
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');

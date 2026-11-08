@@ -315,7 +315,7 @@ async function cloudPushAll(){
   if(s.out[0]!==cmd)return;
   s.out.shift();keys.forEach(k=>s.lost.add(cloudKey(k.tbl,k.id)));cloudApplyServer(Array.isArray(now)?now:[],keys,ops);
   /* Заказ людям виден номером, а не внутренним ключом строки. */
-  const names=[...new Set((r&&r.conflict||[]).map(x=>{const o=(x.tbl==='salesOrder'||x.tbl==='financeTerms')&&salesRecord(x.id),d=!o&&['receipt','refund','shipment','stockItem'].includes(x.tbl)&&(DB[x.tbl]||[]).find(y=>y.id===x.id);return o?o.businessNumber||'order':d?d.number||d.name||x.id:x.id;}))].slice(0,3).join(', ');
+  const names=[...new Set((r&&r.conflict||[]).map(x=>{const o=(x.tbl==='salesOrder'||x.tbl==='financeTerms')&&salesRecord(x.id),d=!o&&Array.isArray(DB[x.tbl])&&DB[x.tbl].find(y=>y&&y.id===x.id);return o?o.businessNumber||'order':d?d.number||d.name||x.id:x.id;}))].slice(0,3).join(', ');
   if(!s.out.length){s.lost.clear();s.lostGrp.clear();}
   s.warn=r&&r.denied?'No access on server: '+r.denied.join(', ')+'. Server copy shown.':'Changed on another computer: '+(names||'rows')+'. Server copy shown.';s.warnAt=Date.now();
  }

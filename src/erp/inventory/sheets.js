@@ -295,6 +295,9 @@ function invCountSave(counts,why){
   Object.entries(counts||{}).forEach(([key,v])=>{
    const r=rows.get(key)||invCountNewRow(key);if(!r||r.sizeMissing)throw new Error('Glass or sheet size not found. Reopen the count.');
    const n=invWhole(v,r.code+' '+invSizeText(r));
+   /* «Было» — по этой копии: строку стекла сервер сверяет, второй пересчёт
+      по старой копии — конфликт, а не вторая недостача (F09, как C13). */
+   const g=glassProductByCode(r.code);if(g&&typeof cloudGuard==='function')cloudGuard('glassProduct',g.id);
    const e=Object.assign({id:salesUid('IE'),kind:'count',glass:r.code,w:r.w,h:r.h,qty:n-r.onRack,before:r.onRack,after:n},stockReasonOf(why&&why[key]),{at:now,by:actor.by,byId:actor.byId});
    DB.inventoryEvent.push(e);out.push(e);
   });
