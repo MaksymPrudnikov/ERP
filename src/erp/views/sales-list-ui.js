@@ -762,7 +762,9 @@ function salesListCwTable(keys,lead,trail,defs){
  if(!CW_TABLES[id])cwRegister(id,{widths:()=>salesListLoadPrefs().widths||{},
   save:w=>{const p=salesListLoadPrefs();if(Object.keys(w).length)p.widths=w;else delete p.widths;salesListSavePrefs();},
   def:k=>{const c=salesListColumn(k);return (defs&&defs[k])||SALES_LIST_WIDTH[k]||(c&&c.money?110:c&&c.type==='number'?84:c&&c.type==='text'?160:100);},
-  min:()=>CW_MIN,move:salesListMoveColumnTo,lead:lead||[],trail:trail||0,fill:['customer','glass','item'].find(k=>keys.includes(k))||''});
+  min:()=>CW_MIN,move:salesListMoveColumnTo,lead:lead||[],trail:trail||0,
+  /* Остаток ширины — Customer, Glass, Item, Name, Supplier или первая текстовая колонка: у каждой таблицы своя «резина». */
+  fill:['customer','glass','item','name','supplierName','description'].find(k=>keys.includes(k))||keys.find(k=>{const c=salesListColumn(k);return c&&c.type==='text';})||''});
  return {cls:cwTableClass(id),attrs:cwTableAttrs(id,keys),col:cwColgroup(id,keys)};
 }
 /* Таблица списка вида Sales для вкладок со своими строками (Skids, Backorders,

@@ -14,6 +14,10 @@ Customers, Agents, Users and Data.
   widths.
 - **Header** — the ▾ arrow left of the name: filter, condition and sort of the column; drag the edge of a header to
   change its width, drag the header to move the column. Widths and order are kept in this browser, per list.
+  One rule in every table, as in Excel: drag an edge — only that column changes, the columns to its left stay put,
+  those to its right shift as a whole; no column shrinks by itself. A table wider than the screen scrolls sideways,
+  a narrower one leaves empty space at the end. Until widths are touched, the long column (Customer, Glass, Name…)
+  takes the rest of the screen.
 - **Quick filter** — click a column name: a field takes its place and filters as you type (Starts with — “76” finds
   76025; for dates “Oct” or “2026-10”). Enter or a click elsewhere leaves the typed text in the header in green, ▾ in
   green; clear it to remove the filter. Another condition (greater, less, equal, Contains…) is in ▾, and the header

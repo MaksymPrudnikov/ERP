@@ -125,6 +125,20 @@ module.exports=async function({page,eq}){
  const two=await t.p.evaluate(()=>{const i=document.querySelector('.sl-qf');return {scope:i&&i.closest('[data-sl-scope]').dataset.slScope,count:document.querySelectorAll('.sl-qf').length};});
  await t.p.keyboard.press('Escape');
  eq('real mouse · two tables on one screen (Data › Setup): the field opens in the table that was clicked',two,{scope:'mdSetupCards',count:1});
+ /* Ширина (владелец 08.11.2026: «в других таблицах тянешь вправо — сужается слева, текст по правому краю»):
+    колонки левее тянущейся стоят на месте, край идёт за мышью; остаток — fill справа или пустой конец. */
+ await t.p.evaluate(()=>{slScopePin='';localStorage.removeItem(SALES_LIST_PREFS_KEY);salesListPrefs=null;navGo('sales');salesQuickSet('all');});
+ const edges=()=>t.p.evaluate(()=>Object.fromEntries([...document.querySelectorAll('#app table[data-cw-table] thead th[data-cw-key]')].map(th=>{const r=th.getBoundingClientRect();return [th.dataset.cwKey,[Math.round(r.left),Math.round(r.right)]];})));
+ const pull=async(k,dx)=>{const g=await t.p.locator(`#app table[data-cw-table] th[data-cw-key="${k}"] .cw-grip`).boundingBox();await t.p.mouse.move(g.x+g.width/2,g.y+5);await t.p.mouse.down();await t.p.mouse.move(g.x+g.width/2+dx,g.y+5,{steps:5});await t.p.mouse.up();};
+ const w0=await edges(),ks=Object.keys(w0),ci=ks.indexOf('customer'),R1=ks[ci+1],R2=ks[ci+2];
+ await pull(R2,40);const w1=await edges();
+ await pull('customer',-30);const w2=await edges();await pull(R1,30);const w3=await edges();
+ const same=(a,b,keys)=>keys.every(k=>Math.abs(a[k][0]-b[k][0])<=1&&Math.abs(a[k][1]-b[k][1])<=1);
+ const gap=await t.p.evaluate(()=>{const th=document.querySelector('#app th.n[data-cw-key]');const l=th.querySelector('[data-cw-label]'),f=th.querySelector('.sl-fbtn'),r=document.createRange();r.selectNodeContents(l);return Math.round(r.getBoundingClientRect().left-f.getBoundingClientRect().right)<=6;});
+ await t.p.evaluate(()=>{localStorage.removeItem(SALES_LIST_PREFS_KEY);salesListPrefs=null;render();});
+ eq('real mouse · widths: the 2nd column right of Customer (+40) — columns to its left stay, the edge follows; then Customer itself (−30) and the column after it (+30) — the same; a number header sits right after ▾',
+  {status:same(w0,w1,ks.slice(0,ci+2))&&Math.abs(w1[R2][1]-w0[R2][1]-40)<=3,customer:same(w1,w2,ks.slice(0,ci))&&Math.abs(w2.customer[1]-w1.customer[1]+30)<=3,due:same(w2,w3,ks.slice(0,ci+1))&&Math.abs(w3[R1][1]-w2[R1][1]-30)<=3,gap},
+  {status:true,customer:true,due:true,gap:true});
  eq('no browser errors',t.errs,[]);
  await t.c.close();
 };
