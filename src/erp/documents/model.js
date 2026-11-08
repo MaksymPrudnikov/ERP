@@ -49,10 +49,8 @@ function docHeatName(spec){
    код, как раньше. */
 function docGlassName(g,opts){const how=opts&&opts.glassNames;return !g?'?':how==='short'?glassShortName(g):how==='name'?g.name||g.code:g.code;}
 function docPaneCode(p,opts){
- if(p.category==='laminated'){
-  const lam=p.laminated||{},o=glassProductById(lam.outer&&lam.outer.glassProductId),i=glassProductById(lam.inner&&lam.inner.glassProductId);
-  return 'LAM '+docGlassName(o,opts)+docHeatCode(lam.outer)+'+'+docGlassName(i,opts)+docHeatCode(lam.inner);
- }
+ /* Ламинат — как в Sales (salesLaminatedText), с закалкой и плёнкой. */
+ if(p.category==='laminated')return salesLaminatedText(p,(opts&&opts.glassNames)||'code',true);
  const g=glassProductById(p.glassProductId);let s=docGlassName(g,opts)+docHeatCode(p);
  if(p.category==='spandrel')s+=' SP';else if(p.visionType==='frit')s+=' FRIT';
  return s;

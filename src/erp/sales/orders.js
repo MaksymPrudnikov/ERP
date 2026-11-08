@@ -1375,6 +1375,47 @@ function salesLineChargeRowsLive(line){
 /* Сумма строки начисления за один юнит: количество × ставка, не меньше
    минимальной суммы работы. */
 function salesChargeUnitAmount(row,rate){return rate==null?null:Math.max(row.basis*rate,row.minCharge||0);}
+/* Работа с чертежа убирается в окне сервисов строки (владелец, 08.11.2026):
+   уходит и из цены, и с чертежа ЭТОЙ строки. Какие элементы формы дают строку
+   начисления, решает сам расчёт: элемент убран — количество по ключу
+   уменьшилось. Второго описания ключей всех видов работ нет. Форма строки
+   своя — правится она; общая с другой строкой или из библиотеки — строке
+   делается своя копия, остальные строки не меняются. */
+/* Кромка приходит из настроек кромки строки (Service Set, окно Edgework), а не
+   из точек чертежа, — её здесь не убирают. */
+function salesShapeChargeRemovable(key){return /^(MI|FEATURE):/.test(String(key||''));}
+/* Где искать элементы работы — по виду ключа: метки (отверстия, фурнитура) —
+   в метках, нотч — в углах фигуры, остальное с чертежа — в его элементах. */
+function salesShapeElements(def,key){
+ const out=[],kind=String(key).split(':')[0];
+ if(kind==='MI')(def.manufacturingItems||[]).forEach(x=>out.push({list:def.manufacturingItems,item:x}));
+ else if(/^FEATURE:notch-/.test(key)){const m=def.smart;if(m&&m.corners)Object.keys(m.corners).forEach(k=>{if(m.corners[k]&&m.corners[k]!=='none')out.push({corner:k,smart:m});});}
+ else (def.features||[]).forEach(x=>out.push({list:def.features,item:x}));
+ return out;
+}
+function salesRemoveShapeCharge(lineId,key){
+ const line=(soDraft&&soDraft.lines||[]).find(l=>l.id===lineId);
+ if(!line||!salesShapeChargeRemovable(key)||salesLockedLineGuard(line))return false;
+ const s=salesShapeByRef(line.shapeRef);if(!s)return false;
+ const draft=JSON.parse(JSON.stringify(s)),basis=()=>{const r=salesLineChargeRowsRaw(line,draft).find(x=>x.key===key);return r?r.basis:0;};
+ let left=basis(),n=0;if(!(left>0))return false;
+ salesShapeElements(draft,key).forEach(e=>{
+  if(!(left>0))return;
+  let undo;
+  if(e.smart){const was=e.smart.corners[e.corner];e.smart.corners[e.corner]='none';undo=()=>{e.smart.corners[e.corner]=was;};}
+  else{const i=e.list.indexOf(e.item);e.list.splice(i,1);undo=()=>{e.list.splice(i,0,e.item);};}
+  const now=basis();if(now<left-1e-9){left=now;n++;}else undo();
+ });
+ if(!n)return false;
+ const others=(DB.salesOrder||[]).some(o=>o.id!==soDraft.id&&(o.lines||[]).some(l=>l.shapeRef&&l.shapeRef.id===s.id))||soDraft.lines.some(l=>l!==line&&l.shapeRef&&l.shapeRef.id===s.id);
+ draft.revision=Math.max(0,Math.floor(+s.revision||0))+1;
+ if(s.ownerLineId===line.id&&!others){const i=DB.shapeDef.findIndex(x=>x.id===s.id);DB.shapeDef[i]=normalizeShapeDef(draft);}
+ else{const fresh=newShapeDef(draft.type||'rectangle');draft.id=fresh.id;draft.revision=0;draft.ownerLineId=line.id;
+  draft.name=(soDraft.businessNumber||'SO')+' · '+(line.mark||('Line '+(soDraft.lines.indexOf(line)+1)));DB.shapeDef.push(normalizeShapeDef(draft));}
+ line.shapeRef=normalizeShapeRef({id:draft.id,revision:draft.revision});
+ if(line.chargePricing)delete line.chargePricing[key];
+ touch();render();return true;
+}
 function salesChargeGroupKey(row){
  const p=String(row&&row.key||'').split(':');if(p[0]==='MI'){if(p[1]==='hole')return 'MI:hole:'+(p[2]||'unpriced');return 'MI:'+(p[1]||'');}
  if(p[0]==='EDGE'){if(p[1]==='bevel')return 'EDGE:bevel:'+(p[2]||'');return 'EDGE:'+(p[1]||'');}

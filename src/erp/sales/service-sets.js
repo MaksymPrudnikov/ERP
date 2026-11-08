@@ -484,9 +484,12 @@ function salesEdgeChargeMetaForServiceSet(op,ctx){
 
 /* Billing and Cutting read the SAME effective snapshot. Округление и
    минимум работы накладывает salesLineChargeRows (sales/orders). */
-salesLineChargeRowsRaw=function(line){
+/* draft — форма вместо формы строки: salesRemoveShapeCharge (sales/orders)
+   пробует чертёж без элемента, не трогая базу. Записанное при Save тогда не
+   берётся — оно про настоящую форму. */
+salesLineChargeRowsRaw=function(line,draft){
   /* Записано при Save (sales/line-measure) — без расчёта фигуры. */
-  var kept=salesMeasureFor(line,soDraft);if(kept)return kept.rows.map(function(r){return Object.assign({},r);});
+  var kept=draft?null:salesMeasureFor(line,soDraft);if(kept)return kept.rows.map(function(r){return Object.assign({},r);});
   var rows=[];
   /* Остекление (фрит, спандрел) приходит из makeup, а не из геометрии, и
      считается до выхода по отсутствию контура: наносят его и на прямоугольник. */
@@ -494,12 +497,12 @@ salesLineChargeRowsRaw=function(line){
   /* Раскладка не зависит от геометрии кромки и считается до выхода по
      отсутствию контура — как и остекление выше. */
   if(typeof salesMuntinChargeRows==='function')salesMuntinChargeRows(line).forEach(function(row){rows.push(row);});
-  var saved=line&&line.shapeRef?salesShapeByRef(line.shapeRef):null;
+  var saved=draft||(line&&line.shapeRef?salesShapeByRef(line.shapeRef):null);
   salesUnitSurchargeRows(line,saved).forEach(function(row){rows.push(row);});
   /* Сервисы, добавленные руками (sales/extra-services), от контура не
      зависят — до выхода по его отсутствию. */
   if(typeof salesExtraServiceRows==='function')salesExtraServiceRows(line).forEach(function(row){rows.push(row);});
-  var shape=salesLineGeometryShape(line),ctx=salesPricingThickness(line);if(!shape)return rows.filter(function(x){return x.basis>0;});
+  var shape=draft||salesLineGeometryShape(line),ctx=salesPricingThickness(line);if(!shape)return rows.filter(function(x){return x.basis>0;});
   var items=saved&&Array.isArray(saved.manufacturingItems)?saved.manufacturingItems:[];
   /* Разбор меток общий с обычной веткой расчёта — см. salesManufacturingChargeRows.
      Считается ПО СТЁКЛАМ: отверстие и петля делаются на каждом физическом
