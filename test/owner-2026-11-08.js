@@ -26,6 +26,7 @@ module.exports=async function({page,eq}){
   const o=o8Order(),[a,b]=o.lines,s=salesShapeByRef(a.shapeRef),segs=ShapeModule.compute(s).edges||[];
   [[3,3],[9,3]].forEach(([x,y])=>s.manufacturingItems.push(shapeNormalizeManufacturingItem({type:'hole',x,y,diameter:'1/2'})));
   s.manufacturingItems.push(shapeNormalizeManufacturingItem({type:'hinge',edgeId:segs[0]&&segs[0].id,distance:4}));
+  touch();
   const keys=l=>salesLineChargeRowsRaw(l).map(r=>r.key.split(':').slice(0,2).join(':'));
   salesOpenLineServices(a.id);const acts=[...document.querySelectorAll('.sales-line-service-row:not(.head)')].map(r=>[!!r.querySelector('[data-charge-reset]'),!!r.querySelector('[data-shape-remove]')]);salesCloseServices();
   const hole=salesLineChargeRowsRaw(a).find(r=>/^MI:hole/.test(r.key)).key,own=a.shapeRef.id;
@@ -39,7 +40,7 @@ module.exports=async function({page,eq}){
     функцией для мейкапов, а что внутри него — базово чтобы не было видно». */
  eq('Minimum area: общий 4 ft² на виду; по макапу своё число; материал внутри макапа — своё; записывается в заказ и в журнал',await run(()=>{
   const o=o8Order(),m=o.makeups[0],l=o.lines[1],sid=salesSurchargeCatalog(o).find(x=>x.rule.kind==='minArea').id;
-  l.width16=10*16;l.height16=12*16;salesSyncShapeFromLine(l);
+  l.width16=10*16;l.height16=12*16;salesSyncShapeFromLine(l);touch();
   const price=()=>salesLineCommercialPrice(l,soDraft),bill=()=>price().areas.billable;
   salesOpenMetrics('rules');const closed=!document.querySelector('[data-minarea-makeup]')&&!!document.querySelector('[data-minarea-toggle]');
   salesMinAreaToggle('');const mk=document.querySelectorAll('[data-minarea-makeup]').length,parts0=document.querySelectorAll('[data-minarea-part]').length;
