@@ -69,8 +69,8 @@ Owner, 8 Nov 2026: a customer calls the front desk, gives the PO and asks where 
 
 - Find the order by PO: ▾ on the PO column → the number. Tick the order and press the **factory** icon in the header
   next to ✂ (Cut preview) — or right-click the order → **Production**.
-- The window shows the order lines (number, mark, size, units) and under each the glass of the unit (glass code, Lite,
-  how many); columns are the route stations. The cell is the same as in Production → In production: a **number** — glass
+- The window shows the order lines (number, mark, size, units) and under each the glass of the unit (glass code and Lite,
+  the glass's own size, how many; in a step unit a size different from the line is highlighted); columns are the route stations. The cell is the same as in Production → In production: a **number** — glass
   waiting at this station now, under it the **dolly or skid** and how many are on it (click — the carrier window: what
   is on it in order, where it stands); **✓** — all passed; **·** — not there yet. The order line is the total of its
   glass.

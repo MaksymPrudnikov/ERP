@@ -20,7 +20,7 @@ yourself (Top N) limits a chart.
   (Dimension, Breakdown, Metrics, filter) or just click it — it goes to Dimension or Metrics; "+ Field" is your own metric.
 - **The Edit top is one row:** the report name (edit it in place), the folder, Unsaved changes, **Report settings**
   (folder, who sees it, Show on, Delete report), Cancel, Save.
-- **Chart buttons are icons in its title row:** in view only CSV; in Edit also edit (pencil), duplicate, up, down and
+- **Chart buttons are icons in its title row:** in view only Excel; in Edit also edit (pencil), duplicate, up, down and
   × (remove). The corner at the bottom right (Edit) drags: up and down for the table or chart height, sideways for
   half the row or the whole row.
 
@@ -93,7 +93,8 @@ Starter reports are edited by an administrator; everyone else uses Copy and edit
   everyone. An empty cell shows a grey "–".
 - **Sorting:** click a column header to sort by it (▼ biggest first, click again for ▲). The order is yours, in this
   browser; Reset returns the report's order.
-- **CSV** in the corner of every chart — all its rows and columns as a file for Excel, plain numbers, with Total.
+- **Excel** (the export icon) in the corner of every chart — all its rows and columns as an `.xlsx` file: numbers as
+  numbers, money with two decimals, a Total row (owner, 8 Nov 2026: no separate CSV needed).
 - **Combo** — two metrics on one chart: the column is the first metric, a narrow inner column is the second on its
   own scale. For example "sheets cut per month" with "batches" inside. Hover to see both numbers.
 - Bars and the pie legend show every value and scroll inside the card. The pie sits left, its labels right in columns.
@@ -219,8 +220,8 @@ With no row dimension the filter checks the whole total.
 - The red dashed **End of page · Letter portrait** line (in view and in Edit) is the paper edge. Anything below does
   not print: blocks and rows below fade with hatching, and the line says "N rows won't print". Nothing is shrunk for
   you: make it fit with a block's corner or a second page (+ Page).
-- On paper a table is what shows in its card above the edge: whole rows, then "+ N more rows — CSV" and Total for
-  all rows. All rows — use CSV.
+- On paper a table is what shows in its card above the edge: whole rows, then "+ N more rows — Excel" and Total for
+  all rows. All rows — use Excel.
 - Charts print in colour; the browser's site address and date are not on the sheet.
 - The print window has "Save as PDF".
 

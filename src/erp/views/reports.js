@@ -335,7 +335,8 @@ function repIcoBtn(icon,title,on,attrs,cls){return `<button type="button" class=
 function repWidgetCard(r,w,i,n){
  const sel=repEditOn&&w.id===repSelW,id=esc(w.id),tools=repEditOn?`<span class="rep-wtools">${repIcoBtn('edge','Edit',`repSelectWidget('${id}')`,'data-rep-wedit')}${repIcoBtn('copy','Duplicate',`repDupWidget('${id}')`)}${repIcoBtn('up','Move up',`repMoveWidget('${id}',-1)`,i?'':'disabled')}${repIcoBtn('down','Move down',`repMoveWidget('${id}',1)`,i<n-1?'':'disabled')}${repIcoBtn('close','Remove',`repDelWidget('${id}')`,'','dl')}</span>`:'';
  const src=REP_SRC[w.q.source],own=w.q.date.use==='own'?' · '+repDateText(w.q.date):'';
- const csv=w.type!=='number'||!repEditOn?repIcoBtn('download','Export all rows to CSV',`repCsv('${id}')`,'data-rep-csv','rep-csv'):'';
+ /* Выгрузка — Excel (владелец, 08.11.2026: «а зачем тогда мне CSV»); repCsvText остаётся для проверки строк. */
+ const csv=w.type!=='number'||!repEditOn?repIcoBtn('download','Export all rows to Excel',`repExcel('${id}')`,'data-rep-excel','rep-csv'):'';
  return `<div class="card rep-w${w.width==='half'?' half':''}${sel?' sel':''}" data-rep-widget="${id}" data-rep-type="${w.type}"${w.h?` style="--rep-h:${w.h}px"`:''}${repEditOn&&!sel?` onclick="if(!event.target.closest('button,[role=button],input,select,[data-rep-corner]'))repSelectWidget('${id}')"`:''}><div class="rep-wh"><h3 data-raw>${esc(repWidgetTitle(w))}</h3><span class="mut">${esc(src?src.label:'')}${esc(own)}</span><span class="rep-wbtns">${tools}${csv}</span></div>${repChart(r,w)}${repSkipHTML(r,w)}${repEditOn?`<span class="rep-corner" data-rep-corner="${id}" title="Drag to resize" aria-hidden="true"></span>`:''}</div>`;
 }
 
@@ -410,21 +411,34 @@ function repSortClick(wid,by,i){
  const cur=repWidgetQuery(r,w).sort,same=cur&&cur.by===by&&(by==='label'||cur.i===i),dir=same?(cur.dir==='asc'?'desc':'asc'):by==='label'?'asc':'desc';
  repViewSet(r.id,v=>{v.s=v.s&&typeof v.s==='object'?v.s:{};v.s[wid]={by,i,dir};});render();
 }
-/* Export CSV (как в Looker: меню графика → Export): все строки и колонки,
-   как в таблице, числа без форматирования, строка Total. */
-function repCsvText(r,w){
- const q=repWidgetQuery(r,w),S=REP_SRC[q.source],res=repResultOf(q,repCtx());if(!S||!res)return '';
- const cell=v=>{const s=v==null?'':String(v);return /[",\n;]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;},num=(m,v)=>v==null||!Number.isFinite(+v)?'':m.money?(+v).toFixed(2):String(+(+v).toFixed(6));
- const ms=res.metrics,d1=res.dims[0],d2=res.dims[1],rowDims=d1?[d1].concat(res.more||[]):[],lines=[];
+/* Строки выгрузки виджета (как в Looker: меню графика → Export): все строки и
+   колонки, как в таблице, строка Total. Ячейка — {v, t:'s'|'n', money}: CSV
+   пишет числа без форматирования, Excel — числами (views/sl-excel). */
+function repExportRows(r,w){
+ const q=repWidgetQuery(r,w),S=REP_SRC[q.source],res=repResultOf(q,repCtx());if(!S||!res)return null;
+ const n=(m,v)=>({v:v==null||!Number.isFinite(+v)?null:+v,t:'n',money:!!m.money}),t=v=>({v:v==null?'':String(v),t:'s'});
+ const ms=res.metrics,d1=res.dims[0],d2=res.dims[1],rowDims=d1?[d1].concat(res.more||[]):[],rows=[];
  const keys2=d2?res.keys2:[],head=rowDims.map(d=>repDimLabel(S,d)).concat(d2?keys2.flatMap(b=>ms.map(m=>repKeyText(S,d2,b)+' · '+m.label)).concat(ms.map(m=>'Total · '+m.label)):ms.map(m=>m.label));
- lines.push(head);
- if(!d1)lines.push(ms.map((m,i)=>num(m,res.total[i])));
+ if(!d1)rows.push(ms.map((m,i)=>n(m,res.total[i])));
  else{
-  res.keys.forEach(k=>{const parts=String(k).split('\u0002'),dims=rowDims.map((d,j)=>parts[j]==null?'':repKeyText(S,d,parts[j]));
-   lines.push(dims.concat(d2?keys2.flatMap(b=>ms.map((m,i)=>num(m,(res.cells.get(k+'\u0001'+b)||[])[i]))).concat(ms.map((m,i)=>num(m,res.rowTotals.get(k)[i]))):ms.map((m,i)=>num(m,res.rowTotals.get(k)[i]))));});
-  lines.push(['Total'].concat(rowDims.slice(1).map(()=>'')).concat(d2?keys2.flatMap(b=>ms.map((m,i)=>num(m,(res.colTotals.get(b)||[])[i]))).concat(ms.map((m,i)=>num(m,res.total[i]))):ms.map((m,i)=>num(m,res.total[i]))));
+  res.keys.forEach(k=>{const parts=String(k).split('\u0002'),dims=rowDims.map((d,j)=>t(parts[j]==null?'':repKeyText(S,d,parts[j])));
+   rows.push(dims.concat(d2?keys2.flatMap(b=>ms.map((m,i)=>n(m,(res.cells.get(k+'\u0001'+b)||[])[i]))).concat(ms.map((m,i)=>n(m,res.rowTotals.get(k)[i]))):ms.map((m,i)=>n(m,res.rowTotals.get(k)[i]))));});
+  rows.push([t('Total')].concat(rowDims.slice(1).map(()=>t(''))).concat(d2?keys2.flatMap(b=>ms.map((m,i)=>n(m,(res.colTotals.get(b)||[])[i]))).concat(ms.map((m,i)=>n(m,res.total[i]))):ms.map((m,i)=>n(m,res.total[i]))));
  }
- return lines.map(l=>l.map(cell).join(',')).join('\r\n')+'\r\n';
+ return {head,rows};
+}
+function repCsvText(r,w){
+ const x=repExportRows(r,w);if(!x)return '';
+ const cell=v=>{const s=v==null?'':String(v);return /[",\n;]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+ const val=c=>c.t!=='n'?c.v:c.v==null?'':c.money?c.v.toFixed(2):String(+c.v.toFixed(6));
+ return [x.head].concat(x.rows.map(row=>row.map(val))).map(l=>l.map(cell).join(',')).join('\r\n')+'\r\n';
+}
+/* Excel — те же строки, что CSV, числами (владелец, 08.11.2026: «добавь»). */
+function repExcel(wid){
+ const r=repOpenReport();if(!r)return;const w=r.pages.flatMap(p=>p.widgets).find(x=>x.id===wid);if(!w)return;
+ const x=readScope(()=>repExportRows(r,w));if(!x)return;
+ const title=(r.name+' - '+repWidgetTitle(w)).replace(/[\\/:*?"<>|]+/g,' ').trim();
+ storageDownload(title+' '+finToday()+'.xlsx',xlsxBook(repWidgetTitle(w),x.head,x.rows,null),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 }
 function repCsv(wid){
  const r=repOpenReport();if(!r)return;const w=r.pages.flatMap(p=>p.widgets).find(x=>x.id===wid);if(!w)return;
@@ -613,7 +627,7 @@ function repPrintPageHTML(r,p){
    уменьшается только под ширину бумаги: граница листа на экране
    (repSheetMark) — там же, где край бумаги. Что ниже края, на бумагу не идёт
    (владелец, 05.11.2026: «вылез — в печать не пойдёт»): блок за краем снят,
-   таблица — по целой строке, «+ N more rows — CSV» и итог Total по всем
+   таблица — по целой строке, «+ N more rows — Excel» и итог Total по всем
    строкам. Таблица и в своём блоке печатает только то, что видно в нём. */
 let repPrintW=0;
 function repPrintFit(el){
@@ -629,7 +643,7 @@ function repPrintFit(el){
  x.style.zoom=String(Math.floor(z*1000)/1000);
 }
 /* Таблица на бумаге: видимое в её блоке и выше края листа — целыми строками;
-   остальное — строкой «+ N more rows — CSV», итог Total остаётся. false — не
+   остальное — строкой «+ N more rows — Excel», итог Total остаётся. false — не
    влезла ни одна строка. */
 function repPrintCutTable(b,box,body,limit){
  const table=box.querySelector('table'),all=+(table&&table.dataset.repRows)||body.rows.length,cols=(body.rows[0]||{cells:[]}).cells.length||1;
@@ -639,7 +653,7 @@ function repPrintCutTable(b,box,body,limit){
  while(body.rows.length>keep)body.deleteRow(keep);
  box.classList.add('rep-print-cut');
  const tr=body.insertRow(-1);tr.className='rep-more-row';const td=tr.insertCell(0);td.colSpan=cols;
- const label=()=>{td.textContent='+ '+chNum(all-keep)+' more row'+(all-keep===1?'':'s')+' \u2014 CSV';};label();
+ const label=()=>{td.textContent='+ '+chNum(all-keep)+' more row'+(all-keep===1?'':'s')+' \u2014 Excel';};label();
  while(!fits()&&keep>0){body.deleteRow(--keep);label();}
  return keep>0||fits();
 }
