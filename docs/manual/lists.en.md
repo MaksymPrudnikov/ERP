@@ -18,6 +18,11 @@ Customers, Agents, Users and Data.
   those to its right shift as a whole; no column shrinks by itself. A table wider than the screen scrolls sideways,
   a narrower one leaves empty space at the end. Until widths are touched, the long column (Customer, Glass, Name…)
   takes the rest of the screen.
+- **Alignment** — one rule in every table, set by the column type: text and dates (Customer, PO, Status, Due,
+  Makeup…) on the left, numbers and money (Units, Area ft², Ready, Total, Balance, Qty, days…) on the right, as in
+  Excel and in accounting: digits line up (cents under cents), and SUM at the bottom sits under its column. The
+  header “▾ name” sits where the column's content is: on the left for text, on the right above the digits for
+  numbers. Widen a column — the content stays at its edge, the empty space is on the other side.
 - **Quick filter** — click a column name: a field takes its place and filters as you type (Starts with — “76” finds
   76025; for dates “Oct” or “2026-10”). Enter or a click elsewhere leaves the typed text in the header in green, ▾ in
   green; clear it to remove the filter. Another condition (greater, less, equal, Contains…) is in ▾, and the header
