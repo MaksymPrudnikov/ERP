@@ -42,7 +42,23 @@ function salesSurcharges(order){
   const o=own[x.id];if(!o){out.push(x);return;}
   const value=o.value!=null?o.value:x.value;if(o.off||!(value>0))return;
   const rule=o.areaOver!=null||o.areaUnder!=null?Object.assign({},x.rule,o.areaOver!=null?{areaOver:o.areaOver}:null,o.areaUnder!=null?{areaUnder:o.areaUnder}:null):x.rule;
-  out.push(Object.assign({},x,{value,rule,catalog:x}));
+  out.push(Object.assign({},x,{value,rule,catalog:x},o.byMakeup?{byMakeup:o.byMakeup}:null));
+ });
+ return out;
+}
+/* Минимальная площадь по макапам заказа и по материалам внутри макапа
+   (владелец, 08.11.2026): на виду общее число, по клику — макапы, в макапе —
+   стекло, плёнка, распорка. order.surchargeRates[id].byMakeup[makeupId] =
+   {value, parts:{'<таблица>:<id>': число}}. value — минимум юнита этого
+   макапа (пусто — общее); parts — минимум одного материала в его единице
+   продажи (ft² или погонная), пусто — как макап. */
+function salesMinAreaFor(x,makeupId){const b=x&&x.byMakeup&&x.byMakeup[makeupId];return b&&b.value!=null?b.value:x.value;}
+function salesMinAreaParts(order,m,rounded){
+ const out={};if(!m)return out;const kinds=salesUnitKinds(m);
+ salesSurcharges(order||soDraft).forEach(x=>{
+  if(x.rule.kind!=='minArea'||!salesSurchargeFits(x.rule,kinds,rounded))return;
+  const b=x.byMakeup&&x.byMakeup[m.id];if(!b||!b.parts)return;
+  Object.keys(b.parts).forEach(k=>{if(out[k]==null||b.parts[k]>out[k])out[k]=b.parts[k];});
  });
  return out;
 }
@@ -64,9 +80,22 @@ function salesSurchargeLogNotes(a,b){
  return ids.filter(id=>cat.has(id)).map(id=>{
   const x=cat.get(id),pa=salesSurchargeParts(x,ra[id]),pb=salesSurchargeParts(x,rb[id]),off=pa.length===1||pb.length===1;
   const pick=p=>(off?p:p.filter((v,i)=>pa[i]!==pb[i])).filter(Boolean).join(' · ');
-  return pa.join()===pb.join()?'':x.name+': '+pick(pa)+' → '+pick(pb);
- }).filter(Boolean);
+  const main=pa.join()===pb.join()?'':x.name+': '+pick(pa)+' → '+pick(pb);
+  return [main].concat(salesMinAreaLogNotes(x,ra[id],rb[id],b));
+ }).flat().filter(Boolean);
 }
+/* Минимум по макапу и материалу — «Minimum area · 3CL: 4 → 1 ft²»; пусто — «—». */
+function salesMinAreaLogNotes(x,oa,ob,order){
+ const ba=oa&&oa.byMakeup||{},bb=ob&&ob.byMakeup||{},out=[],v=n=>n==null?'—':String(n);
+ [...new Set(Object.keys(ba).concat(Object.keys(bb)))].forEach(mid=>{
+  const m=salesMakeupById(order,mid),name=m?salesMakeupSummary(m):mid,ea=ba[mid]||{},eb=bb[mid]||{};
+  if((ea.value??null)!==(eb.value??null))out.push(x.name+' · '+name+': '+v(ea.value)+' → '+v(eb.value)+' ft²');
+  const pa=ea.parts||{},pb=eb.parts||{};
+  [...new Set(Object.keys(pa).concat(Object.keys(pb)))].forEach(k=>{if((pa[k]??null)!==(pb[k]??null))out.push(x.name+' · '+name+' · '+salesMinAreaPartName(k)+': '+v(pa[k])+' → '+v(pb[k]));});
+ });
+ return out;
+}
+function salesMinAreaPartName(k){const i=k.indexOf(':'),t=k.slice(0,i),id=k.slice(i+1),x=t==='glassProduct'?glassProductById(id):mdById(t,id);return x?(t==='glassProduct'?glassShortName(x)||x.name:x.code||x.name):id;}
 /* Подходит ли надбавка юниту: виды юнита (single/double/triple, плюс
    laminated, если в нём есть ламинат) и площадь к оплате одного юнита. */
 function salesSurchargeFits(rule,kinds,area){
@@ -107,7 +136,7 @@ function salesLineAreasLive(line,order){
     юнита нужен только при условии по видам: без макапа условие не сходится. */
  let min=0,minBy=null;
  if(valid){const kinds=salesUnitKinds(salesMakeupById(order||soDraft,line&&line.makeupId));
-  salesSurcharges(order||soDraft).forEach(x=>{if(x.rule.kind==='minArea'&&x.value>min&&salesSurchargeFits(x.rule,kinds,rounded)){min=x.value;minBy=x;}});}
+  const mid=line&&line.makeupId;salesSurcharges(order||soDraft).forEach(x=>{const v=salesMinAreaFor(x,mid);if(x.rule.kind==='minArea'&&v>min&&salesSurchargeFits(x.rule,kinds,rounded)){min=v;minBy=x;}});}
  return {actual:actual,rounded:rounded,billable:valid?Math.max(rounded,min):null,minArea:valid&&min>rounded?{id:minBy.id,name:minBy.name,value:min}:null,perimeterIn:perimeterIn,width:w,height:h,roundedWidth:Math.ceil(w),roundedHeight:Math.ceil(h),valid:valid};
 }
 /* Центы: «ничья» в полцента (98.175 + 2.82 = 100.995) округляется вверх.
@@ -180,13 +209,23 @@ function salesSaleQty(rules,areas,kg){
 function salesLineMaterials(m,areas,order){
  const out={total:0,amount:0,known:true,rows:[]};
  if(!m||!areas.valid)return Object.assign(out,salesMakeupUnitPrice(m),{amount:0});
- let plain=0;
+ let plain=0;const minParts=salesMinAreaParts(order,m,areas.rounded);
  /* Что именно продано — справочник и айтем, лайт, плита, слои плёнки (tag):
     по ним отчёт Products · sold (reports/facts-sold) делит продажи. */
  const add=(label,price,table,item,kg,fixedUnit,tag)=>{
   const ref=Object.assign({table:table||'',itemId:item&&item.id||''},tag);
   if(price==null){out.known=false;out.rows.push(Object.assign({label,price:null},ref));return;}
   const rules=fixedUnit?{unit:fixedUnit,minArea:null,minCharge:null}:salesItemSaleRules(table,item);
+  /* Свой минимум материала в этом заказе (окно Surcharges → By makeup):
+     площадь — от округлённой площади юнита, а не от минимума юнита; погонная —
+     от своей длины. Остальные единицы (вес, штука) минимума не имеют. */
+  const own=!fixedUnit&&item?minParts[table+':'+item.id]:null,calc=(mdUnit(rules.unit)||{calc:'area'}).calc;
+  if(own!=null&&(calc==='area'||calc==='linear')){
+   const qty=calc==='area'?(rules.unit==='sqm'?Math.max(areas.rounded,own)*GLASS_M2_PER_FT2:Math.max(areas.rounded,own)):Math.max(salesSaleQty(rules,areas,null),own);
+   const notes=['min '+own+' '+(calc==='area'?'ft²':rules.unit)];let amount=price*qty;
+   if(rules.minCharge!=null&&amount<rules.minCharge){amount=rules.minCharge;notes.push('min charge '+rules.minCharge.toFixed(2));}
+   out.rows.push(Object.assign({label,price,unit:rules.unit,qty,amount,note:notes.join(' · '),special:true},ref));out.amount+=amount;return;
+  }
   if(rules.unit==='sqft'&&rules.minArea==null&&rules.minCharge==null){plain+=price;out.rows.push(Object.assign({label,price,unit:'sqft',qty:areas.billable,amount:price*areas.billable},ref));return;}
   const needKg=rules.unit==='kg'||rules.unit==='lb',qty=salesSaleQty(rules,areas,needKg?kg():null);
   if(qty==null){out.known=false;out.rows.push(Object.assign({label,price,unit:rules.unit,qty:null,note:'No weight'},ref));return;}
