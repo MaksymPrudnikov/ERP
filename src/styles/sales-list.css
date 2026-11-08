@@ -88,7 +88,6 @@
 .sl-foot .sl-calc small{display:block;margin:0 0 2px;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-2)}
 /* Sales: итоги внизу экрана. overflow:hidden карточки и обёртки держал бы их на месте. */
 .card.sales-list-card.sl-foot-pin{overflow:clip}
-.sl-foot-pin table.cw-fixed th.n .sl-th{justify-content:flex-end}
 .sl-foot-pin .sales-table-wrap{overflow:visible}
 .sl-foot-pin .sales-table-wrap.sl-wide{overflow:auto}
 .sl-foot-pin .sl-foot td{position:sticky;bottom:var(--sl-foot-bottom,0);z-index:3;border-top:0;box-shadow:inset 0 1px var(--line)}
@@ -212,8 +211,13 @@
 /* Быстрый фильтр в заголовке (07.11.2026): ▾ слева, остальное — название и поле. */
 th .sl-th{display:flex;width:100%;min-width:0}
 th .sl-th .sl-fbtn{order:-1;flex:none}
-/* Название сразу после ▾ у всех колонок, и у чисел (владелец 08.11.2026: «текст равняется по правому краю»). */
+/* Название сразу после ▾ у всех колонок (владелец 08.11.2026: «текст равняется по правому краю»). */
 th .sl-th [data-cw-label]{text-align:left;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text}
+/* Числовая колонка (владелец 08.11.2026): «▾ название» вместе и справа, над цифрами, — как числа в Excel;
+   не «▾ слева, название справа» и не «название слева, цифры справа». */
+th.n .sl-th{justify-content:flex-end}
+th.n .sl-th [data-cw-label]{flex:0 1 auto}
+th.n .sl-th [data-cw-label]:has(.sl-qf){flex:1 1 auto}th.n .sl-qf{text-align:right}
 .sl-qf{width:100%;min-width:0;height:22px !important;padding:0 3px !important;border:0 !important;border-radius:3px 3px 0 0 !important;background:var(--surface) !important;box-shadow:inset 0 -2px 0 var(--accent) !important;font:inherit;font-weight:600;color:var(--text);outline:0}
 .sl-qf-on{color:var(--accent);font-weight:700}
 /* Первая колонка (07.11.2026, владелец: «шестерня не отцентрована»): ⚙ и
