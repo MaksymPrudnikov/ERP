@@ -25,6 +25,9 @@ async function cloudFetch(path,body,token,method){
  try{r=await fetch(c.url+path,{method:method||'POST',headers:{'Content-Type':'application/json',apikey:c.key,Authorization:'Bearer '+(token||c.key)},body:JSON.stringify(body||{})});}
  catch(e){throw new Error('No connection to the server.');}
  let j=null;try{j=await r.json();}catch(e){}
+ /* Сервер старше ERP: нет функции, которую ждёт эта версия (08.11.2026 —
+    erp_apply с grp) — нужен свежий schema.sql в SQL Editor. */
+ if(!r.ok&&j&&j.code==='PGRST202')throw new Error('Server update needed: run schema.sql.');
  if(!r.ok)throw new Error(String(j&&(j.message||j.msg||j.error_description||j.error)||'Server error '+r.status));
  return j;
 }

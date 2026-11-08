@@ -132,6 +132,9 @@ function finSaveReceipt(){
  const e=document.getElementById('e_fin');if(e)e.style.display='none';if(!finDraft)return;
  if(finEdit!=='new'&&finRecordBaselineId===finEdit&&JSON.stringify((DB.receipt||[]).find(r=>r.id===finEdit))!==finRecordBaseline){fail(e,'This payment changed elsewhere. Reopen it before correcting it; your draft is still available.');return false;}
  const d=Object.assign({},finDraft,{allocations:Object.entries(finDraft.apply).map(([orderId,amount])=>({orderId,amount:amount===''?0:amount}))});
+ /* Правка оплаты, лежащей на заказе в архиве, — сначала он в работу (C1). */
+ const back=finArchivedOrders(d.allocations.map(a=>a.orderId));
+ if(back.length){finBringBack(back).then(x=>{if(!x.ok)return fail(document.getElementById('e_fin'),x.error);finSaveReceipt();});return;}
  const out=finPersist(()=>finSaveReceiptRecord(d,finEdit==='new'?null:finEdit,d.reason,d.duplicate),finReceiptScope(d,finEdit==='new'?null:finEdit));
  if(!out.ok){if(/reference already exists/.test(out.error)){render();}return fail(document.getElementById('e_fin'),out.error);}
  finCloseReceipt(true,out.value);
@@ -141,6 +144,11 @@ function finVoidCurrent(){
  const reason=window.prompt('Void receipt '+r.number+'. Reason:','');
  if(reason===null)return;
  if(!String(reason).trim()){alert('Enter a reason to void the receipt.');return;}
+ finVoidDo(r,reason);
+}
+function finVoidDo(r,reason){
+ const back=finArchivedOrders(r.allocations.map(a=>a.orderId));
+ if(back.length){finBringBack(back).then(x=>{if(!x.ok)return fail(document.getElementById('e_fin'),x.error);finVoidDo(r,reason);});return;}
  const out=finPersist(()=>finVoidReceipt(r.id,reason));if(!out.ok)return fail(document.getElementById('e_fin'),finRefunded(r.id)>0?'Void the refund record first. A payment with an active refund cannot be voided.':out.error);finCloseReceipt(true);
 }
 

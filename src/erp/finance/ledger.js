@@ -79,6 +79,8 @@ function finSaveReceiptRecord(d,id,reason,allowDuplicate){
  if(old){const equal=r=>JSON.stringify([r.date,r.method,r.reference,r.amount,r.note,r.allocations]);if(equal(old)===equal(next))return old;
   finAssert(String(reason||'').trim(),'Enter a reason for correcting this payment.');}
  finAssert(allowDuplicate||!finReceiptDuplicates(next,id).length,'A payment with this reference already exists. Review it or confirm the duplicate.');
+ /* Долг заказа — с сервером он сверяется у всех (C4). */
+ if(typeof cloudGuardOrder==='function')allocations.forEach(a=>cloudGuardOrder(a.orderId));
  if(old){finEnsureHistory(old);const before=finCopy(old);Object.assign(old,next);finEvent('corrected',before,old,reason);return old;}
  DB.receipt.push(next);finEvent('received',null,next,'');return next;
 }
@@ -89,8 +91,12 @@ function finCreateRefund(d){
  finAssert(cents<=finCents(finReceiptOnAccount(r)),'Refund exceeds the available deposit. Release the order allocation first.');
  finAssert(finDateValid(d.date)&&d.date>=r.date,'Refund date must be valid and not before the payment.');
  finAssert(FIN_METHODS.some(m=>m.k===d.method),'Select a refund method.');finAssert(String(d.reason||'').trim(),'Enter the refund reason.');
+ /* Остаток квитанции — с сервером он сверяется у всех (C4). */
+ if(typeof cloudGuard==='function')cloudGuard('receipt',r.id);
  finEnsureHistory(r);
- const seq=DB.refund.reduce((n,x)=>Math.max(n,+String(x.number).replace('RF-','')||0),0)+1;
+ /* Номер — после всех возвратов, и ушедших в архив (аудит Codex 08.11.2026,
+    C11); с сервером его выдаёт счётчик refund (erp/cloud-sync, C4). */
+ const seq=DB.refund.reduce((n,x)=>Math.max(n,+String(x.number).replace('RF-','')||0),typeof archiveFloor==='function'?archiveFloor('refund'):0)+1;
  const out={id:'RF-'+finUid(),number:'RF-'+String(seq).padStart(4,'0'),receiptId:r.id,customerId:r.customerId,currency:'CAD',amount:cents/100,
   date:d.date,method:d.method,reference:String(d.reference||'').trim().slice(0,80),reason:String(d.reason).trim().slice(0,300),createdAt:new Date().toISOString(),voided:false,voidReason:'',voidedAt:''};
  DB.refund.push(out);finEvent('refunded',null,out,out.reason,'refund');return out;

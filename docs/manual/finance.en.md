@@ -90,6 +90,8 @@ Refunded, Status, QuickBooks. A void receipt is not in the total. Click a row to
 - **QuickBooks · N new** — a file with only what QuickBooks does not have yet or what changed after the export:
   invoices, payments, refunds (New, Corrected, Voided). After the file they count as exported. **Last file** — the same
   file again if the last one was lost.
+- After the first QuickBooks file an order does not go to the archive until its invoice, payments and refunds are
+  exported: from the archive they would never reach the file. Until the first file the archive works as usual.
 
 ### Receipt (+ New receipt)
 
@@ -107,6 +109,8 @@ Refunded, Status, QuickBooks. A void receipt is not in the total. Click a row to
 - Correcting a saved receipt needs a reason (**Correction reason**). A receipt's customer is not changed: Void it and
   enter a new one.
 - **Void receipt** — with a reason; the money comes off the orders. If the receipt has a refund, void the refund first.
+- The receipt is on an order that is already archived (the receipt still has money on account): Void, a correction and
+  × Unallocate first bring that order back to work — its balance shows again in Accounts and due dates.
 - **Print / email receipt** — the receipt form. **Refund** — return to the customer the part that sits on account,
   CAD: amount, date (not before the payment), method, reason.
 - Came to the receipt from an order, Optimization or Shipping (Take payment) — after Save the program goes back there.
@@ -138,6 +142,9 @@ list at the top without leaving the window.
 - **Unallocate selected** — undo what is allocated between the ticked orders and receipts. Only orders ticked — every
   payment comes off them; only receipts ticked — the receipts are freed completely. The money goes back to the
   customer's account (On account) and waits for a new allocation.
+- The currency of a paid order changed (Currency in the order; payments are CAD only): Save asks and returns those
+  payments to the customer's account (On account) in their currency; converting by the payment day and allocating
+  again is done by hand.
 - **▸ on a row** — shows what paid the order (or where the receipt went). Each link has **× Unallocate** to undo only
   that one; the others stay.
 - The order number opens the order in Sales, the receipt number opens its form. **+ Receipt** — a new receipt for this

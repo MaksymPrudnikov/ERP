@@ -75,6 +75,21 @@ begin
   assert public.erp_cold_of('["SO-9"]')->0->'data'->>'id' = 'S-1', 'архив по заказу';
   assert public.erp_cold_of('["SO-0"]') = '[]', 'архив чужого заказа пуст';
   assert pg_temp.fails('select public.erp_take(''glass'', 0)', 'Block size%'), 'пустой блок';
+  -- Save частями (C3): первая часть ждёт и ничего не пишет; конфликт в
+  -- последней — не записано ничего, и первой части тоже.
+  a := public.erp_apply('g-1', 'b1', 'pc1', '[{"tbl":"salesOrder","id":"SO-G","ver":0}]', '[{"tbl":"salesOrder","id":"SO-G","data":{"id":"SO-G"}}]', '{"id":"G1","part":0,"total":2}');
+  assert (a->>'ok')::boolean and (a->>'staged')::boolean, 'часть не ждёт: ' || a;
+  assert public.erp_get('[{"tbl":"salesOrder","id":"SO-G"}]') = '[]', 'часть записалась до последней';
+  b := public.erp_apply('g-2', 'b1', 'pc1', '[{"tbl":"salesOrder","id":"SO-1","ver":999}]', '[{"tbl":"glassPiece","id":"SO-G|L1","data":{"key":"SO-G|L1"}}]', '{"id":"G1","part":1,"total":2}');
+  assert not (b->>'ok')::boolean and jsonb_array_length(b->'conflict') = 1, 'конфликт последней части: ' || b;
+  assert public.erp_get('[{"tbl":"salesOrder","id":"SO-G"},{"tbl":"glassPiece","id":"SO-G|L1"}]') = '[]', 'после конфликта что-то записано';
+  -- Без конфликта — обе части одной записью, версии всех строк в ответе.
+  perform public.erp_apply('g-3', 'b1', 'pc1', '[{"tbl":"salesOrder","id":"SO-G","ver":0}]', '[{"tbl":"salesOrder","id":"SO-G","data":{"id":"SO-G"}}]', '{"id":"G2","part":0,"total":2}');
+  c := public.erp_apply('g-4', 'b1', 'pc1', '[]', '[{"tbl":"glassPiece","id":"SO-G|L1","data":{"key":"SO-G|L1"}}]', '{"id":"G2","part":1,"total":2}');
+  assert (c->>'ok')::boolean and c->'vers' ? 'salesOrder|SO-G' and c->'vers' ? 'glassPiece|SO-G|L1', 'Save частями не записан: ' || c;
+  -- Последняя часть без первой — отказ.
+  d := public.erp_apply('g-5', 'b1', 'pc1', '[]', '[{"tbl":"glassPiece","id":"SO-G|L2","data":{}}]', '{"id":"G3","part":1,"total":2}');
+  assert not (d->>'ok')::boolean and (d->>'lost')::boolean, 'часть пропала, а Save прошёл: ' || d;
 end $$;
 
 -- Права по разделам: офис с Sales не пишет и не читает оплаты, пишет журнал
