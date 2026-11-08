@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 203 модулей, 27 стиля.
+  Состав сборки: 205 модулей, 27 стиля.
 -->
 <html lang="en">
 <head>
@@ -1853,6 +1853,8 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .sl-backdrop{position:fixed;inset:0;z-index:59;background:transparent}
 .sl-menu{position:fixed;z-index:60;width:340px;max-width:calc(100vw - 16px);overflow:auto;background:var(--surface);border:1px solid var(--line-strong);border-radius:12px;box-shadow:0 16px 40px rgba(16,24,40,.22);padding:12px;font-size:13px;color:var(--text)}
 .sl-menu.sl-cols{width:300px}
+/* Excel — первым в меню ⚙ (views/sl-excel, владелец 08.11.2026). */
+.sl-cols .sl-excel{display:flex;align-items:center;gap:8px;width:100%;justify-content:flex-start;margin:0 0 8px;padding:6px 8px}.sl-cols .sl-excel svg{width:15px;height:15px}
 .sl-menu h5{margin:10px 0 6px;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-2)}
 .sl-menu h5:first-child{margin-top:0}
 .sl-row{display:flex;gap:6px;align-items:center;margin:4px 0}
@@ -2052,6 +2054,10 @@ th.n .sl-th [data-cw-label]:has(.sl-qf){flex:1 1 auto}th.n .sl-qf{text-align:rig
 .sl-table:not(:has(thead th.sl-check input)) th.sl-check:has(.sl-header-tools){padding-left:4px;padding-right:4px}
 .sl-table:not(:has(thead th.sl-check input)) td.sl-check{text-align:center;padding-left:4px;padding-right:4px}
 .sl-settings{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0}
+/* Окно Production из Sales (views/sales-production, владелец 08.11.2026): клетки — как In production. */
+.sales-prod-modal{width:min(1000px,96vw)}.sales-prod-table td.pb-st,.sales-prod-table th.pb-st{text-align:center}
+.sales-prod-line td{background:var(--surface-2);font-weight:600}.sales-prod-glass td:first-child{padding-left:26px;border-left:3px solid var(--accent-line)}
+.sales-prod-empty{padding:18px 4px}
 
 /* ---- src/styles/col-widths.css ---- */
 /* Ширина и порядок колонок (views/col-widths): Sales и Order Lines одинаково. */
@@ -4339,7 +4345,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='7da1430c45a9';
+var ERP_BUILD='be2a23095342';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -34974,7 +34980,8 @@ function finListFooter(all,cols,noun){
   return `<td class="n" data-sum="${c.k}">${c.money?finFmt(finMoney(total)):total.toLocaleString('en-US')}</td>`;
  }).join('');
  const count=`<b>${typeof noun==='function'?noun(live):rows.length+' '+noun+(rows.length===1?'':'s')}</b>${voids?` <span class="mut" data-foot-void>· ${voids} void not counted</span>`:''}`;
- return `<tfoot><tr class="sl-foot">${lead?`<td colspan="${lead}" class="sl-foot-head" data-foot-count>${count}</td>`:''}${sums}<td${lead?'':' data-foot-count'}>${lead?'':count}</td></tr></tfoot>`;
+ /* +1 — колонка галочки слева: без неё суммы вставали под колонку левее (08.11.2026). */
+ return `<tfoot><tr class="sl-foot"><td colspan="${lead+1}"${lead?' class="sl-foot-head" data-foot-count':''}>${lead?count:''}</td>${sums}<td${lead?'':' data-foot-count'}>${lead?'':count}</td></tr></tfoot>`;
 }
 /* Списки Finance — вид Sales (этап 6, 03.11.2026): галочка строки, действия
    строки — сверху в шапке для отмеченной (r.acts: [label, onclick, атрибуты]),
@@ -35137,10 +35144,7 @@ function finPaymentCell(r,c){
 }
 function finFilteredReceipts(){return salesListRows(finPaymentInfos()).filter(i=>i.kind==='receipt').map(i=>i.r);}
 /* Строки журнала без фильтра Method — для сумм по способам и By method. */
-function finJournalNoMethod(infos){
- const p=salesListLoadPrefs(),keep=p.filters.method;delete p.filters.method;
- try{return salesListRows(infos);}finally{if(keep)p.filters.method=keep;}
-}
+function finJournalNoMethod(infos){return salesListRows(infos,['method']);}
 function finMethodTotals(rows){
  const map=new Map(),add=(label,f)=>{if(!map.has(label))map.set(label,{label,n:0,amount:0,refunds:0,rows:[]});f(map.get(label));};
  FIN_METHODS.filter(m=>!m.legacy).forEach(m=>add(m.label,()=>{}));
@@ -36586,7 +36590,10 @@ function salesListRows(infos,skip){
  const p=salesListLoadPrefs(),active=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k])&&!(skip||[]).includes(k));
  const rows=infos.filter(info=>active.every(k=>salesListFilterTest(salesListColumn(k),p.filters[k],info)));
  const d=salesListDefaultSort(),s=p.sort||d,col=salesListColumn(s.k)||salesListColumn(d.k),cmp=col?salesListCompare(col,s.dir):()=>0;
- return rows.sort((a,b)=>cmp(a,b)||salesListPlainOrder.compare(String(b.o.createdAt||''),String(a.o.createdAt||'')));
+ const out=rows.sort((a,b)=>cmp(a,b)||salesListPlainOrder.compare(String(b.o.createdAt||''),String(a.o.createdAt||'')));
+ /* Что показано в таблице — для Excel в меню ⚙ (views/sl-excel). */
+ if(!skip&&typeof salesListLastRows!=='undefined')salesListLastRows[salesListScope()]=out;
+ return out;
 }
 /* Быстрые виды Sales (владелец, 1 октября 2026): таблетки над таблицей.
    Работают поверх фильтров колонок, кроме даты создания: заказ, созданный
@@ -36768,6 +36775,9 @@ function salesListView(){
     (views/sales-cut-estimate). */
  const estN=typeof salesCutEstimateIds==='function'?salesCutEstimateIds().length:0;
  const estBtn=typeof salesCutEstimateOpen==='function'?`<button type="button" class="sl-quiet sl-est-btn" data-cut-est-open title="Cut preview${estN?' · '+estN+' selected':': select orders or quotes'}" aria-label="Cut preview" ${estN?'':'disabled'} onclick="salesCutEstimateOpen(salesCutEstimateIds())">${ico('cut')}${estN?`<b>${estN}</b>`:''}</button>`:'';
+ /* Где продукт сейчас (views/sales-production): один отмеченный заказ. */
+ const prodOrder=selOrders.length===1&&!salesIsQuote(salesRecord(selOrders[0])||{})?selOrders[0]:'';
+ const prodBtn=typeof salesProdOpen==='function'?`<button type="button" class="sl-quiet sl-est-btn" data-prod-open title="Production" aria-label="Production" ${prodOrder?'':'disabled'} onclick="salesProdOpen('${esc(prodOrder)}')">${ico('factory')}</button>`:'';
  const rowIds=rows.filter(r=>!r.n&&!r.a).map(r=>r.o.id),allSel=rowIds.length>0&&rowIds.every(id=>salesListSel.has(id));
  /* Ширина и порядок за заголовок — только у списка Sales (views/col-widths). */
  const cw=salesListScope()==='sales',keys=cols.map(c=>c.k);
@@ -36781,7 +36791,7 @@ function salesListView(){
  },cols.length+2);
  const empty=`<tr><td colspan="${cols.length+2}" class="empty">${all.length?'Nothing matches the filters.':'No Sales Orders yet'}</td></tr>`;
  const wide=window.innerWidth>=1600,dateBtn=salesListDateButton(),chips=salesStatusChips(shown);salesListChipsNow=chips;
- return `<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">${salesListShowButton()}${openBtn}${deleteBtn}${holdBtn}${stickersBtn}${estBtn}<span class="sales-toolbar-sp"></span>${wide?'':dateBtn}<button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div><div class="sl-filter-row">${salesQuickHTML(filtered,anyDate,{cur:salesStatusFilter?'-':quick,set:'salesQuickPick',name:salesListShortLabel,invoice:true})}${salesListStatusPills(chips)}${wide?`<span class="sales-toolbar-sp"></span>${dateBtn}`:''}</div>${salesListStatusRow(chips)}${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${cw?cwTableClass('sales'):''}"${cw?cwTableAttrs('sales',keys):''}>${cw?cwColgroup('sales',keys):''}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
+ return `<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">${salesListShowButton()}${openBtn}${deleteBtn}${holdBtn}${stickersBtn}${estBtn}${prodBtn}<span class="sales-toolbar-sp"></span>${wide?'':dateBtn}<button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div><div class="sl-filter-row">${salesQuickHTML(filtered,anyDate,{cur:salesStatusFilter?'-':quick,set:'salesQuickPick',name:salesListShortLabel,invoice:true})}${salesListStatusPills(chips)}${wide?`<span class="sales-toolbar-sp"></span>${dateBtn}`:''}</div>${salesListStatusRow(chips)}${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${cw?cwTableClass('sales'):''}"${cw?cwTableAttrs('sales',keys):''}>${cw?cwColgroup('sales',keys):''}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
 }
 
 /* ------------------------------ Меню ----------------------------------- */
@@ -36873,7 +36883,7 @@ function salesListApplyFilter(){const m=salesListMenu;if(!m||m.kind!=='filter')r
 function salesListColumnsHTML(style){
  const p=salesListLoadPrefs();
  const rows=p.cols.map((c,i)=>{const col=salesListColumn(c.k);return `<div class="sl-cols-row" draggable="true" data-col-row="${c.k}" ondragstart="salesListDragKey='${c.k}'" ondragover="event.preventDefault()" ondrop="event.preventDefault();salesListDropColumn('${c.k}')"><span class="h" aria-hidden="true">⋮⋮</span><label><input type="checkbox" data-col-toggle="${c.k}" ${c.on&&!salesListAutoHidden(c.k)?'checked':''} onchange="salesListSetColumn('${c.k}',this.checked)"> ${esc(col.label)}</label><button type="button" class="sm" aria-label="Move ${esc(col.label)} up" ${i===0?'disabled':''} onclick="salesListMoveColumn('${c.k}',-1)">↑</button><button type="button" class="sm" aria-label="Move ${esc(col.label)} down" ${i===p.cols.length-1?'disabled':''} onclick="salesListMoveColumn('${c.k}',1)">↓</button></div>`;}).join('');
- return `<div class="sl-menu sl-cols" style="${style}" role="dialog" aria-label="Columns"><h5>Columns · drag to reorder</h5>${rows}<div class="sl-actions"><button type="button" class="sl-btn" data-standard-view onclick="salesListStandardView()">Standard view</button>${salesListCwId()?`<button type="button" class="sl-btn" data-reset-widths ${cwFixed(salesListCwId())?'':'disabled'} onclick="salesListResetWidths()">Reset widths</button>`:''}</div></div>`;
+ return `<div class="sl-menu sl-cols" style="${style}" role="dialog" aria-label="Columns"><button type="button" class="sl-btn sl-excel" data-excel onclick="salesListExcel()" title="This table to Excel">${ico('download')}Excel</button><h5>Columns · drag to reorder</h5>${rows}<div class="sl-actions"><button type="button" class="sl-btn" data-standard-view onclick="salesListStandardView()">Standard view</button>${salesListCwId()?`<button type="button" class="sl-btn" data-reset-widths ${cwFixed(salesListCwId())?'':'disabled'} onclick="salesListResetWidths()">Reset widths</button>`:''}</div></div>`;
 }
 /* Шестерёнка на узком экране: включённая колонка видна всегда (прокрутка вбок),
    снятая снова прячется только здесь, а на широком экране остаётся. */
@@ -36976,7 +36986,7 @@ function salesListContextHTML(m,style){
  const q=salesIsQuote(o),ids=salesListSelectedOrders(),many=ids.length>1&&ids.includes(o.id);
  const item=(act,label,cls)=>`<button type="button" role="menuitem" class="${cls||''}" data-menu="${act}" onclick="salesListMenuRun('${act}')">${label}</button>`;
  const hold=q?'':o.onHold?item('release',many?'Release · '+ids.length+' orders':'Release'):item('hold',many?'⛔ On Hold… · '+ids.length+' orders':'⛔ On Hold…');
- return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${item('copy','Copy')}${typeof orderLogOpen==='function'?item('log','Activity log'):''}${typeof skipAllowed==='function'&&!many&&skipAllowed()&&skipCanOpen(o)?item('skip','Skip…'):''}${hold}<hr>${item('documents','Documents')}${item('drawings','Drawings')}${typeof salesCutEstimateOpen==='function'&&cutEstUsable(o)?item('cutpreview',salesCutEstimateIds().length>1?'Cut preview · '+salesCutEstimateIds().length+' selected':'Cut preview'):''}${!q&&o.status!=='cancelled'?item('stickers','Print stickers…'):''}${!q&&typeof productionUnbatchAllowed==='function'&&productionUnbatchAllowed()&&productionUnbatchCanOpen(o)?item('unbatch','Unbatch order…'):''}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
+ return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${item('copy','Copy')}${!q&&typeof salesProdOpen==='function'?item('production','Production'):''}${typeof orderLogOpen==='function'?item('log','Activity log'):''}${typeof skipAllowed==='function'&&!many&&skipAllowed()&&skipCanOpen(o)?item('skip','Skip…'):''}${hold}<hr>${item('documents','Documents')}${item('drawings','Drawings')}${typeof salesCutEstimateOpen==='function'&&cutEstUsable(o)?item('cutpreview',salesCutEstimateIds().length>1?'Cut preview · '+salesCutEstimateIds().length+' selected':'Cut preview'):''}${!q&&o.status!=='cancelled'?item('stickers','Print stickers…'):''}${!q&&typeof productionUnbatchAllowed==='function'&&productionUnbatchAllowed()&&productionUnbatchCanOpen(o)?item('unbatch','Unbatch order…'):''}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
 }
 function salesListMenuRun(act){
  const m=salesListMenu;salesListMenu=null;
@@ -36985,6 +36995,7 @@ function salesListMenuRun(act){
  if(act==='open')salesOrderEdit(o.id);
  /* Copy — только заказ этой строки, даже при нескольких отмеченных. */
  else if(act==='copy')salesCopyOrder(o.id);
+ else if(act==='production')salesProdOpen(o.id);
  else if(act==='log')orderLogOpen(o.id);
  else if(act==='skip')skipOpen(o.id);
  else if(act==='hold')salesHoldOpen(ids.filter(id=>!held(id)));
@@ -37349,6 +37360,138 @@ function slFromTable(scope,html,o){
   columns:()=>head.map(h=>({k:h.k,label:h.label,type:h.n?'number':'text',td:h.td,v:x=>h.n?num(x.tds[h.td]):x.tds[h.td]}))},o));
  return attrs?`<div${attrs}>${out}</div>`:out;
 }
+
+/* ==== src/erp/views/sl-excel.js ==== */
+/* =====================================================================
+   views/sl-excel  ·  таблица → Excel (.xlsx)
+   Владелец 08.11.2026: «экспортировать таблицы в виде Excel отовсюду, где
+   есть таблицы»; место — пункт Excel в меню ⚙ таблицы (вариант B: «он
+   внутри таблицы и отвечает за таблицы»), одним словом.
+   Что в файле: видимые колонки в порядке экрана, строки после фильтров,
+   дат и сортировки — те же, что показал движок списка (salesListRows), итог
+   колонок с подсчётом внизу. Числа — числами, деньги — с двумя знаками,
+   даты — датами Excel. Отмеченные строки (галочки Sales) — только они.
+   Файл собирается здесь же: ZIP без сжатия и XML листа (SpreadsheetML),
+   без библиотек.
+   IN : движок списка (views/sales-list-ui), salesListLastRows
+   OUT: загрузка <scope>_<дата>.xlsx
+   ===================================================================== */
+
+/* Строки, которые движок последний раз показал в таблице каждого scope:
+   salesListRows без skip их записывает (фильтр меню считает с skip). */
+const salesListLastRows=Object.create(null);
+
+const XLSX_CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function xlsxCrc(b){let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=XLSX_CRC[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+/* ZIP «stored»: файлы как есть, без сжатия — Excel открывает такой xlsx. */
+function xlsxZip(files){
+ const enc=new TextEncoder(),parts=[],dir=[];let off=0;
+ const u16=v=>[v&255,(v>>>8)&255],u32=v=>[v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255];
+ files.forEach(([name,text])=>{
+  const nb=enc.encode(name),data=enc.encode(text),crc=xlsxCrc(data);
+  const head=[0x50,0x4b,0x03,0x04,...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0x21),...u32(crc),...u32(data.length),...u32(data.length),...u16(nb.length),...u16(0)];
+  parts.push(new Uint8Array(head),nb,data);
+  dir.push([0x50,0x4b,0x01,0x02,...u16(20),...u16(20),...u16(0x0800),...u16(0),...u16(0),...u16(0x21),...u32(crc),...u32(data.length),...u32(data.length),...u16(nb.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(off)],nb);
+  off+=head.length+nb.length+data.length;
+ });
+ let size=0;dir.forEach(x=>{const a=x instanceof Uint8Array?x:new Uint8Array(x);parts.push(a);size+=a.length;});
+ parts.push(new Uint8Array([0x50,0x4b,0x05,0x06,...u16(0),...u16(0),...u16(files.length),...u16(files.length),...u32(size),...u32(off),...u16(0)]));
+ return parts;
+}
+function xlsxEsc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'');}
+function xlsxCol(i){let s='';i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;}
+/* Дата Excel — дни от 1899-12-30. */
+function xlsxDate(v){const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(v||''));if(!m)return null;return Math.round((Date.UTC(+m[1],+m[2]-1,+m[3])-Date.UTC(1899,11,30))/864e5);}
+/* Лист: head — подписи, rows — массивы ячеек {v, t:'n'|'d'|'s', money}, foot — итог. Стили: 1 — жирный, 2 — деньги, 3 — дата, 4 — жирные деньги. */
+function xlsxBook(sheet,head,rows,foot){
+ const cell=(c,r,x,bold)=>{const ref=xlsxCol(c)+r;if(x==null||x.v==null||x.v==='')return '';
+  if(x.t==='n'&&Number.isFinite(+x.v))return `<c r="${ref}"${x.money?` s="${bold?4:2}"`:bold?' s="1"':''}><v>${+x.v}</v></c>`;
+  if(x.t==='d'){const d=xlsxDate(x.v);if(d!=null)return `<c r="${ref}" s="3"><v>${d}</v></c>`;}
+  return `<c r="${ref}" t="inlineStr"${bold?' s="1"':''}><is><t xml:space="preserve">${xlsxEsc(x.v)}</t></is></c>`;};
+ const row=(cells,r,bold)=>`<row r="${r}">${cells.map((x,c)=>cell(c,r,x,bold)).join('')}</row>`;
+ const all=[row(head.map(v=>({v,t:'s'})),1,true)].concat(rows.map((x,i)=>row(x,i+2,false)));if(foot)all.push(row(foot,rows.length+2,true));
+ const widths=head.map((h,c)=>Math.min(60,Math.max(8,String(h).length+2,...rows.slice(0,500).map(x=>String(x[c]&&x[c].v!=null?x[c].v:'').length+2))));
+ const ws=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${all.join('')}</sheetData>${head.length?`<autoFilter ref="A1:${xlsxCol(head.length-1)}${rows.length+1}"/>`:''}</worksheet>`;
+ const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="yyyy-mm-dd"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="5"><xf/><xf fontId="1" applyFont="1"/><xf numFmtId="4" applyNumberFormat="1"/><xf numFmtId="164" applyNumberFormat="1"/><xf numFmtId="4" fontId="1" applyNumberFormat="1" applyFont="1"/></cellXfs></styleSheet>`;
+ const name=xlsxEsc(String(sheet||'Sheet1').replace(/[\\/?*[\]:]/g,' ').slice(0,31)||'Sheet1');
+ return xlsxZip([
+  ['[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'],
+  ['_rels/.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
+  ['xl/workbook.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${name}" sheetId="1" r:id="rId1"/></sheets>${head.length?`<definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">'${name.replace(/'/g,"''")}'!$A$1:$${xlsxCol(head.length-1)}$${rows.length+1}</definedName></definedNames>`:''}</workbook>`],
+  ['xl/_rels/workbook.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'],
+  ['xl/worksheets/sheet1.xml',ws],['xl/styles.xml',styles]
+ ]);
+}
+/* Данные таблицы этого scope: колонки экрана, строки, итог. */
+function salesListExcelData(){
+ const scope=salesListScope(),cols=salesListColumns(),all=salesListLastRows[scope]||[];
+ /* Галочки Sales: отмечены — только они. */
+ const sel=scope==='sales'&&salesListSel.size?all.filter(r=>salesListSel.has(r.o.id)):all;
+ const val=(r,c)=>{const v=salesListValue(r,c.k);if(v==null||v==='')return null;
+  if(c.type==='number'){const n=typeof v==='number'?v:Number(String(v).replace(/[$,\s]/g,'').replace('−','-'));return Number.isFinite(n)?{v:n,t:'n',money:!!c.money}:{v:String(v),t:'s'};}
+  if(c.type==='date')return {v:String(v),t:'d'};
+  return {v:Array.isArray(v)?v.join(', '):String(v),t:'s'};};
+ const rows=sel.map(r=>cols.map(c=>val(r,c)));
+ const foot=cols.some(c=>salesListCalc(c)==='sum')?cols.map((c,i)=>{if(i===0)return {v:sel.length+' rows',t:'s'};if(salesListCalc(c)!=='sum')return null;
+  return {v:Math.round(rows.reduce((s,x)=>s+(x[i]&&x[i].t==='n'?x[i].v:0),0)*100)/100,t:'n',money:!!c.money};}):null;
+ return {scope,head:cols.map(c=>String(c.label).replace(/<[^>]*>/g,'')),rows,foot};
+}
+function salesListExcel(){
+ const scope=salesListMenu&&salesListMenu.scope||salesListScope(),keep=typeof slScopeNow!=='undefined'?slScopeNow:'';
+ if(typeof slScopeNow!=='undefined'&&SL_GENERIC[scope])slScopeNow=scope;
+ try{
+  const d=salesListExcelData(),day=new Date().toISOString().slice(0,10);
+  salesListMenu=null;
+  storageDownload(String(d.scope||'table').replace(/[^A-Za-z0-9_-]+/g,'_')+'_'+day+'.xlsx',xlsxBook(d.scope,d.head,d.rows,d.foot),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+ }finally{if(typeof slScopeNow!=='undefined')slScopeNow=keep;}
+ render();
+}
+
+/* ==== src/erp/views/sales-production.js ==== */
+/* =====================================================================
+   views/sales-production  ·  где продукт клиента сейчас
+   Владелец 08.11.2026: клиент звонит на фронт-деск, называет PO и
+   спрашивает, где его продукт. В Sales: заказ находят по PO (фильтр
+   колонки PO), значок «заводик» в шапке рядом с ✂ или правый клик →
+   Production. Окно — строки заказа, под каждой — стёкла пакета; колонки —
+   станции маршрута. Клетка та же, что в Production → In production
+   (prodStation): число — ждут здесь, под ним тара (клик — окно долли или
+   скида), ✓ — все прошли, · — ещё не дошли. Вид согласован 08.11.2026
+   («вид 1», «первый заводик»).
+   IN : prodBoard (views/production-board), carrierWinOpen (views/carriers-board)
+   OUT: окно поверх экрана (APP_OVERLAYS)
+   ===================================================================== */
+let salesProdWin=null;
+function salesProdOpen(id){const o=(DB.salesOrder||[]).find(x=>x.id===id);if(!o||salesIsQuote(o))return;salesListMenu=null;salesProdWin={id};render();}
+function salesProdClose(){salesProdWin=null;render();}
+/* Сумма маршрута и тары по стёклам: строка заказа — итог её стёкол. */
+function salesProdSum(lites){
+ const route={},on={};
+ lites.forEach(t=>{
+  Object.entries(t.route||{}).forEach(([c,v])=>{const x=route[c]||(route[c]={w:0,p:0,n:0});x.w+=v.w;x.p+=v.p;x.n+=v.n;});
+  Object.entries(t.onAt||{}).forEach(([c,m])=>{const x=on[c]||(on[c]={});Object.entries(m).forEach(([d,k])=>{x[d]=(x[d]||0)+k;});});
+ });
+ return {route,on};
+}
+function salesProdHTML(){
+ if(!salesProdWin)return '';
+ const o=(DB.salesOrder||[]).find(x=>x.id===salesProdWin.id);if(!o){salesProdWin=null;return '';}
+ const bd=typeof prodBoard==='function'?prodBoard().find(x=>x.o.id===o.id):null,customer=salesCustomerDisplay(o.customerId);
+ const head=`<div class="sales-service-modal-head"><div><span><span>Order</span> ${esc(o.businessNumber||'')}${o.customerPo?' · PO '+esc(o.customerPo):''}</span><h3>Production</h3><small>${esc(customer)}</small></div><button type="button" onclick="salesProdClose()" aria-label="Close">×</button></div>`;
+ let body;
+ if(!bd)body=`<p class="mut sales-prod-empty" data-prod-empty>Not in production yet · ${esc(typeof salesStatusLabel==='function'?salesStatusLabel(o):o.status||'')}</p>`;
+ else{
+  const route=[];bd.lines.forEach(l=>l.lites.forEach(t=>Object.keys(t.route||{}).forEach(c=>{if(!route.includes(c))route.push(c);})));
+  const R=route.filter(c=>c!==(typeof shippingStations==='function'?shippingStations().ship:'SHIP'));
+  const cells=(st,on)=>R.map(c=>`<td class="pb-st">${prodStation(st[c],c,on[c])}</td>`).join('');
+  const rows=bd.lines.map(l=>{const s=salesProdSum(l.lites);
+   return `<tr class="sales-prod-line" data-prod-line="${l.no}"><td><b>${l.no}</b> ${esc(l.mark)}</td><td>${esc(l.size)}</td><td class="n">${esc(l.units)}</td>${cells(s.route,s.on)}</tr>`+
+    l.lites.map((t,i)=>`<tr class="sales-prod-glass"><td class="mono">${esc(glassCodeLabel(t.glass))}</td><td class="mut">Lite ${t.lite!=null&&t.lite!==''?esc(String(t.lite)):i+1}</td><td class="n mut">${t.total}</td>${cells(t.route||{},t.onAt||{})}</tr>`).join('');}).join('');
+  body=`<div class="sales-table-wrap"><table class="sl-table sales-prod-table" data-prod-table><thead><tr><th>Line · glass</th><th>Size</th><th class="n">Qty</th>${R.map(c=>`<th class="pb-st">${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
+ }
+ return `<div class="sales-service-modal-back" onclick="if(event.target===this)salesProdClose()"><div class="sales-service-modal sales-prod-modal" role="dialog" aria-label="Production" data-sales-prod>${head}${body}</div></div>`;
+}
+(window.APP_OVERLAYS=window.APP_OVERLAYS||[]).push(salesProdHTML);
 
 /* ==== src/erp/views/sl-quick-filter.js ==== */
 /* =====================================================================
