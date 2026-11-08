@@ -23,8 +23,17 @@ function salesListQuickWith(scope,fn){const was=slScopeNow;if(scope)slScopeNow=s
 function salesListQuickTh(q){
  return [...document.querySelectorAll(`#app th[data-col="${CSS.escape(q.k)}"]`)].find(th=>th.querySelector('.sl-fbtn[data-filter-col]')&&salesListQuickScopeOf(th)===q.wrap)||null;
 }
+/* Нажатие мышью: перенос колонок (col-widths) захватывает указатель на th,
+   и клик приходит в саму ячейку, а не в название — поэтому название
+   запоминается при нажатии (08.11.2026: «выделяется, но не работает»; тест
+   кликал кодом, без захвата, и этого не видел). */
+let salesListQuickDown=null;
+document.addEventListener('pointerdown',e=>{salesListQuickDown=e.target&&e.target.closest?e.target.closest('th [data-cw-label]'):null;},true);
 document.addEventListener('click',e=>{
- const lab=e.target&&e.target.closest?e.target.closest('th [data-cw-label]'):null;if(!lab||e.target.closest('.sl-qf'))return;
+ const t=e.target&&e.target.closest?e.target:null;if(!t||t.closest('.sl-qf'))return;
+ let lab=t.closest('th [data-cw-label]');
+ if(!lab&&t.matches('th')&&salesListQuickDown&&t.contains(salesListQuickDown))lab=salesListQuickDown;
+ salesListQuickDown=null;if(!lab)return;
  const th=lab.closest('th'),btn=th&&th.querySelector('.sl-fbtn[data-filter-col]');if(!btn)return;
  const k=btn.dataset.filterCol,wrap=salesListQuickScopeOf(th);
  const f=salesListQuickWith(wrap,()=>salesListLoadPrefs().filters[k]);

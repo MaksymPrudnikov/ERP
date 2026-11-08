@@ -17,7 +17,9 @@ Customers, Agents, Users and Data.
 - **Quick filter** — click a column name: a field takes its place and filters as you type (Starts with — “76” finds
   76025; for dates “Oct” or “2026-10”). Enter or a click elsewhere leaves the typed text in the header in green, ▾ in
   green; clear it to remove the filter. Another condition (greater, less, equal, Contains…) is in ▾, and the header
-  shows its sign: “> 1000”. If values are ticked in ▾, clicking the name opens ▾.
+  shows its sign: “> 1000”. If values are ticked in ▾ or a date column has a period (Last 30 days and so on),
+  clicking the name opens ▾. Esc closes the field. One click anywhere on the name is enough; dragging the header
+  moves the column and opens no field.
 - **Freeze** — the pin in the Sort row of the column menu: the column moves to the left and stays when the table
   scrolls sideways; its header shows the pin, the edge of the frozen columns has a shadow (text goes under them).
   Click again to unfreeze; Standard view unfreezes all.
