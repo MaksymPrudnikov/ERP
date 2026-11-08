@@ -277,20 +277,70 @@ function salesSurchargeInput(x,field,own,locked){
  const set=own&&own[field]!=null,catalog=field==='value'?x.value:x.rule[field];
  return `<input type="text" inputmode="decimal" class="${set?'own':''}${err?' bad':''}" data-surcharge-input="${esc(x.id)}:${field}" aria-label="${esc(x.name)} ${field==='value'?'order value':field==='areaOver'?'area over':'area under'}" value="${set?esc(own[field]):''}" placeholder="${esc(catalog)}" ${locked?'disabled':''} onchange="salesSetOrderSurcharge('${esc(x.id)}','${field}',this.value)">${err?`<em class="metric-surcharge-error" data-surcharge-error>${esc(err)}</em>`:''}`;
 }
+/* Minimum area по макапам и по составу макапа (владелец, 08.11.2026): на
+   виду общее число, «▸ By makeup» раскрывает макапы этого заказа, «▸» у
+   макапа — стекло, плёнку и распорку. Пустое поле — число уровнем выше.
+   Расчёт — salesMinAreaFor / salesMinAreaParts (erp/sales/line-metrics). */
+let salesMinAreaOpen=false;const salesMinAreaOpenMk=new Set();
+function salesMinAreaToggle(mid){if(mid){if(salesMinAreaOpenMk.has(mid))salesMinAreaOpenMk.delete(mid);else salesMinAreaOpenMk.add(mid);}else salesMinAreaOpen=!salesMinAreaOpen;render();}
+function salesMinAreaMakeups(){const used=new Set((soDraft&&soDraft.lines||[]).map(l=>l.makeupId));return (soDraft&&soDraft.makeups||[]).filter(m=>used.has(m.id));}
+/* Материалы макапа, у которых минимум имеет смысл: продаются за площадь или погонную длину. */
+function salesMinAreaPartList(m){
+ const out=new Map(),add=(table,item,kind,where)=>{if(!item)return;const k=table+':'+item.id;if(!out.has(k))out.set(k,{key:k,table,item,kind,where:[]});out.get(k).where.push(where);};
+ (m.panes||[]).forEach((p,i)=>{
+  if(p.category==='laminated'){const l=p.laminated||{};add('glassProduct',glassProductById(l.outer&&l.outer.glassProductId),'Glass','Lite '+(i+1)+'a');(l.interlayers||[]).forEach(f=>add('interlayerProduct',mdById('interlayerProduct',f.productId),'Interlayer','Lite '+(i+1)));add('glassProduct',glassProductById(l.inner&&l.inner.glassProductId),'Glass','Lite '+(i+1)+'b');}
+  else add('glassProduct',glassProductById(p.glassProductId),'Glass','Lite '+(i+1));
+ });
+ (m.cavities||[]).forEach((c,i)=>add('spacerVariant',mdById('spacerVariant',c.spacerVariantId),'Spacer','Cavity '+(i+1)));
+ return [...out.values()].map(x=>{const r=salesItemSaleRules(x.table,x.item),calc=(mdUnit(r.unit)||{calc:'area'}).calc;return Object.assign(x,{unit:r.unit,calc,catalogMin:r.minArea});}).filter(x=>x.calc==='area'||x.calc==='linear');
+}
+function salesSetMinAreaOverride(id,mid,part,value){
+ const txt=String(value==null?'':value).trim(),n=Number(txt),field='mk:'+mid+':'+(part||'');
+ if(txt!==''&&(!Number.isFinite(n)||n<0)){salesSurchargeError={id,field,text:'Enter 0 or more'};render();return;}
+ salesSurchargeError=null;
+ salesSurchargeEdit(id,x=>{
+  const bm=Object.assign({},x.byMakeup||{}),e=Object.assign({},bm[mid]||{});
+  if(part){const ps=Object.assign({},e.parts||{});if(txt==='')delete ps[part];else ps[part]=Math.round(n*10000)/10000;if(Object.keys(ps).length)e.parts=ps;else delete e.parts;}
+  else if(txt==='')delete e.value;else e.value=Math.round(n*10000)/10000;
+  if(Object.keys(e).length)bm[mid]=e;else delete bm[mid];
+  if(Object.keys(bm).length)x.byMakeup=bm;else delete x.byMakeup;
+ });
+}
+function salesMinAreaInput(x,mid,part,own,placeholder,unit,locked){
+ const field='mk:'+mid+':'+(part||''),err=salesSurchargeError&&salesSurchargeError.id===x.id&&salesSurchargeError.field===field?salesSurchargeError.text:'';
+ return `<span class="metric-surcharge-rate"><span><input type="text" inputmode="decimal" class="${own!=null?'own':''}${err?' bad':''}" data-minarea-input="${esc(mid)}:${esc(part||'')}" aria-label="${esc(x.name)} ${part?'item':'makeup'} minimum" value="${own!=null?esc(own):''}" placeholder="${esc(placeholder)}" ${locked?'disabled':''} onchange="salesSetMinAreaOverride('${esc(x.id)}','${esc(mid)}','${esc(part||'')}',this.value)"><i>${esc(unit)}</i></span>${own!=null?'<small class="sales-rate-origin order">ORDER</small>':''}${err?`<em class="metric-surcharge-error" data-surcharge-error>${esc(err)}</em>`:''}</span>`;
+}
+function salesMinAreaRows(x,eff,o,locked,mks){
+ const plural=(n,w)=>n+' '+w+(n===1?'':'s'),bm=o&&o.byMakeup||{};
+ return mks.map(m=>{
+  const e=bm[m.id]||{},v=salesMinAreaFor(eff,m.id),ls=(soDraft.lines||[]).filter(l=>l.makeupId===m.id),open=salesMinAreaOpenMk.has(m.id);
+  const raised=ls.filter(l=>{const a=salesLineAreas(l,soDraft);return a.minArea&&a.minArea.id===x.id;}).length;
+  const head=`<div class="metric-surcharge-row minarea-mk" data-minarea-makeup="${esc(m.id)}"><span></span><span class="minarea-name"><button type="button" class="minarea-tog" onclick="salesMinAreaToggle('${esc(m.id)}')">${open?'▾':'▸'}</button> <span class="mono">${esc(salesMakeupSummary(m))}</span> <small>· ${plural(ls.length,'line')}</small></span><span class="mut">${esc(eff.value)} ft²</span>${salesMinAreaInput(x,m.id,'',e.value,String(eff.value),'ft²',locked)}<span class="metric-surcharge-effect">${!(v>0)?'<span class="mut">No minimum</span>':raised?`${plural(raised,'line')} at ${esc(v)} ft²`:`<span class="mut">No lines under ${esc(v)} ft²</span>`}</span><button type="button" class="sm" ${e.value!=null&&!locked?'':'disabled'} onclick="salesSetMinAreaOverride('${esc(x.id)}','${esc(m.id)}','','')">Reset</button></div>`;
+  if(!open)return head;
+  const ps=e.parts||{};
+  return head+salesMinAreaPartList(m).map(p=>{
+   const own=ps[p.key],name=p.table==='glassProduct'?glassShortName(p.item)||p.item.name:p.table==='interlayerProduct'?p.item.code||p.item.name:p.item.name||p.item.code,unit=p.calc==='area'?'ft²':p.unit;
+   const hit=own==null?0:ls.filter(l=>{const a=salesLineAreas(l,soDraft);if(!a.valid)return false;return p.calc==='area'?a.rounded<own:salesSaleQty({unit:p.unit},a,null)<own;}).length;
+   const effect=own==null?`<span class="mut">${p.calc==='area'?'As makeup':'—'}</span>`:hit?`${plural(hit,'line')} at ${esc(own)} ${esc(unit)}`:`<span class="mut">No lines under ${esc(own)} ${esc(unit)}</span>`;
+   return `<div class="metric-surcharge-row minarea-part" data-minarea-part="${esc(p.key)}"><span></span><span><span class="mono">${esc(name)}</span><em class="minarea-kind">${p.kind}</em></span><span>${esc(p.where.join(', '))}${p.calc==='linear'?' · sold by '+esc(p.unit):''}</span><span class="mut">${p.calc==='area'&&p.catalogMin!=null?'min '+esc(p.catalogMin)+' ft²':'—'}</span>${salesMinAreaInput(x,m.id,p.key,own,p.calc==='area'?String(v):'',unit,locked)}<span class="metric-surcharge-effect">${effect}</span>${own!=null?`<button type="button" class="sm" ${locked?'disabled':''} onclick="salesSetMinAreaOverride('${esc(x.id)}','${esc(m.id)}','${esc(p.key)}','')">Reset</button>`:'<span></span>'}</div>`;
+  }).join('');
+ }).join('');
+}
 function salesRulePanel(){
  const rows=salesSurchargeCatalog(soDraft),own=soDraft.surchargeRates||{},cur=esc(soDraft.currency||'CAD'),locked=salesSurchargeLocked();
  const groups=new Map(salesOrderCommercialAdjustments(soDraft).map(g=>[g.key,g])),total=salesMoney([...groups.values()].reduce((n,g)=>n+g.total,0));
+ const mks=salesMinAreaMakeups();
  const minLines=id=>(soDraft.lines||[]).filter(l=>{const a=salesLineAreas(l,soDraft);return a.minArea&&a.minArea.id===id;}).length;
  const plural=(n,w)=>n+' '+w+(n===1?'':'s');
  const row=x=>{
   const o=own[x.id]||null,eff=salesSurcharges(soDraft).find(y=>y.id===x.id)||null,on=!!eff,min=x.rule.kind==='minArea',unit=min?'ft²':'%';
   const types=x.rule.unitTypes&&x.rule.unitTypes.length?x.rule.unitTypes.map(t=>t[0].toUpperCase()+t.slice(1)).join(' / ')+' units':'Any unit';
   const applies=types+(x.rule.areaOver!=null?`, area &gt; ${salesSurchargeInput(x,'areaOver',o,locked)} ft²`:'')+(x.rule.areaUnder!=null?`, area &lt; ${salesSurchargeInput(x,'areaUnder',o,locked)} ft²`:'');
-  const tag=!on?['off','OFF']:o?['order','ORDER']:x.from?['list','LIST']:['catalog','CATALOG'];
+  const ownTop=o&&(o.value!=null||o.areaOver!=null||o.areaUnder!=null),tag=!on?['off','OFF']:ownTop?['order','ORDER']:x.from?['list','LIST']:['catalog','CATALOG'];
   const g=groups.get('svc:'+x.id),lines=min&&on?minLines(x.id):0;
-  const effect=!on?'<span class="mut">Off · not charged</span>':min?(lines?`${plural(lines,'line')} at ${esc(eff.value)} ft²`:`<span class="mut">No lines under ${esc(eff.value)} ft²</span>`)
+  const effect=!on?'<span class="mut">Off · not charged</span>':min?(lines?(eff.byMakeup?`${plural(lines,'line')} raised`:`${plural(lines,'line')} at ${esc(eff.value)} ft²`):`<span class="mut">No lines under ${esc(eff.value)} ft²</span>`)
    :g?`<small>${plural(g.lines,'line')} · ${plural(g.qty,'unit')}</small><b data-raw>${g.incomplete?'—':'+'+g.total.toFixed(2)+' '+cur}</b>`:'<span class="mut">Not in this order</span>';
-  return `<div class="metric-surcharge-row${on?'':' off'}" data-surcharge="${esc(x.id)}"><label class="ncr-switch" title="${on?'On':'Off'}"><input type="checkbox" role="switch" aria-label="${esc(x.name)} on" ${on?'checked':''} ${locked?'disabled':''} onchange="salesSetOrderSurchargeOn('${esc(x.id)}',this.checked)"><span></span></label><span><b>${esc(x.name)}</b><small>${min?'Billable area per unit':'% of unit price'}</small></span><span class="metric-surcharge-applies">${applies}</span><span data-raw>${esc(salesSurchargeShown(x))}${x.from?`<small>${esc(priceListName(x.from))}</small>`:''}</span><span class="metric-surcharge-rate"><span>${salesSurchargeInput(x,'value',o,locked)}<i>${unit}</i></span><small class="sales-rate-origin ${tag[0]}">${tag[1]}</small></span><span class="metric-surcharge-effect">${effect}</span><button type="button" class="sm" ${o&&!locked?'':'disabled'} onclick="salesResetOrderSurcharge('${esc(x.id)}')">Reset to Catalog</button></div>`;
+  return `<div class="metric-surcharge-row${on?'':' off'}" data-surcharge="${esc(x.id)}"><label class="ncr-switch" title="${on?'On':'Off'}"><input type="checkbox" role="switch" aria-label="${esc(x.name)} on" ${on?'checked':''} ${locked?'disabled':''} onchange="salesSetOrderSurchargeOn('${esc(x.id)}',this.checked)"><span></span></label><span><b>${esc(x.name)}</b><small>${min?'Billable area per unit':'% of unit price'}</small>${min&&on&&mks.length?`<button type="button" class="minarea-tog" data-minarea-toggle onclick="salesMinAreaToggle('')">${salesMinAreaOpen?'▾':'▸'} By makeup · ${mks.length}</button>`:''}</span><span class="metric-surcharge-applies">${applies}</span><span data-raw>${esc(salesSurchargeShown(x))}${x.from?`<small>${esc(priceListName(x.from))}</small>`:''}</span><span class="metric-surcharge-rate"><span>${salesSurchargeInput(x,'value',o,locked)}<i>${unit}</i></span><small class="sales-rate-origin ${tag[0]}">${tag[1]}</small></span><span class="metric-surcharge-effect">${effect}</span><button type="button" class="sm" ${o&&!locked?'':'disabled'} onclick="salesResetOrderSurcharge('${esc(x.id)}')">Reset to Catalog</button></div>`+(min&&on&&salesMinAreaOpen?salesMinAreaRows(x,eff,o,locked,mks):'');
  };
  return `<div class="metric-surcharges" data-surcharge-list><p class="mut">${'This order only. Data → Works unchanged.'}</p>${rows.length?`<div class="metric-surcharge-table"><div class="metric-surcharge-row head"><span></span><span>Surcharge</span><span>Applies to</span><span>Catalog</span><span>Order</span><span>This order</span><span></span></div>${rows.map(row).join('')}</div><div class="metric-surcharge-foot"><span><b>Off</b> — not charged · <b>Empty</b> — Catalog</span><span>Surcharges in this order <b data-raw>${total.toFixed(2)} ${cur}</b></span></div>`:`<p class="mut">No surcharges</p>`}</div>`;
 }

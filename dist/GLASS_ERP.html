@@ -4318,7 +4318,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='21119bfe22d9';
+var ERP_BUILD='2b0bed7c536f';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -13237,7 +13237,12 @@ function newCustomerDraft(){
 function customerHasReferences(id){
  if(!id)return false;
  const collections=['salesOrder','salesOrders','orderRevision','orderRevisions','receipt','refund','financeEvent','financeTerms'];
- return collections.some(k=>Array.isArray(DB[k])&&DB[k].some(x=>x&&x.customerId===id));
+ if(collections.some(k=>Array.isArray(DB[k])&&DB[k].some(x=>x&&x.customerId===id)))return true;
+ /* Заказы, оплаты и выписка в архиве — тоже история клиента: без карточки
+    его выписка не открылась бы (аудит Codex 08.11.2026, C5). */
+ if(typeof archiveLedgerFor==='function'&&archiveLedgerFor(id).length)return true;
+ if(typeof archiveIndex!=='undefined')for(const a of archiveIndex.values())if(a&&a.customerId===id)return true;
+ return false;
 }
 
 /* ------------------------ customer-only export ----------------------- */
@@ -15608,6 +15613,10 @@ function normalizeReceipts(){
  DB.receipt.forEach(r=>{if(!r.number)r.number=finNextReceiptNumber();});
 }
 
+/* Порядок документов денег: дата, затем номер числом — R-10000 после R-9999
+   (строкой «R-10000» < «R-9999», и квитанция показывала чужой остаток; аудит
+   Codex 08.11.2026, C10). */
+function finDocOrder(x,y){return String(x.date).localeCompare(String(y.date))||String(x.number||'').localeCompare(String(y.number||''),'en',{numeric:true});}
 function finActiveReceipts(){return (DB.receipt||[]).filter(r=>!r.voided);}
 function finReceiptApplied(r){return finMoney((r.allocations||[]).reduce((s,a)=>s+a.amount,0));}
 function finReceiptOnAccount(r){return r.voided?0:finMoney(r.amount-finReceiptApplied(r)-finRefunded(r.id));}
@@ -15731,8 +15740,9 @@ function finApplyDeposit(customerId,orderId,amount,receiptIds){
  const b=finOrderBalance(order);if(b.status!=='due')return 0;
  let want=finMoney(Math.min(finMoney(amount),b.balance,finCustomerDeposit(customerId)));
  if(!(want>0))return 0;
+ if(typeof cloudGuardOrder==='function')cloudGuardOrder(orderId);
  let done=0;const now=new Date().toISOString();
- finActiveReceipts().filter(r=>r.customerId===customerId&&finCurrency(r)===finCurrency(order)&&(!receiptIds||receiptIds.includes(r.id))).sort((x,y)=>(x.date+x.number).localeCompare(y.date+y.number)).forEach(r=>{
+ finActiveReceipts().filter(r=>r.customerId===customerId&&finCurrency(r)===finCurrency(order)&&(!receiptIds||receiptIds.includes(r.id))).sort(finDocOrder).forEach(r=>{
   const free=finReceiptOnAccount(r);if(want<=0||free<=0)return;
   finEnsureHistory(r);const before=finCopy(r);
   const take=finMoney(Math.min(free,want)),a=r.allocations.find(x=>x.orderId===orderId);
@@ -15754,6 +15764,17 @@ function finAllocate(customerId,orderIds,receiptIds,amount){
  });
  return done;
 }
+/* Заказ ушёл в архив, а его квитанция осталась (на ней свободный остаток).
+   Снять с него деньги (Void, правка, Unallocate) можно, только вернув его в
+   работу: архив так и показывал бы заказ оплаченным, а долг пропал бы из
+   Accounts (аудит Codex 08.11.2026, C1). Экран возвращает их сам
+   (finBringBack), команда без этого откажет. */
+function finArchivedOrders(ids){return [...new Set(ids||[])].filter(id=>id&&!salesRecord(id)&&typeof archiveKnown==='function'&&!!archiveKnown(id));}
+function finArchivedGuard(ids){const a=finArchivedOrders(ids);finAssert(!a.length,'Order '+a.map(finOrderNumber).join(', ')+' is archived. Open it first.');}
+async function finBringBack(ids){
+ for(const id of finArchivedOrders(ids)){const out=await archiveReturn(id);if(!out.ok)return out;if(!salesRecord(id))return {ok:false,error:'This archived order could not be read.'};}
+ return {ok:true};
+}
 /* Снять разнесение: деньги квитанции из заказа возвращаются на счёт клиента.
    pairs — [{receiptId, orderId}], каждая пара снимается целиком. */
 function finUnallocate(customerId,pairs){
@@ -15761,6 +15782,7 @@ function finUnallocate(customerId,pairs){
  (pairs||[]).forEach(p=>{
   const r=(DB.receipt||[]).find(x=>x.id===p.receiptId),a=r&&r.allocations.find(x=>x.orderId===p.orderId);
   if(!r||r.voided||r.customerId!==customerId||finCurrency(r)!=='CAD'||!a)return;
+  finArchivedGuard([p.orderId]);
   finEnsureHistory(r);const before=finCopy(r);
   r.allocations=r.allocations.filter(x=>x!==a);r.updatedAt=now;moved=finMoney(moved+a.amount);
   finEvent('released',before,r,'Allocation released from order '+finOrderNumber(p.orderId));
@@ -15772,7 +15794,7 @@ function finUnallocate(customerId,pairs){
 function finReleaseOverpayment(order){
  const b=finOrderBalance(order);if(b.status!=='overpaid')return 0;
  let extra=finMoney(-b.balance),moved=0;const now=new Date().toISOString();
- finActiveReceipts().slice().sort((x,y)=>(y.date+y.number).localeCompare(x.date+x.number)).forEach(r=>{
+ finActiveReceipts().slice().sort((x,y)=>finDocOrder(y,x)).forEach(r=>{
   const a=r.allocations.find(x=>x.orderId===order.id);if(extra<=0||!a)return;
   finEnsureHistory(r);const before=finCopy(r);
   const take=finMoney(Math.min(a.amount,extra));
@@ -15793,10 +15815,24 @@ function finReleaseOrder(orderId){
  });
  return finMoney(moved);
 }
+/* Заказ сменил валюту, а на нём оплаты в прежней (оплаты — только CAD):
+   разнесение в другой валюте база не примет — деньги уходят на счёт клиента
+   в своей валюте, как при Delete, и Save спрашивает об этом. Пересчёт по дню
+   оплаты владелец делает сам (аудит Codex 08.11.2026, C2). */
+function finCurrencyMoved(order){return (DB.receipt||[]).filter(r=>finCurrency(r)!==finCurrency(order)&&r.allocations.some(a=>a.orderId===order.id));}
+function finReleaseCurrency(order){
+ const now=new Date().toISOString();
+ finCurrencyMoved(order).forEach(r=>{
+  finEnsureHistory(r);const before=finCopy(r);
+  r.allocations=r.allocations.filter(a=>a.orderId!==order.id);r.updatedAt=now;
+  finEvent('released',before,r,'Order currency changed to '+finCurrency(order)+'; allocation returned to deposit.');
+ });
+}
 /* Ошибочная квитанция не удаляется, а аннулируется с причиной: остаётся в
    списке для сверки с QuickBooks и перестаёт считаться в балансах. */
 function finVoidReceipt(id,reason){
  const r=(DB.receipt||[]).find(x=>x.id===id);if(!r||r.voided||!String(reason||'').trim()||finRefunded(id)>0)return false;
+ finArchivedGuard(r.allocations.map(a=>a.orderId));
  finEnsureHistory(r);const before=finCopy(r);
  r.voided=true;r.voidReason=String(reason||'').trim().slice(0,300);r.voidedAt=new Date().toISOString();r.updatedAt=r.voidedAt;finEvent('voided',before,r,r.voidReason);
  return true;
@@ -15890,6 +15926,8 @@ function finSaveReceiptRecord(d,id,reason,allowDuplicate){
  if(old){const equal=r=>JSON.stringify([r.date,r.method,r.reference,r.amount,r.note,r.allocations]);if(equal(old)===equal(next))return old;
   finAssert(String(reason||'').trim(),'Enter a reason for correcting this payment.');}
  finAssert(allowDuplicate||!finReceiptDuplicates(next,id).length,'A payment with this reference already exists. Review it or confirm the duplicate.');
+ /* Долг заказа — с сервером он сверяется у всех (C4). */
+ if(typeof cloudGuardOrder==='function')allocations.forEach(a=>cloudGuardOrder(a.orderId));
  if(old){finEnsureHistory(old);const before=finCopy(old);Object.assign(old,next);finEvent('corrected',before,old,reason);return old;}
  DB.receipt.push(next);finEvent('received',null,next,'');return next;
 }
@@ -15900,8 +15938,12 @@ function finCreateRefund(d){
  finAssert(cents<=finCents(finReceiptOnAccount(r)),'Refund exceeds the available deposit. Release the order allocation first.');
  finAssert(finDateValid(d.date)&&d.date>=r.date,'Refund date must be valid and not before the payment.');
  finAssert(FIN_METHODS.some(m=>m.k===d.method),'Select a refund method.');finAssert(String(d.reason||'').trim(),'Enter the refund reason.');
+ /* Остаток квитанции — с сервером он сверяется у всех (C4). */
+ if(typeof cloudGuard==='function')cloudGuard('receipt',r.id);
  finEnsureHistory(r);
- const seq=DB.refund.reduce((n,x)=>Math.max(n,+String(x.number).replace('RF-','')||0),0)+1;
+ /* Номер — после всех возвратов, и ушедших в архив (аудит Codex 08.11.2026,
+    C11); с сервером его выдаёт счётчик refund (erp/cloud-sync, C4). */
+ const seq=DB.refund.reduce((n,x)=>Math.max(n,+String(x.number).replace('RF-','')||0),typeof archiveFloor==='function'?archiveFloor('refund'):0)+1;
  const out={id:'RF-'+finUid(),number:'RF-'+String(seq).padStart(4,'0'),receiptId:r.id,customerId:r.customerId,currency:'CAD',amount:cents/100,
   date:d.date,method:d.method,reference:String(d.reference||'').trim().slice(0,80),reason:String(d.reason).trim().slice(0,300),createdAt:new Date().toISOString(),voided:false,voidReason:'',voidedAt:''};
  DB.refund.push(out);finEvent('refunded',null,out,out.reason,'refund');return out;
@@ -17596,6 +17638,9 @@ async function cloudFetch(path,body,token,method){
  try{r=await fetch(c.url+path,{method:method||'POST',headers:{'Content-Type':'application/json',apikey:c.key,Authorization:'Bearer '+(token||c.key)},body:JSON.stringify(body||{})});}
  catch(e){throw new Error('No connection to the server.');}
  let j=null;try{j=await r.json();}catch(e){}
+ /* Сервер старше ERP: нет функции, которую ждёт эта версия (08.11.2026 —
+    erp_apply с grp) — нужен свежий schema.sql в SQL Editor. */
+ if(!r.ok&&j&&j.code==='PGRST202')throw new Error('Server update needed: run schema.sql.');
  if(!r.ok)throw new Error(String(j&&(j.message||j.msg||j.error_description||j.error)||'Server error '+r.status));
  return j;
 }
@@ -17684,8 +17729,8 @@ function cloudSignOut(){const c=cloudConfig();delete c.session;cloudConfigSave(c
    курсор erp_changes; n — счётчик очереди; v␀tbl␀id — версия строки;
    o␀000000000001 — команда в очереди; b␀scan — блоки внутренних номеров;
    r␀tbl␀id — строка, которую сервер перенумеровал: опрос возьмёт её копию.
-   Номера (владелец, 23.10.2026): заказы, квоты, счета, PS, NCR и документы
-   закупки — подряд с сервера: компьютер ставит свой следующий, сервер при
+   Номера (владелец, 23.10.2026): заказы, квоты, счета, возвраты (с 08.11),
+   PS, NCR и документы закупки — подряд с сервера: компьютер ставит свой следующий, сервер при
    записи даёт следующий по счётчику (занят — следующий свободный). Стёкла,
    юниты, сканы, обрезки и батчи — блоками с сервера (номер — ключ строки
    или уже на стикере, менять его нельзя); пропуски допустимы. Счётчики
@@ -17696,7 +17741,7 @@ const CLOUD_CHUNK=500,CLOUD_CHUNK_BYTES=1e6,CLOUD_POLL_MS=5000;
 /* Номер документа новой строки: [счётчик, поле, префикс, цифр не меньше]. */
 const CLOUD_NUMBER={
  salesOrder:o=>o.kind==='quote'?['quote','businessNumber','Q-',0]:['order','businessNumber','',0],
- receipt:()=>['receipt','number','R-',4],shipment:()=>['shipment','number','PS-',4],ncr:()=>['ncr','number','NCR',0],
+ receipt:()=>['receipt','number','R-',4],refund:()=>['refund','number','RF-',4],shipment:()=>['shipment','number','PS-',4],ncr:()=>['ncr','number','NCR',0],
  purchaseOrder:()=>['po','number','PO-',4],purchaseInvoice:()=>['pi','number','PI-',4],purchasePayment:()=>['pp','number','PP-',4],
  purchaseReceipt:()=>['gr','number','GR-',4],purchaseDeliveryRequest:()=>['dr','number','DR-',4]};
 /* Блоки внутренних номеров: [размер, последний номер в базе]. Осталось
@@ -17704,7 +17749,7 @@ const CLOUD_NUMBER={
 const CLOUD_BLOCK={
  glass:[1000,()=>DB.glassPieceSeq],unit:[500,()=>DB.glassUnitIdSeq],scan:[1000,()=>DB.stationScanSeq],
  offcut:[100,()=>DB.stockOffcutSeq],batch:[20,()=>typeof salesBatchTop==='function'?salesBatchTop():0],journal:[50,()=>finJournalTop()]};
-let cloudSync={loaded:false,on:false,ref:'',since:0,n:0,vers:new Map(),out:[],early:[],lost:new Set(),blocks:new Map(),blockDirty:new Set(),refresh:new Set(),
+let cloudSync={loaded:false,on:false,ref:'',since:0,n:0,vers:new Map(),out:[],early:[],lost:new Set(),lostGrp:new Set(),blocks:new Map(),blockDirty:new Set(),refresh:new Set(),
  uploading:false,dirty:null,running:false,timer:null,wait:CLOUD_POLL_MS,busy:'',error:'',warn:'',offline:false,at:''};
 const CLOUD_NO_BLOCK='No server numbers here yet. IDs may repeat.';
 function cloudKey(tbl,id){return tbl+'\u0000'+id;}
@@ -17817,6 +17862,19 @@ async function cloudLoad(){
  const early=s.early;s.early=[];
  if(s.on&&early.length){const out=cloudOutbox([].concat(...early));if(out){storageWrite([],out.ops);out.done();}}
 }
+/* Строки, по которым команда решала (свободный остаток квитанции, юниты
+   заказа, остаток склада, долг заказа), едут в команде как есть: сервер
+   сверяет их версию и пишет заново. Второй компьютер, решивший по старой
+   копии, получает конфликт — а не второй возврат тех же денег, вторую PS на
+   те же юниты или вторую недостачу (аудит Codex 08.11.2026, C4, C12, C13).
+   Только с сервером; строки без версии на сервере (ещё не отправленные) —
+   своей командой и так. Только внутри команды (storageCommand): проверка
+   формы до неё ничего не добавляет. */
+function cloudGuard(tbl,id){const s=cloudSync;if(!s.on||!id||!storageDepth)return;(s.guard||(s.guard=new Map())).set(cloudKey(tbl,id),{tbl,id:String(id)});}
+/* Заказ — по его условиям оплаты (financeTerms, строка маленькая); нет их —
+   по самому заказу. */
+function cloudGuardOrder(id){const t=storageBase.get('financeTerms');cloudGuard(t&&t.has(id)?'financeTerms':'salesOrder',id);}
+function cloudGuardDrop(){cloudSync.guard=null;}
 /* Набор изменений записи → команды очереди (ops — в ту же транзакцию, done —
    после того, как запись принята). Версия известна — сервер сверит её; новой
    строки — её не должно быть на сервере (ver 0). Строка уже есть в очереди —
@@ -17824,7 +17882,7 @@ async function cloudLoad(){
    сети спорила бы с первой). */
 function cloudOutbox(changes){
  const s=cloudSync;
- const rows=changes.filter(c=>!c.coldClear&&c.tbl&&!(c.tbl==='_meta'&&/Seq$/.test(c.id)));
+ const rows=changes.filter(c=>!c.coldClear&&c.tbl&&!(c.tbl==='_meta'&&/Seq$/.test(c.id))),guard=s.guard;s.guard=null;
  const ops=[...s.blockDirty].map(name=>['b\u0000'+name,s.blocks.get(name)]);s.blockDirty.clear();
  if(!rows.length||!s.loaded||!s.on||s.uploading){
   if(!s.loaded&&rows.length&&cloudConfig().session)s.early.push(rows);
@@ -17833,19 +17891,29 @@ function cloudOutbox(changes){
  }
  const cmds=[],queued=new Set();let n=s.n;
  s.out.forEach(cmd=>cmd.changes.forEach(c=>queued.add(cloudKey(c.tbl,c.id))));
- cloudChunks(rows).forEach(part=>{
+ if(guard){const have=new Set(rows.map(c=>cloudKey(c.tbl,c.id)));guard.forEach((x,k)=>{const b=storageBase.get(x.tbl),r=b&&b.get(x.id);if(have.has(k)||!r||!s.vers.has(k)&&!queued.has(k))return;rows.push({tbl:x.tbl,id:x.id,seq:r.s,data:r.t});});}
+ /* Набор больше одной части — группа: сервер пишет её целиком последней
+    частью (erp_apply grp, C3). keys — все строки группы: ответ и отказ
+    касаются их всех. */
+ const parts=cloudChunks(rows),grp=parts.length>1?{id:cloudId(),total:parts.length}:null,keys=[];
+ parts.forEach((part,pi)=>{
   const expect=[],fresh=new Set();
   part.forEach(c=>{const k=cloudKey(c.tbl,c.id),v=s.vers.get(k);
    if(queued.has(k))expect.push({tbl:c.tbl,id:c.id,chain:true});else if(v)expect.push({tbl:c.tbl,id:c.id,ver:v});else if(!c.del){expect.push({tbl:c.tbl,id:c.id,ver:0});fresh.add(c);}
    queued.add(k);});
   const cmd={id:cloudId(),expect,changes:part.map(cloudChange)};
   cmd.changes.forEach((x,i)=>{const num=fresh.has(part[i])&&!x.cold&&cloudNumber(part[i]);if(num)x.number=num;});
+  if(grp){cmd.grp=Object.assign({part:pi},grp);cmd.changes.forEach(x=>keys.push(cloudRowOf(x)));if(pi===grp.total-1)cmd.keys=keys;}
   const key='o\u0000'+String(++n).padStart(12,'0');
   cmds.push(Object.assign({key},cmd));ops.push([key,cmd]);
  });
  ops.push(['n',n]);
  return {ops,done(){s.n=n;s.out.push(...cmds);cloudSoon();}};
 }
+/* Строка команды коротко: ключ, удаление, номер документа. */
+function cloudRowOf(c){const x={tbl:c.tbl,id:c.id};if(c.data===null)x.del=true;if(c.number)x.num=c.number.value;return x;}
+/* Строки, о которых ответ сервера: вся группа или сама команда. */
+function cloudCmdRows(cmd){return cmd.keys||cmd.changes.map(cloudRowOf);}
 /* Строка набора изменений → строка команды erp_apply. */
 function cloudChange(c){
  const x={tbl:c.tbl,id:c.id,seq:c.seq||0,data:c.del?null:c.data};
@@ -17867,6 +17935,7 @@ async function cloudColdOf(owners){
 function cloudApplyServer(rows,asked,ops){
  const s=cloudSync,list=[],seen=new Set();
  rows.forEach(r=>{
+  if(r.tbl===CLOUD_UPLOAD.tbl)return;
   const k=cloudKey(r.tbl,r.id);seen.add(k);
   if(r.deleted){
    const b=storageBase.get(r.tbl);
@@ -17923,33 +17992,39 @@ async function cloudPushAll(){
  const s=cloudSync;
  while(s.out.length){
   const cmd=s.out[0],ops=[[cmd.key,null]];
-  /* Строка, чья прошлая команда не прошла, не уходит и следующей. */
-  const lost=cmd.expect.some(e=>e.chain&&s.lost.has(cloudKey(e.tbl,e.id)));
+  /* Строка, чья прошлая команда не прошла, не уходит и следующей; часть
+     группы, которая не ушла, — и вся группа (сервер откажет последней). */
+  const lost=cmd.expect.some(e=>e.chain&&s.lost.has(cloudKey(e.tbl,e.id)))||!!cmd.grp&&s.lostGrp.has(cmd.grp.id);
   const expect=cmd.expect.map(e=>e.chain?{tbl:e.tbl,id:e.id,ver:s.vers.get(cloudKey(e.tbl,e.id))||0}:e);
-  const r=lost?{ok:false,conflict:[]}:await cloudRpc('erp_apply',{command_id:cmd.id,build:storageBuildId(),device:cloudDevice(),expect,changes:cmd.changes});
+  if(lost&&cmd.grp&&!cmd.keys){s.lostGrp.add(cmd.grp.id);s.out.shift();cloudWriteLocal([],ops);continue;}
+  const r=lost?{ok:false,conflict:[]}:await cloudRpc('erp_apply',Object.assign({command_id:cmd.id,build:storageBuildId(),device:cloudDevice(),expect,changes:cmd.changes},cmd.grp?{grp:cmd.grp}:{}));
   if(s.out[0]!==cmd)return;
+  /* Часть группы принята на хранение — версии даст последняя. */
+  if(r&&r.ok&&r.staged){s.out.shift();cloudWriteLocal([],ops);continue;}
+  if(cmd.keys)s.lostGrp.delete(cmd.grp.id);
+  const rows=cloudCmdRows(cmd);
   if(r&&r.ok){
-   cmd.changes.forEach(c=>{const k=cloudKey(c.tbl,c.id),v=r.vers&&r.vers[c.tbl+'|'+c.id];
-    if(c.data===null||!v){s.vers.delete(k);ops.push(['v\u0000'+k,null]);}else{s.vers.set(k,v);ops.push(['v\u0000'+k,v]);}});
+   rows.forEach(c=>{const k=cloudKey(c.tbl,c.id),v=r.vers&&r.vers[c.tbl+'|'+c.id];
+    if(c.del||!v){s.vers.delete(k);ops.push(['v\u0000'+k,null]);}else{s.vers.set(k,v);ops.push(['v\u0000'+k,v]);}});
    s.out.shift();
    /* Номер занят: сервер дал следующий. Строки команды — серверной копией
       с опросом; в очереди и в открытом заказе старый номер меняется. */
-   const moved=cmd.changes.map(c=>c.number&&[c.number.value,r.numbers&&r.numbers[c.tbl+'|'+c.id]]).filter(m=>m&&m[1]&&m[1]!==m[0]);
+   const moved=rows.map(c=>c.num&&[c.num,r.numbers&&r.numbers[c.tbl+'|'+c.id]]).filter(m=>m&&m[1]&&m[1]!==m[0]);
    if(moved.length){
-    s.out.forEach(o=>{if(cloudRenumber(o.changes,moved)){o.renum=true;ops.push([o.key,{id:o.id,expect:o.expect,changes:o.changes,renum:true}]);}});
+    s.out.forEach(o=>{if(cloudRenumber(o.changes,moved)){o.renum=true;const{key,...keep}=o;ops.push([key,keep]);}});
     if(typeof soDraft!=='undefined'&&soDraft)moved.forEach(([a,b])=>{if(soDraft.businessNumber===a)soDraft.businessNumber=b;});
    }
-   if(moved.length||cmd.renum)cmd.changes.forEach(c=>{if(c.data===null)return;const k=cloudKey(c.tbl,c.id);s.refresh.add(k);ops.push(['r\u0000'+k,1]);});
-   if(!s.out.length)s.lost.clear();cloudWriteLocal([],ops);continue;
+   if(moved.length||cmd.renum)rows.forEach(c=>{if(c.del)return;const k=cloudKey(c.tbl,c.id);s.refresh.add(k);ops.push(['r\u0000'+k,1]);});
+   if(!s.out.length){s.lost.clear();s.lostGrp.clear();}cloudWriteLocal([],ops);continue;
   }
-  /* Отказ: строки команды — как на сервере сейчас. */
-  const keys=cmd.changes.map(c=>({tbl:c.tbl,id:c.id}));
+  /* Отказ: строки команды (группы — все) — как на сервере сейчас. */
+  const keys=rows.map(c=>({tbl:c.tbl,id:c.id}));
   const now=await cloudRpc('erp_get',{keys});
   if(s.out[0]!==cmd)return;
   s.out.shift();keys.forEach(k=>s.lost.add(cloudKey(k.tbl,k.id)));cloudApplyServer(Array.isArray(now)?now:[],keys,ops);
   /* Заказ людям виден номером, а не внутренним ключом строки. */
-  const names=[...new Set((r&&r.conflict||[]).map(x=>{const o=x.tbl==='salesOrder'&&salesRecord(x.id);return o?o.businessNumber||'order':x.id;}))].slice(0,3).join(', ');
-  if(!s.out.length)s.lost.clear();
+  const names=[...new Set((r&&r.conflict||[]).map(x=>{const o=(x.tbl==='salesOrder'||x.tbl==='financeTerms')&&salesRecord(x.id),d=!o&&['receipt','refund','shipment','stockItem'].includes(x.tbl)&&(DB[x.tbl]||[]).find(y=>y.id===x.id);return o?o.businessNumber||'order':d?d.number||d.name||x.id:x.id;}))].slice(0,3).join(', ');
+  if(!s.out.length){s.lost.clear();s.lostGrp.clear();}
   s.warn=r&&r.denied?'No access on server: '+r.denied.join(', ')+'. Server copy shown.':'Changed on another computer: '+(names||'rows')+'. Server copy shown.';s.warnAt=Date.now();
  }
 }
@@ -18025,16 +18100,32 @@ async function cloudRun(label,fn){
 function cloudRecords(){
  return storageHotRecords().filter(r=>r.tbl!=='_archive'&&!(r.id==='*'&&r.data==='[]'&&!(storageBase.get(r.tbl)||new Map()).has('*')));
 }
+/* Отметка Upload на сервере (строка _upload|state): начат — {id, device,
+   done:false}, дошёл до конца — done:true. Обрыв посреди — тот же компьютер
+   продолжает (части пишутся заново), Download такой половины не берёт:
+   неполная база заменила бы полную (аудит Codex 08.11.2026, C8). Сервер,
+   залитый до отметки, — как раньше. В базу ERP строка не попадает. */
+const CLOUD_UPLOAD={tbl:'_upload',id:'state'};
+async function cloudUploadState(){
+ const got=await cloudRpc('erp_get',{keys:[CLOUD_UPLOAD]}),r=Array.isArray(got)&&got.find(x=>x.tbl===CLOUD_UPLOAD.tbl&&!x.deleted);
+ try{return r?JSON.parse(cloudText(r.data)):null;}catch(e){return null;}
+}
+function cloudUploadMark(state){return {tbl:CLOUD_UPLOAD.tbl,id:CLOUD_UPLOAD.id,seq:0,data:JSON.stringify(state)};}
 function cloudUpload(){
  return cloudRun('Uploading…',async()=>{
   const me=await cloudRpc('erp_whoami');
   if(!me||!me.admin)throw new Error('Only a server admin can upload.');
   const first=await cloudRpc('erp_changes',{since:0,lim:1});
-  if(first&&(+first.last>0))throw new Error('The server already has data. Use Download.');
-  if(!confirm('Send this database to the server?\n\nOther computers will download it from there.'))return false;
+  let resume=null;
+  if(first&&(+first.last>0)){
+   resume=await cloudUploadState();
+   if(!resume||resume.done)throw new Error('The server already has data. Use Download.');
+   if(resume.device!==cloudDevice())throw new Error('Upload from another computer is not finished.');
+  }
+  if(!confirm(resume?'Finish sending this database to the server?\n\nThe last upload stopped halfway.':'Send this database to the server?\n\nOther computers will download it from there.'))return false;
   await storageFlush();
-  const s=cloudSync,vers=new Map(),url=cloudConfig().url;
-  const recs=cloudRecords().concat((await storageIdbColdAll()).map(r=>({tbl:r.tbl,id:r.id,seq:r.seq,data:r.data,cold:true,month:r.month,owners:r.owners})),
+  const s=cloudSync,vers=new Map(),url=cloudConfig().url,mark={id:resume?resume.id:cloudId(),device:cloudDevice(),done:false};
+  const recs=[cloudUploadMark(mark)].concat(cloudRecords(),(await storageIdbColdAll()).map(r=>({tbl:r.tbl,id:r.id,seq:r.seq,data:r.data,cold:true,month:r.month,owners:r.owners})),
    (await storageIdbArchiveAll()).map(a=>({tbl:'_archive',id:a.id,seq:0,data:JSON.stringify(a.row)})));
   s.uploading=true;s.dirty=new Map();
   let last=0;
@@ -18045,9 +18136,12 @@ function cloudUpload(){
     const r=await cloudRpc('erp_apply',{command_id:'up-'+cloudId(),build:storageBuildId(),device:cloudDevice(),expect:[],
      changes:part.map(cloudChange)});
     if(!r||!r.ok)throw new Error(r&&r.denied?'No access on server: '+r.denied.join(', '):'Upload refused by the server.');
-    part.forEach(c=>{const v=r.vers&&r.vers[c.tbl+'|'+c.id];if(v)vers.set(cloudKey(c.tbl,c.id),v);});
+    part.forEach(c=>{const v=r.vers&&r.vers[c.tbl+'|'+c.id];if(v&&c.tbl!==CLOUD_UPLOAD.tbl)vers.set(cloudKey(c.tbl,c.id),v);});
     last=+r.rev||last;
    }
+   const end=await cloudRpc('erp_apply',{command_id:'up-'+cloudId(),build:storageBuildId(),device:cloudDevice(),expect:[],changes:[cloudChange(cloudUploadMark(Object.assign(mark,{done:true,rows:recs.length-1})))]});
+   if(!end||!end.ok)throw new Error('Upload refused by the server.');
+   last=+end.rev||last;
    await cloudSaveAll(url,last,vers);
   }finally{s.uploading=false;}
   /* Правки во время отправки — следом обычной командой. */
@@ -18075,6 +18169,9 @@ function cloudDownload(){
    const last=+r.last||since;if(last===since)break;since=last;
    s.busy='Downloading '+got.size;afterRender();
   }
+  const mark=got.get(cloudKey(CLOUD_UPLOAD.tbl,CLOUD_UPLOAD.id));got.delete(cloudKey(CLOUD_UPLOAD.tbl,CLOUD_UPLOAD.id));
+  let up=null;try{up=mark&&!mark.deleted?JSON.parse(cloudText(mark.data)):null;}catch(e){}
+  if(up&&!up.done)throw new Error('Upload to the server is not finished. Finish it on the computer that started it.');
   const all=[...got.values()].filter(x=>!x.deleted),vers=new Map(all.map(x=>[cloudKey(x.tbl,x.id),x.ver]));
   const rows=all.filter(x=>!x.cold&&x.tbl!=='_archive'),archive=all.filter(x=>x.tbl==='_archive').map(x=>({id:x.id,row:JSON.parse(cloudText(x.data))}));
   if(!rows.length)throw new Error('The server is empty. Upload a database first.');
@@ -19183,7 +19280,7 @@ function salesRebaseDraft(current){
    29.10.2026, А4). */
 function salesOrderScope(id){
  const own=id&&id!=='new'?[id]:[];
- return {salesOrder:own,financeTerms:own,financeEvent:[],glassPiece:true,glassPieceSeq:true,glassUnitId:true,glassUnitIdSeq:true,glassBatch:own.length?glassBatchEntries(id).map(x=>x.batch.number):[]};
+ return {salesOrder:own,financeTerms:own,financeEvent:[],receipt:own.length?(DB.receipt||[]).filter(r=>r.allocations.some(a=>a.orderId===id)).map(r=>r.id):[],glassPiece:true,glassPieceSeq:true,glassUnitId:true,glassUnitIdSeq:true,glassBatch:own.length?glassBatchEntries(id).map(x=>x.batch.number):[]};
 }
 /* opts.bg — кнопка: большой заказ сохраняется в фоне (erp/sales/save-job);
    opts.noRender — экран нарисует он сам, opts.failed — ему текст отказа:
@@ -19231,6 +19328,9 @@ function salesOrderSaveCommand(opts){
  previousOrder=DB.salesOrder.find(o=>o.id===soDraft.id);
  const shippingError=shippingSaveGuard(soDraft,previousOrder);if(shippingError)return fail(e,shippingError);
  if(previousOrder&&previousOrder.customerId!==soDraft.customerId&&(DB.receipt||[]).some(r=>r.allocations.some(a=>a.orderId===soDraft.id)))return fail(e,'This order has payment records. Its customer cannot change.');
+ /* Другая валюта — оплаты в прежней уходят на счёт клиента (C2). */
+ const curMoved=typeof finCurrencyMoved==='function'?finCurrencyMoved(soDraft).filter(r=>!r.voided):[];
+ if(curMoved.length&&!ask('Order currency is now '+soDraft.currency+'. Payments '+curMoved.map(r=>r.number).join(', ')+' ('+curMoved.map(r=>'$'+r.allocations.find(a=>a.orderId===soDraft.id).amount.toFixed(2)+' '+finCurrency(r)).join(', ')+') go back to the customer account.\n\nSave the order?')){render();return false;}
  /* Строки из батча: стекло уже на резке (владелец, 15 сентября 2026). Новый
     размер — новая строка или новый заказ, а не правка строки. */
  if(!opts.unlock){const broken=salesLockViolations(soDraft,soEdit!=='new'?DB.salesOrder.find(x=>x.id===soEdit):null);if(broken.length)return fail(e,'Batched lines cannot change: '+broken.join('; ')+'. Add a new line or open a new order.');
@@ -19284,6 +19384,7 @@ function salesOrderSaveCommand(opts){
  else soDraft.priceBook=salesPriceBookOf(soDraft);
  if(soEdit==='new')DB.salesOrder.push(soDraft);else{const i=DB.salesOrder.findIndex(x=>x.id===soEdit);if(i>=0)DB.salesOrder[i]=soDraft;else DB.salesOrder.push(soDraft);}
  if(typeof finCaptureTerms==='function')finCaptureTerms(soDraft);
+ if(typeof finReleaseCurrency==='function')finReleaseCurrency(soDraft);
  normalizeSalesOrderIn(soDraft.id);if(typeof glassPieceEnsure==='function'){glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));salesDropStaleHolds(DB.salesOrder.find(x=>x.id===soDraft.id));}shippingSyncOrder(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();salesMeasureWrite(DB.salesOrder.find(x=>x.id===soDraft.id),pre&&pre.measures);soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();return true;
 }
 /* Экран рисует salesOrderSave после записи: внутри команды указатели
@@ -26206,8 +26307,7 @@ function finDocText(pages){return (pages||[]).flatMap(p=>p.items.filter(x=>x.t==
 /* Оплачено по заказу на момент этой квитанции: более поздние оплаты в её
    «остаток после» не входят, иначе старая квитанция врала бы задним числом. */
 function finOrderPaidThrough(orderId,receipt){
- const key=r=>r.date+'|'+r.number,upTo=key(receipt);
- return finMoney((DB.receipt||[]).filter(r=>(!r.voided||r.id===receipt.id)&&finCurrency(r)===finCurrency(receipt)&&key(r)<=upTo)
+ return finMoney((DB.receipt||[]).filter(r=>(!r.voided||r.id===receipt.id)&&finCurrency(r)===finCurrency(receipt)&&finDocOrder(r,receipt)<=0)
   .reduce((s,r)=>s+r.allocations.filter(a=>a.orderId===orderId).reduce((t,a)=>t+a.amount,0),0));
 }
 function finReceiptDoc(id){const m=finReceiptModel(id);return m?finDocPages(m):[];}
@@ -34212,6 +34312,9 @@ function finSaveReceipt(){
  const e=document.getElementById('e_fin');if(e)e.style.display='none';if(!finDraft)return;
  if(finEdit!=='new'&&finRecordBaselineId===finEdit&&JSON.stringify((DB.receipt||[]).find(r=>r.id===finEdit))!==finRecordBaseline){fail(e,'This payment changed elsewhere. Reopen it before correcting it; your draft is still available.');return false;}
  const d=Object.assign({},finDraft,{allocations:Object.entries(finDraft.apply).map(([orderId,amount])=>({orderId,amount:amount===''?0:amount}))});
+ /* Правка оплаты, лежащей на заказе в архиве, — сначала он в работу (C1). */
+ const back=finArchivedOrders(d.allocations.map(a=>a.orderId));
+ if(back.length){finBringBack(back).then(x=>{if(!x.ok)return fail(document.getElementById('e_fin'),x.error);finSaveReceipt();});return;}
  const out=finPersist(()=>finSaveReceiptRecord(d,finEdit==='new'?null:finEdit,d.reason,d.duplicate),finReceiptScope(d,finEdit==='new'?null:finEdit));
  if(!out.ok){if(/reference already exists/.test(out.error)){render();}return fail(document.getElementById('e_fin'),out.error);}
  finCloseReceipt(true,out.value);
@@ -34221,6 +34324,11 @@ function finVoidCurrent(){
  const reason=window.prompt('Void receipt '+r.number+'. Reason:','');
  if(reason===null)return;
  if(!String(reason).trim()){alert('Enter a reason to void the receipt.');return;}
+ finVoidDo(r,reason);
+}
+function finVoidDo(r,reason){
+ const back=finArchivedOrders(r.allocations.map(a=>a.orderId));
+ if(back.length){finBringBack(back).then(x=>{if(!x.ok)return fail(document.getElementById('e_fin'),x.error);finVoidDo(r,reason);});return;}
  const out=finPersist(()=>finVoidReceipt(r.id,reason));if(!out.ok)return fail(document.getElementById('e_fin'),finRefunded(r.id)>0?'Void the refund record first. A payment with an active refund cannot be voided.':out.error);finCloseReceipt(true);
 }
 
@@ -34354,7 +34462,7 @@ function finAccountHTML(){
  if(finAllocOn())return finAllocHTML();
  const c=salesFindCustomer(finAccountId);if(!c)return '<p>Customer not found.</p>';
  const m=finAccountMetrics(c),a=m.account,x=m.money,open=m.rows.filter(x=>x.f.b.balance!==0),paid=m.rows.length-open.length,rows=finAccountPaid?m.rows:open;
- const receipts=DB.receipt.filter(r=>r.customerId===c.id).sort((x,y)=>(y.date+y.number).localeCompare(x.date+x.number)),refunds=DB.refund.filter(r=>r.customerId===c.id).sort((x,y)=>(y.date+y.number).localeCompare(x.date+x.number)),events=DB.financeEvent.filter(e=>e.customerId===c.id);
+ const receipts=DB.receipt.filter(r=>r.customerId===c.id).sort((x,y)=>finDocOrder(y,x)),refunds=DB.refund.filter(r=>r.customerId===c.id).sort((x,y)=>finDocOrder(y,x)),events=DB.financeEvent.filter(e=>e.customerId===c.id);
  return `<div class="fin-account-head"><div><button class="sm" onclick="finAccountId='';render()">← Accounts</button><h3>${raw(finCustomerName(c))}</h3><span class="mut">${raw(c.code)} · ${esc(a.terms)}${c.status==='archived'?' · Archived':''}${c.onHold?' · <b class="fin-due">On hold</b>':''}</span></div><div class="row"><button data-fin-open-allocate onclick="finOpenAllocate('${esc(c.id)}')">Allocate</button><button onclick="finOpenStatement('${esc(c.id)}')">Statement</button><button class="pri" onclick="finNewReceipt('${esc(c.id)}')">+ Receipt</button></div></div>
  <div class="fin-account-totals"><span>Balance <b>${finFmt(x.balance)}</b></span><span>Overdue <b class="${x.overdue>0?'fin-due':''}">${finFmt(x.overdue)}</b></span><span>Prepaid <b>${finFmt(x.prepaid)}</b></span><span>On account <b class="fin-deposit">${finFmt(x.deposit)}</b>${x.deposit>0&&x.balance>0?`<button class="sm" onclick="finOpenApply('${esc(c.id)}')">Apply</button>`:''}</span>${a.creditLimit!=null?`<span>Credit limit <b class="${a.overLimit?'fin-due':''}">${finFmt(a.creditLimit)}</b></span>`:''}</div>
  <h4>Orders</h4>${finStaticTable('finAccOrders',[['order','Order / PO'],['billed','Billed'],['due','Due'],['total','Total','n'],['paid','Paid','n'],['balance','Balance','n'],['status','Status'],['act','']],rows.map(({o,f})=>`<tr data-order="${esc(o.id)}"><td><button class="fin-link" onclick="finOpenSales('${esc(o.id)}')">${esc(o.businessNumber)}</button><div class="mut small">${raw(o.customerPo||'—')}</div></td><td>${esc(finBillingDate(o)?finShortDate(finBillingDate(o)):'—')}</td><td class="${f.overdue?'fin-due':''}">${esc(f.dueOn?finShortDate(f.dueOn):'—')}</td><td class="n">${finFmt(f.b.total)}</td><td class="n">${finFmt(f.b.paid)}</td><td class="n"><b>${finFmt(f.b.balance)}</b></td><td>${finStatusPill(f)}</td><td class="fin-actions">${finInvoiceDate(o)?`<button class="sm" data-fin-invoice="${esc(o.businessNumber)}" onclick="finOpenInvoice('${esc(o.id)}')">Invoice</button> `:''}<button class="sm" onclick="finEditTerms('${esc(o.id)}')">Terms</button></td></tr>`).join('')||`<tr><td colspan="8" class="empty">No open orders</td></tr>`)}
@@ -34863,7 +34971,7 @@ function finAllocOrderRows(cid){
  return {rows,unpriced};
 }
 function finAllocReceiptRows(cid){
- return finActiveReceipts().filter(r=>r.customerId===cid&&finCurrency(r)==='CAD').sort((x,y)=>(x.date+x.number).localeCompare(y.date+y.number)).map(r=>{
+ return finActiveReceipts().filter(r=>r.customerId===cid&&finCurrency(r)==='CAD').sort(finDocOrder).map(r=>{
   const used=finReceiptApplied(r),left=finReceiptOnAccount(r),refunded=finRefunded(r.id);
   return {r,used,left,refunded,show:left<=0?'paid':used>0||refunded>0?'part':'unpaid'};
  });
@@ -34906,6 +35014,9 @@ function finAllocRun(){
 }
 function finAllocRelease(pairs){
  if(!pairs.length)return;
+ /* Связь с заказом в архиве — сначала заказ в работу (C1). */
+ const back=finArchivedOrders(pairs.map(p=>p.orderId));
+ if(back.length){finBringBack(back).then(x=>{if(!x.ok)return fail(document.getElementById('e_fin_alloc'),x.error);finAllocRelease(pairs);});return;}
  const out=finPersist(()=>{const moved=finUnallocate(finAlloc.customerId,pairs);finAssert(moved>0,'Nothing to unallocate.');return moved;});
  if(!out.ok)return fail(document.getElementById('e_fin_alloc'),out.error);
  finAlloc.orders=[];finAlloc.receipts=[];render();
@@ -42882,6 +42993,9 @@ function sinvCount(itemId,counted,why){
  return storageCommand(()=>{
   const r=sinvBuild().find(x=>x.id===itemId);if(!r)throw new Error('Item not found.');
   const n=sinvInt(counted,'Counted',0);
+  /* «Было» — с сервером его сверяют у всех: два пересчёта по старой копии
+     вычли бы недостачу дважды (C13). */
+  if(typeof cloudGuard==='function')cloudGuard('stockItem',itemId);
   return sinvPush(Object.assign({itemId,kind:'count',qty:n-r.onHand,before:r.onHand,after:n},stockReasonOf(why)));
  },{stockItemEvent:true});
 }
@@ -51657,7 +51771,8 @@ function shippingValidateSelection(d,exceptId){
  const items=[],extras=[],seen=new Set(),available=new Map();
  (d.items||[]).forEach(i=>{
   const o=salesRecord(i.orderId);shippingAssert(o&&!salesIsQuote(o)&&o.customerId===d.customerId&&!['cancelled','closed'].includes(o.status),'Check the customer and orders.');
-  if(!available.has(o.id))available.set(o.id,shippingAvailable(o,exceptId));
+  /* Свободные юниты заказа — с сервером они сверяются у всех (C12). */
+  if(!available.has(o.id)){available.set(o.id,shippingAvailable(o,exceptId));if(typeof cloudGuardOrder==='function')cloudGuardOrder(o.id);}
   const hit=available.get(o.id).find(x=>x.lineId===i.lineId&&x.unit===i.unit&&x.label===i.label);
   shippingAssert(hit&&!seen.has(shippingKey(i)),'The selected glass is no longer available. Review the packing slip.');
   seen.add(shippingKey(i));items.push(shippingItem(hit));
@@ -51670,6 +51785,7 @@ function shippingValidateSelection(d,exceptId){
   const o=salesRecord(i.orderId),x=o&&(o.extraItems||[]).find(x=>x.id===i.extraId),k=i.orderId+'|'+i.extraId;
   shippingAssert(o&&x&&!salesIsQuote(o)&&o.customerId===d.customerId&&!['new','closed','cancelled'].includes(o.status)&&!o.onHold,'Stock order is not ready.');
   const used=shippingForOrder(o.id).filter(s=>shippingActive(s)&&s.id!==exceptId).flatMap(s=>s.extras).filter(a=>a.extraId===x.id).reduce((n,a)=>n+a.qty,0);
+  if(typeof cloudGuardOrder==='function')cloudGuardOrder(o.id);
   shippingAssert(Number.isSafeInteger(i.qty)&&i.qty>0&&i.qty<=x.qty-used&&!seen.has(k),'Check the available stock quantity.');
   seen.add(k);extras.push({orderId:o.id,extraId:x.id,qty:i.qty});
  });
@@ -56496,6 +56612,16 @@ function archiveContext(){
  (DB.receipt||[]).forEach(r=>{if(r.voided)return;(r.allocations||[]).forEach(a=>add(pays,a.orderId,r));});
  return {ships,pays,hot:new Set((DB.salesOrder||[]).map(o=>o.id))};
 }
+/* Заказы, чей счёт, оплата или возврат ещё не ушли в QuickBooks: из архива
+   выгрузка их бы уже не увидела (аудит Codex 08.11.2026, C7). Пока файл
+   QuickBooks не выгружали ни разу (владелец, 08.11.2026: бухгалтерия ещё не
+   работает в ERP) — ждать нечего, null. */
+function archiveQbPending(){
+ if(typeof finExportPending!=='function'||!(DB.financeExportBatch||[]).length)return null;
+ const ids=new Set(),orders=r=>(r&&r.allocations||[]).forEach(a=>ids.add(a.orderId));
+ finExportPending().forEach(({kind,x})=>{if(kind==='invoice')ids.add(x.id);else if(kind==='receipt')orders(x);else orders((DB.receipt||[]).find(r=>r.id===x.receiptId));});
+ return ids;
+}
 function archiveDayOf(o,ctx){
  const d=o.statusDates||{},days=['done','closed','cancelled'].map(k=>d[k]);
  (ctx.ships.get(o.id)||[]).forEach(s=>days.push(s.shippedAt,s.deliveredAt));
@@ -56505,7 +56631,7 @@ function archiveDayOf(o,ctx){
 /* Заказ закрыт: отгружен целиком (или закрыт офисом) и оплачен без долга и
    переплаты, или отменён без денег на нём; накладной в пути нет; не Hold. */
 function archiveOrderClosed(o,ctx){
- if(!o||salesIsQuote(o)||o.onHold)return false;
+ if(!o||salesIsQuote(o)||o.onHold||ctx.qb&&ctx.qb.has(o.id))return false;
  if(o.status==='cancelled'){if((ctx.pays.get(o.id)||[]).length)return false;}
  else if(!['done','closed'].includes(o.status))return false;
  else if(!['paid','empty'].includes(finOrderBalance(o).status))return false;
@@ -56515,7 +56641,7 @@ function archiveOrderClosed(o,ctx){
    исходный заказ уходят только вместе; квота без ответа — через тот же срок
    после последней ревизии; выигравшая квота — вместе со своим заказом. */
 function archiveDue(day){
- const ctx=archiveContext(),cut=archiveCutoff(day),due=new Set();
+ const ctx=Object.assign(archiveContext(),{qb:archiveQbPending()}),cut=archiveCutoff(day),due=new Set();
  (DB.salesOrder||[]).forEach(o=>{if(!salesIsQuote(o)&&archiveOrderClosed(o,ctx)&&archiveDayOf(o,ctx)<=cut)due.add(o.id);});
  const links=(DB.ncr||[]).filter(n=>n.remakeOrderId).map(n=>[n.orderId,n.remakeOrderId]);
  for(let changed=true;changed;){changed=false;links.forEach(([a,b])=>{if(due.has(a)!==due.has(b)&&(due.has(a)?ctx.hot.has(b):ctx.hot.has(a))){due.delete(a);due.delete(b);changed=true;}});}
@@ -56787,6 +56913,7 @@ function archiveRun(day,opts){
    if(x.tbl==='glassBatch')archiveFloorRaise('batch',num(x.row.number,/^B-(\d+)$/));
    if(x.tbl==='ncr')archiveFloorRaise('ncr',num(x.row.number,/^NCR(\d+)$/));
    if(x.tbl==='receipt')archiveFloorRaise('receipt',num(x.row.number,/^R-(\d+)$/));
+   if(x.tbl==='refund')archiveFloorRaise('refund',num(x.row.number,/^RF-(\d+)$/));
    if(x.tbl==='financeEvent')archiveFloorRaise('financeEvent',+x.row.seq||0);
   });
   const before=archiveInvState(),ledger=archiveLedgerOf(set);
@@ -57799,8 +57926,12 @@ function storageColdMoveAll(tbl,list){
    «Created» (erp/sales/order-log). */
 function storageColdMoving(tbl,id){const k=tbl+'\u0000'+id,v=storageVisit.get(tbl);return storageColdPending.has(k)||storageColdWarm.has(k)||!!v&&v.has(id);}
 /* Одна запись из архива — на своё место по seq (внутри действия). */
+/* Запись уже в работе (общая оплата двух заказов вернулась с первым из них,
+   а сервер до отправки ещё отдаёт её из архива) — остаётся своя, она новее:
+   вторая копия удваивала деньги (аудит Codex 08.11.2026, C9). */
 function storageColdPut(r){
  if(!Array.isArray(DB[r.tbl]))DB[r.tbl]=[];const rows=DB[r.tbl],base=storageBase.get(r.tbl)||new Map(),seqOf=x=>{const b=base.get(storageRowKey(r.tbl,x));return b?b.s:Infinity;};
+ if(base.has(r.id))return;
  let lo=0,hi=rows.length;while(lo<hi){const mid=(lo+hi)>>1;if(seqOf(rows[mid])<r.seq)lo=mid+1;else hi=mid;}
  rows.splice(lo,0,JSON.parse(r.data));storageColdWarm.add(r.tbl+'\u0000'+r.id);
 }
@@ -57967,7 +58098,7 @@ function storageCommand(fn,scope){
   if(scopeBefore)storageScopeCheck(scopeBefore);
   if(scope)storageSweepLater();
   return {ok:true,value};
- }catch(e){storageDepth=0;storageCommanding=false;storageColdPending.clear();storageColdImport=null;storageColdWarm.clear();storageArchivePending.clear();storageRollback(before);dirty=wasDirty;if(draftBefore!==null&&JSON.stringify(soDraft)!==draftBefore)soDraft=JSON.parse(draftBefore);storageInvalidate();storageLastError=e.message;return {ok:false,error:e.message};}
+ }catch(e){storageDepth=0;storageCommanding=false;if(typeof cloudGuardDrop==='function')cloudGuardDrop();storageColdPending.clear();storageColdImport=null;storageColdWarm.clear();storageArchivePending.clear();storageRollback(before);dirty=wasDirty;if(draftBefore!==null&&JSON.stringify(soDraft)!==draftBefore)soDraft=JSON.parse(draftBefore);storageInvalidate();storageLastError=e.message;return {ok:false,error:e.message};}
 }
 /* Запись правки, сделанной до вызова (раскрой: Build и правки листа, порядок
    батчей): touch() только по области scope, как у storageCommand. Вне
@@ -58004,7 +58135,7 @@ function touch(){
   let diff=storageDiff(DB,only);if(typeof mdLogCapture==='function'&&mdLogCapture(diff))diff=storageDiff(DB,only);
   const changes=storageColdApply(diff);
   /* Ничего не изменилось (старт без новых граф) — и отмечать нечего. */
-  if(!changes.length){storageLastError=storageFailed?storageLastError:'';storageScopeMark();return true;}
+  if(!changes.length){if(typeof cloudGuardDrop==='function')cloudGuardDrop();storageLastError=storageFailed?storageLastError:'';storageScopeMark();return true;}
   /* Сервер (erp/cloud-sync.js): набор встаёт в очередь отправки той же записью. */
   const out=typeof cloudOutbox==='function'?cloudOutbox(changes):null;
   storageWrite(changes,out&&out.ops);if(out)out.done();storageBaseApply(changes);if(typeof archiveIndexApply==='function')archiveIndexApply(changes.filter(c=>c.tbl==='_archive').map(c=>[c.id,c.del?null:JSON.parse(c.data)]),changes.some(c=>c.coldClear));
@@ -58334,11 +58465,23 @@ function storageExportParts(cold,archive){
 }
 /* Вся база целиком — дело администратора (раздел Users, erp/access): Import
    заменяет и людей с их правами, Export отдаёт и Finance. */
+/* Архив не прочитался (нет связи с сервером) или в нём нет заказа из списка
+   архива — файла нет: неполная копия выглядела бы полной, и Import принял
+   бы её (аудит Codex 08.11.2026, C6). */
 async function doExport(){
  if(!accessCan(ACCESS_ADMIN))return;
- await storageFlush();const cold=storageIdb?await storageColdAll().catch(()=>storageIdbColdAll()).catch(()=>[]):[],archive=storageIdb?await storageIdbArchiveAll().catch(()=>[]):[];
+ await storageFlush();
+ let cold=[],archive=[];
+ if(storageIdb)try{cold=await storageColdAll();archive=await storageIdbArchiveAll();}catch(e){alert('Archive not read: '+e.message+'\nNothing exported. Try again when online.');return;}
+ const lost=storageArchiveMissing(cold,archive);
+ if(lost.length){alert('Archive incomplete: '+lost.length+' archived order'+(lost.length>1?'s':'')+' not read.\nNothing exported. Try again when online.');return;}
  storageDownload('glazing_system_data.ndjson',storageExportParts(cold,archive),'application/x-ndjson');
  storageBackupAt=new Date().toISOString();dirty=false;if(storageFailed)storageFailedExported=true;render();
+}
+/* Заказы списка архива, чьих записей нет в архиве cold. */
+function storageArchiveMissing(cold,archive){
+ const have=new Set((cold||[]).filter(r=>r.tbl==='salesOrder').map(r=>r.id));
+ return (archive||[]).filter(a=>!String(a.id).startsWith('L:')&&!have.has(a.id)).map(a=>a.id);
 }
 /* Записи как они лежат, без нормализации, — то, что не прочиталось. */
 function storageExportRecovery(){
@@ -58364,6 +58507,10 @@ async function storageImportState(raw,opts){
  /* С сервером замена базы ушла бы всем компьютерам (проверка 02.11.2026). */
  if(!opts.cloud&&typeof cloudSync!=='undefined'&&cloudSync.on){alert('This computer is connected to the server. Stop sync first: Import would replace the data for everyone.');return false;}
  const payload=raw&&raw.format==='glass-erp'?raw.data:raw;
+ /* Файл со списком архива без самих заказов — неполная копия (C6). Download
+    с сервера (cloud) архив на диск не берёт: он на сервере; Restore
+    возвращает базу ровно такой, какой она была. */
+ if(!opts.cloud&&!opts.restore){const lost=storageArchiveMissing(opts.cold,opts.archive);if(lost.length)throw new Error('the file is incomplete: '+lost.length+' archived order'+(lost.length>1?'s are':' is')+' missing.');}
  if(!payload||!Array.isArray(payload.customer)||!Array.isArray(payload.salesOrder)||!Array.isArray(payload.station))throw new Error('Choose a complete GLASS ERP backup. A partial data file cannot replace this database.');
  if(storageTest&&!opts.test&&!opts.restore){alert('Test data here. Clear database first.');return false;}
  /* Проверка и нормализация файла знают его архив (erp/archive): записи в

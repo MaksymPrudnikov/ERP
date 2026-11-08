@@ -503,6 +503,15 @@ function normalizeSalesSurchargeRates(raw){
   if(Number.isFinite(n(r.value))&&n(r.value)>=0)x.value=n(r.value);
   ['areaOver','areaUnder'].forEach(k=>{if(Number.isFinite(n(r[k]))&&n(r[k])>0)x[k]=n(r[k]);});
   if(r.off===true)x.off=true;
+  /* Минимальная площадь по макапам и материалам (erp/sales/line-metrics, salesMinAreaParts). */
+  const bm=r.byMakeup&&typeof r.byMakeup==='object'&&!Array.isArray(r.byMakeup)?r.byMakeup:null,okId=/^[A-Za-z0-9:._|+\-]{1,180}$/,y0={};
+  if(bm)Object.keys(bm).forEach(mid=>{
+   if(!okId.test(mid))return;const e=bm[mid]&&typeof bm[mid]==='object'?bm[mid]:{},y={};
+   if(Number.isFinite(n(e.value))&&n(e.value)>=0)y.value=n(e.value);
+   const ps={};if(e.parts&&typeof e.parts==='object'&&!Array.isArray(e.parts))Object.keys(e.parts).forEach(k=>{if(okId.test(k)&&k.includes(':')&&Number.isFinite(n(e.parts[k]))&&n(e.parts[k])>=0)ps[k]=n(e.parts[k]);});
+   if(Object.keys(ps).length)y.parts=ps;if(Object.keys(y).length)y0[mid]=y;
+  });
+  if(Object.keys(y0).length)x.byMakeup=y0;
   if(Object.keys(x).length)out[id]=x;
  });
  return out;
@@ -663,8 +672,28 @@ function salesShapeHasReferences(id){return (DB.salesOrder||[]).some(o=>o.lines.
    Name, как в его проекте; 'code' — код (галочка Makeup code на стикере).
    Владелец, 29.10.2026: «всё, что идёт к клиенту, — имя; сокращения — для
    общения внутри и чертежей». */
+/* Ламинат словами (владелец, 08.11.2026, вариант B): «LAM 12.76 (6CL T +
+   0.76 EVA-CL + 6CL T)» — общая толщина и состав: стекло, плёнка, стекло.
+   Раньше было просто «LAM», и из описания не понять, что склеено. how —
+   как называть стекло ('name' клиенту, 'code', иначе Short name); heat —
+   ставить ли закалку (документы ставят, полоса Sales у простых лайтов —
+   нет, и у ламината тоже). */
+function salesLaminatedThicknessMm(p){
+ const lam=p&&p.laminated||{},mm=g=>{const q=typeof glassEffectiveThicknessMm==='function'?glassEffectiveThicknessMm(g):null;return q&&q.mm>0?q.mm:null;};
+ const a=mm(glassProductById(lam.outer&&lam.outer.glassProductId)),b=mm(glassProductById(lam.inner&&lam.inner.glassProductId)),films=lam.interlayers||[];
+ return a!=null&&b!=null&&films.length&&films.every(x=>+x.thicknessMm>0)?a+b+films.reduce((n,x)=>n+(+x.thicknessMm),0):null;
+}
+function salesLaminatedText(p,how,heat){
+ /* В имени — номинал (6 + 6 + 0.76 = 12.76), как стекло и называют;
+    фактическая толщина (salesLaminatedThicknessMm) — для толщины пакета. */
+ const lam=p&&p.laminated||{},num=v=>String(+(+v).toFixed(2)),nom=spec=>{const g=glassProductById(spec&&spec.glassProductId);return g&&+g.thicknessMm>0?+g.thicknessMm:null;};
+ const a=nom(lam.outer),b=nom(lam.inner),fl=lam.interlayers||[],mm=a!=null&&b!=null&&fl.length&&fl.every(x=>+x.thicknessMm>0)?a+b+fl.reduce((n,x)=>n+(+x.thicknessMm),0):null;
+ const glass=spec=>{const g=glassProductById(spec&&spec.glassProductId),n=!g?'?':how==='name'?g.name||g.code:how==='code'?g.code||g.name:glassShortName(g)||g.name;return n+(heat&&typeof docHeatCode==='function'?docHeatCode(spec):'');};
+ const films=(lam.interlayers||[]).map(f=>{const x=mdById('interlayerProduct',f.productId);return (+f.thicknessMm>0?num(f.thicknessMm)+' ':'')+(x?(how==='name'?x.name||x.code:x.code||x.name):'Interlayer');});
+ return 'LAM'+(mm!=null?' '+num(mm):'')+' ('+[glass(lam.outer)].concat(films,[glass(lam.inner)]).join(' + ')+')';
+}
 function salesGlassCodeForPane(p,how){
- if(p.category==='laminated')return 'LAM';
+ if(p.category==='laminated')return salesLaminatedText(p,how,false);
  const g=glassProductById(p.glassProductId),base=g?(how==='name'?g.name:how==='code'?g.code:glassShortName(g))||g.name:'?';
  if(p.category==='spandrel')return base+' SP';
  if(p.visionType==='frit')return base+' FRIT';
@@ -679,7 +708,7 @@ function salesMakeupSummary(m,how){
    пакет с Black Warm Edge 7/16 получался на 0.4 мм тоньше, чем собранный. */
 function salesMakeupThicknessMm(m){
  function productMm(g){const q=typeof glassEffectiveThicknessMm==='function'?glassEffectiveThicknessMm(g):null;return q&&q.mm>0?q.mm:null;}
- let total=0,known=true;m.panes.forEach(p=>{if(p.category==='laminated'){const a=glassProductById(p.laminated.outer&&p.laminated.outer.glassProductId),b=glassProductById(p.laminated.inner&&p.laminated.inner.glassProductId),am=productMm(a),bm=productMm(b),films=p.laminated.interlayers||[];if(am!=null&&bm!=null&&films.length&&films.every(x=>Number.isFinite(+x.thicknessMm)&&+x.thicknessMm>0))total+=am+bm+films.reduce((n,x)=>n+(+x.thicknessMm||0),0);else known=false;}else{const mm=productMm(glassProductById(p.glassProductId));if(mm!=null)total+=mm;else known=false;}});m.cavities.forEach(c=>{const sp=mdById('spacerVariant',c.spacerVariantId),mm=spacerThicknessMm(sp),pib=surroundPibMm(sp,typeof soDraft!=='undefined'?soDraft:null);if(mm!=null&&pib!=null)total+=mm+pib;else known=false;});return known?total:null;
+ let total=0,known=true;m.panes.forEach(p=>{if(p.category==='laminated'){const lm=salesLaminatedThicknessMm(p);if(lm!=null)total+=lm;else known=false;}else{const mm=productMm(glassProductById(p.glassProductId));if(mm!=null)total+=mm;else known=false;}});m.cavities.forEach(c=>{const sp=mdById('spacerVariant',c.spacerVariantId),mm=spacerThicknessMm(sp),pib=surroundPibMm(sp,typeof soDraft!=='undefined'?soDraft:null);if(mm!=null&&pib!=null)total+=mm+pib;else known=false;});return known?total:null;
 }
 
 /* Catalog temperMode remains a hard production fact, but exceptional orders
