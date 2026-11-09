@@ -43,3 +43,4 @@
 .metric-surcharge-row.minarea-mk{background:var(--surface-2)}.minarea-mk .minarea-name{grid-column:2/4;border-left:3px solid var(--accent-line);padding-left:8px}.minarea-mk .minarea-name small{display:inline;color:var(--text-3)}.minarea-mk .minarea-tog{margin:0 4px 0 0}
 .metric-surcharge-row.minarea-part{background:var(--surface-3)}.minarea-part>span:nth-child(2){border-left:3px solid var(--accent-line);padding-left:26px}
 .minarea-kind{font-style:normal;font-size:8.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-2);border:1px solid var(--line-strong);border-radius:999px;padding:1px 6px;margin-left:6px}
+.metric-cut{display:block;font-size:10px;font-weight:400;color:var(--text-2);white-space:nowrap}

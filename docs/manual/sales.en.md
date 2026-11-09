@@ -17,6 +17,41 @@ line: lites joined by " / " with the cavity (spacer and gas) between them.
   - Interlayer — the thickness of all its layers (2 × 0.38 = 0.76) and its code; the customer sees its name.
 - The makeup code in the strip (A, MU-2…) always stays on one line; a long description ends with an ellipsis.
 
+## Shape area — by the cutting rectangle
+
+Management, 9 Nov 2026: shape glass is billed to the customer by the rectangle it is cut from, not by the shape's
+bounding size.
+
+- The cutting rectangle comes from the shape cutting module: finished size plus the **Safety Border** on its sides.
+  The module puts the border where an edge is angled or an arc (by thickness: 3–8 mm — 1″, 8–15 mm — 1 1/2″); a
+  side lying on the bounding edge gets none. The border is edited in the shape itself (Shape → Production → Safety
+  Border) — billing takes the same number. The CNC grinding allowance (1/4″) lies inside and is not added.
+- Each side up to a whole inch, area up to a tenth — the same as a rectangle.
+- Example: raked 40 × 60 (short side 54), 6 mm — border on top 1″ → 40 × 61 = **17.0 ft²** (16.7 by the bounding
+  size); 10 mm — border 1 1/2″ → 40 × 61 1/2 → 40 × 62 = **17.3 ft²**.
+- CNC processing (polish and so on) — by the shape contour, up to a whole inch, as before.
+- A shape is anything that is not a rectangle, and DXF. A rectangle with holes, cutouts and radii — by its size.
+- In the line, under the Rounded Area number — `cut 40 × 61`; the area window (click the cell) shows the math:
+  finished size + border by side → cutting rectangle.
+- An order created before 9 Nov 2026 still counts by the bounding size — its amounts do not change.
+
+## Shape: Safety Border — the shape's cutting border
+
+The line's shape editor → Production view → **Safety Border** block. It is spare glass around the shape for safe
+cutting and breaking along angled edges and arcs. It is not part of the cut contour: the layout keeps this room on the
+sheet.
+
+- **Base** — empty = **AUTO** by thickness: 3–8 mm — 1″, 8–15 mm — 1 1/2″, from 15 mm — 3″. A number in Base is
+  an **OVERRIDE** for all angled edges of the shape.
+- The field at each edge is that edge's own border, empty — as Base. A straight edge on the bounding edge gets none
+  (OFF). **Reset** returns everything to AUTO.
+- The border lies on a side of the bounding box (left, right, top, bottom) from the farthest point of the angled
+  edge, at 90°.
+- The same border gives the cutting rectangle for billing ("Shape area" above): an edit here changes both the
+  layout and the billed shape area.
+- Next to it — **Cutting allowance** (CNC stock per side): the piece is larger than finished by the edge removal; it
+  is not part of the billed area.
+
 ## Surcharges window — order surcharges
 
 The Surcharges button above the lines. Surcharges are Data → Works items with a rule (percent or minimum area).

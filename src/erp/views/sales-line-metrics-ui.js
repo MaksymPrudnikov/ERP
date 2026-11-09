@@ -104,7 +104,7 @@ function salesMetricCell(line,c,context,price,a,weight){
   /* Вес неполный (пункт 14): известное и Partial, а не «—». */
   const partial=panel==='weight'&&value==null&&weight.knownKg>0;
   if(partial)value=c.key==='unitWeight'?weight.knownKg:weight.knownKg*salesPositiveInt(line.qty,1);
-  const text=(value==null?'—':value.toFixed(c.key==='actual'?4:['rounded','billable'].includes(c.key)?1:2))+(partial?'<span class="pill warn sl-partial">Partial</span>':'');
+  const text=(value==null?'—':value.toFixed(c.key==='actual'?4:['rounded','billable'].includes(c.key)?1:2))+(partial?'<span class="pill warn sl-partial">Partial</span>':'')+(c.key==='rounded'&&a.valid&&a.cut?`<small class="metric-cut" data-metric-cut>cut ${a.roundedWidth} × ${a.roundedHeight}</small>`:'');
   const hand=price.manual&&(c.key==='unitPrice'||c.key==='lineTotal');
   const body=`<b data-raw>${text}</b>${hand&&context==='screen'?'<i class="metric-hand" title="Price by hand">✎</i>':''}`;
   return `<td class="line-metric${value==null||partial?' metric-incomplete':''}" data-metric="${c.key}">${context==='screen'?`<button type="button" class="metric-cell-btn" data-line-id="${esc(line.id)}" onclick="salesOpenMetrics('${panel}',this.dataset.lineId)">${body}</button>`:body}</td>`;
@@ -218,7 +218,7 @@ function salesColumnsPanel(){
 }
 function salesAreaPanel(line){
  const a=salesLineAreas(line,soDraft);
- return `<div class="metric-explanation"><p>${'Areas are per unit. Qty does not change a single unit’s area.'}</p><dl><dt>Actual Area</dt><dd>${a.valid?a.actual.toFixed(4):'—'} ft²</dd><dt>Rounded Area</dt><dd>${a.valid?`${a.roundedWidth} × ${a.roundedHeight}″ ÷ 144 → ${a.rounded.toFixed(1)} ft²`:'—'}</dd><dt>Billable Area</dt><dd>${a.valid?a.billable.toFixed(1):'—'} ft²${a.minArea?' · '+esc(a.minArea.name):''}</dd></dl><p>${'Actual Area is the finished contour area. Rounded Area uses bounding dimensions, each rounded up to a whole inch, then rounds the area to one decimal place. Billable Area applies the billing minimum.'}</p><p>${'Materials and Shape Unit use Billable Area. Edges use length, per-piece work uses quantity, and surface treatments retain their processing area. Weight uses actual geometry.'}</p></div>`;
+ return `<div class="metric-explanation"><p>${'Areas are per unit. Qty does not change a single unit’s area.'}</p><dl><dt>Actual Area</dt><dd>${a.valid?a.actual.toFixed(4):'—'} ft²</dd>${a.valid&&a.cut?`<dt>Cutting rectangle</dt><dd data-area-cut>${esc(dimIn(a.cut.finished.w))} × ${esc(dimIn(a.cut.finished.h))}${['left','right','top','bottom'].filter(k=>a.cut.borders[k]>0).map(k=>' + '+k+' '+esc(dimIn(a.cut.borders[k]))).join('')} → ${esc(dimIn(a.cut.w))} × ${esc(dimIn(a.cut.h))}</dd>`:''}<dt>Rounded Area</dt><dd>${a.valid?`${a.roundedWidth} × ${a.roundedHeight}″ ÷ 144 → ${a.rounded.toFixed(1)} ft²`:'—'}</dd><dt>Billable Area</dt><dd>${a.valid?a.billable.toFixed(1):'—'} ft²${a.minArea?' · '+esc(a.minArea.name):''}</dd></dl><p>${'Actual Area is the finished contour area. Rounded Area uses bounding dimensions, each rounded up to a whole inch, then rounds the area to one decimal place. A shape uses its cutting rectangle: finished size plus the Safety Border of its shape. Billable Area applies the billing minimum.'}</p><p>${'Materials and Shape Unit use Billable Area. Edges use length, per-piece work uses quantity, and surface treatments retain their processing area. Weight uses actual geometry.'}</p></div>`;
 }
 /* Цена руками: своя цена юнита вместо расчёта, в любой строке, даже в батче
    и после выдачи. Clear возвращает расчёт. */
