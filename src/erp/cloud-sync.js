@@ -41,7 +41,7 @@ const CLOUD_NUMBER={
 const CLOUD_BLOCK={
  glass:[1000,()=>DB.glassPieceSeq],unit:[500,()=>DB.glassUnitIdSeq],scan:[1000,()=>DB.stationScanSeq],
  offcut:[100,()=>DB.stockOffcutSeq],batch:[20,()=>typeof salesBatchTop==='function'?salesBatchTop():0],journal:[50,()=>finJournalTop()]};
-let cloudSync={loaded:false,on:false,ref:'',since:0,n:0,vers:new Map(),out:[],early:[],lost:new Set(),lostGrp:new Set(),blocks:new Map(),blockDirty:new Set(),refresh:new Set(),
+let cloudSync={loaded:false,on:false,ref:'',base:null,newBase:false,since:0,n:0,vers:new Map(),out:[],early:[],lost:new Set(),lostGrp:new Set(),blocks:new Map(),blockDirty:new Set(),refresh:new Set(),
  uploading:false,dirty:null,running:false,timer:null,wait:CLOUD_POLL_MS,busy:'',error:'',warn:'',offline:false,at:''};
 const CLOUD_NO_BLOCK='No server numbers here yet. IDs may repeat.';
 function cloudKey(tbl,id){return tbl+'\u0000'+id;}
@@ -139,10 +139,10 @@ async function cloudLoadHead(){
 }
 async function cloudLoad(){
  const got=await storageIdbCloudAll(),s=cloudSync,head=s.head;
- s.vers=new Map();s.out=[];s.ref='';s.since=0;s.n=0;
+ s.vers=new Map();s.out=[];s.ref='';s.base=null;s.since=0;s.n=0;
  got.keys.forEach((k,i)=>{
   const v=got.values[i];
-  if(k==='ref')s.ref=v;else if(k==='since')s.since=+v||0;else if(k==='n')s.n=+v||0;
+  if(k==='ref')s.ref=v;else if(k==='base')s.base=v;else if(k==='since')s.since=+v||0;else if(k==='n')s.n=+v||0;
   else if(k.startsWith('v\u0000'))s.vers.set(k.slice(2),v);
   else if(k.startsWith('o\u0000'))s.out.push(Object.assign({key:k},v));
   /* Блоки старта уже в ходу: их остаток новее записанного. */
@@ -227,7 +227,7 @@ async function cloudColdOf(owners){
 function cloudApplyServer(rows,asked,ops){
  const s=cloudSync,list=[],seen=new Set();
  rows.forEach(r=>{
-  if(r.tbl===CLOUD_UPLOAD.tbl)return;
+  if(r.tbl===CLOUD_UPLOAD.tbl){if(r.id===CLOUD_UPLOAD.id)cloudBaseSeen(r.deleted?null:cloudUploadOf(r));return;}
   const k=cloudKey(r.tbl,r.id);seen.add(k);
   if(r.deleted){
    const b=storageBase.get(r.tbl);
@@ -345,7 +345,9 @@ async function cloudSyncTick(){
   s.running=true;
   try{
    if(!s.loaded)await cloudLoad();
-   if(s.on&&storageWriter){await cloudPushAll();await cloudPull();await cloudBlocksFill();s.offline=false;s.error='';s.wait=CLOUD_POLL_MS;s.at=new Date().toISOString();}
+   /* Чья это база: до первой отправки и перед каждой (cloudBaseCheck). */
+   if(s.on&&storageWriter&&!s.newBase&&(s.base==null||s.out.length))await cloudBaseCheck();
+   if(s.on&&storageWriter&&!s.newBase){await cloudPushAll();await cloudPull();await cloudBlocksFill();s.offline=false;s.error='';s.wait=CLOUD_POLL_MS;s.at=new Date().toISOString();}
   }catch(e){
    /* Просрочен вход: сырой ответ сервера людям ни о чём не говорит. */
    if(/No connection/.test(e.message))s.offline=true;else s.error=/JWT|refresh token/i.test(e.message)?'Sign in to the server again.':e.message;
@@ -360,6 +362,7 @@ function cloudSyncText(){
  const s=cloudSync,n=s.out.length;
  if(s.busy)return s.busy;
  if(!s.on)return '';
+ if(s.newBase)return 'Server has a new database · Download';
  if(!cloudConfig().session)return 'Sign in to sync'+(n?' · '+n+' waiting':'');
  if(s.offline)return 'Offline · '+n+' waiting';
  if(s.error)return s.error;
@@ -368,13 +371,13 @@ function cloudSyncText(){
 /* Связать базы. Upload — эта база становится серверной (сервер пуст).
    Download — эта база заменяется серверной. Stop — компьютер больше не
    синхронизирует, его база остаётся как есть. */
-async function cloudSaveAll(ref,since,vers){
+async function cloudSaveAll(ref,since,vers,base){
  await storageFlush();
  await storageIdbTx(['cloud'],'readwrite',tx=>{
   const st=tx.objectStore('cloud');st.clear();
-  if(ref){st.put(ref,'ref');st.put(since,'since');st.put(0,'n');vers.forEach((v,k)=>st.put(v,'v\u0000'+k));}
+  if(ref){st.put(ref,'ref');st.put(base||'','base');st.put(since,'since');st.put(0,'n');vers.forEach((v,k)=>st.put(v,'v\u0000'+k));}
  });
- Object.assign(cloudSync,{loaded:true,on:!!ref,ref:ref||'',since:since||0,n:0,vers:ref?vers:new Map(),out:[],early:[],blocks:new Map(),blockDirty:new Set(),refresh:new Set()});
+ Object.assign(cloudSync,{loaded:true,on:!!ref,ref:ref||'',base:ref?base||'':null,newBase:false,since:since||0,n:0,vers:ref?vers:new Map(),out:[],early:[],blocks:new Map(),blockDirty:new Set(),refresh:new Set()});
 }
 async function cloudRun(label,fn){
  const s=cloudSync;
@@ -401,6 +404,27 @@ const CLOUD_UPLOAD={tbl:'_upload',id:'state'};
 async function cloudUploadState(){
  const got=await cloudRpc('erp_get',{keys:[CLOUD_UPLOAD]}),r=Array.isArray(got)&&got.find(x=>x.tbl===CLOUD_UPLOAD.tbl&&!x.deleted);
  try{return r?JSON.parse(cloudText(r.data)):null;}catch(e){return null;}
+}
+function cloudUploadOf(r){try{const x=JSON.parse(cloudText(r.data));return x&&x.id||'';}catch(e){return '';}}
+/* Сервер очистили и залили заново: номера изменений растут дальше, и
+   компьютер со старой базой молча сложил бы новую со своей, а свои правки
+   отправил в чужую. Он помнит отметку Upload своей базы (Download, Upload;
+   подключённый раньше — первую увиденную) и сверяет её до первой отправки,
+   перед каждой отправкой и в ленте. Другая или сервер пуст — не отправляет
+   и не принимает, внизу «Download» (владелец, 09.11.2026). id — отметка
+   сервера, null — её нет. */
+function cloudBaseSeen(id){
+ const s=cloudSync,now=id||'';
+ if(s.base==null){s.base=now;storageWrite([],[['base',now]]);return;}
+ if(id==null||now!==s.base)s.newBase=true;
+}
+async function cloudBaseCheck(){
+ const got=await cloudRpc('erp_get',{keys:[CLOUD_UPLOAD]}),r=Array.isArray(got)&&got.find(x=>x.tbl===CLOUD_UPLOAD.tbl&&!x.deleted);
+ if(r){cloudBaseSeen(cloudUploadOf(r));return;}
+ /* Отметки нет: сервер залит до неё (номера изменений есть) — как прежде;
+    пуст — его очистили. */
+ const any=await cloudRpc('erp_changes',{since:0,lim:1});
+ cloudBaseSeen(any&&+any.last>0?'':null);
 }
 function cloudUploadMark(state){return {tbl:CLOUD_UPLOAD.tbl,id:CLOUD_UPLOAD.id,seq:0,data:JSON.stringify(state)};}
 function cloudUpload(){
@@ -434,7 +458,7 @@ function cloudUpload(){
    const end=await cloudRpc('erp_apply',{command_id:'up-'+cloudId(),build:storageBuildId(),device:cloudDevice(),expect:[],changes:[cloudChange(cloudUploadMark(Object.assign(mark,{done:true,rows:recs.length-1})))]});
    if(!end||!end.ok)throw new Error('Upload refused by the server.');
    last=+end.rev||last;
-   await cloudSaveAll(url,last,vers);
+   await cloudSaveAll(url,last,vers,mark.id);
   }finally{s.uploading=false;}
   /* Правки во время отправки — следом обычной командой. */
   /* Как было записано: строка, ушедшая в архив посреди отправки, на сервере
@@ -478,7 +502,7 @@ function cloudDownload(){
      версии и очередь этого ПК как были (аудит 25.10.2026, A-1). */
   const ok=await storageImportState(state,{test:storageTest,cold:[],archive,cloud:true,before:()=>cloudSaveAll('',0,null)});
   if(!ok)return false;
-  await cloudSaveAll(url,since,vers);cloudSoon();return true;
+  await cloudSaveAll(url,since,vers,up?up.id:'');cloudSoon();return true;
  });
 }
 async function cloudSyncStop(){

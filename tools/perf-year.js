@@ -429,7 +429,7 @@ const fmt = ms => ms == null ? '—' : ms >= 1000 ? (ms / 1000).toFixed(1) + ' s
   report.errors = errors; report.minutes = +((Date.now() - t0) / 60000).toFixed(1);
   fs.writeFileSync(path.join(dir, 'report.json'), JSON.stringify(report, null, 1));
   fs.writeFileSync(path.join(dir, 'report.md'), reportMd(report));
-  fs.rmSync(profile, { recursive: true, force: true });
+  if (!o.keep) fs.rmSync(profile, { recursive: true, force: true });
   console.log('\nОтчёт:', path.join(dir, 'report.md'), '· за', report.minutes, 'мин · ✗:', report.fail.join(', ') || 'нет');
   process.exit(o.required && report.fail.length ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });
