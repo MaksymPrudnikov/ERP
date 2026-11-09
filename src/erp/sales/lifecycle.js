@@ -398,11 +398,6 @@ function salesUnbatchRecord(orderId,lineIds,opts){
  o.status='new';o.statusDates={new:now};o.fulfilledVia='';o.updatedAt=now;
  salesSyncRecordLifecycle(o);if(!opts.deferTouch)touch();return true;
 }
-/* Существующие имена оставлены как адаптеры; кнопок этих действий в заказе нет. */
-function salesSetStatus(next,opts){const changed=soDraft&&salesSetRecordStatus(soDraft.id,next,opts);render();return !!changed;}
-function salesAdvanceStatus(){if(soDraft)optimizationRunOrders([soDraft.id],salesNextStatus(soDraft),{delivery:soDraft.delivery});}
-function salesStepBack(){if(soDraft)optimizationRunOrders([soDraft.id],'back');}
-function salesBatchNewLines(){if(soDraft)optimizationRunOrders([soDraft.id],'batched');}
 function salesCancelOrder(orderId){const id=orderId||(soDraft&&soDraft.id);if(id)optimizationRunOrders([id],'cancelled');}
 function salesRestoreOrder(orderId){
  const id=orderId||(soDraft&&soDraft.id),o=salesRecord(id);

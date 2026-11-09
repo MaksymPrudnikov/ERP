@@ -63,10 +63,6 @@ function sfDimText(s){
    параллельные станции: «CNC shape edge стоит на уровне с полировкой»;
    стекло заходит только на те, чьи работы ему нужны. */
 function sfSteps(){const m=new Map();DB.station.forEach(s=>{if(!m.has(s.seq))m.set(s.seq,[]);m.get(s.seq).push(s);});return [...m.entries()].sort((a,b)=>a[0]-b[0]);}
-function sfPipelineHTML(){
- return sfSteps().map(([seq,list],i)=>`${i?`<div class="pipe-arrow">${ico('arrow')}</div>`:''}<div class="stage-step">${list.map(s=>{const w=stationOperations(s.code);
-  return `<div class="stage"><div class="stage-top"><div class="stage-code" data-raw>${esc(s.code)}</div>${s.always?'<span class="pill ok">always</span>':''}</div><div class="stage-name">${sfLabel(s)}</div><div class="stage-count">${w.length?w.length+' work'+(w.length===1?'':'s'):'no works'}</div></div>`;}).join('')}</div>`).join('');
-}
 /* Маршрут для людей (владелец, 2 октября 2026: «логично для нас, а другие не
    поймут эту длинную ветку»). Нумерованный список шагов: что делают со
    стеклом простыми словами, всегда или по надобности, коды станций.
