@@ -165,7 +165,9 @@ module.exports=async function({page,eq,ok}){
   const a=salesLineAreas(single.l,soDraft),singleShape=salesLineChargeRows(single.l).find(r=>r.key==='SURCHARGE:shape-unit');
   const dgu=metricFixture('double',48,36,1);dgu.l.shapeRef=salesShapeRefFrom(s);const dguShape=salesLineChargeRows(dgu.l).find(r=>r.key==='SURCHARGE:shape-unit');
   return [a.actual,a.rounded,a.billable,!!singleShape,dguShape&&dguShape.basis];
- }),[10,12,12,false,12]);
+ /* Скос 48 × 36: с 09.11.2026 площадь к оплате — по режущему прямоугольнику
+    (Safety Border сверху 1″ → 48 × 37 = 12.4), Shape Unit идёт по ней же. */
+ }),[10,12.4,12.4,false,12.4]);
  eq('removing a Shape clears its geometry, lite Shapes and Shape services',await t.p.evaluate(()=>{
   const {l}=metricFixture('single',12,12,1),old=salesShapeByRef(l.shapeRef);old.type='raked';old.w='41';old.h='50';old.params={shortHeight:'30',rakeSide:'top',shortSide:'right'};old.edgeOps={A:[shapeNormalizeOp({type:'Mitering',angle:45,side:'front'})]};
   const lite=newShapeDef('rectangle');lite.id='metrics-old-lite';lite.ownerLineId=l.id;DB.shapeDef.push(lite);l.liteShapes={'0':salesShapeRefFrom(lite)};const oldId=old.id;

@@ -118,6 +118,19 @@ function salesLineAreas(line,order){
  order=salesOrderArg(order);
  return Object.assign({},readLine('areas',line,order,()=>salesLineAreasLive(line,order)));
 }
+/* Режущий прямоугольник фигуры для счёта: самое большое стекло юнита —
+   его готовый размер плюс бордеры плана реза по сторонам (footprint.pad). */
+function salesLineCutRect(line,shape,order){
+ let plan=null;try{plan=salesEffectiveCuttingPlan(line,shape,order);}catch(e){plan=null;}
+ if(!plan||!plan.valid)return null;
+ let best=null;
+ (plan.lites&&plan.lites.length?plan.lites:[plan]).forEach(l=>{
+  const pad=l.footprint&&l.footprint.pad||{left:0,right:0,top:0,bottom:0};
+  const w=+l.finishedW+pad.left+pad.right,h=+l.finishedH+pad.top+pad.bottom;
+  if(w>0&&h>0&&(!best||w*h>best.w*best.h))best={w,h,finished:{w:+l.finishedW,h:+l.finishedH},borders:{left:pad.left,right:pad.right,top:pad.top,bottom:pad.bottom}};
+ });
+ return best;
+}
 function salesLineAreasLive(line,order){
  order=salesOrderArg(order);
  /* Записано при Save (sales/line-measure) — без расчёта фигуры. */
@@ -127,9 +140,16 @@ function salesLineAreasLive(line,order){
  const shapeValid=!!(r&&(r.valid||r.externalFile&&r.sourceValid)),w=shapeValid&&+r.width>0?+r.width:lineW,h=shapeValid&&+r.height>0?+r.height:lineH;
  const valid=(!shape||shapeValid)&&lineW>0&&lineH>0&&w>0&&h>0;
  const actual=valid?(shapeValid?r.area/144:w*h/144):null;
+ /* Стекло фигуры клиенту — по режущему прямоугольнику (руководство,
+    09.11.2026): готовый размер плюс бордеры модуля реза (Safety Border —
+    по толщине там, где кромка косая или дуга; правится в фигуре).
+    Припуск CNC лежит внутри, к площади не добавляется. Прямоугольник (и с
+    отверстиями, вырезами) — по габариту; заказ, созданный до правила (без
+    order.shapeCut), — тоже. Обработка — по контуру, ниже. */
+ const cut=valid&&order&&order.shapeCut&&shape&&(shape.type!=='rectangle'||shapeIsDxfSource(shape))?salesLineCutRect(line,shape,order):null,bw=cut?cut.w:w,bh=cut?cut.h:h;
  /* Коммерческая площадь всегда идёт к следующей десятой. Обычный round
     занижал 33 × 80 с 18.3333 до 18.3 вместо подтверждённых 18.4 ft². */
- const rounded=valid?Math.ceil((Math.ceil(w)*Math.ceil(h)/144-1e-10)*10)/10:null;
+ const rounded=valid?Math.ceil((Math.ceil(bw)*Math.ceil(bh)/144-1e-10)*10)/10:null;
  /* Периметр для продажи за погонную длину — как в Spiel (владелец, 22.10.2026
     и 02.11.2026): у прямоугольника каждая сторона вверх до целого дюйма, у
     него форма тоже есть, но она только хранит размер; у фигуры — её контур. */
@@ -139,7 +159,7 @@ function salesLineAreasLive(line,order){
  let min=0,minBy=null;
  if(valid){const kinds=salesUnitKinds(salesMakeupById(order,line&&line.makeupId));
   const mid=line&&line.makeupId;salesSurcharges(order).forEach(x=>{const v=salesMinAreaFor(x,mid);if(x.rule.kind==='minArea'&&v>min&&salesSurchargeFits(x.rule,kinds,rounded)){min=v;minBy=x;}});}
- return {actual:actual,rounded:rounded,billable:valid?Math.max(rounded,min):null,minArea:valid&&min>rounded?{id:minBy.id,name:minBy.name,value:min}:null,perimeterIn:perimeterIn,width:w,height:h,roundedWidth:Math.ceil(w),roundedHeight:Math.ceil(h),valid:valid};
+ return {actual:actual,rounded:rounded,billable:valid?Math.max(rounded,min):null,minArea:valid&&min>rounded?{id:minBy.id,name:minBy.name,value:min}:null,perimeterIn:perimeterIn,width:w,height:h,roundedWidth:Math.ceil(bw),roundedHeight:Math.ceil(bh),...(cut?{cut}:{}),valid:valid};
 }
 /* Центы: «ничья» в полцента (98.175 + 2.82 = 100.995) округляется вверх.
    Number.EPSILON для сотен долларов мал, и шум float решал её то вверх, то
