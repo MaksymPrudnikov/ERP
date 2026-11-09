@@ -58,7 +58,7 @@ function viewUsers(){
   row:info=>{const u=info.x.u,on=uSel===u.viewProfileId;return {attrs:` data-user-row="${esc(u.viewProfileId)}"${on?' class="oq-selected"':''} ondblclick="userEditOpen(${info.x.i})"`,first:`<td class="sl-check"><input type="checkbox" aria-label="Select ${esc(u.name)}" ${on?'checked':''} onchange="uSel=this.checked?'${esc(u.viewProfileId)}':'';render()"></td>`};}});
  /* Вход ещё выключен (signinOn): пароля нет ни у кого с разделом Users. */
  const off=DB.user.some(userOffice)&&!signinOn()?'<span class="pill warn" data-signin-off>Sign-in is off — set a password for someone with Users</span>':'';
- const tabs=`<div class="sl-filter-row"><div class="sl-quick" role="tablist">${[['office','Office'],['production','Production'],['log','Sign-in log'],['cloud','Cloud']].map(([k,l])=>`<button type="button" role="tab" class="sl-quick-pill${side===k?' on':''}" data-users-side="${k}" onclick="subtab='${k}';uEdit=null;uDraft=null;uSel='';render()">${l} <b>${count(k)}</b></button>`).join('')}</div></div>`;
+ const tabs=`<div class="sl-filter-row"><div class="sl-quick" role="tablist">${[['office','Office'],['production','Production'],['log','Sign-in log'],['cloud','Cloud']].map(([k,l])=>`<button type="button" role="tab" class="sl-quick-pill${side===k?' on':''}" data-users-side="${k}" onclick="usersTab('${k}')">${l} <b>${count(k)}</b></button>`).join('')}</div></div>`;
  const selI=list.findIndex(x=>x.u.viewProfileId===uSel),sel=selI<0?null:list[selI];
  const bar=`<div class="sales-toolbar">${sel?`<b class="oq-sel" title="${esc(sel.u.name)}">1 selected</b>`:''}<button type="button" class="sl-quiet" data-user-edit ${sel?'':'disabled'} onclick="userEditOpen(${sel?sel.i:-1})">Edit</button><button type="button" class="sl-quiet sl-delete-quiet" data-user-remove ${sel?'':'disabled'} title="${prod?'Remove from production':'Remove from office'}" onclick="delUser(${sel?sel.i:-1},'${side}');uSel=''">Remove</button><span class="sales-toolbar-sp"></span>${off}${uEdit!==null||log||cloud?'':`<button class="pri" data-user-add onclick="userEditOpen('new')">Add user</button>`}</div>`;
  return `${cloud?`<div class="card sales-list-card"><div class="sales-toolbar"><span class="sales-toolbar-sp"></span>${off}</div>${tabs}<div style="padding:0 20px 16px">${usersCloudHTML()}</div></div>`:log?`<div class="card sales-list-card users-log-card">${tabs}${authLogTable()}</div>`:`<div class="card sales-list-card sl-foot-pin">${bar}${tabs}
@@ -218,12 +218,19 @@ function authLogTable(){
    Черновик формы — только правки: имя, номер, галочки, новые пароль и PIN.
    Отпечатков секретов в нём нет (только «задан / не задан»), версия записи
    (rev) — чтобы чужая правка из другой вкладки не перезаписалась старой. */
+/* Вкладка Office / Production / Sign-in log / Cloud: изменённая карточка
+   человека — вопрос, а не молчаливый сброс (личный аудит Claude 09.11.2026). */
+let uSeen='';
+function usersTab(k){
+ if(uDraft&&(uEdit==='new'||JSON.stringify(uDraft)!==uSeen)&&!confirm('Discard unsaved changes?'))return;
+ subtab=k;uEdit=null;uDraft=null;uSel='';render();
+}
 function userEditOpen(i){
  const u=i==='new'?null:DB.user[i];if(i!=='new'&&!u)return;
  uDraft={id:u?u.viewProfileId:'',rev:u?u.rev:0,name:u?u.name:'',no:u&&u.no?userNoText(u):'',access:u?u.access.slice():[],
   onOffice:u?userOffice(u):usersSide()==='office',onStation:u?userHasPin(u):usersSide()==='production',
   hasPassword:userHasPassword(u),hasPin:userHasPin(u),newPassword:'',newPin:'',email:u&&u.email||''};
- uEdit=u?u.viewProfileId:'new';render();
+ uSeen=JSON.stringify(uDraft);uEdit=u?u.viewProfileId:'new';render();
  setTimeout(()=>{const el=document.getElementById('u_name');if(el&&!u)el.focus();},0);
 }
 function userForm(){

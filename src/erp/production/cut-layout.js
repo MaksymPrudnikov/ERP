@@ -206,7 +206,15 @@ function cutPlanPut(number,plan){
    добавляет). Перенос стёкол в другой
    батч (Move sheet, полка) трогает батчи и заказы — пишет полной записью. */
 function cutPlanScope(number){return {cutPlan:[number],glassBatch:[number],stockOffcut:true,stockOffcutSeq:true};}
-function cutSave(number){if(!cutEstIs(number))touchScope(cutPlanScope(number));}
+/* Куски стока этого раскроя сервер сверяет: два компьютера, взявшие один
+   кусок в разные батчи, — у второго конфликт, а не один кусок на два батча
+   (личный аудит Claude 09.11.2026, как F09). */
+function cutSave(number){
+ if(cutEstIs(number))return;
+ const p=(DB.cutPlan||[]).find(x=>x&&x.batch===number);
+ if(p&&typeof cloudGuardWrite==='function')cutPlanStockKeys(p).forEach(k=>cloudGuardWrite('stockOffcut',k));
+ touchScope(cutPlanScope(number));
+}
 /* Приоритет: 0 — нет (по умолчанию), 1 … 10 — самый срочный, как в
    Perfect Cut (владелец, 4 октября 2026: «перевернуть: 10 — самый срочный»;
    до этого самым срочным был 1, старые значения обнулены — DATA_FIXES 6).
@@ -345,13 +353,15 @@ function cutAlignTrim(sheet,size,params){
    рез не идут: пока человек не отметил кусок галочкой, его нет в прогоне. */
 /* Кусок, уже отмеченный или уже лежащий в раскрое другого батча, занят:
    физически он один, и два батча его не поделят. */
+function cutPlanStockKeys(p){
+ const out=new Set();
+ Object.keys(p.sheetPick||{}).forEach(glass=>((p.sheetPick[glass]||{}).sizes||[]).forEach(r=>{if(r&&/^S-/.test(r.key)&&r.off===false)out.add(r.key);}));
+ (p.groups||[]).forEach(g=>g.sheets.forEach(s=>{if(s.size&&/^S-/.test(s.size.key||''))out.add(s.size.key);}));
+ return out;
+}
 function cutStockClaims(exceptBatch){
  const out=new Map();
- (DB.cutPlan||[]).forEach(p=>{
-  if(!p||p.batch===exceptBatch)return;
-  Object.keys(p.sheetPick||{}).forEach(glass=>((p.sheetPick[glass]||{}).sizes||[]).forEach(r=>{if(r&&/^S-/.test(r.key)&&r.off===false)out.set(r.key,p.batch);}));
-  (p.groups||[]).forEach(g=>g.sheets.forEach(s=>{if(s.size&&/^S-/.test(s.size.key||''))out.set(s.size.key,p.batch);}));
- });
+ (DB.cutPlan||[]).forEach(p=>{if(p&&p.batch!==exceptBatch)cutPlanStockKeys(p).forEach(k=>out.set(k,p.batch));});
  return out;
 }
 function cutStockPieces(glassCode,mm,exceptBatch){

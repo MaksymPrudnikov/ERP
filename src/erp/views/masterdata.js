@@ -183,7 +183,16 @@ function orderSetupCardSet(i,k,v){
  normalizeOrderSetup();touch();render();
 }
 function orderSetupCardRemove(i){DB.orderSetup.cardNetworks.splice(i,1);normalizeOrderSetup();touch();render();}
-function mdSetTab(k){mdTab=k;if(typeof stEdit!=='undefined')stEdit=null;if(typeof cutMdNotice!=='undefined')cutMdNotice='';mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdCatEdit=null;mdCatDraft=null;mdImportReport=null;
+/* Открытая и изменённая карточка (новая или не как при открытии, mdSeen) —
+   смена вкладки, раздела материалов или справочника спрашивает, а не
+   стирает молча (личный аудит Claude 09.11.2026, как F02 в Purchasing).
+   false — человек остался. */
+function mdChanged(){
+ return [[mdEdit,mdDraft,'glass'],[mdSheetEdit,mdSheetDraft,'sheet'],[mdSpacerEdit,mdSpacerDraft,'spacer'],[mdHwKindEdit,mdHwKindDraft,'hwKind'],[mdHwModelEdit,mdHwModelDraft,'hwModel'],[mdCatEdit,mdCatDraft,'cat']]
+  .some(([edit,d,k])=>edit!=null&&!!d&&(edit==='new'||!edit||JSON.stringify(d)!==mdSeen[k]));
+}
+function mdLeave(){return !mdChanged()||confirm('Discard unsaved changes?');}
+function mdSetTab(k){if(!mdLeave())return false;mdTab=k;if(typeof stEdit!=='undefined')stEdit=null;if(typeof cutMdNotice!=='undefined')cutMdNotice='';mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdCatEdit=null;mdCatDraft=null;mdImportReport=null;
  /* Работы и материалы делят одну машинку Catalogues, поэтому при переходе
     между вкладками открытая таблица обязана соответствовать вкладке —
     иначе Works показал бы палитру спандрела. */
@@ -209,6 +218,7 @@ function mdMatSelect(category,viewKey){
  if(!r.hit.view&&MD_CATALOGUES.some(c=>c.k===r.hit.k))mdCatKind=r.hit.k;
 }
 function mdMatSwitch(category,viewKey){
+ if(!mdLeave())return false;
  mdMatSelect(category,viewKey);
  mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdCatEdit=null;mdCatDraft=null;
 }
@@ -490,7 +500,7 @@ function mdSheetNew(){
  render();
 }
 /* Строка поставки из карточки стекла: стекло уже выбрано. */
-function mdSheetNewFor(code){mdSetTab('materials');mdMatSwitch('glass','glassSheet');mdSheetNew();mdSheetDraft.productCode=code;mdSheetPick={mfr:'',thick:'',coat:''};render();}
+function mdSheetNewFor(code){if(mdSetTab('materials')===false||mdMatSwitch('glass','glassSheet')===false)return;mdSheetNew();mdSheetDraft.productCode=code;mdSheetPick={mfr:'',thick:'',coat:''};render();}
 function mdSheetEditRow(id){
  const s=(DB.glassSheet||[]).find(x=>x.id===id);if(!s)return;
  mdSheetEdit=id;mdSheetDraft=JSON.parse(JSON.stringify(s));mdSeen.sheet=JSON.stringify(s);mdSheetPick={mfr:'',thick:'',coat:''};render();
@@ -1229,7 +1239,7 @@ function mdWorkWarnings(r){
  }
  return out;
 }
-function mdSetCatKind(k){if(!MD_CATALOGUES.some(c=>c.k===k))return;mdCatKind=k;mdCatEdit=null;mdCatDraft=null;render();}
+function mdSetCatKind(k){if(!MD_CATALOGUES.some(c=>c.k===k)||!mdLeave())return;mdCatKind=k;mdCatEdit=null;mdCatDraft=null;render();}
 
 function viewMdCatalogues(){
  if(!MD_CATALOGUES.some(c=>c.k===mdCatKind))mdCatKind=MD_CATALOGUES[0].k;

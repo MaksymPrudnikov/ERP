@@ -33,7 +33,8 @@ function mdCatalogNode(){
 /* Другой раздел — поиск снова в разделе (P4-R2). */
 function mdCatalogGo(key){
  const hit=MD_CATALOG_TREE.flatMap(g=>g[1]).find(n=>n[0]===key);if(!hit)return;
- mdSetTab(hit[2]);if(hit[2]==='materials')mdMatSwitch(hit[3],key);else if(hit[2]==='works')mdCatKind=key;
+ if(mdSetTab(hit[2])===false)return;
+ if(hit[2]==='materials'){if(mdMatSwitch(hit[3],key)===false)return;}else if(hit[2]==='works')mdCatKind=key;
  mdCatalogQuery='';mdCatalogAll=false;mdCatalogLimit=0;mdPeek='';if(typeof mdGlassLimit!=='undefined')mdGlassLimit=MD_PAGE;render();
 }
 function mdFilmDensity(x){const r=(DB.materialWeightRates||[]).find(r=>r.key==='film:'+x.id);return r?mdNonNeg(r.rate):null;}
