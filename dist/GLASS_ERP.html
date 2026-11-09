@@ -1458,6 +1458,7 @@ table.cw-fixed tr[data-picked] td>select:has(+.line-locked-pill){width:calc(100%
 .metric-surcharge-row.minarea-mk{background:var(--surface-2)}.minarea-mk .minarea-name{grid-column:2/4;border-left:3px solid var(--accent-line);padding-left:8px}.minarea-mk .minarea-name small{display:inline;color:var(--text-3)}.minarea-mk .minarea-tog{margin:0 4px 0 0}
 .metric-surcharge-row.minarea-part{background:var(--surface-3)}.minarea-part>span:nth-child(2){border-left:3px solid var(--accent-line);padding-left:26px}
 .minarea-kind{font-style:normal;font-size:8.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-2);border:1px solid var(--line-strong);border-radius:999px;padding:1px 6px;margin-left:6px}
+.metric-cut{display:block;font-size:10px;font-weight:400;color:var(--text-2);white-space:nowrap}
 
 /* ---- src/styles/documents.css ---- */
 /* Бланки заказа: окно Preview, панель ✎ Customize, печать листов Letter,
@@ -4336,7 +4337,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='07a23fa953c3';
+var ERP_BUILD='f33c9b54d7ad';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -13957,7 +13958,7 @@ function normalizeSalesOrder(o){
  const first=makeups[0].id;
  const lines=(Array.isArray(o.lines)?o.lines:[]).map(normalizeSalesOrderLine);lines.forEach(l=>{if(!muIds.has(l.makeupId))l.makeupId=first;});
  const extraItems=(Array.isArray(o.extraItems)?o.extraItems:[]).map(normalizeSalesExtraItem);
- return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),...salesLifecycleFields(o),customerId:salesString(o.customerId),...(x=>x?{customerContactId:x}:{})(salesString(o.customerContactId)),...(o.isDraft===true&&o.kind!=='quote'?{isDraft:true}:{}),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),...(r=>Object.keys(r).length?{surchargeRates:r}:{})(normalizeSalesSurchargeRates(o.surchargeRates)),...(o.priceBook&&typeof o.priceBook==='object'&&!Array.isArray(o.priceBook)?{priceBook:salesPriceBookClean(o.priceBook)}:{}),...(f=>Object.keys(f).length?{priceFrom:f}:{})(salesPriceFromClean(o.priceFrom)),orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,extraItems,
+ return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),...salesLifecycleFields(o),customerId:salesString(o.customerId),...(x=>x?{customerContactId:x}:{})(salesString(o.customerContactId)),...(o.isDraft===true&&o.kind!=='quote'?{isDraft:true}:{}),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),...(r=>Object.keys(r).length?{surchargeRates:r}:{})(normalizeSalesSurchargeRates(o.surchargeRates)),...(o.priceBook&&typeof o.priceBook==='object'&&!Array.isArray(o.priceBook)?{priceBook:salesPriceBookClean(o.priceBook)}:{}),...(f=>Object.keys(f).length?{priceFrom:f}:{})(salesPriceFromClean(o.priceFrom)),orderCharges:normalizeSalesOrderCharges(o.orderCharges),...(o.shapeCut===true?{shapeCut:true}:{}),makeups,lines,extraItems,
   /* Заказ-переделка NCR (erp/quality/ncr): связь и «без оплаты» по умолчанию. */
   remakeNcrId:salesRefId(o.remakeNcrId),noCharge:o.noCharge===true,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt),
   ...(c=>c.length?{cancellations:c}:{})(normalizeCancellations(o.cancellations,lines)),
@@ -14019,7 +14020,10 @@ function validateSalesReferences(){
  (DB.recut||[]).forEach(r=>{if(r&&r.shapeRef&&[r.shapeRef].concat(Object.values(r.liteShapes||{})).some(x=>x&&x.id&&!shapeIds.has(x.id)))throw new Error('Recut '+r.no+' references a missing Shape.');});
 }
 function nextSalesOrderNumber(){let max=Math.max(76001,typeof archiveFloor==='function'?archiveFloor('order'):0);DB.salesOrder.forEach(o=>{if(o.kind==='quote'||/^Q-/i.test(String(o.businessNumber||'')))return;const n=+String(o.businessNumber||'').replace(/\D/g,'');if(Number.isFinite(n))max=Math.max(max,n);});return String(max+1);}
-function newSalesOrderDraft(kind){const now=new Date().toISOString(),o=normalizeSalesOrder({kind:kind==='quote'?'quote':'order',priority:'normal',branch:'Infinity Glass Group Inc',delivery:'pickup',currency:'CAD',orderCharges:salesOrderChargeDefaults(),createdAt:now,updatedAt:now,makeups:[{code:'A',unitType:'double'}],lines:[]});o.lines.push(normalizeSalesOrderLine({makeupId:o.makeups[0].id,qty:1}));return o;}
+/* shapeCut — заказ создан после правила 09.11.2026: стекло фигуры — по
+   режущему прямоугольнику модуля реза (erp/sales/line-metrics). У заказа,
+   записанного раньше, метки нет: он по габариту, его суммы не меняются. */
+function newSalesOrderDraft(kind){const now=new Date().toISOString(),o=normalizeSalesOrder({kind:kind==='quote'?'quote':'order',priority:'normal',branch:'Infinity Glass Group Inc',delivery:'pickup',currency:'CAD',orderCharges:salesOrderChargeDefaults(),shapeCut:true,createdAt:now,updatedAt:now,makeups:[{code:'A',unitType:'double'}],lines:[]});o.lines.push(normalizeSalesOrderLine({makeupId:o.makeups[0].id,qty:1}));return o;}
 function salesCustomerDisplay(id){const c=(DB.customer||[]).find(x=>x.id===id);return c?(c.displayName||c.legalName||c.code):'';}
 function salesMakeupById(order,id){return (order&&order.makeups||[]).find(m=>m.id===id)||null;}
 /* Позицию каталога, на которую ссылается хоть один Makeup, удалять нельзя:
@@ -22231,6 +22235,19 @@ function salesLineAreas(line,order){
  order=salesOrderArg(order);
  return Object.assign({},readLine('areas',line,order,()=>salesLineAreasLive(line,order)));
 }
+/* Режущий прямоугольник фигуры для счёта: самое большое стекло юнита —
+   его готовый размер плюс бордеры плана реза по сторонам (footprint.pad). */
+function salesLineCutRect(line,shape,order){
+ let plan=null;try{plan=salesEffectiveCuttingPlan(line,shape,order);}catch(e){plan=null;}
+ if(!plan||!plan.valid)return null;
+ let best=null;
+ (plan.lites&&plan.lites.length?plan.lites:[plan]).forEach(l=>{
+  const pad=l.footprint&&l.footprint.pad||{left:0,right:0,top:0,bottom:0};
+  const w=+l.finishedW+pad.left+pad.right,h=+l.finishedH+pad.top+pad.bottom;
+  if(w>0&&h>0&&(!best||w*h>best.w*best.h))best={w,h,finished:{w:+l.finishedW,h:+l.finishedH},borders:{left:pad.left,right:pad.right,top:pad.top,bottom:pad.bottom}};
+ });
+ return best;
+}
 function salesLineAreasLive(line,order){
  order=salesOrderArg(order);
  /* Записано при Save (sales/line-measure) — без расчёта фигуры. */
@@ -22240,9 +22257,16 @@ function salesLineAreasLive(line,order){
  const shapeValid=!!(r&&(r.valid||r.externalFile&&r.sourceValid)),w=shapeValid&&+r.width>0?+r.width:lineW,h=shapeValid&&+r.height>0?+r.height:lineH;
  const valid=(!shape||shapeValid)&&lineW>0&&lineH>0&&w>0&&h>0;
  const actual=valid?(shapeValid?r.area/144:w*h/144):null;
+ /* Стекло фигуры клиенту — по режущему прямоугольнику (руководство,
+    09.11.2026): готовый размер плюс бордеры модуля реза (Safety Border —
+    по толщине там, где кромка косая или дуга; правится в фигуре).
+    Припуск CNC лежит внутри, к площади не добавляется. Прямоугольник (и с
+    отверстиями, вырезами) — по габариту; заказ, созданный до правила (без
+    order.shapeCut), — тоже. Обработка — по контуру, ниже. */
+ const cut=valid&&order&&order.shapeCut&&shape&&(shape.type!=='rectangle'||shapeIsDxfSource(shape))?salesLineCutRect(line,shape,order):null,bw=cut?cut.w:w,bh=cut?cut.h:h;
  /* Коммерческая площадь всегда идёт к следующей десятой. Обычный round
     занижал 33 × 80 с 18.3333 до 18.3 вместо подтверждённых 18.4 ft². */
- const rounded=valid?Math.ceil((Math.ceil(w)*Math.ceil(h)/144-1e-10)*10)/10:null;
+ const rounded=valid?Math.ceil((Math.ceil(bw)*Math.ceil(bh)/144-1e-10)*10)/10:null;
  /* Периметр для продажи за погонную длину — как в Spiel (владелец, 22.10.2026
     и 02.11.2026): у прямоугольника каждая сторона вверх до целого дюйма, у
     него форма тоже есть, но она только хранит размер; у фигуры — её контур. */
@@ -22252,7 +22276,7 @@ function salesLineAreasLive(line,order){
  let min=0,minBy=null;
  if(valid){const kinds=salesUnitKinds(salesMakeupById(order,line&&line.makeupId));
   const mid=line&&line.makeupId;salesSurcharges(order).forEach(x=>{const v=salesMinAreaFor(x,mid);if(x.rule.kind==='minArea'&&v>min&&salesSurchargeFits(x.rule,kinds,rounded)){min=v;minBy=x;}});}
- return {actual:actual,rounded:rounded,billable:valid?Math.max(rounded,min):null,minArea:valid&&min>rounded?{id:minBy.id,name:minBy.name,value:min}:null,perimeterIn:perimeterIn,width:w,height:h,roundedWidth:Math.ceil(w),roundedHeight:Math.ceil(h),valid:valid};
+ return {actual:actual,rounded:rounded,billable:valid?Math.max(rounded,min):null,minArea:valid&&min>rounded?{id:minBy.id,name:minBy.name,value:min}:null,perimeterIn:perimeterIn,width:w,height:h,roundedWidth:Math.ceil(bw),roundedHeight:Math.ceil(bh),...(cut?{cut}:{}),valid:valid};
 }
 /* Центы: «ничья» в полцента (98.175 + 2.82 = 100.995) округляется вверх.
    Number.EPSILON для сотен долларов мал, и шум float решал её то вверх, то
@@ -22631,6 +22655,8 @@ function salesMeasureSig(line,order){
     отпечатки заказов без них прежние. */
  const parts=[own,shape(line.shapeRef),lites,salesMeasurePart(m),order.customerId||'',salesMeasurePart(order.serviceSets||[]),salesMeasurePart(order.priceBook||{})];
  if(order.surchargeRates)parts.push(salesMeasurePart(order.surchargeRates));
+ /* Фигура по режущему прямоугольнику — только у новых заказов: отпечатки старых прежние. */
+ if(order.shapeCut)parts.push('shape-cut');
  /* Новое правило количеств (дюймы кромки как в Spiel, 02.11.2026): записанные
     раньше строки считаются заново. */
  parts.push('inches-2');
@@ -27250,7 +27276,7 @@ function salesMetricCell(line,c,context,price,a,weight){
   /* Вес неполный (пункт 14): известное и Partial, а не «—». */
   const partial=panel==='weight'&&value==null&&weight.knownKg>0;
   if(partial)value=c.key==='unitWeight'?weight.knownKg:weight.knownKg*salesPositiveInt(line.qty,1);
-  const text=(value==null?'—':value.toFixed(c.key==='actual'?4:['rounded','billable'].includes(c.key)?1:2))+(partial?'<span class="pill warn sl-partial">Partial</span>':'');
+  const text=(value==null?'—':value.toFixed(c.key==='actual'?4:['rounded','billable'].includes(c.key)?1:2))+(partial?'<span class="pill warn sl-partial">Partial</span>':'')+(c.key==='rounded'&&a.valid&&a.cut?`<small class="metric-cut" data-metric-cut>cut ${a.roundedWidth} × ${a.roundedHeight}</small>`:'');
   const hand=price.manual&&(c.key==='unitPrice'||c.key==='lineTotal');
   const body=`<b data-raw>${text}</b>${hand&&context==='screen'?'<i class="metric-hand" title="Price by hand">✎</i>':''}`;
   return `<td class="line-metric${value==null||partial?' metric-incomplete':''}" data-metric="${c.key}">${context==='screen'?`<button type="button" class="metric-cell-btn" data-line-id="${esc(line.id)}" onclick="salesOpenMetrics('${panel}',this.dataset.lineId)">${body}</button>`:body}</td>`;
@@ -27364,7 +27390,7 @@ function salesColumnsPanel(){
 }
 function salesAreaPanel(line){
  const a=salesLineAreas(line,soDraft);
- return `<div class="metric-explanation"><p>${'Areas are per unit. Qty does not change a single unit’s area.'}</p><dl><dt>Actual Area</dt><dd>${a.valid?a.actual.toFixed(4):'—'} ft²</dd><dt>Rounded Area</dt><dd>${a.valid?`${a.roundedWidth} × ${a.roundedHeight}″ ÷ 144 → ${a.rounded.toFixed(1)} ft²`:'—'}</dd><dt>Billable Area</dt><dd>${a.valid?a.billable.toFixed(1):'—'} ft²${a.minArea?' · '+esc(a.minArea.name):''}</dd></dl><p>${'Actual Area is the finished contour area. Rounded Area uses bounding dimensions, each rounded up to a whole inch, then rounds the area to one decimal place. Billable Area applies the billing minimum.'}</p><p>${'Materials and Shape Unit use Billable Area. Edges use length, per-piece work uses quantity, and surface treatments retain their processing area. Weight uses actual geometry.'}</p></div>`;
+ return `<div class="metric-explanation"><p>${'Areas are per unit. Qty does not change a single unit’s area.'}</p><dl><dt>Actual Area</dt><dd>${a.valid?a.actual.toFixed(4):'—'} ft²</dd>${a.valid&&a.cut?`<dt>Cutting rectangle</dt><dd data-area-cut>${esc(dimIn(a.cut.finished.w))} × ${esc(dimIn(a.cut.finished.h))}${['left','right','top','bottom'].filter(k=>a.cut.borders[k]>0).map(k=>' + '+k+' '+esc(dimIn(a.cut.borders[k]))).join('')} → ${esc(dimIn(a.cut.w))} × ${esc(dimIn(a.cut.h))}</dd>`:''}<dt>Rounded Area</dt><dd>${a.valid?`${a.roundedWidth} × ${a.roundedHeight}″ ÷ 144 → ${a.rounded.toFixed(1)} ft²`:'—'}</dd><dt>Billable Area</dt><dd>${a.valid?a.billable.toFixed(1):'—'} ft²${a.minArea?' · '+esc(a.minArea.name):''}</dd></dl><p>${'Actual Area is the finished contour area. Rounded Area uses bounding dimensions, each rounded up to a whole inch, then rounds the area to one decimal place. A shape uses its cutting rectangle: finished size plus the Safety Border of its shape. Billable Area applies the billing minimum.'}</p><p>${'Materials and Shape Unit use Billable Area. Edges use length, per-piece work uses quantity, and surface treatments retain their processing area. Weight uses actual geometry.'}</p></div>`;
 }
 /* Цена руками: своя цена юнита вместо расчёта, в любой строке, даже в батче
    и после выдачи. Clear возвращает расчёт. */
