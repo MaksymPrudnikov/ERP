@@ -45,6 +45,10 @@ computer's (“this computer only”).
 Each computer works with its own database in the browser; the server is the shared copy through which computers
 exchange their edits. Without a network the queue of edits waits and survives F5.
 
+ERP opens at its own address `https://marketing-farm.agency` (the old github.io link leads there too) and talks over
+the network only to its Supabase server and Google Maps (trip kilometres): nothing from the database goes to another
+address (9 Nov 2026).
+
 ### Connecting a computer
 
 - While a computer is not connected, the bottom bar shows **Connect server**: a small window with Server, Publishable
