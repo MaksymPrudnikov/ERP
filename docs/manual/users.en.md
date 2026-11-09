@@ -83,6 +83,11 @@ is a new server sign-in.
   (9 Nov 2026).
 - “Changed on another computer: … Server copy shown.” — someone was first: this computer's rows went back to the server
   copy. “No access on server: …” — the person lacks the section for those records.
+- A decision on a shared balance made on two computers the same minute is recorded once; the second gets “Changed on
+  another computer”: a refund or allocation from one payment, payments on one debt, an agent payout, a PS with the same
+  units, a count of sheets, consumables or Stock items, an `S-` piece in a cut layout or Not found, a batch with the same
+  glass, a QuickBooks export. Facts never conflict: supplier payments and invoices, receiving, Add / Remove, write-offs,
+  scans (9 Nov 2026).
 - On the right — the database size (DB … MB).
 
 ### Archive

@@ -73,6 +73,9 @@
 - Просмотр в браузере: `node tools/preview-server.js` →
   http://127.0.0.1:8765/src/index.html. Другой корень (копия коммита) —
   путь в `.preview-root` или `PREVIEW_ROOT`; `.claude/launch.json` не править.
+- SQL сервера: `node tools/supabase/check-pglite.js` (PGlite, гоняют CI и prepush). Команда, которая по общему
+  остатку создаёт строку в новой таблице денег или склада, — строка в `CLOUD_CHECK` или `CLOUD_FACT`
+  (`src/erp/cloud-sync.js`), иначе красный `test/cloud-guards.js`.
 - Выгрузки владельца (`glazing_system_data*.json`) — рабочие данные цеха.
   Репозиторий публичный: в коммиты их не класть.
 - Цех на большом объёме: `node tools/sim-shop.js` — 14 месяцев работы цеха

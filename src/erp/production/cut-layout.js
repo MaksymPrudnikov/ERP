@@ -206,13 +206,12 @@ function cutPlanPut(number,plan){
    добавляет). Перенос стёкол в другой
    батч (Move sheet, полка) трогает батчи и заказы — пишет полной записью. */
 function cutPlanScope(number){return {cutPlan:[number],glassBatch:[number],stockOffcut:true,stockOffcutSeq:true};}
-/* Куски стока этого раскроя сервер сверяет: два компьютера, взявшие один
-   кусок в разные батчи, — у второго конфликт, а не один кусок на два батча
-   (личный аудит Claude 09.11.2026, как F09). */
+/* Куски стока, взятые раскроем, сервер сверяет (реестр CLOUD_CHECK,
+   erp/cloud-sync): два компьютера, взявшие один кусок в разные батчи, — у
+   второго конфликт, а не один кусок на два батча (личный аудит Claude
+   09.11.2026, как F09). */
 function cutSave(number){
  if(cutEstIs(number))return;
- const p=(DB.cutPlan||[]).find(x=>x&&x.batch===number);
- if(p&&typeof cloudGuardWrite==='function')cutPlanStockKeys(p).forEach(k=>cloudGuardWrite('stockOffcut',k));
  touchScope(cutPlanScope(number));
 }
 /* Приоритет: 0 — нет (по умолчанию), 1 … 10 — самый срочный, как в

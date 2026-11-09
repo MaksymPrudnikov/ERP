@@ -71,9 +71,10 @@ catch (e) {
     "    git commit -m 'dist убран из ветки: его пересобирает CI'");
 }
 
-step(5, 'Манифест и воспроизводимость');
+step(5, 'Манифест, воспроизводимость, SQL сервера');
 if (!run('node build/check-manifest.js')) stop('проверка манифеста не прошла.');
 if (!run('node build/check-reproducible.js')) stop('проверка воспроизводимости не прошла.');
+if (!run('node tools/supabase/check-pglite.js')) stop('SQL сервера (tools/supabase/schema.sql) не прошёл check.sql.');
 
 step(6, 'Переносы строк');
 /* До 2 октября 2026 здесь сравнивали дифф с `--ignore-cr-at-eol`: файлы были

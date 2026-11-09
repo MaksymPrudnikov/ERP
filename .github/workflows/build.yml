@@ -118,6 +118,13 @@ jobs:
       - name: Проверить воспроизводимость сборки
         run: node build/check-reproducible.js
 
+      # SQL сервера (tools/supabase/schema.sql) на PGlite — Postgres в Node:
+      # заглушка Supabase, схема дважды, check.sql. Ошибка в SQL не доходит
+      # до main (план «до 10», этап 2, 09.11.2026). Сценарии двух
+      # компьютеров в test/run.js гоняют команды ERP против того же SQL.
+      - name: Проверить SQL сервера
+        run: node tools/supabase/check-pglite.js
+
       - name: Собрать обе версии
         run: node build/build.js
 
