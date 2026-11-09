@@ -4346,7 +4346,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='f29f3e517973';
+var ERP_BUILD='8dd31bc92444';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -16364,7 +16364,10 @@ function comPayoutAdd(d){
  if(!p.date)return {error:'Enter the date.'};
  if(!plan.pay.length)return {error:'Nothing to pay.'};
  if(plan.total<=0)return {error:'Nothing to pay: earlier payouts cover it.'};
- return finPersist(()=>{if(!Array.isArray(DB.referrerPayout))DB.referrerPayout=[];DB.referrerPayout.push(p);return p;});
+ /* Долг считан по этой копии — строку агента сервер сверяет: второй
+    компьютер, плативший тот же долг, получает конфликт (аудит Codex
+    09.11.2026, F06). */
+ return finPersist(()=>{if(typeof cloudGuard==='function')cloudGuard('referrer',ref.id);if(!Array.isArray(DB.referrerPayout))DB.referrerPayout=[];DB.referrerPayout.push(p);return p;});
 }
 function comPayoutDelete(id){return finPersist(()=>{DB.referrerPayout=(DB.referrerPayout||[]).filter(p=>p.id!==id);return true;});}
 
@@ -17443,7 +17446,10 @@ function navGo(k){
  go();
 }
 let subtab=null;
-const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+/* И апостроф: атрибуты в шаблонах — и в '…', и в "…". Без него Mark
+   O'Brien обрезался до «O», а текст после ' становился атрибутом
+   (аудит Codex 09.11.2026, F01). */
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 /* ИСПРАВЛЕНО (авг 2026): данные, которые ввёл пользователь, переводчику не отдаём.
    applyLang ходит по ВСЕМ текстовым узлам, поэтому станция с названием «Закалка»
    в EN превращалась в «Tempering» — то есть RU/EN менял сами данные, а не интерфейс.
@@ -18080,7 +18086,7 @@ async function cloudPushAll(){
   if(s.out[0]!==cmd)return;
   s.out.shift();keys.forEach(k=>s.lost.add(cloudKey(k.tbl,k.id)));cloudApplyServer(Array.isArray(now)?now:[],keys,ops);
   /* Заказ людям виден номером, а не внутренним ключом строки. */
-  const names=[...new Set((r&&r.conflict||[]).map(x=>{const o=(x.tbl==='salesOrder'||x.tbl==='financeTerms')&&salesRecord(x.id),d=!o&&['receipt','refund','shipment','stockItem'].includes(x.tbl)&&(DB[x.tbl]||[]).find(y=>y.id===x.id);return o?o.businessNumber||'order':d?d.number||d.name||x.id:x.id;}))].slice(0,3).join(', ');
+  const names=[...new Set((r&&r.conflict||[]).map(x=>{const o=(x.tbl==='salesOrder'||x.tbl==='financeTerms')&&salesRecord(x.id),d=!o&&Array.isArray(DB[x.tbl])&&DB[x.tbl].find(y=>y&&y.id===x.id);return o?o.businessNumber||'order':d?d.number||d.name||x.id:x.id;}))].slice(0,3).join(', ');
   if(!s.out.length){s.lost.clear();s.lostGrp.clear();}
   s.warn=r&&r.denied?'No access on server: '+r.denied.join(', ')+'. Server copy shown.':'Changed on another computer: '+(names||'rows')+'. Server copy shown.';s.warnAt=Date.now();
  }
@@ -35511,6 +35517,14 @@ function purSupplierFormSave(){
  if(!r.ok){purNotice=r.error;render();return;}
  purSupplierDraft=null;purNotice='';render();
 }
+/* Уход из изменённой карточки поставщика — тот же вопрос, что у PO,
+   приёмки и счёта: смена раздела Purchasing и меню слева стирали её молча
+   (аудит Codex 09.11.2026, F02). */
+function purSupplierLeave(){
+ if(purSupplierDraft&&JSON.stringify(purSupplierDraft)!==purSupplierOriginal&&!confirm('Discard unsaved supplier changes?'))return false;
+ purSupplierDraft=null;return true;
+}
+(window.NAV_GUARDS=window.NAV_GUARDS||[]).push(to=>tab==='purchasing'&&to!=='purchasing'&&!purSupplierLeave());
 function purSupplierCancel(){
  if(purSupplierDraft&&JSON.stringify(purSupplierDraft)!==purSupplierOriginal&&!confirm('Discard changes and return to suppliers?'))return;
  purSupplierDraft=null;purNotice='';render();
@@ -35528,7 +35542,7 @@ const PUR_VIEWS=[['orders','Purchase orders'],['receipts','Receipts'],['backorde
 function purNav(){return '<button type="button" class="sl-quiet" data-pur-sections aria-haspopup="dialog" onclick="purSectionsOpen(event)">'+esc((PUR_VIEWS.find(v=>v[0]===purView)||PUR_VIEWS[0])[1])+'<span class="sl-disclosure">▾</span></button>';}
 function purSectionsOpen(e){salesListMenu=Object.assign({kind:'pur-sections',scope:salesListScope()},salesListAt(e,240));render();}
 function purSectionsMenuHTML(style){return '<div class="sl-menu sl-show-menu" style="'+style+'" role="dialog" aria-label="Purchasing sections">'+PUR_VIEWS.map(([k,n])=>'<label><input type="radio" name="pur-section" '+(k===purView?'checked':'')+' onchange="purGo(\''+k+'\')">'+n+'</label>').join('')+(purView==='orders'?'<hr><label><input type="checkbox" '+(purShowDeleted?'checked':'')+' onchange="purShowDeleted=this.checked;render()">Include deleted</label>':'')+'</div>';}
-function purGo(v){if(!purMoneyLeave()||!purFulfilLeave()||!purOrderLeave())return;purSupplierDraft=null;purView=v;purNotice='';purNewSupplier=null;salesListMenu=null;render();}
+function purGo(v){if(!purSupplierLeave()||!purMoneyLeave()||!purFulfilLeave()||!purOrderLeave())return;purView=v;purNotice='';purNewSupplier=null;salesListMenu=null;render();}
 function purOrderLeave(){
  if(purOrderDraft&&JSON.stringify(purOrderDraft)!==purOrderOriginal&&!confirm('Discard unsaved purchase order changes?'))return false;
  purOrderDraft=null;purPicker=null;purDoc=null;return true;
@@ -35554,7 +35568,7 @@ function purOrderList(){
 }
 function purHistoryOpen(entity,id){if(PUR_MONEY[entity])purMoneyEdit(entity,id);else if(PUR_FULFIL[entity])purFulfilEdit(entity,id);else if(entity==='po')purOrderEdit(id);else purSupplierEdit(id);}
 function purOrderEdit(id){
- if(!accessCan('purchasing')||!purMoneyLeave()||!purFulfilLeave())return;
+ if(!accessCan('purchasing')||!purSupplierLeave()||!purMoneyLeave()||!purFulfilLeave())return;
  const p=id?purOrderFind(id):null;if(id&&!p)return;
  purSupplierDraft=null;purView='orders';purPicker=null;purDoc=null;purNotice='';purNewSupplier=null;purGlassFilter={};
  purOrderDraft=purClone(p||purOrderClean({date:finToday(),lines:[purCatalogueLine('')]}));
@@ -35763,7 +35777,7 @@ function purQuickTest(key,info){
  if(key==='week')return dates.some(d=>d>=week[0]&&d<=week[1]);
  return dates.some(d=>d<today)||!purOrderTotals(p).complete;
 }
-function purOrderListRows(infos){const quick=salesListLoadPrefs().quick||'all';return purView==='orders'&&quick!=='all'?salesListRows(infos,['date']).filter(i=>purQuickTest(quick,i)):salesListRows(infos);}
+function purOrderListRows(infos){const quick=salesListLoadPrefs().quick||'all';return purView==='orders'&&quick!=='all'?salesListShown(salesListRows(infos,['date']).filter(i=>purQuickTest(quick,i))):salesListRows(infos);}
 function purQuickSet(key){const p=salesListLoadPrefs();p.quick=SALES_QUICK.some(q=>q[0]===key)?key:'all';salesListSavePrefs();render();}
 
 function purListDefaults(){return ['orders','receipts','requests','invoices','payments'].includes(purView)?{date:{preset:'last30'}}:purView==='history'?{at:{preset:'last30'}}:{};}
@@ -35841,7 +35855,7 @@ function purFulfilLeave(){
  purFulfilDraft=null;purFulfilPreview=false;purPicker=null;return true;
 }
 function purFulfilEdit(kind,id,poId,requestId){
- if(!accessCan('purchasing')||!purMoneyLeave()||!purFulfilLeave()||!purOrderLeave())return;
+ if(!accessCan('purchasing')||!purSupplierLeave()||!purMoneyLeave()||!purFulfilLeave()||!purOrderLeave())return;
  const d=id?purFulfilFind(kind,id):purFulfilFromPO(kind,poId||'',requestId);if(!d)return;
  purNewSupplier=null;purSupplierDraft=null;purView=kind==='receipt'?'receipts':'requests';purFulfilDraft={kind,data:purClone(d)};purFulfilOriginal=JSON.stringify(purFulfilDraft);purNotice='';render();
 }
@@ -36026,7 +36040,7 @@ let purMoneyDraft=null,purMoneyOriginal='',purMoneyShowUndone=false,purAccountKe
 (window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!purMoneyDraft&&JSON.stringify(purMoneyDraft)!==purMoneyOriginal);
 function purMoneyLeave(){if(purMoneyDraft&&JSON.stringify(purMoneyDraft)!==purMoneyOriginal&&!confirm('Discard unsaved invoice or payment changes?'))return false;purMoneyDraft=null;purAccountKey='';return true;}
 function purMoneyEdit(kind,id,invoiceId,poId){
- if(!accessCan('purchasing')||!purMoneyLeave()||!purFulfilLeave()||!purOrderLeave())return;
+ if(!accessCan('purchasing')||!purSupplierLeave()||!purMoneyLeave()||!purFulfilLeave()||!purOrderLeave())return;
  const old=id?purMoneyFind(kind,id):null;if(id&&!old)return;
  purNewSupplier=null;purSupplierDraft=null;purView=kind==='invoice'?'invoices':'payments';purMoneyDraft={kind,data:purClone(old||purMoneyClean({date:finToday(),method:kind==='payment'?'Bank transfer':''}))};purNotice='';
  if(invoiceId)purMoneyPickInvoice(invoiceId,false);if(poId)purInvoiceAddPO(poId,false);purMoneyOriginal=JSON.stringify(purMoneyDraft);render();
@@ -37250,9 +37264,15 @@ function salesListStatusControlHTML(chips,selection,total,onSelect){
    ===================================================================== */
 
 const SL_GENERIC={};
-let slScopeNow='',slScopePin='';
-function slGenericScope(){return slScopeNow||slScopePin||'';}
-document.addEventListener('pointerdown',e=>{const w=e.target&&e.target.closest?e.target.closest('[data-sl-scope]'):null;slScopePin=w?w.dataset.slScope:'';},true);
+let slScopeNow='',slScopePin='',slScopePinTab='';
+/* Закреплённая таблица — только в том разделе, где её закрепили: переход
+   ссылкой или кодом (tab=…) мимо меню оставлял чужие колонки (F04). */
+function slGenericScope(){return slScopeNow||(slScopePinTab===tab?slScopePin:'')||'';}
+/* Клавиатура — как мышь: Enter в меню слева после клика в таблице станций
+   оставлял Sales с колонками станций (аудит Codex 09.11.2026, F04). */
+function slScopePinAt(e){const w=e.target&&e.target.closest?e.target.closest('[data-sl-scope]'):null;slScopePin=w?w.dataset.slScope:'';slScopePinTab=tab;}
+document.addEventListener('pointerdown',slScopePinAt,true);
+document.addEventListener('keydown',slScopePinAt,true);
 
 /* Строки: memo — значения всех колонок (фильтр и сортировка читают их). */
 function slInfos(list,id,cols){
@@ -37381,6 +37401,10 @@ function slFromTable(scope,html,o){
 /* Строки, которые движок последний раз показал в таблице каждого scope:
    salesListRows без skip их записывает (фильтр меню считает с skip). */
 const salesListLastRows=Object.create(null);
+/* Экран дофильтровал строки после salesListRows (таблетка рейса Delivery,
+   быстрый вид Purchasing) — в Excel идут показанные (аудит Codex 09.11.2026,
+   F10). */
+function salesListShown(rows){salesListLastRows[salesListScope()]=rows;return rows;}
 
 const XLSX_CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
 function xlsxCrc(b){let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=XLSX_CRC[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
@@ -37433,7 +37457,10 @@ function salesListExcelData(){
   if(c.type==='date')return {v:String(v),t:'d'};
   return {v:Array.isArray(v)?v.join(', '):String(v),t:'s'};};
  const rows=sel.map(r=>cols.map(c=>val(r,c)));
- const foot=cols.some(c=>salesListCalc(c)==='sum')?cols.map((c,i)=>{if(i===0)return {v:sel.length+' rows',t:'s'};if(salesListCalc(c)!=='sum')return null;
+ /* «N rows» — в первую колонку без суммы: Total первой колонкой терял итог
+    (аудит Codex 09.11.2026, F12). Все с суммой — число строк не пишется. */
+ const free=cols.findIndex(c=>salesListCalc(c)!=='sum');
+ const foot=cols.some(c=>salesListCalc(c)==='sum')?cols.map((c,i)=>{if(salesListCalc(c)!=='sum')return i===free?{v:sel.length+' rows',t:'s'}:null;
   return {v:Math.round(rows.reduce((s,x)=>s+(x[i]&&x[i].t==='n'?x[i].v:0),0)*100)/100,t:'n',money:!!c.money};}):null;
  return {scope,head:cols.map(c=>String(c.label).replace(/<[^>]*>/g,'')),rows,foot};
 }
@@ -37560,7 +37587,10 @@ function salesListQuickBlur(){
 }
 function salesListQuickApply(){
  const q=salesListQuick;if(!q)return;
- salesListQuickWith(q.wrap,()=>{
+ /* Своя таблица (scope при нажатии), а не та, что на экране сейчас: Enter
+    после перехода в Shipping писал фильтр Sales туда (аудит Codex
+    09.11.2026, F05). */
+ salesListQuickWith(q.scope,()=>{
   const f=salesListLoadPrefs().filters[q.k],c=salesListQuickCond(f),v=String(q.v||'');
   if(salesListFilterActive(f)&&!c)return;
   salesListSetFilter(q.k,v.trim()===''?null:{mode:'include',conds:[{op:c?c.op:'startsWith',v,v2:'',join:'and'}],values:null,preset:''});
@@ -37572,7 +37602,7 @@ function salesListQuickDecorate(){
  document.querySelectorAll('#app th .sl-fbtn[data-filter-col]').forEach(btn=>{
   const th=btn.closest('th'),lab=th.querySelector('[data-cw-label]');if(!lab||lab.querySelector('.sl-qf'))return;
   const k=btn.dataset.filterCol,wrap=salesListQuickScopeOf(th),q=salesListQuick;
-  if(q&&q.k===k&&q.wrap===wrap){
+  if(q&&q.k===k&&q.wrap===wrap&&q.scope===(wrap||salesListScope())){
    lab.dataset.label=lab.dataset.label||lab.textContent;
    lab.innerHTML=`<input class="sl-qf" data-sl-quick="${esc(k)}" aria-label="Filter ${esc(lab.dataset.label)}" value="${esc(q.v)}" oninput="salesListQuickInput(this)" onkeydown="salesListQuickKey(event,this)" onblur="salesListQuickBlur()">`;
    const i=lab.firstChild;i.focus();try{i.setSelectionRange(i.value.length,i.value.length);}catch(x){}
@@ -42936,6 +42966,9 @@ function invCountSave(counts,why){
   Object.entries(counts||{}).forEach(([key,v])=>{
    const r=rows.get(key)||invCountNewRow(key);if(!r||r.sizeMissing)throw new Error('Glass or sheet size not found. Reopen the count.');
    const n=invWhole(v,r.code+' '+invSizeText(r));
+   /* «Было» — по этой копии: строку стекла сервер сверяет, второй пересчёт
+      по старой копии — конфликт, а не вторая недостача (F09, как C13). */
+   const g=glassProductByCode(r.code);if(g&&typeof cloudGuard==='function')cloudGuard('glassProduct',g.id);
    const e=Object.assign({id:salesUid('IE'),kind:'count',glass:r.code,w:r.w,h:r.h,qty:n-r.onRack,before:r.onRack,after:n},stockReasonOf(why&&why[key]),{at:now,by:actor.by,byId:actor.byId});
    DB.inventoryEvent.push(e);out.push(e);
   });
@@ -43246,6 +43279,8 @@ function consCountSave(counts,why){
   Object.entries(counts||{}).forEach(([key,v])=>{
    const r=rows.get(key);if(!r)throw new Error('Item not found. Reopen the count.');
    const n=consNumber(v,r.name),before=Math.round(r.onHand*1000)/1000;
+   /* Карточку сервер сверяет — как у листов (F09). */
+   if(typeof cloudGuard==='function'){const[t,...id]=String(key).split(':');cloudGuard(t,id.join(':'));}
    const e=Object.assign({id:salesUid('CE'),key,qty:n-r.onHand,before,after:n},stockReasonOf(why&&why[key]),{at:now,by:actor.by,byId:actor.byId});
    DB.consumableEvent.push(e);out.push(e);
   });
@@ -50736,7 +50771,7 @@ function deliveryHTML(){
  const truckCell=x=>x.kind==='pickup'?'<span class="mut">Pickup</span>':x.kind==='free'?(x.s.status==='delivered'?'<span class="mut">Not on a truck</span>':`<select aria-label="Truck for ${esc(x.s.number)}" onchange="deliveryRun(deliveryAssign('${esc(x.s.id)}',this.value))"><option value="">Choose truck</option>${active.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('')}</select>`):esc(x.t.name);
  /* Строки — тот же список вида Sales, что у всех: Columns, фильтры, ширина, итог. */
  const infos=all.map(x=>{const load=deliveryLoad(x.s);return {o:{id:x.s.id},x,load,memo:{truck:x.kind==='truck'?x.t.name:x.kind==='free'?'Not on a truck':'Pickup',stop:x.kind==='truck'?x.i+1:null,departs:x.s.departAt||'',ps:x.s.number,customer:salesCustomerDisplay(x.s.customerId),address:x.kind==='pickup'?'':docAddressText(x.s.shipTo)||'',city:(x.s.shipTo&&x.s.shipTo.city)||'',skids:load.skids.join(', '),units:x.s.items.length,kg:Math.round(load.kg*10)/10,status:shippingStatus(x.s)}};});
- const shown=new Set(rows.map(x=>x.s.id)),list=salesListRows(infos).filter(i=>shown.has(i.x.s.id));
+ const shown=new Set(rows.map(x=>x.s.id)),list=salesListShown(salesListRows(infos).filter(i=>shown.has(i.x.s.id)));
  const cell=(i,c)=>{const x=i.x,s=x.s,v=i.memo[c.k],locked=s.status==='delivered';switch(c.k){
   case 'truck':return `<td>${truckCell(x)}</td>`;
   case 'stop':return `<td class="n">${v==null?'':v}</td>`;
@@ -52588,12 +52623,17 @@ function tripKmSetKey(v){try{const k=String(v||'').trim();if(k)localStorage.setI
 function tripKmAddr(a){a=a||{};return [a.address1,a.address2,a.city,a.province,a.postalCode,a.country].map(x=>String(x||'').trim()).filter(Boolean).join(', ');}
 function tripKmOrigin(){const c=DB.company||{};return c.address1||c.city?tripKmAddr(c):'';}
 function tripKmFind(date,truckId){return (DB.tripKm||[]).find(r=>r&&r.key===date+'|'+truckId)||null;}
-function tripKmStale(r,stops){return !!r&&r.stops.join('|')!==stops.map(s=>s.number).join('|');}
+/* Отпечаток маршрута: начало (цех), остановки по порядку и их адреса.
+   Номера PS одни — адрес PS или цеха сменили, а km выглядели верными
+   (аудит Codex 09.11.2026, F11). Запись без отпечатка (до 09.11) — по
+   номерам, как раньше. */
+function tripKmRoute(stops){return sha256Hex([tripKmOrigin()].concat(stops.map(s=>s.number+'\t'+tripKmAddr(s.shipTo))).join('\n')).slice(0,16);}
+function tripKmStale(r,stops){return !!r&&(r.route?r.route!==tripKmRoute(stops):r.stops.join('|')!==stops.map(s=>s.number).join('|'));}
 function normalizeTripKm(){
  if(!Array.isArray(DB.tripKm))DB.tripKm=[];
  const seen=new Set();
  DB.tripKm=DB.tripKm.filter(r=>r&&typeof r==='object'&&typeof r.key==='string'&&/^\d{4}-\d{2}-\d{2}\|.+/.test(r.key)&&Number.isFinite(+r.km)&&+r.km>=0&&!seen.has(r.key)&&(seen.add(r.key),true))
-  .map(r=>({key:r.key.slice(0,140),km:Math.round(+r.km*10)/10,stops:(Array.isArray(r.stops)?r.stops:[]).map(x=>String(x).slice(0,20)).slice(0,60),at:String(r.at||'').slice(0,40)}));
+  .map(r=>Object.assign({key:r.key.slice(0,140),km:Math.round(+r.km*10)/10,stops:(Array.isArray(r.stops)?r.stops:[]).map(x=>String(x).slice(0,20)).slice(0,60),at:String(r.at||'').slice(0,40)},typeof r.route==='string'&&r.route?{route:r.route.slice(0,16)}:{}));
 }
 /* Карта грузится только по кнопке: файл офлайновый, интернет нужен лишь
    для расчёта. */
@@ -52612,7 +52652,7 @@ function tripKmMaps(){
  return tripKmLoading;
 }
 async function tripKmCalc(date,truckId){
- const stops=deliveryStops(date,truckId),origin=tripKmOrigin();
+ const stops=deliveryStops(date,truckId),origin=tripKmOrigin(),route=tripKmRoute(stops);
  if(!origin)throw new Error('Fill the company address in Master Data → Company.');
  const addr=stops.map(s=>tripKmAddr(s.shipTo)).filter(Boolean);
  if(!addr.length)throw new Error('No delivery addresses on this truck.');
@@ -52621,8 +52661,10 @@ async function tripKmCalc(date,truckId){
   (r,status)=>status==='OK'&&r&&r.routes&&r.routes[0]?ok(r):no(new Error('Google could not build the route: '+status))));
  const meters=(res.routes[0].legs||[]).reduce((n,l)=>n+(l&&l.distance&&+l.distance.value||0),0);
  const out=storageCommand(()=>{
+  /* Пока Google считал, остановки или адреса сменили — ответ про старый маршрут. */
+  if(tripKmRoute(deliveryStops(date,truckId))!==route)throw new Error('Stops changed while calculating. Recalculate km.');
   if(!Array.isArray(DB.tripKm))DB.tripKm=[];
-  const key=date+'|'+truckId,rec={key,km:Math.round(meters/100)/10,stops:stops.map(s=>s.number),at:new Date().toISOString()},i=DB.tripKm.findIndex(r=>r.key===key);
+  const key=date+'|'+truckId,rec={key,km:Math.round(meters/100)/10,stops:stops.map(s=>s.number),route,at:new Date().toISOString()},i=DB.tripKm.findIndex(r=>r.key===key);
   if(i<0)DB.tripKm.push(rec);else DB.tripKm[i]=rec;return rec;
  });
  if(!out.ok)throw new Error(out.error||'Not saved.');
@@ -53705,6 +53747,10 @@ function repHour(iso){const d=new Date(iso);return Number.isNaN(d.getTime())?-1:
    фигура или прямоугольник. Заказ считается один раз на сборку фактов. */
 function repCustomerAddr(c){const list=c&&Array.isArray(c.addresses)?c.addresses:[];return list.find(a=>a&&a.isPrimary)||list.find(a=>a&&a.isInvoice)||list[0]||{};}
 function repCustomerInfo(id){const c=salesFindCustomer(id)||{},a=repCustomerAddr(c);return {rep:c.salesRep||'',city:a.city||'',province:a.province||'',ctype:c.customerType||''};}
+/* Что из клиента и условий оплаты попадает в факты — частью отпечатка кэша:
+   смена Sales rep или срока оплаты не была видна отчёту до F5 (аудит Codex
+   09.11.2026, F08). */
+function repCustomerStamp(){return (DB.customer||[]).map(c=>{const a=repCustomerAddr(c);return [c.id,c.salesRep,c.customerType,a.city,a.province].join(':');}).join(',')+'|'+JSON.stringify(DB.financeTerms||[]);}
 function repOrderInfo(o){
  const t=typeof finTermsFor==='function'?finTermsFor(o)||{}:{};
  return Object.assign(repCustomerInfo(o.customerId),{po:o.customerPo||'',terms:t.paymentMode==='credit'?'Credit':'Cash',due:o.dueDate||'',delivery:o.delivery==='delivery'?'Delivery':'Pickup'});
@@ -53718,7 +53764,7 @@ let repWorkCache={stamp:'',rows:null},repWorkDayCache={stamp:'',day:'',rows:null
 let repWorkBuilds=0;
 function repWorkStamp(){
  const scans=DB.stationScan||[];let undone=0;scans.forEach(s=>{if(s.undoneAt)undone++;});
- return [scans.length,undone,DB.stationScanSeq,repCatalogStamp(),(DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')).join(',')].join('|');
+ return [scans.length,undone,DB.stationScanSeq,repCatalogStamp(),(DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')).join(','),repCustomerStamp()].join('|');
 }
 /* day — только сканы этого дня (Overview и доска станции показывают
    сегодня): на старте не считать работу по всей истории сканов (задание
@@ -54616,7 +54662,7 @@ function repPurBillFacts(){
 let repPayCache={stamp:'',rows:null},repComCache={stamp:'',rows:null};
 function repPayStamp(){
  return [(DB.receipt||[]).map(r=>r.id+(r.voided?'v':'')+r.date+':'+(r.allocations||[]).map(a=>a.orderId+'='+a.amount).join(';')).join(','),
-  (DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')+o.status).join(','),(DB.financeTerms||[]).length].join('|');
+  (DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')+o.status).join(','),repCustomerStamp()].join('|');
 }
 /* Заказ оплаты: живой или строка указателя архива. */
 function repPayOrder(id){
@@ -54625,7 +54671,7 @@ function repPayOrder(id){
  return a?{o:null,number:a.number||'',customerId:a.customerId||'',created:String(a.createdAt||'').slice(0,10)}:{o:null,number:'Deleted order',customerId:'',created:''};
 }
 function repPayOrderFacts(){
- const stamp=readMemo('repPayStamp',[DB.receipt,DB.salesOrder,DB.financeTerms],repPayStamp);
+ const stamp=readMemo('repPayStamp',[DB.receipt,DB.salesOrder,DB.financeTerms,DB.customer],repPayStamp);
  if(repPayCache.stamp===stamp&&repPayCache.rows)return repPayCache.rows;
  const rows=[],orders=new Map();
  finActiveReceipts().forEach(r=>{
@@ -58179,7 +58225,6 @@ async function storageColdAll(){
 function storageIdbArchiveGet(ids){return storageIdbTx(['archive'],'readonly',tx=>{const st=tx.objectStore('archive'),out={rows:new Array(ids.length)};ids.forEach((id,i)=>{st.get(id).onsuccess=e=>{out.rows[i]=e.target.result||null;};});return out;}).then(o=>o.rows);}
 function storageIdbArchiveAll(){return storageIdbTx(['archive'],'readonly',tx=>{const out={rows:[]};tx.objectStore('archive').getAll().onsuccess=e=>{out.rows=e.target.result||[];};return out;}).then(o=>o.rows);}
 function storageIdbColdAll(){return storageIdbTx(['cold'],'readonly',tx=>{const out={records:[]};tx.objectStore('cold').getAll().onsuccess=e=>{out.records=e.target.result||[];};return out;}).then(o=>o.records);}
-function storageIdbMetaPut(key,value){return storageIdbTx(['meta'],'readwrite',tx=>{tx.objectStore('meta').put(value,key);});}
 /* Копия до импорта — по записям, частями по 1000 (в работе и архив): одной
    огромной строки нет (проверка Codex 22.10.2026, находка 6). Прежняя копия
    одной строкой ('before-import') ещё читается. */
@@ -58684,9 +58729,10 @@ function storageRerenderQuiet(){
    window.STORAGE_UNSAVED, по одной на форму) и набранное в полях. Форма
    держит ввод в своём черновике, а у её полей нет id, — по одним полям
    набранного клиента не было видно (проверка Codex 22.10.2026). */
+function storageFormsUnsaved(){return (window.STORAGE_UNSAVED||[]).some(f=>{try{return !!f();}catch(e){return false;}});}
 function storageHasWork(){
  if(typeof salesDraftHasWork==='function'&&salesDraftHasWork())return true;
- if((window.STORAGE_UNSAVED||[]).some(f=>{try{return !!f();}catch(e){return false;}}))return true;
+ if(storageFormsUnsaved())return true;
  return storageTypedFields().length>0;
 }
 /* Вкладка устарела: открыта другая сборка. Ничего не начато — вкладка сама
@@ -58829,9 +58875,11 @@ function storageStart(){
 /* Черновик заказа живёт только в памяти: F5 или закрытие вкладки стирали его
    без предупреждения. Спрашиваем ровно тогда, когда есть что терять — иначе
    браузер показывал бы диалог на каждом уходе со страницы. Запись, которая
-   ещё идёт или не удалась, — тоже потеря. */
+   ещё идёт или не удалась, — тоже потеря. Формы разделов (поставщик,
+   агент, Master Data…) — тот же список STORAGE_UNSAVED: F5 стирал их молча
+   (аудит Codex 09.11.2026, F14). */
 window.addEventListener('beforeunload',function(e){
- const draft=typeof salesDraftHasWork==='function'&&salesDraftHasWork();
+ const draft=typeof salesDraftHasWork==='function'&&salesDraftHasWork()||storageFormsUnsaved();
  if(!draft&&!storageQueued&&!storageFailed&&!(storageBusy&&!storageStale))return;
  e.preventDefault();e.returnValue='';return '';
 });
