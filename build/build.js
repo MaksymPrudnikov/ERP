@@ -58,6 +58,30 @@ var ERP_BUILD='${buildFingerprint}';`;
   return { css, js, shell, buildFingerprint, stamp };
 }
 
+/* ---- Политика содержимого (CSP, план «до 10», этап 3, 09.11.2026) ----
+   Браузер запускает и грузит только своё: код и стили ERP, данные из
+   базы (data:, blob:). Ходить по сети страница может только на сервер
+   Supabase и в Google Maps (километры рейса, по кнопке): чужой скрипт,
+   попавший в страницу, не отправит базу на свой адрес ни запросом, ни
+   картинкой, ни формой, и не подгрузит код со стороны. Обработчики onclick
+   в разметке — встроенный код, поэтому 'unsafe-inline' (без него ERP не
+   работает); eval не нужен и запрещён. GitHub Pages не даёт заголовков —
+   политика в <meta>. Проверка — test/csp.js; нарушения ловит каждый тест. */
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://maps.gstatic.com",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com",
+  "font-src 'self' data:",
+  "connect-src 'self' https://*.supabase.co https://maps.googleapis.com",
+  "worker-src 'self' blob:",
+  "frame-src 'self' blob:",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'self'"
+].join('; ');
+const CSP_META = `<meta http-equiv="Content-Security-Policy" content="${CSP}">`;
+
 /* ---- Standalone: стили и модули внутри одного файла ---- */
 function renderHtml(loader) {
   const { css, js, shell, stamp } = sources(loader);
@@ -71,6 +95,7 @@ function renderHtml(loader) {
 <html lang="en">
 <head>
 <meta charset="utf-8">
+${CSP_META}
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${M.title}</title>
 <style>
@@ -105,6 +130,7 @@ function renderWeb(loader) {
 <html lang="en">
 <head>
 <meta charset="utf-8">
+${CSP_META}
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${M.title} — modules</title>
 ${M.styles.map(f => `<link rel="stylesheet" href="${fromSrc(f)}">`).join('\n')}
@@ -145,4 +171,4 @@ function build(options) {
 
 if (require.main === module) build({ onlyWeb: process.argv.includes('--web') });
 
-module.exports = { build, normalizeNewlines, renderHtml, renderWeb };
+module.exports = { build, normalizeNewlines, renderHtml, renderWeb, CSP };

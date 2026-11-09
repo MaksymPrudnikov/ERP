@@ -73,6 +73,8 @@
 - Просмотр в браузере: `node tools/preview-server.js` →
   http://127.0.0.1:8765/src/index.html. Другой корень (копия коммита) —
   путь в `.preview-root` или `PREVIEW_ROOT`; `.claude/launch.json` не править.
+- Страница ходит только туда, что разрешено в `CSP` (`build/build.js`): новый внешний адрес — сначала туда, иначе
+  красный `test/csp.js` и общий счётчик запретов в `test/run.js`.
 - SQL сервера: `node tools/supabase/check-pglite.js` (PGlite, гоняют CI и prepush). Команда, которая по общему
   остатку создаёт строку в новой таблице денег или склада, — строка в `CLOUD_CHECK` или `CLOUD_FACT`
   (`src/erp/cloud-sync.js`), иначе красный `test/cloud-guards.js`.
