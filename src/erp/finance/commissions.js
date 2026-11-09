@@ -91,7 +91,7 @@ function comPayoutAdd(d){
  /* Долг считан по этой копии — строку агента сервер сверяет: второй
     компьютер, плативший тот же долг, получает конфликт (аудит Codex
     09.11.2026, F06). */
- return finPersist(()=>{if(typeof cloudGuard==='function')cloudGuard('referrer',ref.id);if(!Array.isArray(DB.referrerPayout))DB.referrerPayout=[];DB.referrerPayout.push(p);return p;});
+ return finPersist(()=>{if(!Array.isArray(DB.referrerPayout))DB.referrerPayout=[];DB.referrerPayout.push(p);return p;});
 }
 function comPayoutDelete(id){return finPersist(()=>{DB.referrerPayout=(DB.referrerPayout||[]).filter(p=>p.id!==id);return true;});}
 

@@ -1,6 +1,7 @@
 -- Только для проверки на своём Postgres (не для Supabase): то, что в
 -- Supabase уже есть, — роли anon/authenticated/service_role, схема auth,
--- auth.users и auth.uid() из JWT запроса. Запуск: tools/supabase/check.sh.
+-- auth.users и auth.uid() из JWT запроса. Запуск: tools/supabase/check.sh
+-- или node tools/supabase/check-pglite.js (PGlite, без своего Postgres).
 do $$ begin
   if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;
   if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;

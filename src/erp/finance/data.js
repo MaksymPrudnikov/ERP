@@ -195,7 +195,6 @@ function finApplyDeposit(customerId,orderId,amount,receiptIds){
  const b=finOrderBalance(order);if(b.status!=='due')return 0;
  let want=finMoney(Math.min(finMoney(amount),b.balance,finCustomerDeposit(customerId)));
  if(!(want>0))return 0;
- if(typeof cloudGuardOrder==='function')cloudGuardOrder(orderId);
  let done=0;const now=new Date().toISOString();
  finActiveReceipts().filter(r=>r.customerId===customerId&&finCurrency(r)===finCurrency(order)&&(!receiptIds||receiptIds.includes(r.id))).sort(finDocOrder).forEach(r=>{
   const free=finReceiptOnAccount(r);if(want<=0||free<=0)return;

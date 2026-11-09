@@ -5,16 +5,7 @@
    — два контекста браузера со своими базами. */
 module.exports=async function({page,eq}){
  console.log('audit 2026-11-08');
- const NO_CHARGES={energy:{enabled:false},hst:{enabled:false},card:{enabled:false},delivery:{enabled:false},skidDeposit:{enabled:false}};
- /* Помощники в странице: клиент, выданный заказ на $100 одной позицией склада. */
- const helpers=async p=>p.evaluate(nc=>{
-  window.a8Cust=(id,extra)=>{const c=normalizeCustomer(Object.assign({id,code:id.slice(-6),legalName:'Audit '+id,paymentMode:'credit',creditDays:30},extra));storageCommand(()=>{DB.customer.push(c);});return c;};
-  window.a8Order=(id,cid,number,day,status)=>{storageCommand(()=>{const o=normalizeSalesOrder({id,businessNumber:number,customerId:cid,customerPo:'PO-'+number,createdAt:(day||'2026-08-01')+'T12:00:00Z',lines:[],extraItems:[{id:'E-'+id,table:'stockItem',itemId:'TEST',qty:1,priceOverride:100}],orderCharges:JSON.parse(JSON.stringify(nc))});
-   o.status=status||'done';o.statusDates={done:(day||'2026-08-01')+'T12:00:00Z'};DB.salesOrder.push(o);finCaptureTerms(o);});return id;};
-  window.a8Pay=(cid,date,amount,alloc)=>{const r=finPersist(()=>finSaveReceiptRecord({customerId:cid,date,method:'cash',currency:'CAD',amount,allocations:alloc||[]}));if(!r.ok)throw new Error(r.error);return r.value;};
-  window.a8Backup=()=>{try{prepareImportedState(storageExportEnvelope());return '';}catch(e){return e.message;}};
-  window.a8Wait=async ms=>{await new Promise(r=>setTimeout(r,ms||400));await storageFlush();};
- },NO_CHARGES);
+ const {helpers,twoPcs:pcs,server}=require('./two-pcs');
 
  /* ---------------- один компьютер ---------------- */
  const t=await page();await helpers(t.p);
@@ -116,59 +107,8 @@ module.exports=async function({page,eq}){
  })(),{before:'',saved:true,currency:'USD',paid:0,deposit:100,alloc:0,journal:true,after:''});
  await cur.c.close();
 
- /* ---------------- сервер: модель erp_apply ---------------- */
- /* Модель сервера в Node: версии строк, номера документов, Save частями. */
- function server(records){
-  const rec=new Map(records.map(r=>[r.tbl+'|'+r.id,r])),log=[],cmds=new Map(),counter={},stage=new Map();let rev=2;
-  const s={rec,calls:[],fail:null,
-   rpc(name,a){
-    if(s.fail&&s.fail(name,a))throw new Error('No connection to the server.');
-    if(name==='erp_apply'){
-     if(cmds.has(a.command_id))return cmds.get(a.command_id);
-     const done=res=>{cmds.set(a.command_id,res);return res;};
-     if(a.grp&&a.grp.total>1){
-      const st=stage.get(a.grp.id)||[];
-      if(a.grp.part<a.grp.total-1){st[a.grp.part]=a;stage.set(a.grp.id,st);s.calls.push({staged:a.changes.length});return done({ok:true,staged:true});}
-      stage.delete(a.grp.id);if(st.filter(Boolean).length!==a.grp.total-1)return done({ok:false,conflict:[],lost:true});
-      a=Object.assign({},a,{expect:st.flatMap(x=>x.expect).concat(a.expect),changes:st.flatMap(x=>x.changes).concat(a.changes)});
-     }
-     const conflict=a.expect.filter(e=>{const r=rec.get(e.tbl+'|'+e.id);return (r&&!r.deleted?r.ver:0)!==(e.ver||0);});
-     s.calls.push({rows:a.changes.length,expect:[...new Set(a.expect.map(e=>e.tbl))],conflict:conflict.length});
-     if(conflict.length)return done({ok:false,conflict});
-     const vers={},numbers={},swap=[];
-     a.changes.forEach(x=>{if(!x.number||x.data===null)return;const n=x.number,no=Math.max(counter[n.name]||0,+n.value.slice(n.prefix.length));counter[n.name]=no+1;
-      const v=n.prefix+String(no).padStart(n.pad||0,'0');numbers[x.tbl+'|'+x.id]=v;if(v!==n.value)swap.push([n.value,v]);});
-     a.changes.forEach(x=>{let d=x.data;if(d!==null&&swap.length){const keys='businessNumber|number|no|order|orderNumber|ps|doc|before|after'+(x.tbl==='orderEvent'?'|note':'');
-      swap.forEach(([o],i)=>{d=d.replace(new RegExp('("(?:'+keys+')"\\s*:\\s*|[\\[,]\\s*)"'+o+'"(?=\\s*[,\\]}])','g'),'$1"#'+i+'#"');});swap.forEach(([,v],i)=>{d=d.split('"#'+i+'#"').join('"'+v+'"');});}
-      const ver=++rev,r=Object.assign({},x,{data:d,deleted:d===null,ver});rec.set(x.tbl+'|'+x.id,r);log.push(r);vers[x.tbl+'|'+x.id]=ver;});
-     return done({ok:true,rev,vers,numbers});
-    }
-    if(name==='erp_get')return a.keys.map(k=>rec.get(k.tbl+'|'+k.id)).filter(Boolean);
-    if(name==='erp_changes'){const rows=log.filter(r=>r.ver>a.since).slice(0,a.lim||2000);return {rows,last:rows.length?rows[rows.length-1].ver:a.since};}
-    if(name==='erp_whoami')return {admin:true};
-    if(name==='erp_take'){const first=Math.max(counter['b-'+a.counter]||1,a.from_n||0);counter['b-'+a.counter]=first+a.n;return first;}
-    throw new Error('Unexpected '+name);
-   }};
-  return s;
- }
- /* Два компьютера с одной базой: A делает её, B получает копией. */
- async function twoPcs(make){
-  const A=await page();await require('./optimization-fixture')(A.p);await helpers(A.p);
-  const seed=await A.p.evaluate(make);
-  await A.p.evaluate(()=>storageFlush());
-  const records=await A.p.evaluate(()=>[...storageBase].flatMap(([tbl,m])=>[...m].map(([id,r])=>({tbl,id,data:r.t,seq:r.s||0,ver:1}))));
-  const state=await A.p.evaluate(()=>JSON.stringify(DB));
-  const B=await page();await B.p.evaluate(async s=>{await storageSeed(JSON.parse(s));},state);await B.p.reload();await B.p.evaluate(()=>storageReady);
-  await require('./optimization-fixture')(B.p);await helpers(B.p);
-  const srv=server(records);
-  for(const [i,x] of [A,B].entries()){
-   await x.p.exposeFunction('a8rpc',(n,a)=>srv.rpc(n,a));
-   await x.p.evaluate(({keys,i})=>{window.GF_CLOUD_MANUAL=true;Object.assign(cloudSync,{loaded:true,on:true,ref:'https://audit.invalid',out:[],n:0,since:0,vers:new Map(keys.map(k=>[k.replace('|','\u0000'),1]))});
-    cloudSync.blocks.set('journal',[[1000+i*1000,1999+i*1000]]);cloudRpc=(n,a)=>window.a8rpc(n,a);},{keys:[...srv.rec.keys()],i});
-  }
-  const sync=async()=>{for(const x of [A,B])await x.p.evaluate(()=>cloudPushAll());for(const x of [A,B])await x.p.evaluate(()=>cloudPull());};
-  return {A,B,seed,srv,sync,close:async()=>{await A.c.close();await B.c.close();}};
- }
+ /* ---------------- сервер: настоящий SQL на PGlite (test/cloud-server.js) ---------------- */
+ const twoPcs=make=>pcs(page,make);
 
  {const w=await twoPcs(()=>{oqReset();const c=oqCustomer();const id=oqOrder(c);salesDraftDrop();const r=a8Pay(c.id,finToday(),100);return {cid:c.id,oid:id,rid:r.id};});
   const local=[];for(const x of [w.A,w.B])local.push(await x.p.evaluate(s=>finPersist(()=>finCreateRefund({receiptId:s.rid,amount:100,date:finToday(),method:'cash',reason:'Concurrent'})).ok,w.seed));
@@ -246,15 +186,15 @@ module.exports=async function({page,eq}){
    salesOrderSave();salesDraftDrop();},w.seed);
   const parts=await w.A.p.evaluate(()=>cloudSync.out.map(c=>c.changes.length));
   await w.A.p.evaluate(()=>cloudPushAll());
-  const srvRows=[...w.srv.rec.values()].filter(r=>r.tbl==='glassPiece'&&!r.deleted).length;
+  const srvRows=await w.srv.count('glassPiece'),srvOrder=JSON.parse((await w.srv.row('salesOrder',w.seed.oid)).data);
   eq('C3: Save на 722 строки двумя частями, конфликт по заказу — не записано ничего, у A заказ как на сервере',{parts:parts.length,staged:w.srv.calls.some(c=>c.staged),
-   server:{lines:JSON.parse(w.srv.rec.get('salesOrder|'+w.seed.oid).data).lines.length,glass:srvRows},a:await w.A.p.evaluate(s=>({lines:salesRecord(s.oid).lines.length,notes:salesRecord(s.oid).notes,glass:DB.glassPiece.length,waiting:cloudSync.out.length}),w.seed)},
+   server:{lines:srvOrder.lines.length,glass:srvRows},a:await w.A.p.evaluate(s=>({lines:salesRecord(s.oid).lines.length,notes:salesRecord(s.oid).notes,glass:DB.glassPiece.length,waiting:cloudSync.out.length}),w.seed)},
    {parts:2,staged:true,server:{lines:2,glass:w.seed.glass},a:{lines:2,notes:'Edited on B',glass:w.seed.glass,waiting:0}});
   await w.A.p.evaluate(()=>cloudPull());
   await w.A.p.evaluate(s=>{salesOrderEdit(s.oid);for(let i=0;i<180;i++){const l=normalizeSalesOrderLine({makeupId:soDraft.makeups[0].id,width16:37*16,height16:71*16,qty:1,mark:'BIG-'+i});soDraft.lines.push(l);salesEnsureLineShape(l);salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=.013;});}
    salesOrderSave();salesDraftDrop();},w.seed);
   await w.A.p.evaluate(()=>cloudPushAll());
-  eq('C3: тот же Save без конфликта — обе части одной записью, версии у всех строк',{server:JSON.parse(w.srv.rec.get('salesOrder|'+w.seed.oid).data).lines.length,
+  eq('C3: тот же Save без конфликта — обе части одной записью, версии у всех строк',{server:JSON.parse((await w.srv.row('salesOrder',w.seed.oid)).data).lines.length,
    a:await w.A.p.evaluate(()=>({waiting:cloudSync.out.length,noVer:DB.glassPiece.filter(g=>!cloudSync.vers.has(cloudKey('glassPiece',storageRowKey('glassPiece',g)))).length}))},{server:182,a:{waiting:0,noVer:0}});
   await w.close();}
 
@@ -281,7 +221,7 @@ module.exports=async function({page,eq}){
 
  /* C8: обрыв первого Upload. */
  {const A=await page();await require('./optimization-fixture')(A.p);await helpers(A.p);
-  const srv=server([]);let n=0;srv.fail=(name)=>name==='erp_apply'&&++n===2;
+  const srv=await server([]);let n=0;srv.fail=(name)=>name==='erp_apply'&&++n===2;
   await A.p.exposeFunction('a8rpc',(nm,a)=>srv.rpc(nm,a));
   const out=await A.p.evaluate(async()=>{
    oqReset();const c=oqCustomer();oqOrder(c);salesDraftDrop();

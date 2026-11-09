@@ -299,7 +299,7 @@ function storageCommand(fn,scope){
   if(scopeBefore)storageScopeCheck(scopeBefore);
   if(scope)storageSweepLater();
   return {ok:true,value};
- }catch(e){storageDepth=0;storageCommanding=false;if(typeof cloudGuardDrop==='function')cloudGuardDrop();storageColdPending.clear();storageColdImport=null;storageColdWarm.clear();storageArchivePending.clear();storageRollback(before);dirty=wasDirty;if(draftBefore!==null&&JSON.stringify(soDraft)!==draftBefore)soDraft=JSON.parse(draftBefore);storageInvalidate();storageLastError=e.message;return {ok:false,error:e.message};}
+ }catch(e){storageDepth=0;storageCommanding=false;storageColdPending.clear();storageColdImport=null;storageColdWarm.clear();storageArchivePending.clear();storageRollback(before);dirty=wasDirty;if(draftBefore!==null&&JSON.stringify(soDraft)!==draftBefore)soDraft=JSON.parse(draftBefore);storageInvalidate();storageLastError=e.message;return {ok:false,error:e.message};}
 }
 /* Запись правки, сделанной до вызова (раскрой: Build и правки листа, порядок
    батчей): touch() только по области scope, как у storageCommand. Вне
@@ -336,7 +336,7 @@ function touch(){
   let diff=storageDiff(DB,only);if(typeof mdLogCapture==='function'&&mdLogCapture(diff))diff=storageDiff(DB,only);
   const changes=storageColdApply(diff);
   /* Ничего не изменилось (старт без новых граф) — и отмечать нечего. */
-  if(!changes.length){if(typeof cloudGuardDrop==='function')cloudGuardDrop();storageLastError=storageFailed?storageLastError:'';storageScopeMark();return true;}
+  if(!changes.length){storageLastError=storageFailed?storageLastError:'';storageScopeMark();return true;}
   /* Сервер (erp/cloud-sync.js): набор встаёт в очередь отправки той же записью. */
   const out=typeof cloudOutbox==='function'?cloudOutbox(changes):null;
   storageWrite(changes,out&&out.ops);if(out)out.done();storageBaseApply(changes);if(typeof archiveIndexApply==='function')archiveIndexApply(changes.filter(c=>c.tbl==='_archive').map(c=>[c.id,c.del?null:JSON.parse(c.data)]),changes.some(c=>c.coldClear));

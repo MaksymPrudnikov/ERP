@@ -77,7 +77,9 @@ waste**.
 - Columns: Stock, Glass, mm, Size, ft², From (batch and sheet — a link), Age (days), Where.
 - Pieces that are gone are hidden until **Show used and written off** is ticked.
 - Counting pieces: the **Not found** box in a row and **Write off N not found** — one command. A written-off piece turns
-  up — **Found**; the write-off stays in the journal. Coming and gone pieces cannot be written off.
+  up — **Found**; the write-off stays in the journal. Coming and gone pieces cannot be written off. With the server, a
+  piece written off or taken into a cut layout on another computer the same minute is not written off twice: “Changed
+  on another computer” — look and repeat (9 Nov 2026).
 
 ### Count — counting sheets
 

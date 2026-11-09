@@ -92,9 +92,7 @@ function sinvCount(itemId,counted,why){
  return storageCommand(()=>{
   const r=sinvBuild().find(x=>x.id===itemId);if(!r)throw new Error('Item not found.');
   const n=sinvInt(counted,'Counted',0);
-  /* «Было» — с сервером его сверяют у всех: два пересчёта по старой копии
-     вычли бы недостачу дважды (C13). */
-  if(typeof cloudGuard==='function')cloudGuard('stockItem',itemId);
+  /* «Было» сервер сверяет по карточке (C13): реестр CLOUD_CHECK, erp/cloud-sync. */
   return sinvPush(Object.assign({itemId,kind:'count',qty:n-r.onHand,before:r.onHand,after:n},stockReasonOf(why)));
  },{stockItemEvent:true});
 }

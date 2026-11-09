@@ -13,6 +13,7 @@
     "shot": "node tools/shot.js"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.15",
     "playwright": "1.64.1"
   }
 }

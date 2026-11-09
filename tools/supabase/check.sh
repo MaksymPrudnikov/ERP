@@ -2,7 +2,8 @@
 # Проверка tools/supabase/schema.sql на своём Postgres: чистая база,
 # заглушка того, что есть в Supabase, схема дважды (повторный запуск
 # безопасен), проверки. Нужен psql и сервер, к которому он подключается
-# (переменные PGHOST, PGPORT, PGUSER — как у psql).
+# (переменные PGHOST, PGPORT, PGUSER — как у psql). Без своего Postgres —
+# node tools/supabase/check-pglite.js: то же на PGlite, его гоняют CI и prepush.
 set -e
 dir=$(dirname "$0")
 db=erp_schema_check

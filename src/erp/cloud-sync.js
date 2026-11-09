@@ -3,7 +3,7 @@
    IN : набор изменений каждой записи (touch → cloudOutbox), сервер
         erp_apply / erp_changes / erp_get (tools/supabase/schema.sql)
    OUT: cloudSync, cloudOutbox, cloudSyncStart, cloudUpload, cloudDownload,
-        cloudSyncStop, cloudSyncText, cloudSeq
+        cloudSyncStop, cloudSyncText, cloudSeq, CLOUD_CHECK, CLOUD_FACT
    Каждый компьютер работает со своей базой браузера, как раньше; сервер —
    общая копия. Свои изменения уходят командами (очередь лежит в складе
    cloud той же транзакцией, что и строки: без сети и после F5 не теряется),
@@ -154,22 +154,87 @@ async function cloudLoad(){
  const early=s.early;s.early=[];
  if(s.on&&early.length){const out=cloudOutbox([].concat(...early));if(out){storageWrite([],out.ops);out.done();}}
 }
-/* Строки, по которым команда решала (свободный остаток квитанции, юниты
-   заказа, остаток склада, долг заказа), едут в команде как есть: сервер
-   сверяет их версию и пишет заново. Второй компьютер, решивший по старой
-   копии, получает конфликт — а не второй возврат тех же денег, вторую PS на
-   те же юниты или вторую недостачу (аудит Codex 08.11.2026, C4, C12, C13).
+/* Сверка по остатку (план «до 10», этап 1, 09.11.2026). Команда, которая
+   по общему остатку создаёт новую строку (возврат по свободному остатку
+   оплаты, PS по свободным юнитам, пересчёт по остатку склада, выплату по
+   долгу агенту), сама строку остатка не меняет — и сервер её не сверил бы:
+   второй компьютер, решивший по старой копии, записал бы второй возврат тех
+   же денег, вторую PS на те же юниты, вторую недостачу (аудиты Codex 08.11
+   и 09.11.2026: C4, C12, C13, F06, F09). Поэтому строка остатка едет в
+   команде как есть: сервер сверяет её версию и пишет заново, второй
+   компьютер получает конфликт.
+   Какие строки сверять, объявляет реестр — по таблице записываемой строки,
+   а не каждая команда: новая команда, пишущая возврат, получает сверку сама
+   (раньше стражей ставили руками и забывали — выплаты, листы, куски).
+   CLOUD_CHECK: таблица → (новая строка, прежняя или null) → [[таблица, ключ]].
+   Сверка — только когда решение принято сейчас: строка новая или добавила
+   долю (разнесение больше, юнит в PS, кусок в раскрое); правка, Void,
+   удаление — нет: их строка сверяется сама.
+   CLOUD_FACT: таблицы денег и склада без сверки — факты, которые вводит
+   человек (оплата и счёт поставщику, приёмка, Add/Remove, списание): две
+   записи — две записи, правило владельца «без кирпичей». Таблица, которой
+   нет ни там, ни там, — красный тест (test/cloud-guards.js).
    Только с сервером; строки без версии на сервере (ещё не отправленные) —
-   своей командой и так. Только внутри команды (storageCommand): проверка
-   формы до неё ничего не добавляет. */
-function cloudGuard(tbl,id){const s=cloudSync;if(!s.on||!id||!storageDepth)return;(s.guard||(s.guard=new Map())).set(cloudKey(tbl,id),{tbl,id:String(id)});}
+   своей командой и так. */
+const CLOUD_CHECK={
+ /* Разнесение по долгу заказа (C4). */
+ receipt:(r,old)=>{const now=cloudAllocated(r),was=cloudAllocated(old);return [...now].filter(([id,v])=>v>(was.get(id)||0)).map(([id])=>cloudOrderKey(id));},
+ /* Возврат по свободному остатку оплаты (C4). */
+ refund:(r,old)=>old?[]:[['receipt',r.receiptId]],
+ /* Выплата агенту по его долгу (F06). */
+ referrerPayout:(p,old)=>old?[]:[['referrer',p.referrerId]],
+ /* PS по свободным юнитам и остатку позиций склада заказа (C12). Юниты,
+    добавленные сканом погрузки (added), — по скану на станции, как было. */
+ shipment:(s,old)=>{
+  const had=new Set(old?(old.items||[]).map(i=>i.label):[]),qty=new Map();
+  (old&&old.extras||[]).forEach(x=>qty.set(x.orderId+'|'+x.extraId,(qty.get(x.orderId+'|'+x.extraId)||0)+x.qty));
+  const ids=(s.items||[]).filter(i=>!i.added&&!had.has(i.label)).map(i=>i.orderId)
+   .concat((s.extras||[]).filter(x=>x.qty>(qty.get(x.orderId+'|'+x.extraId)||0)).map(x=>x.orderId));
+  return [...new Set(ids)].map(cloudOrderKey);
+ },
+ /* Пересчёт Stock items «было → стало» (C13); Add и Remove — факты. */
+ stockItemEvent:(e,old)=>!old&&e.kind==='count'?[['stockItem',e.itemId]]:[],
+ /* Пересчёт расходника — по его карточке (F09). */
+ consumableEvent:(e,old)=>{if(old)return [];const[t,...id]=String(e.key).split(':');return [[t,id.join(':')]];},
+ /* Пересчёт листов — по карточке стекла (F09); Not found и Found куска S- —
+    по куску (план «до 10»: кусок списывали дважды или пока его брал
+    раскрой). Add, списание — факты. */
+ inventoryEvent:(e,old)=>{
+  if(old)return [];
+  if(e.kind==='count'){const g=typeof glassProductByCode==='function'?glassProductByCode(e.glass):null;return g?[['glassProduct',g.id]]:[];}
+  return e.kind==='offcut-lost'||e.kind==='offcut-found'?[['stockOffcut',e.offcut]]:[];
+ },
+ /* Куски стока S-, которые раскрой батча взял сейчас (личный аудит
+    09.11.2026: один кусок в два батча с двух ПК). */
+ cutPlan:(p,old)=>{if(typeof cutPlanStockKeys!=='function')return [];const had=old?cutPlanStockKeys(old):new Set();return [...cutPlanStockKeys(p)].filter(k=>!had.has(k)).map(k=>['stockOffcut',k]);}
+};
+const CLOUD_FACT={
+ financeEvent:'journal of the commands above',financeTerms:'edited in place: its own row is checked',
+ financeExport:'export marks: the batch number is a new row of its own',financeExportBatch:'new batch number: two exports of one batch conflict by key',
+ referrer:'agent card, edited in place',
+ supplier:'supplier card',purchaseOrder:'document with rev',purchaseReceipt:'goods received: a fact',purchaseDeliveryRequest:'document with rev',
+ purchaseInvoice:'supplier invoice: a fact',purchasePayment:'supplier payment: a fact',purchasingEvent:'journal',purchaseDocumentOptions:'settings',
+ inventoryMin:'minimum setting',sheetBreak:'broken sheet: a fact',stockItem:'item card',stockOffcut:'offcut row, edited in place',
+ skidReturn:'skid scanned back: a fact',truck:'truck card',carrier:'dolly or skid card',carrierEvent:'scan: a fact',
+ tripKm:'trip kilometres',stockReason:'reason list',financeVersion:'format mark'
+};
 /* Заказ — по его условиям оплаты (financeTerms, строка маленькая); нет их —
    по самому заказу. */
-function cloudGuardOrder(id){const t=storageBase.get('financeTerms');cloudGuard(t&&t.has(id)?'financeTerms':'salesOrder',id);}
-/* То же для ближайшей записи вне команды (touch — раскрой батча): запись идёт
-   сразу следом, без изменений страж сбрасывается (storage.js). */
-function cloudGuardWrite(tbl,id){const s=cloudSync;if(!s.on||!id)return;(s.guard||(s.guard=new Map())).set(cloudKey(tbl,id),{tbl,id:String(id)});}
-function cloudGuardDrop(){cloudSync.guard=null;}
+function cloudOrderKey(id){const t=storageBase.get('financeTerms');return [t&&t.has(id)?'financeTerms':'salesOrder',id];}
+/* Разнесение оплаты по заказам, в центах; аннулированная — ничего. */
+function cloudAllocated(r){const m=new Map();if(r&&!r.voided)(r.allocations||[]).forEach(a=>m.set(a.orderId,(m.get(a.orderId)||0)+Math.round((+a.amount||0)*100)));return m;}
+/* Строки остатка, которые сверяет этот набор изменений (до записи: в
+   storageBase ещё прежние строки). Архив туда и обратно — не решение. */
+function cloudCheckKeys(rows){
+ const out=new Map();
+ rows.forEach(c=>{
+  const f=CLOUD_CHECK[c.tbl];if(!f||c.del||c.cold||c.warm||c.data==null)return;
+  const b=storageBase.get(c.tbl),was=b&&b.get(c.id);let row,old;
+  try{row=JSON.parse(c.data);old=was?JSON.parse(was.t):null;}catch(e){return;}
+  f(row,old).forEach(([tbl,id])=>{if(tbl&&id)out.set(cloudKey(tbl,id),{tbl,id:String(id)});});
+ });
+ return out;
+}
 /* Набор изменений записи → команды очереди (ops — в ту же транзакцию, done —
    после того, как запись принята). Версия известна — сервер сверит её; новой
    строки — её не должно быть на сервере (ver 0). Строка уже есть в очереди —
@@ -177,7 +242,7 @@ function cloudGuardDrop(){cloudSync.guard=null;}
    сети спорила бы с первой). */
 function cloudOutbox(changes){
  const s=cloudSync;
- const rows=changes.filter(c=>!c.coldClear&&c.tbl&&!(c.tbl==='_meta'&&/Seq$/.test(c.id))),guard=s.guard;s.guard=null;
+ const rows=changes.filter(c=>!c.coldClear&&c.tbl&&!(c.tbl==='_meta'&&/Seq$/.test(c.id)));
  const ops=[...s.blockDirty].map(name=>['b\u0000'+name,s.blocks.get(name)]);s.blockDirty.clear();
  if(!rows.length||!s.loaded||!s.on||s.uploading){
   if(!s.loaded&&rows.length&&cloudConfig().session)s.early.push(rows);
@@ -186,7 +251,8 @@ function cloudOutbox(changes){
  }
  const cmds=[],queued=new Set();let n=s.n;
  s.out.forEach(cmd=>cmd.changes.forEach(c=>queued.add(cloudKey(c.tbl,c.id))));
- if(guard){const have=new Set(rows.map(c=>cloudKey(c.tbl,c.id)));guard.forEach((x,k)=>{const b=storageBase.get(x.tbl),r=b&&b.get(x.id);if(have.has(k)||!r||!s.vers.has(k)&&!queued.has(k))return;rows.push({tbl:x.tbl,id:x.id,seq:r.s,data:r.t});});}
+ const guard=cloudCheckKeys(rows);
+ if(guard.size){const have=new Set(rows.map(c=>cloudKey(c.tbl,c.id)));guard.forEach((x,k)=>{const b=storageBase.get(x.tbl),r=b&&b.get(x.id);if(have.has(k)||!r||!s.vers.has(k)&&!queued.has(k))return;rows.push({tbl:x.tbl,id:x.id,seq:r.s,data:r.t});});}
  /* Набор больше одной части — группа: сервер пишет её целиком последней
     частью (erp_apply grp, C3). keys — все строки группы: ответ и отказ
     касаются их всех. */
