@@ -221,6 +221,16 @@ module.exports=async function({page,eq}){
    {onRack:9,warn:true});
   await w.close();}
 
+ /* Личный аудит Claude 09.11.2026: один кусок стока S- в раскроях двух батчей
+    с двух компьютеров — второй получает конфликт. */
+ {const w=await twoPcs(()=>{oqReset();DB.stockOffcut=[{id:'S-0099001',glass:'6CLEAR',mm:6,w:40,h:30,batch:'',sheet:0,x:0,y:0,at:'2026-11-01T10:00:00Z',status:'stock'}];
+   storageCommand(()=>{});touch();return {};});
+  for(const [x,b] of [[w.A,'B-AUD1'],[w.B,'B-AUD2']])await x.p.evaluate(b=>{DB.cutPlan.push({batch:b,sheetPick:{'6CLEAR':{sizes:[{key:'S-0099001',off:false}]}},groups:[]});cutSave(b);},b);
+  await w.sync();
+  eq('аудит Claude: кусок S- в раскроях двух батчей с двух ПК — на сервере один раскрой с ним, у второго конфликт',await w.B.p.evaluate(()=>({claims:(DB.cutPlan||[]).filter(p=>JSON.stringify(p).includes('S-0099001')).map(p=>p.batch).sort(),warn:/Changed on another computer/.test(cloudSync.warn)})),
+   {claims:['B-AUD1'],warn:true});
+  await w.close();}
+
  {const w=await twoPcs(()=>{oqReset();DB.consumableEvent=[];const k=consRows()[0].key;consCountSave({[k]:'10'});return {k};});
   for(const x of [w.A,w.B])await x.p.evaluate(s=>consCountSave({[s.k]:'9'}).ok,w.seed);
   await w.sync();

@@ -1,5 +1,5 @@
 /* ============================================================================
-   Синхронизация с сервером — этап 4 задания «База» (docs/ЗАДАЧА_БАЗА.md)
+   Синхронизация с сервером: очередь своих изменений, приём чужих, Upload и Download (этап 4 «Базы»).
    IN : набор изменений каждой записи (touch → cloudOutbox), сервер
         erp_apply / erp_changes / erp_get (tools/supabase/schema.sql)
    OUT: cloudSync, cloudOutbox, cloudSyncStart, cloudUpload, cloudDownload,
@@ -166,6 +166,9 @@ function cloudGuard(tbl,id){const s=cloudSync;if(!s.on||!id||!storageDepth)retur
 /* Заказ — по его условиям оплаты (financeTerms, строка маленькая); нет их —
    по самому заказу. */
 function cloudGuardOrder(id){const t=storageBase.get('financeTerms');cloudGuard(t&&t.has(id)?'financeTerms':'salesOrder',id);}
+/* То же для ближайшей записи вне команды (touch — раскрой батча): запись идёт
+   сразу следом, без изменений страж сбрасывается (storage.js). */
+function cloudGuardWrite(tbl,id){const s=cloudSync;if(!s.on||!id)return;(s.guard||(s.guard=new Map())).set(cloudKey(tbl,id),{tbl,id:String(id)});}
 function cloudGuardDrop(){cloudSync.guard=null;}
 /* Набор изменений записи → команды очереди (ops — в ту же транзакцию, done —
    после того, как запись принята). Версия известна — сервер сверит её; новой

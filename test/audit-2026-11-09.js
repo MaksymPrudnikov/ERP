@@ -121,4 +121,26 @@ module.exports=async function({page,eq}){
   return {first:d.head[0],total:d.foot[0].v===sum&&d.foot[0].t,rows:d.foot[1]&&d.foot[1].v};
  }),{first:'Total',total:'n',rows:'1 rows'});
  await x.c.close();
+
+ /* Личный аудит Claude 09.11.2026: Master Data и Users не стирают изменённую
+    карточку при смене вкладки молча. */
+ const m=await page();await require('./optimization-fixture')(m.p);
+ eq('аудит Claude: Master Data — изменённая карточка стекла: вопрос при смене вкладки, «нет» оставляет; без правки — без вопроса',await m.p.evaluate(()=>{
+  const said=[];const keep=window.confirm;let answer=false;window.confirm=q=>{said.push(q);return answer;};
+  try{
+   tab='masterdata';mdSetTab('materials');const g=DB.glassProduct[0];mdGlassEdit(g.id);
+   mdSetTab('stations');const quiet=[said.length,mdTab];mdSetTab('materials');mdGlassEdit(g.id);
+   mdDraft.name='Edited name';mdSetTab('stations');const stay=[mdTab,mdEdit===g.id,mdDraft&&mdDraft.name];
+   answer=true;mdSetTab('stations');return {quiet,said:said.length,stay,gone:[mdTab,mdEdit]};
+  }finally{window.confirm=keep;}
+ }),{quiet:[0,'stations'],said:2,stay:['materials',true,'Edited name'],gone:['stations',null]});
+ eq('аудит Claude: Users — изменённая карточка человека: вопрос при смене Office / Production, «нет» оставляет',await m.p.evaluate(()=>{
+  const said=[];const keep=window.confirm;let answer=false;window.confirm=q=>{said.push(q);return answer;};
+  try{
+   tab='users';subtab='office';userEditOpen(0);usersTab('production');const quiet=[said.length,subtab];
+   usersTab('office');userEditOpen(0);uDraft.name='Edited person';usersTab('production');const stay=[subtab,uDraft&&uDraft.name];
+   answer=true;usersTab('production');return {quiet,said:said.length,stay,gone:[subtab,uDraft]};
+  }finally{window.confirm=keep;}
+ }),{quiet:[0,'production'],said:2,stay:['office','Edited person'],gone:['production',null]});
+ await m.c.close();
 };

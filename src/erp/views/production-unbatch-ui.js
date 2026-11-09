@@ -1,4 +1,4 @@
-/* Sales → Unbatch order. Same selection vocabulary as Skip, reverse targets.
+/* Окно Sales → Unbatch order: выбор стёкол и станции, предпросмотр, подтверждение. Same selection vocabulary as Skip, reverse targets.
    The preview is read-only. Confirmation submits the captured database stamp;
    a stale window or failed save keeps the selection open. No Undo button. */
 let productionUnbatchDialog=null;

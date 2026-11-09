@@ -1,4 +1,4 @@
-/* Commercial line metrics. Geometry stays in Shape; visibility never changes
+/* Площадь, периметр и цена строки заказа до энергии, налога и доставки. Geometry stays in Shape; visibility never changes
    the calculation. Monetary amounts here are before energy, tax and delivery. */
 /* Нормы веса, которых ещё нет в карточках (плёнка, фрит, спандрел,
    шпросы), — строки Weight norms; обвязка — в карточках и рецепте

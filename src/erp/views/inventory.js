@@ -413,7 +413,7 @@ function invSizesView(){
 /* Размер из поставки правят в его строке поставки (Data → Supply points). */
 function invSizeSupplyOpen(code,key){
  const s=(DB.glassSheet||[]).find(x=>x&&x.productCode===code&&x.availability!=='inactive'&&cutSheetTrimKey(x.sheetWIn,x.sheetHIn)===key);if(!s)return;
- navGo('masterdata');if(tab!=='masterdata')return;mdSetTab('materials');mdMatSwitch('glass','glassSheet');mdSheetEditRow(s.id);
+ navGo('masterdata');if(tab!=='masterdata')return;if(mdSetTab('materials')===false||mdMatSwitch('glass','glassSheet')===false)return;mdSheetEditRow(s.id);
 }
 function invSizeAddUi(){const r=cutShopSizeAdd(mdVal('invSizeW'),mdVal('invSizeH'));invSizeNotice=r.error||'';render();}
 function invSizeRemoveUi(key){if(!confirm('Remove this sheet size?'))return;const r=cutShopSizeRemove(key);invSizeNotice=r.error||'';render();}

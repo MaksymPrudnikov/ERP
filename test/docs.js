@@ -28,6 +28,11 @@ module.exports=async function({eq}){
  /* Руководство Reports: приложение «все поля и показатели» — то же, что в
     коде (tools/manual-fields.js --write). Владелец, 03.11.2026: «руководство с
     объяснениями — тогда сам сможешь проверять, если что-то дублируется». */
+ /* Карта проекта: все модули manifest с первой фразой шапки (tools/module-map.js
+    --write). Владелец, 09.11.2026: карта, документация, мануалы — чёткие; список
+    вёлся руками и отстал на 60 модулей из 205. */
+ {const mm=require('../tools/module-map.js');
+  eq('КАРТА-ПРОЕКТА: «Все модули» совпадают с manifest и шапками файлов (node tools/module-map.js --write)',mm.current()===mm.table(),true);}
  const mf=require('../tools/manual-fields.js'),want=mf.appendix();
  /* Сборщик PDF руководства (tools/manual-pdf.js): разделы по README, Markdown → HTML. */
  const mp=require('../tools/manual-pdf.js'),h=mp.md('# A\n\n| x | y |\n|---|---|\n| `1` | **2** |\n\n- one\n- two').html;

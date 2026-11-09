@@ -1,5 +1,5 @@
 /* =====================================================================
-   erp/sales/unit-cancel  ·  Shipping PR 5, 6 октября 2026
+   erp/sales/unit-cancel  ·  Hold и Cancel отдельных юнитов позиции (Shipping PR 5, 6.10.2026)
    Hold units и Cancel units: клиент отказывается от части позиции.
    IN : заказ и строка в цеху · журнал сканов · цена строки (line-metrics)
    OUT: line.heldUnits [{id, pieces, at, reason}] · line.cancelledUnits (число)

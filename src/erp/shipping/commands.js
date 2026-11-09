@@ -1,4 +1,4 @@
-/* Office PS commands. All writes, scans, order statuses and log entries commit
+/* Команды PS офиса: создание, печать, Shipped, возврат — одной записью. All writes, scans, order statuses and log entries commit
    together. Owner, 5 October 2026: after printing a PS, missing/broken goods
    are NCR, not a recut/backorder. Printing itself is not proof of delivery.
    SHIP skid loading and queue priority: erp/shipping/loading (PR 2). Truck
