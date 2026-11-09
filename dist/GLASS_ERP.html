@@ -4335,7 +4335,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='b03a01687bed';
+var ERP_BUILD='1c265f9a3506';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -57366,7 +57366,11 @@ function archiveRun(day,opts){
    пачками по ARCHIVE_BATCH заказов — между пачками экран свободен. Открыт
    заказ, просмотр архива или отчёт с архивом — попробует позже. Тесты и
    инструменты выключают его (window.GF_NO_ARCHIVE) и зовут archiveRun сами. */
-const ARCHIVE_BATCH=300;
+/* С сервером — пачка меньше и только после того, как прошлая ушла: пачка
+   идёт на сервер одной командой (части пишутся вместе последней), и 300
+   заказов — десятки тысяч строк, которые Supabase не записывает за отведённое
+   время; очередь копилась и стояла (первый архив новой базы, 09.11.2026). */
+const ARCHIVE_BATCH=300,ARCHIVE_BATCH_CLOUD=20;
 let archiveTimer=null,archiveInputAt=Date.now();
 /* Уход ждёт минуту без клавиш и мыши: пачка на большой базе держит экран
    секунды, и посреди скана или ввода заказа это мешало бы. */
@@ -57377,8 +57381,10 @@ function archiveAuto(){
  if(Date.now()-archiveInputAt<60e3){next(60e3);return;}
  if(!storageWriter||storageRecovery||storageStale||storageStarting||typeof soDraft!=='undefined'&&soDraft||archiveVisit||archiveScope||typeof archJobs!=='undefined'&&archJobs.size||typeof cloudSync!=='undefined'&&(cloudSync.busy||cloudSync.uploading)){next(10*60e3);return;}
  if(DB.archiveRunDay===today){next(60*60e3);return;}
- const r=archiveRun(today,{limit:ARCHIVE_BATCH,mark:true});
- next(!r.ok?10*60e3:r.value.orders>=ARCHIVE_BATCH?2000:60*60e3);
+ const cloud=typeof cloudSync!=='undefined'&&cloudSync.on,batch=cloud?ARCHIVE_BATCH_CLOUD:ARCHIVE_BATCH;
+ if(cloud&&cloudSync.out.length){next(30e3);return;}
+ const r=archiveRun(today,{limit:batch,mark:true});
+ next(!r.ok?10*60e3:r.value.orders>=batch?2000:60*60e3);
 }
 if(typeof window!=='undefined')setTimeout(archiveAuto,60e3);
 
