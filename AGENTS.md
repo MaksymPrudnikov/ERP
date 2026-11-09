@@ -44,7 +44,8 @@
 2. `npm ci` в каждом новом worktree и после смены версии Playwright в
    `package.json`: `node_modules` не общий. У Claude это делает хук при старте
    сессии (`.claude/settings.json`).
-3. Новый файл модуля — в `build/manifest.json`. После любой правки в `src/`
+3. Новый файл модуля — в `build/manifest.json`, шапка файла — первой фразой «что делает», затем
+   `node tools/module-map.js --write` (таблица «Все модули» в карте; тест сверяет её с кодом). После любой правки в `src/`
    — `npm run build:web` и закоммитить `src/index.html`: в нём метка сборки,
    она меняется вместе с модулями.
 4. `dist/GLASS_ERP.html` в ветку не коммитят: его пересобирает CI в main
