@@ -41,7 +41,7 @@ function consKey(table,id){return table+':'+id;}
 function consPerUnit(line,order){
  const out=new Map();
  /* Лайты строки читаются из soDraft — заказ подставляется, как в Finance. */
- finWithOrder(order,()=>salesLineWeight(line,order)).rows.forEach(r=>{
+ salesLineWeight(line,order).rows.forEach(r=>{
   if(!r.table||!r.itemId||!consUnitOf(r.table))return;
   const k=consKey(r.table,r.itemId),waste=1+(r.wastePct||0)/100;
   const q=r.table==='spacerVariant'?(r.perimeterM!=null?r.perimeterM*CONS_FT_PER_M*waste:null):r.usedKg;

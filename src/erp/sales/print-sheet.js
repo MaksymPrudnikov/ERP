@@ -11,9 +11,9 @@
    ===================================================================== */
 
 function salesSheetLineOf(shape){
-  if(typeof soDraft==='undefined'||!soDraft)return null;
+  var order=salesSheetOrder();if(!order)return null;
   var id=(typeof salesBridge!=='undefined'&&salesBridge&&salesBridge.kind==='shape')?salesBridge.lineId:null;
-  var lines=soDraft.lines||[];
+  var lines=order.lines||[];
   var line=id?lines.find(function(l){return l.id===id;}):null;
   if(!line&&shape&&shape.ownerLineId)line=lines.find(function(l){return l.id===shape.ownerLineId;});
   /* Лист Recut — по чертежу Recut (erp/quality/recut). */
@@ -25,15 +25,15 @@ function salesSheetRecut(){
   return id&&typeof recutFind==='function'?recutFind(id):null;
 }
 function salesSheetLineNumber(line){
-  if(!line||typeof soDraft==='undefined'||!soDraft)return '';
-  var i=(soDraft.lines||[]).findIndex(function(l){return l.id===line.id;}),rc=salesSheetRecut();
+  var order=salesSheetOrder();if(!line||!order)return '';
+  var i=(order.lines||[]).findIndex(function(l){return l.id===line.id;}),rc=salesSheetRecut();
   return i<0?'':String(i+1)+(rc?' · RECUT '+rc.no:'');
 }
 /* Заголовок листа: у одинарного стекла это само стекло, у пакета — его состав.
    Разбивка L1 / C1 / L2 показывает, что за чем стоит. */
 function salesSheetTitleLines(makeup,line){
   if(makeup&&(makeup.panes||[]).length>1){
-    var mm=salesMakeupThicknessMm(makeup),kind=makeup.unitType==='triple'?'Triple':'Double';
+    var mm=salesMakeupThicknessMm(makeup,salesSheetOrder()),kind=makeup.unitType==='triple'?'Triple':'Double';
     return {name:'Makeup '+String(makeup.code||''),spec:kind+(mm?' '+(Math.round(mm*10)/10)+' mm':'')};
   }
   var pane=makeup&&(makeup.panes||[])[0];
@@ -301,7 +301,7 @@ function salesSheetWeightText(w){
 function salesShapeSheetHTML(shape,result,svg,kind,opts){
   opts=opts||{};
   var line=salesSheetLineOf(shape);
-  var order=(typeof soDraft!=='undefined')?soDraft:null;
+  var order=salesSheetOrder();
   var makeup=(line&&order&&typeof salesMakeupById==='function')?salesMakeupById(order,line.makeupId):null;
   var ok=typeof shapeSheetOk==='function'?shapeSheetOk(result):!!(result&&result.valid);
   /* Форма своего лайта, открытая из строки, — это лист того стекла. */
@@ -397,17 +397,18 @@ function salesSheetFoot(html,text){
    лист», владелец 20.10.2026): лайт со своей формой — её чертёж, лайт с
    отступом — его контур (shapeLiteSheetSvg), лайт размером с форму — чертёж
    формы без пунктира меньшего лайта. Обычный юнит получает лист строки. */
-function salesLineDrawing(line,recut,liteIndex){
+function salesLineDrawing(line,recut,liteIndex,order){
+  order=salesOrderArg(order);
   var geo=recut&&typeof recutLine==='function'?recutLine(recut,line):line;
   var shape=geo&&salesShapeByRef(geo.shapeRef);if(!shape)return null;
   var keep={draft:sDraft,bridge:salesBridge,view:sView,lite:typeof sEdgeLite==='undefined'?null:sEdgeLite,place:sManufacturingPlace};
   try{
-    sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(shape)));salesBridge=Object.assign({kind:'shape',lineId:line.id},geo!==line?{recutId:recut.id}:{});
+    sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(shape)));salesBridge=Object.assign({kind:'shape',lineId:line.id,order:order},geo!==line?{recutId:recut.id}:{});
     sView='production';sEdgeLite=null;sManufacturingPlace=null;
-    if(typeof salesApplyLineGlassThicknessToShape==='function')salesApplyLineGlassThicknessToShape(geo,sDraft);
+    if(typeof salesApplyLineGlassThicknessToShape==='function')salesApplyLineGlassThicknessToShape(geo,sDraft,undefined,order);
     var r=ShapeModule.compute(sDraft);
     if(!shapeSheetOk(r))return {line:line,error:String((r.errors&&r.errors[0])||r.reason||'Invalid geometry')};
-    var step=liteIndex!=null&&typeof salesShapeStepInfo==='function'?salesShapeStepInfo(sDraft,geo,soDraft):null,sheet=salesStepLiteSheet(r,geo,liteIndex,step);
+    var step=liteIndex!=null&&typeof salesShapeStepInfo==='function'?salesShapeStepInfo(sDraft,geo,order):null,sheet=salesStepLiteSheet(r,geo,liteIndex,step);
     if(sheet)return Object.assign({line:line,lite:liteIndex},sheet);
     return {line:line,html:salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,false),'PRODUCTION DRAWING')};
   }catch(e){return {line:line,error:String(e&&e.message||e)};}

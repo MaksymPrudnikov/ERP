@@ -280,7 +280,7 @@ function salesListValue(info,k){
   case 'newLines':v=salesUnbatchedLines(o).length;break;
   case 'units':v=lines.reduce((s,l)=>s+salesPositiveInt(l.qty,1),0);break;
   case 'pcs':v=lines.reduce((s,l)=>s+salesPositiveInt(l.qty,1)*glassBatchComponents(o,l).length,0);break;
-  case 'area':v=Math.round(finWithOrder(o,()=>lines.reduce((s,l)=>{const a=salesLineAreas(l,o);return s+(a.valid?a.actual*salesPositiveInt(l.qty,1):0);},0))*10)/10;break;
+  case 'area':v=Math.round(lines.reduce((s,l)=>{const a=salesLineAreas(l,o);return s+(a.valid?a.actual*salesPositiveInt(l.qty,1):0);},0)*10)/10;break;
   case 'total':{const t=finOrderTotals(o);v=t.complete?finMoney(t.grand):null;break;}
   case 'receipts':v=!q&&finOrderCounts(o)?finOrderPaid(o.id).paid:null;break;
   case 'balance':if(!q&&finOrderCounts(o)){const b=finOrderBalance(o);info.memo.balanceInfo=b;v=b.balance;}break;
@@ -301,7 +301,7 @@ function salesListValue(info,k){
   case 'lines':v=lines.length;break;
   /* Пункт 14: известный вес всегда, неполный — с Partial (salesListWeightCell);
      число — для сортировки и фильтра, признак — в memo. */
-  case 'weight':{const w=finWithOrder(o,()=>salesOrderWeight(o));info.memo.weightInfo=w;v=w.kg;break;}
+  case 'weight':{const w=salesOrderWeight(o);info.memo.weightInfo=w;v=w.kg;break;}
   case 'unitType':v=[...new Set((o.makeups||[]).filter(m=>lines.some(l=>l.makeupId===m.id)).map(m=>docUnitLabel(m.unitType)))].join(', ');break;
   case 'shapes':v=lines.filter(salesListShapedLine).length;break;
   case 'validUntil':v=q?(o.validUntil||''):'';break;

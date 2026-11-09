@@ -55,7 +55,7 @@ function salesSurcharges(order){
 function salesMinAreaFor(x,makeupId){const b=x&&x.byMakeup&&x.byMakeup[makeupId];return b&&b.value!=null?b.value:x.value;}
 function salesMinAreaParts(order,m,rounded){
  const out={};if(!m)return out;const kinds=salesUnitKinds(m);
- salesSurcharges(order||soDraft).forEach(x=>{
+ salesSurcharges(salesOrderArg(order)).forEach(x=>{
   if(x.rule.kind!=='minArea'||!salesSurchargeFits(x.rule,kinds,rounded))return;
   const b=x.byMakeup&&x.byMakeup[m.id];if(!b||!b.parts)return;
   Object.keys(b.parts).forEach(k=>{if(out[k]==null||b.parts[k]>out[k])out[k]=b.parts[k];});
@@ -115,11 +115,13 @@ function salesNormalizeWeightRates(){
  DB.materialWeightRates=(Array.isArray(DB.materialWeightRates)?DB.materialWeightRates:[]).filter(r=>r&&typeof r.key==='string'&&!seen.has(r.key)&&(seen.add(r.key),true)).map(r=>({key:r.key,label:mdString(r.label),rate:mdNonNeg(r.rate),unit:mdString(r.unit),note:mdString(r.note)}));
 }
 function salesLineAreas(line,order){
+ order=salesOrderArg(order);
  return Object.assign({},readLine('areas',line,order,()=>salesLineAreasLive(line,order)));
 }
 function salesLineAreasLive(line,order){
+ order=salesOrderArg(order);
  /* Записано при Save (sales/line-measure) — без расчёта фигуры. */
- const kept=salesMeasureFor(line,order||soDraft);if(kept)return Object.assign({},kept.areas);
+ const kept=salesMeasureFor(line,order);if(kept)return Object.assign({},kept.areas);
  const lineW=(+(line&&line.width16)||0)/16,lineH=(+(line&&line.height16)||0)/16;
  const shape=salesShapeByRef(line&&line.shapeRef),r=shape?ShapeModule.compute(shape):null;
  const shapeValid=!!(r&&(r.valid||r.externalFile&&r.sourceValid)),w=shapeValid&&+r.width>0?+r.width:lineW,h=shapeValid&&+r.height>0?+r.height:lineH;
@@ -135,8 +137,8 @@ function salesLineAreasLive(line,order){
  /* Минимальная площадь — самая большая из подходящих надбавок minArea. Вид
     юнита нужен только при условии по видам: без макапа условие не сходится. */
  let min=0,minBy=null;
- if(valid){const kinds=salesUnitKinds(salesMakeupById(order||soDraft,line&&line.makeupId));
-  const mid=line&&line.makeupId;salesSurcharges(order||soDraft).forEach(x=>{const v=salesMinAreaFor(x,mid);if(x.rule.kind==='minArea'&&v>min&&salesSurchargeFits(x.rule,kinds,rounded)){min=v;minBy=x;}});}
+ if(valid){const kinds=salesUnitKinds(salesMakeupById(order,line&&line.makeupId));
+  const mid=line&&line.makeupId;salesSurcharges(order).forEach(x=>{const v=salesMinAreaFor(x,mid);if(x.rule.kind==='minArea'&&v>min&&salesSurchargeFits(x.rule,kinds,rounded)){min=v;minBy=x;}});}
  return {actual:actual,rounded:rounded,billable:valid?Math.max(rounded,min):null,minArea:valid&&min>rounded?{id:minBy.id,name:minBy.name,value:min}:null,perimeterIn:perimeterIn,width:w,height:h,roundedWidth:Math.ceil(w),roundedHeight:Math.ceil(h),valid:valid};
 }
 /* Центы: «ничья» в полцента (98.175 + 2.82 = 100.995) округляется вверх.
@@ -167,13 +169,13 @@ function salesApplyOrderCharges(subtotal,raw){
  return {charges:c,subtotal:base,energy:energy,hstBase:hstBase,hst:hst,cardBase:cardBase,card:card,delivery:delivery,skidDeposit:skidDeposit,grand:salesMoney(base+energy+hst+card+delivery+skidDeposit)};
 }
 function salesOrderCommercialTotals(order){
- order=order||soDraft;let subtotal=0,missing=0,qty=0;
+ order=salesOrderArg(order);let subtotal=0,missing=0,qty=0;
  /* Переделка NCR без оплаты: итог заказа $0, пока офис не снимет No charge. */
  if(order&&order.noCharge){(order.lines||[]).forEach(l=>{qty+=salesPositiveInt(l.qty,1);});const out=salesApplyOrderCharges(0,{});Object.keys(out).forEach(k=>{if(typeof out[k]==='number')out[k]=0;});out.complete=true;out.missing=0;out.qty=qty;out.noCharge=true;return out;}
  (order&&order.lines||[]).forEach(function(line){const p=salesLineCommercialPrice(line,order);qty+=p.qty;if(p.complete)subtotal+=p.exact;else missing++;});
  /* Позиции каталога — те же деньги, в тот же subtotal, без геометрии и без
     Makeup: у них попросту нет areas/services, которые считает p.complete выше. */
- (order&&order.extraItems||[]).forEach(function(x){const t=salesExtraItemLineTotal(x);qty+=salesPositiveInt(x.qty,1);if(t!=null)subtotal+=t;else missing++;});
+ (order&&order.extraItems||[]).forEach(function(x){const t=salesExtraItemLineTotal(x,order);qty+=salesPositiveInt(x.qty,1);if(t!=null)subtotal+=t;else missing++;});
  /* Отменённые юниты: клиент платит за сделанную работу (erp/sales/unit-cancel). */
  (order&&order.cancellations||[]).forEach(function(c){const v=unitChargeOf(c);if(v!=null)subtotal+=v;else missing++;});
  /* Поправки руками (normalizeSalesAdjustments). */
@@ -186,12 +188,12 @@ function salesOrderCommercialTotals(order){
    Свой минимум площади и суммы айтема поднимает счёт (выбор владельца
    22.10.2026), с пометкой в строке; ручная цена юнита всё равно главнее.
    Единица и минимумы замораживаются в заказе на Save, как цены. */
-function salesItemSaleRules(table,x,fallbackUnit){
+function salesItemSaleRules(table,x,fallbackUnit,order){
  if(!x)return {unit:fallbackUnit||'sqft',minArea:null,minCharge:null};
  const k=table+':'+x.id;
- return {unit:salesBook('unit:'+k,()=>mdUnitCode(x.salesUnit,fallbackUnit||'sqft'))||fallbackUnit||'sqft',
-  minArea:salesBook('minArea:'+k,()=>x.minAreaFt2==null?null:x.minAreaFt2),
-  minCharge:salesBook('minCharge:'+k,()=>x.minCharge==null?null:x.minCharge)};
+ return {unit:salesBook('unit:'+k,()=>mdUnitCode(x.salesUnit,fallbackUnit||'sqft'),order)||fallbackUnit||'sqft',
+  minArea:salesBook('minArea:'+k,()=>x.minAreaFt2==null?null:x.minAreaFt2,order),
+  minCharge:salesBook('minCharge:'+k,()=>x.minCharge==null?null:x.minCharge,order)};
 }
 const SALES_KG_PER_LB=0.45359237;
 /* Количество одного лайта в единице продажи. kg — вес этого айтема в лайте. */
@@ -208,14 +210,14 @@ function salesSaleQty(rules,areas,kg){
    меняются. Остальные — цена × своё количество, со своими минимумами. */
 function salesLineMaterials(m,areas,order){
  const out={total:0,amount:0,known:true,rows:[]};
- if(!m||!areas.valid)return Object.assign(out,salesMakeupUnitPrice(m),{amount:0});
+ if(!m||!areas.valid)return Object.assign(out,salesMakeupUnitPrice(m,order),{amount:0});
  let plain=0;const minParts=salesMinAreaParts(order,m,areas.rounded);
  /* Что именно продано — справочник и айтем, лайт, плита, слои плёнки (tag):
     по ним отчёт Products · sold (reports/facts-sold) делит продажи. */
  const add=(label,price,table,item,kg,fixedUnit,tag)=>{
   const ref=Object.assign({table:table||'',itemId:item&&item.id||''},tag);
   if(price==null){out.known=false;out.rows.push(Object.assign({label,price:null},ref));return;}
-  const rules=fixedUnit?{unit:fixedUnit,minArea:null,minCharge:null}:salesItemSaleRules(table,item);
+  const rules=fixedUnit?{unit:fixedUnit,minArea:null,minCharge:null}:salesItemSaleRules(table,item,undefined,order);
   /* Свой минимум материала в этом заказе (окно Surcharges → By makeup):
      площадь — от округлённой площади юнита, а не от минимума юнита; погонная —
      от своей длины. Остальные единицы (вес, штука) минимума не имеют. */
@@ -240,18 +242,18 @@ function salesLineMaterials(m,areas,order){
   if(p.category==='laminated'){
    if(p.priceOverride!=null)return add(label+' · laminated',p.priceOverride,'','',null,'sqft',{pane:i});
    const lam=p.laminated||{};
-   [lam.outer,lam.inner].forEach((ply,j)=>{const g=ply&&glassProductById(ply.glassProductId);add(label+(j?'b':'a')+(g?' · '+glassShortName(g):''),salesPlyPrice(ply),'glassProduct',g,glassKg(ply,g),null,{pane:i,ply:j?'inner':'outer'});});
+   [lam.outer,lam.inner].forEach((ply,j)=>{const g=ply&&glassProductById(ply.glassProductId);add(label+(j?'b':'a')+(g?' · '+glassShortName(g):''),salesPlyPrice(ply,order),'glassProduct',g,glassKg(ply,g),null,{pane:i,ply:j?'inner':'outer'});});
    (lam.interlayers||[]).forEach(f=>{
     const prod=mdById('interlayerProduct',f.productId),layers=salesInterlayerLayerCount(f.layers!=null?f.layers:2);
-    const price=f.priceOverride!=null?f.priceOverride:salesInterlayerSalePrice(f.productId);
-    const rules=salesItemSaleRules('interlayerProduct',prod),byWeight=rules.unit==='kg'||rules.unit==='lb';
+    const price=f.priceOverride!=null?f.priceOverride:salesInterlayerSalePrice(f.productId,order);
+    const rules=salesItemSaleRules('interlayerProduct',prod,undefined,order),byWeight=rules.unit==='kg'||rules.unit==='lb';
     const kg=()=>{const d=salesWeightRate('film:'+f.productId,order);return d!=null&&areas.actual!=null&&+f.thicknessMm>0?d*areas.actual*GLASS_M2_PER_FT2*f.thicknessMm/1000:null;};
     /* Плёнка за вес — вес всей плёнки; иначе цена × число слоёв, как раньше. */
     add(label+' · '+(prod?prod.name:'Interlayer')+(byWeight||layers===1?'':' × '+layers),price==null?null:byWeight?price:price*layers,'interlayerProduct',prod,kg,null,{pane:i,layers});
    });
   }else{
    const g=glassProductById(p.glassProductId);
-   add(label+(g?' · '+glassShortName(g):''),p.priceOverride!=null?p.priceOverride:salesPaneCatalogPrice(p),'glassProduct',g,glassKg(p,g),null,{pane:i});
+   add(label+(g?' · '+glassShortName(g):''),p.priceOverride!=null?p.priceOverride:salesPaneCatalogPrice(p,order),'glassProduct',g,glassKg(p,g),null,{pane:i});
   }
  });
  /* Обвязка — по частям рецепта; ручная ставка камеры — одна строка за ft². */
@@ -260,7 +262,7 @@ function salesLineMaterials(m,areas,order){
   const at=out.rows.length;
   if(c.priceOverride!=null)add('Surround · cavity '+(i+1),c.priceOverride,'','',null,'sqft');
   else{const parts=surroundCavityParts(c,geo,order).parts;if(!parts.length)add('Surround · cavity '+(i+1),null);
-   parts.forEach(x=>add('Cavity '+(i+1)+' · '+x.label,salesSurroundPartPrice(x),x.table,x.item,()=>x.usedKg));}
+   parts.forEach(x=>add('Cavity '+(i+1)+' · '+x.label,salesSurroundPartPrice(x,order),x.table,x.item,()=>x.usedKg));}
   for(let k=at;k<out.rows.length;k++)out.rows[k].cavity=i;
  });
  out.amount=salesExact(out.amount+plain*areas.billable);
@@ -282,12 +284,12 @@ function salesItemSizeWarnings(order){
  const out=[];(order&&order.lines||[]).forEach((line,i)=>salesItemSizeProblems(line,order).forEach(t=>out.push('Line '+(i+1)+(line.mark?' ('+line.mark+')':'')+' · '+t)));return out;
 }
 function salesLineCommercialPrice(line,order){
- order=order||soDraft;
+ order=salesOrderArg(order);
  return readLine('price',line,order,()=>salesLinePriceLive(line,order));
 }
 function salesLinePriceLive(line,order){
  const areas=salesLineAreas(line,order),m=salesMakeupById(order,line.makeupId),q=salesPositiveInt(line.qty,1),live=Math.max(0,q-unitCancelled(line));
- const rate=salesLineMaterials(m,areas,order),services=salesLinePricingSummary(line),materials=areas.valid?rate.amount:0;
+ const rate=salesLineMaterials(m,areas,order),services=salesLinePricingSummary(line,order),materials=areas.valid?rate.amount:0;
  const base=salesExact(materials+services.total/q);
  const unsupportedCurrency=!!(order.currency&&order.currency!=='CAD');
  const incomplete=!areas.valid||!m||!rate.known||services.unpriced>0||unsupportedCurrency;
@@ -312,7 +314,7 @@ function salesLineCommercialAdjustments(line,order){
  return price.adjustments.map(a=>({key:a.key,label:a.label,percent:a.percent,rule:a.rule,catalog:a.catalog,base:price.complete?a.base:null,unitAmount:price.complete?a.amount:null,qty:price.qty,lineAmount:price.complete?salesMoney(a.amount*price.qty):null,complete:price.complete}));
 }
 function salesOrderCommercialAdjustments(order){
- order=order||soDraft;
+ order=salesOrderArg(order);
  const groups=Object.create(null);
  (order&&order.lines||[]).forEach((line,lineIndex)=>salesLineCommercialAdjustments(line,order).forEach(a=>{
   if(!groups[a.key])groups[a.key]={key:a.key,label:a.label,percent:a.percent,rule:a.rule,lines:0,qty:0,total:0,incomplete:0,entries:[]};
@@ -359,7 +361,7 @@ function salesLineLiteGeo(line,order){
  return salesWeightLiteGeo(shape&&m?salesEffectiveCuttingPlan(line,shape,order):null);
 }
 function salesLineWeight(line,order,productionPlan){
- order=order||soDraft;
+ order=salesOrderArg(order);
  return productionPlan?salesLineWeightLive(line,order,productionPlan):readLine('weight',line,order,()=>salesLineWeightLive(line,order));
 }
 function salesLineWeightLive(line,order,productionPlan){
@@ -435,7 +437,7 @@ function salesLineWeightLive(line,order,productionPlan){
    все нормы есть; estimated — где-то номинальная толщина вместо фактической.
    Qty — заказанное (отгрузки, сканы и Recut вес заказа не меняют). */
 function salesOrderWeight(order){
- order=order||soDraft;
+ order=salesOrderArg(order);
  if(!order)return {kg:null,complete:false,estimated:false,partial:false,gaps:[]};
  const lines=order&&order.lines||[],gaps=new Map();let kg=0,counted=0,estimated=false,complete=lines.length>0;
  lines.forEach((l,i)=>{

@@ -20,7 +20,7 @@ module.exports=async function({page,eq,ok}){
   const arris=DB.station.find(s=>s.code==='SEAM'),parallel=[...document.querySelectorAll('[data-sf-station]')].filter(tr=>tr.textContent.includes('parallel')).map(tr=>tr.dataset.sfStation).join();
   const step=document.querySelector('[data-md-st="SEAM"]').closest('.md-st-step').querySelectorAll('[data-md-st]').length;
   mdSetTab('works');mdCatKind='serviceRate';mdCatEditRow('roughArris');render();document.getElementById('md_catStation').value='SEAM';mdCatSave();
-  const after=stationRouteOf(stationGlass(g)).codes.join('>'),sticker=finWithOrder(salesRecord(id),()=>{const o=salesRecord(id),l=o.lines[0];return stkRoute(o,l,glassBatchComponents(o,l)[0]).codes.join('>');});
+  const after=stationRouteOf(stationGlass(g)).codes.join('>'),sticker=(()=>{const o=salesRecord(id),l=o.lines[0];return stkRoute(o,l,glassBatchComponents(o,l)[0]).codes.join('>');})();
   mdSetTab('stations');const inp=document.querySelector('[data-sf-step="SEAM"]');inp.value='40';inp.dispatchEvent(new Event('change'));
   const moved=DB.station.map(s=>s.code).indexOf('SEAM')>DB.station.map(s=>s.code).indexOf('SHIP');
   document.querySelector('[data-sf-step="SEAM"]').value=String(edgeStep);document.querySelector('[data-sf-step="SEAM"]').dispatchEvent(new Event('change'));

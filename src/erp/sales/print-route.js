@@ -295,7 +295,7 @@ function salesRouteAppendMerge(lites,merge,work){
   return lites;
 }
 function salesPrintRoute(line,order,shape,result){
-  order=order||(typeof soDraft!=='undefined'?soDraft:null);
+  order=salesOrderArg(order);
   var lites=[],merge='';
   var mk=(line&&order&&typeof salesMakeupById==='function')?salesMakeupById(order,line.makeupId):null;
   if(mk&&typeof salesEffectiveProductionSnapshot==='function'){

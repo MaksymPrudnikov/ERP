@@ -56,7 +56,7 @@ function salesMeasureSig(line,order){
 /* Расчёт по фигуре — то, что записывается. */
 function salesMeasureLive(line,order){
  salesMeasureOff++;
- try{return finWithOrder(order,()=>({rows:salesLineChargeRowsRaw(line),areas:salesLineAreas(line,order),lites:salesLineLiteGeo(line,order)}));}
+ try{return {rows:salesLineChargeRowsRaw(line,undefined,order),areas:salesLineAreas(line,order),lites:salesLineLiteGeo(line,order)};}
  finally{salesMeasureOff--;}
 }
 /* pre — посчитанное заранее Save в фоне (erp/sales/save-job): строка с тем же

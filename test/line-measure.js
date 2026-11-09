@@ -5,7 +5,7 @@ module.exports=async function({page,eq}){
  console.log('line measure');const t=await page();
  await require('./optimization-fixture')(t.p);
  await t.p.evaluate(()=>{
-  window.lmTotal=id=>finWithOrder(salesRecord(id),()=>salesOrderCommercialTotals(salesRecord(id)));
+  window.lmTotal=id=>(salesOrderCommercialTotals(salesRecord(id)));
   window.lmLive=id=>{salesMeasureOff++;try{return lmTotal(id);}finally{salesMeasureOff--;}};
   /* Расчёты фигуры за fn; сверка тестов (GF_SCOPE_CHECK) сама считает по фигуре — на это время выключена. */
   window.lmShapeCalls=fn=>{let n=0;const f=ShapeModule.compute,was=window.GF_SCOPE_CHECK;window.GF_SCOPE_CHECK=false;ShapeModule.compute=function(){n++;return f.apply(this,arguments);};try{fn();}finally{ShapeModule.compute=f;window.GF_SCOPE_CHECK=was;}return n;};

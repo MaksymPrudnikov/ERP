@@ -19,7 +19,7 @@ module.exports=async function({page,eq,ok}){
   };
   window.ucHeat=function(){return salesRouteStationOf('tempering','HEAT');};
   window.ucAfter=function(station){const codes=stationRouteOf(stationGlass(ucSlot(1)[0])).codes;return codes[codes.indexOf(station)+1];};
-  window.ucPrice=function(){return finWithOrder(ucO(),()=>salesLineCommercialPrice(ucL(),ucO()));};
+  window.ucPrice=function(){return (salesLineCommercialPrice(ucL(),ucO()));};
  });
  eq('Units are picked in the owner order: not cut, then cut, then tempered, assembled last',await t.p.evaluate(()=>{
   ucOrder(4);ucMove(2,ucAfter('CUT'));ucMove(3,ucAfter(ucHeat()));ucMove(4,shippingStations().ready);
@@ -46,7 +46,7 @@ module.exports=async function({page,eq,ok}){
   ucOrder(4);ucMove(2,ucAfter('CUT'));ucMove(3,ucAfter(ucHeat()));ucMove(4,shippingStations().ready);
   const o=ucO(),l=ucL(),p=ucPrice(),m=salesMakeupById(o,l.makeupId),g=glassProductById(m.panes[0].glassProductId),area=p.areas.billable,now=new Date().toISOString();
   const plan=unitCancelPlan(o,l,4,now).units,pane=m.panes[0].priceOverride,annealed=Math.min(g.salePriceAnnealed,pane);
-  const works=share=>finWithOrder(o,()=>salesLineChargeRows(l).reduce((n,row)=>n+row.basis*salesChargePricingState(l,row).effectiveRate*share(unitRowStation(row)),0));
+  const works=share=>(salesLineChargeRows(l,o).reduce((n,row)=>n+row.basis*salesChargePricingState(l,row,o).effectiveRate*share(unitRowStation(row)),0));
   const passedCut=st=>st&&st==='CUT'?1:0,cut=salesMoney(2*annealed*area+works(passedCut));
   return {stages:plan.map(u=>u.stage),uncut:plan[0].charge,cut:plan[1].charge===cut&&plan[1].glass===salesMoney(2*annealed*area),temperedGlass:plan[2].glass===salesMoney(2*pane*area),temperedBelowFull:plan[2].charge<p.unit&&plan[2].charge>plan[1].charge,noCavity:salesMoney(p.unit-plan[2].charge)>=salesMoney(m.cavities[0].priceOverride*area),assembled:plan[3].charge===p.unit};
  }),{stages:['uncut','cut','tempered','assembled'],uncut:0,cut:true,temperedGlass:true,temperedBelowFull:true,noCavity:true,assembled:true});
@@ -63,7 +63,7 @@ module.exports=async function({page,eq,ok}){
   return {ok:out.ok,charge:out.value.charge,released:before-live,history:batch.history.at(-1).action,status:o.status,locked:salesLineLocked(l),queue:glassBatchRows([o]).length,remaining:glassBatchRemaining(o,l),kind:check.kind,unit:check.unit,other,waiting:(stationWaiting().get('CUT')||[]).length,ordered:shippingSummary(o).ordered};
  }),{ok:true,charge:0,released:2,history:'Cancelled',status:'batched',locked:true,queue:0,remaining:0,kind:'cancelled',unit:true,other:'ok',waiting:4,ordered:2});
  eq('Order total and balance: remaining units at the unit price plus the charge for the work done; the seller can change the charge',await t.p.evaluate(()=>{
-  ucOrder(3);[1,2,3].forEach(n=>ucMove(n,ucAfter('CUT')));const o=ucO(),l=ucL(),unit=ucPrice().unit,totals=()=>finWithOrder(o,()=>salesOrderCommercialTotals(o)),before=totals().subtotal;
+  ucOrder(3);[1,2,3].forEach(n=>ucMove(n,ucAfter('CUT')));const o=ucO(),l=ucL(),unit=ucPrice().unit,totals=()=>(salesOrderCommercialTotals(o)),before=totals().subtotal;
   const rec=unitCancel(ucId,l.id,1,'Not needed',{}).value,p=ucPrice(),t=totals(),bal=finOrderBalance(o);
   const set=unitSetCharge(ucId,rec.id,'10'),t2=totals(),bad=unitSetCharge(ucId,rec.id,'-1').error;unitSetCharge(ucId,rec.id,'');
   return {before:before===salesMoney(unit*3),qty:[p.qty,p.ordered,p.cancelled],line:p.line===salesMoney(unit*2),charge:rec.charge>0&&rec.units[0].stage==='cut',subtotal:t.subtotal===salesMoney(unit*2+rec.charge),balance:bal.total===t.grand,override:set.ok&&t2.subtotal===salesMoney(unit*2+10),bad,back:totals().subtotal===t.subtotal};
@@ -106,6 +106,6 @@ module.exports=async function({page,eq,ok}){
   return {third,cancelled:ucL().cancelledUnits,held:'heldUnits' in ucL(),strip:e&&e.textContent.replace(/\s+/g,' ').includes('Cancelled 3 units')&&e.textContent.includes('customer takes'),charge:+e.querySelector('input').value===rec.charge&&rec.charge>0,glass:rec.units.map(u=>u.glass),qty:[p.qty,p.ordered],draft:soDraft.cancellations.length,status:o.status};
  },third),{third:{rows:['uncut','uncut','cut'],glass:true,paid:true},cancelled:3,held:false,strip:true,charge:true,glass:['','','customer'],qty:[1,4],draft:1,status:'batched'});
  await t.p.getByLabel('Cancellation charge').fill('25');await t.p.getByLabel('Cancellation charge').press('Tab');
- eq('The seller changes the charge in the strip and the order total follows',await t.p.evaluate(()=>{const o=ucO(),t=finWithOrder(o,()=>salesOrderCommercialTotals(o));return {override:o.cancellations[0].chargeOverride,subtotal:t.subtotal===salesMoney(ucPrice().unit+25),log:DB.orderEvent.filter(e=>e.what==='Units cancelled'||e.what==='Cancellation charge').map(e=>e.what)};}),{override:25,subtotal:true,log:['Units cancelled','Cancellation charge']});
+ eq('The seller changes the charge in the strip and the order total follows',await t.p.evaluate(()=>{const o=ucO(),t=(salesOrderCommercialTotals(o));return {override:o.cancellations[0].chargeOverride,subtotal:t.subtotal===salesMoney(ucPrice().unit+25),log:DB.orderEvent.filter(e=>e.what==='Units cancelled'||e.what==='Cancellation charge').map(e=>e.what)};}),{override:25,subtotal:true,log:['Units cancelled','Cancellation charge']});
  eq('Unit cancel browser errors',t.errs,[]);await t.c.close();
 };

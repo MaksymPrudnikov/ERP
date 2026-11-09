@@ -37,12 +37,14 @@ function readMemo(key,sources,build){
 /* Посчитанное по строке заказа — один раз за отрисовку: цену строки спрашивали
    каждая колонка, каждый итог внизу и каждый счётчик, 12 расчётов на строку
    (заказ на 521 строку — 1,6 с на клик, 2.11.2026). Save считает мимо: он
-   записывает прайс заказа по ходу расчёта. */
+   записывает прайс заказа по ходу расчёта. Ключ — строка и её заказ: расчёт
+   получает заказ параметром (этап 4 плана «до 10»), открытый в Sales ему не
+   нужен. */
 function readLine(key,line,order,build){
  if(!readOn()||!line||salesBookRec||salesMeasureOff)return build();
  const memo=readMemo('line:'+key,[],()=>new WeakMap()),hit=memo.get(line);
- if(hit&&hit.order===order&&hit.draft===soDraft)return hit.value;
- const value=build();memo.set(line,{order,draft:soDraft,value});return value;
+ if(hit&&hit.order===order)return hit.value;
+ const value=build();memo.set(line,{order,value});return value;
 }
 /* Чистое чтение посреди действия (документ PS, проверка выбора): свои
    указатели на время fn. Внутри fn база не меняется — указатели не соврут;

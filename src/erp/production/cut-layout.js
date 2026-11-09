@@ -146,7 +146,7 @@ function cutPieces(batch,settings){
   /* Стекло Recut со своим чертежом режется по нему (erp/quality/recut). */
   const geo=typeof glassRecutLine==='function'?glassRecutLine(o,l,item.unit):l;
   let plan=plans.get(geo);
-  if(!plan){plan=finWithOrder(o,()=>{try{return salesEffectiveCuttingPlan(geo,salesLineGeometryShape(geo),o);}catch(e){return {valid:false};}});plans.set(geo,plan);}
+  if(!plan){try{plan=salesEffectiveCuttingPlan(geo,salesLineGeometryShape(geo),o);}catch(e){plan={valid:false};}plans.set(geo,plan);}
   const lite=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index);if(!lite||!(+lite.cutW>0)||!(+lite.cutH>0))return;
   /* Стекло из прошлого батча режется первым: приоритет 10, пока его не
      поменяли руками (владелец, 5 октября 2026: «дата выполнения ближе»). */

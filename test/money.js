@@ -8,14 +8,14 @@ module.exports=async function({page,eq}){
  await t.p.evaluate(()=>{
   window.mnOrder=status=>{oqReset();const id=oqOrder(oqCustomer());soDraft=null;soEdit=null;if(status)oqThrough(id,status);tab='sales';salesOrderEdit(id);return id;};
   window.mnLog=(id,what)=>DB.orderEvent.filter(e=>e.orderId===id&&e.what===what).map(e=>e.note);
-  window.mnDoc=(kind,id)=>{const o=salesRecord(id);return finWithOrder(o,()=>docBuildModel(kind,o));};
+  window.mnDoc=(kind,id)=>{const o=salesRecord(id);return (docBuildModel(kind,o));};
  });
 
  eq('строка в батче: цена открыта, Price by hand 199.99 сохраняется Update; итог, документ клиента без разбивки, журнал',await t.p.evaluate(()=>{
   const id=mnOrder('batched'),cell=document.querySelector('td[data-metric="unitPrice"]'),inert=!!cell.closest('[inert]');
   const before=finOrderTotals(salesRecord(id)).subtotal,calc=salesLineCommercialPrice(salesRecord(id).lines[0],salesRecord(id)).unit;
   cell.querySelector('button').click();const input=document.querySelector('[data-price-manual-input]');input.value='199.99';input.dispatchEvent(new Event('change'));
-  const saved=salesOrderSave(),o=salesRecord(id),p=finWithOrder(o,()=>salesLineCommercialPrice(o.lines[0],o)),doc=mnDoc('confirmation',id).items[0];
+  const saved=salesOrderSave(),o=salesRecord(id),p=(salesLineCommercialPrice(o.lines[0],o)),doc=mnDoc('confirmation',id).items[0];
   return {inert,saved,locked:salesLineLocked(o.lines[0]),unit:p.unit,line:p.line,manual:p.manual,calc:p.computedUnit===calc,
    sub:finOrderTotals(o).subtotal===Math.round((before-calc*2+399.98)*100)/100,doc:[doc.amount,doc.groups.length,doc.unitRow.map(x=>x.value).join(' ')],
    hand:!!document.querySelector('td[data-metric="unitPrice"] .metric-hand'),log:mnLog(id,'Price by hand')};

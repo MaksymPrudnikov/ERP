@@ -109,8 +109,9 @@ function docIncompleteReason(p){
 }
 /* Step Unit клиент не видит, пока его ставка 0 (владелец, 20.10.2026): в ERP,
    на станции и на чертеже он виден всегда, с ценой появится в документах сам. */
-function docServiceRows(line,qty=1){
- return salesLineChargeRows(line).map(row=>{const st=salesChargePricingState(line,row);return {key:row.key,label:row.label,basis:row.basis,unit:row.unit,rate:st.effectiveRate,value:st.effectiveRate==null?null:salesCents(salesChargeUnitAmount(row,st.effectiveRate)*qty)};})
+function docServiceRows(line,qty,order){
+ qty=qty===undefined?1:qty;
+ return salesLineChargeRows(line,order).map(row=>{const st=salesChargePricingState(line,row,order);return {key:row.key,label:row.label,basis:row.basis,unit:row.unit,rate:st.effectiveRate,value:st.effectiveRate==null?null:salesCents(salesChargeUnitAmount(row,st.effectiveRate)*qty)};})
   .filter(r=>!(r.key==='SURCHARGE:step-unit'&&r.rate===0));
 }
 function docLineRoute(line,order){
@@ -172,7 +173,7 @@ function docSaleItem(model,line,index,order){
  if(bits.length)it.sub.push({text:bits.join(' · ')});
  docItemDetails(it,opts,line,m,order);
  if(!p.complete&&mode!=='none')it.sub.push({text:'Pricing incomplete — '+docIncompleteReason(p),tone:'warn'});
- const services=docServiceRows(line,q),names=services.map(s=>s.label).join(', ');
+ const services=docServiceRows(line,q,order),names=services.map(s=>s.label).join(', ');
  const adj=x=>fmt({desc:x.label,basis:docMoney(x.base*q),rate:'+'+x.percent+'%',value:p.complete?salesCents(x.amount*q):null,tone:'adj'});
  const fmt=r=>({desc:r.desc,basis:opts.basisRate?r.basis||'':'',rate:opts.basisRate?r.rate||'':'',amount:r.value==null?(r.required?'Rate required':''):docMoney(r.value),tone:r.tone||''});
  /* Цена руками — без разбивки: итог юнита не сложить из материалов и работ. */
@@ -180,15 +181,15 @@ function docSaleItem(model,line,index,order){
  else if(mode==='full'){
   const mat=[],svc=[];
   (m?m.panes:[]).forEach((pn,i)=>{
-   const rate=pn.priceOverride!=null?pn.priceOverride:salesPaneCatalogPrice(pn),heat=docHeatName(pn.category==='laminated'?(pn.laminated||{}).outer:pn);
+   const rate=pn.priceOverride!=null?pn.priceOverride:salesPaneCatalogPrice(pn,order),heat=docHeatName(pn.category==='laminated'?(pn.laminated||{}).outer:pn);
    mat.push({desc:'Lite '+(i+1)+' · '+docPaneName(pn)+(heat?' · '+heat:''),basis:areaAll,rate:rate==null?'':docMoney(rate),value:rate==null||!a.valid?null:salesCents(rate*a.billable*q),required:rate==null});
   });
   (m?m.cavities:[]).forEach((c,i)=>{
    /* Обвязка по частям рецепта: сумма частей этой камеры, в том числе за
       дюйм периметра или штуку (erp/masterdata/surround). */
-   const rate=c.priceOverride!=null?c.priceOverride:salesCavityCatalogPrice(c),parts=(p.materialRows||[]).filter(r=>r.cavity===i);
+   const rate=c.priceOverride!=null?c.priceOverride:salesCavityCatalogPrice(c,order),parts=(p.materialRows||[]).filter(r=>r.cavity===i);
    const value=!a.valid||parts.some(r=>r.amount==null)?null:salesCents(parts.reduce((n,r)=>n+r.amount,0)*q);
-   mat.push({desc:'Cavity '+(i+1)+' · '+docCavityText(c),basis:areaAll,rate:rate==null?'':docMoney(rate)+(salesCavityOtherUnits(c)?' +':''),value:value,required:value==null});
+   mat.push({desc:'Cavity '+(i+1)+' · '+docCavityText(c),basis:areaAll,rate:rate==null?'':docMoney(rate)+(salesCavityOtherUnits(c,order)?' +':''),value:value,required:value==null});
   });
   services.forEach(s=>svc.push({desc:s.label,basis:docBasis(s.basis*q,s.unit),rate:s.rate==null?'':docMoney(s.rate),value:s.value,required:s.rate==null}));
   if(mat.length)it.groups.push({label:'Materials',rows:mat.map(fmt)});
@@ -217,7 +218,7 @@ function docItemBase(opts,line,index,m,q){
   size:opts.size?docSize(line):'',qty:'Qty '+q,amount:null,info:'',sub:[],full:[],drawing:null,groups:[],note:'',unitRow:null,lites:[],cavities:[]};
 }
 function docItemDetails(it,opts,line,m,order){
- if(opts.thickness&&m){const mm=salesMakeupThicknessMm(m);if(mm)it.sub.push({text:'Unit thickness '+docNum(mm,1)+' mm'});}
+ if(opts.thickness&&m){const mm=salesMakeupThicknessMm(m,order);if(mm)it.sub.push({text:'Unit thickness '+docNum(mm,1)+' mm'});}
  if(opts.makeupFull&&m)it.full=docMakeupFullLines(m,opts);
  if(opts.shapeDrawing)it.drawing=docLineDrawing(line,order);
 }
@@ -340,7 +341,7 @@ function docDateWeek(v){
 
 /* ------------------------------ Бланк ------------------------------- */
 function docBuildModel(kind,order,opts){
- order=order||soDraft;opts=Object.assign(docBaseOptions(kind),opts||{},{glassNames:kind==='workOrder'?'short':'name'});
+ order=salesOrderArg(order);opts=Object.assign(docBaseOptions(kind),opts||{},{glassNames:kind==='workOrder'?'short':'name'});
  const sale=kind!=='workOrder',mode=sale?opts.priceMode:'none',C=salesFindCustomer(order.customerId),company=DB.company||{};
  const number=order.businessNumber||'Draft',docName=docKindLabel(kind),terms=finTermsFor(order);
  const model={kind,sale,mode,opts,title:DOC_TITLES[kind],docName,number,customerName:C?(C.legalName||C.displayName):'',po:order.customerPo||'',
@@ -386,7 +387,7 @@ function docBuildModel(kind,order,opts){
  (order.lines||[]).forEach((l,i)=>model.items.push(sale?docSaleItem(model,l,i,order):docShopItem(model,l,i,order)));
  if(opts.extraItems&&(order.extraItems||[]).length){
   const priced=sale&&mode!=='none';
-  model.extra={title:sale?'Additional items':'From stock',rows:order.extraItems.map(x=>{const total=salesExtraItemLineTotal(x),unit=salesExtraItemUnitPrice(x);
+  model.extra={title:sale?'Additional items':'From stock',rows:order.extraItems.map(x=>{const total=salesExtraItemLineTotal(x,order),unit=salesExtraItemUnitPrice(x,order);
    return {name:salesExtraItemName(x),qty:'Qty '+salesPositiveInt(x.qty,1),rate:priced&&unit!=null?docMoney(unit):'',amount:priced?(total==null?'Rate required':docMoney(total)):''};})};
  }
  /* Поправки руками — строками, как товар (normalizeSalesAdjustments). */
@@ -419,7 +420,7 @@ function docBuildModel(kind,order,opts){
    if(opts.groupTotals||mode==='glass'){
     const g={glass:0,services:0,surcharges:0,extra:0};
     (order.lines||[]).forEach(l=>{const p=salesLineCommercialPrice(l,order);if(!p.complete)return;const gl=p.manual?p.line:salesMoney(p.materials*p.qty),su=p.manual?0:salesMoney((p.unit-p.base)*p.qty);g.glass+=gl;g.surcharges+=su;g.services+=salesMoney(p.line-gl-su);});
-    (order.extraItems||[]).forEach(x=>{const v=salesExtraItemLineTotal(x);if(v!=null)g.extra+=v;});
+    (order.extraItems||[]).forEach(x=>{const v=salesExtraItemLineTotal(x,order);if(v!=null)g.extra+=v;});
     (order.adjustments||[]).forEach(a=>{g.extra+=+a.amount||0;});
     rows.push({label:'Glass & IGU',value:money(salesMoney(g.glass))},{label:'Services and processing',value:money(salesMoney(g.services))});
     if(g.surcharges)rows.push({label:'Surcharges',value:money(salesMoney(g.surcharges))});

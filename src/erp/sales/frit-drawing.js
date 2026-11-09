@@ -6,7 +6,7 @@ const SALES_FRIT_PATTERNS={
  '2 x 4 diamond':{dx:4,dy:2,stag:true}
 };
 function salesFritDrawingSpecs(shape){
- var line=salesSheetLineOf(shape),mk=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null,out=[];
+ var line=salesSheetLineOf(shape),order=salesSheetOrder(),mk=line&&order?salesMakeupById(order,line.makeupId):null,out=[];
  var only=typeof salesBridge!=='undefined'&&salesBridge&&salesBridge.liteIndex!=null?salesBridge.liteIndex:null;
  (mk&&mk.panes||[]).forEach(function(p,i){
   if(only!=null&&only!==i)return;

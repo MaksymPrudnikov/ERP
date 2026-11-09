@@ -58,7 +58,7 @@ module.exports=async function({page,eq,ok}){
   plfDraft(c);soDraft.makeups[0].cavities.forEach(x=>{x.priceOverride=3;});salesOrderSave();const id=soDraft.id;salesDraftDrop(true);
   const o=salesRecord(id),out={book:o.priceBook[k],from:priceListName(o.priceFrom[k])};
   mine.rows[0].price=12;touch();
-  out.kept=finWithOrder(salesRecord(id),()=>salesPaneCatalogPrice(salesRecord(id).makeups[0].panes[0]));
+  out.kept=salesPaneCatalogPrice(salesRecord(id).makeups[0].panes[0],salesRecord(id));
   salesOrderEdit(id);soDraft.makeups[0].panes[1].priceOverride=4.4;salesUpdatePrices();
   out.updated=salesPaneCatalogPrice(soDraft.makeups[0].panes[0]);out.manual=soDraft.makeups[0].panes[1].priceOverride;
   salesOrderSave();out.saved=salesRecord(id).priceBook[k];salesDraftDrop(true);

@@ -35,9 +35,9 @@ module.exports=async function({page,eq}){
 
  eq('Save замораживает единицу и минимум; правка карточки не меняет сохранённый заказ',await t.p.evaluate(()=>{
   const g=suReset();g.salesUnit='each';g.minCharge=100;const l=suDraft();salesOrderSave();const id=soDraft.id,before=salesRecord(id).priceBook;salesDraftDrop(true);
-  const was=finWithOrder(salesRecord(id),()=>suMat(salesRecord(id).lines[0]));
+  const was=salesLineCommercialPrice(salesRecord(id).lines[0],salesRecord(id)).materials;
   g.salesUnit='sqft';g.minCharge=null;touch();
-  const now=finWithOrder(salesRecord(id),()=>suMat(salesRecord(id).lines[0]));
+  const now=salesLineCommercialPrice(salesRecord(id).lines[0],salesRecord(id)).materials;
   return {unit:before['unit:glassProduct:'+g.id],min:before['minCharge:glassProduct:'+g.id],same:was===now};
  }),{unit:'each',min:100,same:true});
 

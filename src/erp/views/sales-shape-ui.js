@@ -1330,7 +1330,7 @@ function shapeDrawnProductionSvg(result,interactive,extra){
      step-unit). На вкладке одного лайта и на листе стекла (noStep — лист
      стекла размером с форму) — без пунктира. */
   if(!metricOpts.lite&&!metricOpts.noStep&&sEdgeLite==null&&typeof salesShapeStepInfo==='function'){
-    var stepLine=shapeBridgeLine(),stepInfo=stepLine?salesShapeStepInfo(sDraft||result.definition,stepLine,soDraft):null;
+    var stepLine=shapeBridgeLine(),stepInfo=stepLine?salesShapeStepInfo(sDraft||result.definition,stepLine,salesSheetOrder()):null;
     if(stepInfo&&stepInfo.step)metricOpts.step=salesStepDrawingData(stepInfo,shapeEdgeNames(result.geometry));
   }
   var svg=ShapeModule.productionSvg(result,metricOpts),T=shapeDrawnPreviewTransform(result,extra);if(!T)return svg;
@@ -1830,7 +1830,7 @@ function shapeSheetSvgBody(r,cutting,extra){
 var sPrintMenu=false;
 function shapeStepPrintLites(){
   if(sView==='cutting'||typeof salesShapeStepInfo!=='function'||(typeof salesBridge!=='undefined'&&salesBridge&&salesBridge.liteIndex!=null))return [];
-  var line=shapeBridgeLine(),info=line&&sDraft?salesShapeStepInfo(sDraft,line,soDraft):null;
+  var line=shapeBridgeLine(),info=line&&sDraft?salesShapeStepInfo(sDraft,line,salesSheetOrder()):null;
   return info&&info.step?info.lites.map(function(l){return l.index;}):[];
 }
 function shapePrintButtonHTML(){
@@ -1847,7 +1847,7 @@ function shapePrintDrawing(which){
   var kind=cutting?(r.externalFile?'CUTTING DXF':'CUTTING SHAPE'):'PRODUCTION DRAWING';
   var unit=salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,cutting),kind);
   if(which==null||which==='unit'||cutting){printSheet(unit,'',salesSheetFitDrawing);return;}
-  var line=shapeBridgeLine(),step=line?salesShapeStepInfo(sDraft,line,soDraft):null;
+  var line=shapeBridgeLine(),step=line?salesShapeStepInfo(sDraft,line,salesSheetOrder()):null;
   var idx=which==='all'?shapeStepPrintLites():[+which];
   var sheets=idx.map(function(i){return salesStepLiteSheet(r,line,i,step);}).filter(function(x){return x&&x.html;}).map(function(x){return x.html;});
   printSheet((which==='all'?[unit]:[]).concat(sheets),'',salesSheetFitDrawing);
@@ -2066,9 +2066,10 @@ function setShapeOpParam(groupIndex,type,k,v){var op=shapeOperationAt(groupIndex
    вкладку при открытии формы из строки заказа. */
 var sEdgeLite=null;
 function shapeEditorLites(){
-  if(!salesBridge||salesBridge.kind!=='shape'||typeof soDraft==='undefined'||!soDraft)return [];
-  var line=(soDraft.lines||[]).find(function(l){return l.id===salesBridge.lineId;});
-  return line?salesLineLites(line).map(function(l){return {index:l.index,label:l.label,mm:l.thicknessMm,laminated:l.laminated};}):[];
+  var order=salesSheetOrder();
+  if(!salesBridge||salesBridge.kind!=='shape'||!order)return [];
+  var line=(order.lines||[]).find(function(l){return l.id===salesBridge.lineId;});
+  return line?salesLineLites(line,order).map(function(l){return {index:l.index,label:l.label,mm:l.thicknessMm,laminated:l.laminated};}):[];
 }
 /* Есть ли под этой вкладкой склейка. Полировка склеенной кромки предлагается
    только там, где склеивать есть что: на вкладке конкретного лайта — по нему,
@@ -2102,10 +2103,11 @@ function setShapeLiteInset(groupIndex,value){
    база номер один и её перекрывает; подсказка показывает, что применится,
    если тут не трогать ничего. */
 function shapeBaseEdgeworkHint(has){
-  if(!salesBridge||salesBridge.kind!=='shape'||typeof soDraft==='undefined'||!soDraft)return '';
+  var order=salesSheetOrder();
+  if(!salesBridge||salesBridge.kind!=='shape'||!order)return '';
   if(SHAPE_PRIMARY_FINISHES.some(function(t){return has(t);}))return '';
-  var line=(soDraft.lines||[]).find(function(l){return l.id===salesBridge.lineId;});
-  var kind=line?salesLineBaseEdgeworkKind(line):'';
+  var line=(order.lines||[]).find(function(l){return l.id===salesBridge.lineId;});
+  var kind=line?salesLineBaseEdgeworkKind(line,order):'';
   return kind?`<small class='shape-edge-base' title='${esc(glassBaseEdgeworkLabel(kind))}'><span>from glass</span> <span data-raw>${esc(kind==='polish'?'Flat':'Rough')}</span></small>`:'';
 }
 /* Вкладки лайтов: «Все лайты» правит общую обработку формы, вкладка лайта —
@@ -2115,8 +2117,9 @@ function shapeBaseEdgeworkHint(has){
 /* Строка заказа под редактором; у чертежа Recut — вид строки с его формами
    (erp/quality/recut). */
 function shapeBridgeLine(){
-  if(typeof soDraft==='undefined'||!soDraft||typeof salesBridge==='undefined'||!salesBridge||salesBridge.kind!=='shape')return null;
-  var line=(soDraft.lines||[]).find(function(l){return l.id===salesBridge.lineId;})||null;
+  var order=salesSheetOrder();
+  if(!order||typeof salesBridge==='undefined'||!salesBridge||salesBridge.kind!=='shape')return null;
+  var line=(order.lines||[]).find(function(l){return l.id===salesBridge.lineId;})||null;
   var rc=line&&salesBridge.recutId&&typeof recutFind==='function'?recutFind(salesBridge.recutId):null;
   return rc?recutLine(rc,line):line;
 }
@@ -2124,7 +2127,7 @@ function shapeBridgeLine(){
    строки заказа, по которому порезали с ошибкой. */
 function shapeRecutBanner(){
   var rc=salesBridge&&salesBridge.kind==='shape'&&salesBridge.recutId&&typeof recutFind==='function'?recutFind(salesBridge.recutId):null;if(!rc)return '';
-  var line=typeof soDraft!=='undefined'&&soDraft?(soDraft.lines||[]).find(function(l){return l.id===rc.lineId;}):null;
+  var order=salesSheetOrder(),line=order?(order.lines||[]).find(function(l){return l.id===rc.lineId;}):null;
   var was=line?dimIn16(line.width16/16)+' × '+dimIn16(line.height16/16):'';
   return `<div class='shape-recut-band' data-shape-recut-band>${esc(['RECUT '+rc.no,'Line '+rc.line,ncrWhereLabel(rc),rc.reason,was?'Was '+was:''].filter(Boolean).join(' · '))}</div>`;
 }
@@ -2224,7 +2227,7 @@ function shapeLiteSplitEditor(){
   var warn=orphan?`<div class='shape-lite-note own'>No lite lives on this Shape — each has its own. Changes here affect nothing until a lite is sent back with “Back to shared”.</div>`:'';
   /* Вид шва ступенчатого юнита — выбор офиса; поле только при ступеньке, по
      умолчанию Flat seal (владелец, 20.10.2026). */
-  var step=line&&typeof salesShapeStepInfo==='function'?salesShapeStepInfo(sDraft,line,soDraft):null;
+  var step=line&&typeof salesShapeStepInfo==='function'?salesShapeStepInfo(sDraft,line,salesSheetOrder()):null;
   var seal=step&&step.step?`<label class='shape-lite-seal'><span>Step seal</span><select onchange='setShapeStepSeal(this.value)'>${Object.keys(SALES_STEP_SEALS).map(function(k){return `<option value='${k}' ${salesStepSealKey(sDraft)===k?'selected':''}>${esc(SALES_STEP_SEALS[k])}</option>`;}).join('')}</select></label>`:'';
   return `<div class='shape-subsection shape-accordion'><button type='button' class='shape-accordion-head' onclick='toggleShapeLiteSplit()'><span><b>Lites of the unit</b><small>mirror · inset · own shape</small></span><span class='shape-accordion-state'>${changed?`<span data-raw>${changed}</span> differ`:'all on the shared shape'}${step&&step.step?' · Step unit':''}<i>${sLiteSplitOpen?'−':'+'}</i></span></button>${sLiteSplitOpen?`<div class='shape-lite-cards'>${warn}${rows}${seal}</div>`:''}</div>`;
 }

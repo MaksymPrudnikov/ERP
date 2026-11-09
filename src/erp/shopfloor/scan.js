@@ -142,7 +142,7 @@ function stationRouteOf(g){
  const key=[g.o.id,g.l.id,rk,geo===g.l?'':geo.shapeRef.id+'#'+geo.shapeRef.revision,g.o.updatedAt||''].join('|');
  if(stationRouteCache.has(key))return stationRouteCache.get(key);
  let r=null;
- try{if(g.c&&!g.c.missing)r=finWithOrder(g.o,()=>stkRoute(g.o,geo,g.c));}catch(e){r=null;}
+ try{if(g.c&&!g.c.missing)r=stkRoute(g.o,geo,g.c);}catch(e){r=null;}
  if(!r||!Array.isArray(r.codes)||!r.codes.length){
   /* Маршрут не собрался (нет стекла в Makeup) — стекло всё равно проходит
      резку и отгрузку: станции «always». */
@@ -578,15 +578,13 @@ function stationDrawingFits(o,l,a,b){
  const ta=stationDrawingKey(o,l,a.unit),tb=stationDrawingKey(o,l,b.unit);if(ta===tb)return true;
  const covers=(t,key)=>!!t&&(DB.recut||[]).some(r=>r&&r.orderId===o.id&&r.lineId===l.id&&'R'+r.no===t&&(r.keys||[]).includes(key));
  if(covers(ta,b.key)||covers(tb,a.key))return false;
- return finWithOrder(o,()=>{
-  const comps=glassBatchComponents(o,l),ca=comps.find(c=>c.key===a.key),cb=comps.find(c=>c.key===b.key);
-  const pa=stkPlan(o,glassRecutLine(o,l,a.unit)),pb=stkPlan(o,glassRecutLine(o,l,b.unit));
-  if(!ca||!cb||!pa.valid||!pb.valid)return false;
-  const step=p=>p.lites.some(x=>x.inset||Math.abs(x.finishedW-p.lites[0].finishedW)>1e-6||Math.abs(x.finishedH-p.lites[0].finishedH)>1e-6);
-  if(step(pa)||step(pb))return true;
-  const da=pa.lites.find(x=>x.index===ca.index),db=pb.lites.find(x=>x.index===cb.index);
-  return !!da&&!!db&&Math.abs(da.finishedW-db.finishedW)<1e-6&&Math.abs(da.finishedH-db.finishedH)<1e-6;
- });
+ const comps=glassBatchComponents(o,l),ca=comps.find(c=>c.key===a.key),cb=comps.find(c=>c.key===b.key);
+ const pa=stkPlan(o,glassRecutLine(o,l,a.unit)),pb=stkPlan(o,glassRecutLine(o,l,b.unit));
+ if(!ca||!cb||!pa.valid||!pb.valid)return false;
+ const step=p=>p.lites.some(x=>x.inset||Math.abs(x.finishedW-p.lites[0].finishedW)>1e-6||Math.abs(x.finishedH-p.lites[0].finishedH)>1e-6);
+ if(step(pa)||step(pb))return true;
+ const da=pa.lites.find(x=>x.index===ca.index),db=pb.lites.find(x=>x.index===cb.index);
+ return !!da&&!!db&&Math.abs(da.finishedW-db.finishedW)<1e-6&&Math.abs(da.finishedH-db.finishedH)<1e-6;
 }
 /* Стекло p подходит к сборке a: со всеми её стёклами. */
 function stationAsmFits(a,o,l,index,p){return a.recs.every(s=>{const h=index.get(s.piece);return !h||stationDrawingFits(o,l,h,p);});}

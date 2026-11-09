@@ -96,7 +96,7 @@ module.exports=async function({page,eq}){
   salesOrderSave({bg:true});salesOpenMetrics('rules');
   const locked=[...document.querySelectorAll('[data-surcharge-list] input')].map(x=>x.disabled||!!x.closest('[inert]'));
   await sjWait();const o=salesRecord(id),small=o.lines.filter(l=>l.width16*l.height16/256/144<8);
-  return {rates:o.surchargeRates,locked:locked.length>0&&locked.every(Boolean),billed:finWithOrder(o,()=>small.every(l=>salesLineAreas(l,o).billable===8)),some:small.length>0};
+  return {rates:o.surchargeRates,locked:locked.length>0&&locked.every(Boolean),billed:(small.every(l=>salesLineAreas(l,o).billable===8)),some:small.length>0};
  }),{rates:{minArea:{value:8}},locked:true,billed:true,some:true});
  eq('Save в фоне без ошибок страницы',t.errs,[]);
  await t.c.close();

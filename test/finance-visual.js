@@ -31,8 +31,8 @@ module.exports=async function({page,eq}){
  eq('Invoice: Paid in green and Balance due in red in the top row, a Paid / Left bar under it; nothing paid — no bar; unit type marks 1 / 2 / 3',await t.p.evaluate(()=>{
   const {orders}=fvSeed(),o=orders[1];
   finSaveReceiptRecord({customerId:'CUS-FV',currency:'CAD',date:finToday(),method:'cheque',reference:'CH-1',amount:20,note:'',allocations:[{orderId:o.id,amount:20}]});
-  const m=finWithOrder(o,()=>docBuildModel('invoice',o,docDefaultOptions('invoice'))),text=finDocText(docPages(m));
-  const none=finWithOrder(orders[2],()=>docBuildModel('invoice',orders[2],docDefaultOptions('invoice')));
+  const m=(docBuildModel('invoice',o,docDefaultOptions('invoice'))),text=finDocText(docPages(m));
+  const none=(docBuildModel('invoice',orders[2],docDefaultOptions('invoice')));
   const panes=['single','double','triple'].map(u=>docItemBase({makeupShort:true},{mark:''},0,{unitType:u,code:'X'},1).panes);
   return {strip:m.strip.slice(0,3).map(c=>c.label+'='+c.value+(c.tone?' '+c.tone:'')),bar:m.stripPaid,text:text.includes('Paid $20.00 · 40.0%')&&text.includes('Left $30.00'),none:!!none.stripPaid,noneLabels:none.strip.slice(0,2).map(c=>c.label),panes};
  }),{strip:['Total CAD=$50.00','Paid=$20.00 paid','Balance due=$30.00 due'],bar:{paid:20,left:30},text:true,none:false,noneLabels:['Total CAD','Balance due'],panes:[1,2,3]});

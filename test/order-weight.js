@@ -26,12 +26,12 @@ module.exports=async function({page,eq}){
    if(opts.save===false)return soDraft;
    if(!salesOrderSave())throw new Error('owOrder not saved');const id=soDraft.id;salesDraftDrop();return id;
   };
-  window.owW=o=>{const w=finWithOrder(o,()=>salesOrderWeight(o));return {kg:w.kg==null?null:+w.kg.toFixed(1),complete:w.complete,partial:w.partial,gaps:w.gaps.map(g=>g.key.split(':')[0]+'@'+g.lines.join('.')),text:salesWeightMissingText(w)};};
+  window.owW=o=>{const w=(salesOrderWeight(o));return {kg:w.kg==null?null:+w.kg.toFixed(1),complete:w.complete,partial:w.partial,gaps:w.gaps.map(g=>g.key.split(':')[0]+'@'+g.lines.join('.')),text:salesWeightMissingText(w)};};
  });
  await setup();
 
  eq('16.3: A — ламинат 6 + 5 мм без плотности плёнки: юнит 27.5, строка 55.0 известно; B — 25.0; заказ 80.0 Partial — «Interlayer weight not included», обе плиты и Qty учтены',await run(()=>{
-  owSetup();const o=salesRecord(owOrder()),la=finWithOrder(o,()=>salesLineWeight(o.lines[0],o)),lb=finWithOrder(o,()=>salesLineWeight(o.lines[1],o));
+  owSetup();const o=salesRecord(owOrder()),la=(salesLineWeight(o.lines[0],o)),lb=(salesLineWeight(o.lines[1],o));
   return {unitA:+la.knownKg.toFixed(1),lineA:+(la.knownKg*2).toFixed(1),aDone:la.complete,b:+lb.kg.toFixed(1),order:owW(o)};
  }),{unitA:27.5,lineA:55,aDone:false,b:25,order:{kg:80,complete:false,partial:true,gaps:['film@1'],text:'Interlayer weight not included'}});
 
@@ -112,24 +112,24 @@ module.exports=async function({page,eq}){
 
  eq('Бланки: вес всегда, неполный — примерный «≈ 80 kg» без Partial и без строки «что не учтено» (клиенту и цеху, владелец 06.11.2026); выключенный — нет; Weight per unit: Work order «≈ 27.5 kg/unit», «25.0 kg/unit»; Order confirmation — вес строки «Weight ≈ 27.5 kg × 2 = ≈ 55.0 kg», одна штука — «Weight 25.0 kg»',await run(()=>{
   owSetup();const o=salesRecord(owOrder()),opt=(k,on)=>docCleanOptions(k,Object.assign(docBaseOptions(k),{orderSummary:on,weight:on}));
-  const sum=k=>{const m=finWithOrder(o,()=>docBuildModel(k,o,opt(k,true)));const svg=docLayout(m).map(docPageSVG).join('');return [m.summary.find(c=>c.label==='Total weight').value,m.summaryNote,svg.includes(k==='workOrder'?'~ 80 kg · 176 lb':'~ 80 kg')&&!svg.includes('Partial')];};
-  const off=finWithOrder(o,()=>docBuildModel('confirmation',o,opt('confirmation',false))).summary;
+  const sum=k=>{const m=(docBuildModel(k,o,opt(k,true)));const svg=docLayout(m).map(docPageSVG).join('');return [m.summary.find(c=>c.label==='Total weight').value,m.summaryNote,svg.includes(k==='workOrder'?'~ 80 kg · 176 lb':'~ 80 kg')&&!svg.includes('Partial')];};
+  const off=(docBuildModel('confirmation',o,opt('confirmation',false))).summary;
   /* У Work order в шапке строки первым — итог по сканам (Not in a batch). */
-  const wo=finWithOrder(o,()=>docBuildModel('workOrder',o,opt('workOrder',true))).items.map(i=>i.info.split(' · ').slice(2).join(' · '));
-  const conf=finWithOrder(o,()=>docBuildModel('confirmation',o,opt('confirmation',true))).items.map(i=>((i.sub.find(x=>/Weight/.test(x.text))||{}).text||'').split(' · ').slice(1).join(' · '));
+  const wo=(docBuildModel('workOrder',o,opt('workOrder',true))).items.map(i=>i.info.split(' · ').slice(2).join(' · '));
+  const conf=(docBuildModel('confirmation',o,opt('confirmation',true))).items.map(i=>((i.sub.find(x=>/Weight/.test(x.text))||{}).text||'').split(' · ').slice(1).join(' · '));
   return {kinds:['workOrder','proforma','confirmation'].map(sum),off,wo,conf};
  }),{kinds:[['≈ 80 kg · 176 lb','',true],['≈ 80 kg','',true],['≈ 80 kg','',true]],off:null,
   wo:['≈ 27.5 kg/unit','25.0 kg/unit'],conf:['Weight ≈ 27.5 kg × 2 = ≈ 55.0 kg','Weight 25.0 kg']});
 
  eq('Бланк заказа без размеров: «Weight unavailable», не 0; полный — без Partial и без строки под блоком',await run(()=>{
   owSetup();const a=salesRecord(owOrder({rows:[['B',1]]})),b=salesRecord(owOrder({rows:[['B',2]]}));b.lines[0].width16=0;touch();
-  const v=o=>{const m=finWithOrder(o,()=>docBuildModel('proforma',o,Object.assign(docBaseOptions('proforma'),{orderSummary:true})));return [m.summary.find(c=>c.label==='Total weight').value,m.summaryNote];};
+  const v=o=>{const m=(docBuildModel('proforma',o,Object.assign(docBaseOptions('proforma'),{orderSummary:true})));return [m.summary.find(c=>c.label==='Total weight').value,m.summaryNote];};
   return {full:v(a),none:v(b)};
  }),{full:['25 kg',''],none:['Weight unavailable','']});
 
  eq('Стикер стекла: лайт с номинальной толщиной — «≈», а не точное число; Reports: Weight kg — известное (80), поле Weight — Partial',await run(()=>{
   owSetup();const id=owOrder({rows:[['B',1]]}),o=salesRecord(id);const g=owGlass(10);delete g.actualThicknessMm;touch();
-  const lite=finWithOrder(o,()=>stkWeight(o.lines[0],o,1));g.actualThicknessMm=10;touch();
+  const lite=(stkWeight(o.lines[0],o,1));g.actualThicknessMm=10;touch();
   const p=salesRecord(owOrder());repOrderCache={stamp:'',rows:null};const r=repOrderFacts().find(x=>x.id===p.id);
   return {exact:lite.exact,kg:Math.round(r.kg),status:r.kgStatus};
  }),{exact:false,kg:80,status:'Partial'});

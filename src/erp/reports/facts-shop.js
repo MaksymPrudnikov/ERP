@@ -35,7 +35,7 @@ function repShopFacts(){
  (DB.stationScan||[]).forEach(s=>{if(s.undoneAt)return;if(!scansBy.has(s.piece))scansBy.set(s.piece,[]);scansBy.get(s.piece).push(s);});
  (DB.salesOrder||[]).forEach(o=>{if(salesIsDraft(o))return;
   if(!o||salesIsQuote(o)||REP_SHOP_DONE.includes(o.status))return;
-  try{finWithOrder(o,()=>repShopOrder(o,{today,ship,batches,scansBy,rows}));}catch(e){}
+  try{repShopOrder(o,{today,ship,batches,scansBy,rows});}catch(e){}
  });
  repShopCache={stamp,rows};
  return rows;

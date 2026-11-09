@@ -35,7 +35,7 @@ function cutEstPieceId(o,line,lite,unit){return String(o.businessNumber||o.id).r
 function cutEstScan(o){
  if(cutEstMemo&&cutEstMemo.has(o.id))return cutEstMemo.get(o.id);
  const pieces=[],skipped=[];
- finWithOrder(o,()=>(o.lines||[]).forEach((l,li)=>{
+ (o.lines||[]).forEach((l,li)=>{
   let plan=null;
   glassBatchComponents(o,l).forEach(c=>{
    const miss=reason=>skipped.push({order:o.businessNumber||'',line:li+1,lite:c.lite,qty:+l.qty||0,reason});
@@ -46,7 +46,7 @@ function cutEstScan(o){
    if(!lite||!(+lite.cutW>0)||!(+lite.cutH>0))return miss(plan.reason||'Check cutting geometry');
    for(let unit=1;unit<=(+l.qty||0);unit++)pieces.push({l,c,lite,unit,line:li+1});
   });
- }));
+ });
  const out={pieces,skipped};
  if(cutEstMemo)cutEstMemo.set(o.id,out);
  return out;

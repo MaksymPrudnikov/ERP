@@ -24,7 +24,7 @@ module.exports=async function({page,eq}){
    salesApplyCustomerDefaults(cu.id);soDraft.customerPo='PO-SAMPLE';if(!salesOrderSave())throw new Error('control order not saved');
    const id=soDraft.id;soDraft=null;soEdit=null;return salesRecord(id);
   };
-  window.dpDraw=(o,l,lite)=>finWithOrder(o,()=>salesLineDrawing(l,null,lite));
+  window.dpDraw=(o,l,lite)=>salesLineDrawing(l,null,lite,o);
   window.dpLogin=function(){DB.user=DB.user.filter(u=>u.name!=='Ivan P.');DB.user.push({name:'Ivan P.',role:'Shop',station:'CUT',skills:[],pin:'0000'});normalizeUsers();try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationCode='CUT';tab='station';stationLogin(DB.user[DB.user.length-1].viewProfileId);};
   window.dpOut=function(){stationDrawer=null;stationSwitch();stationSheetView=null;tab='dashboard';render();};
   /* Производство не меняется печатью: сканы, батч, раскрой, сток, Glass ID. */

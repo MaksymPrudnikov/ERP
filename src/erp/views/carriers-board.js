@@ -139,7 +139,7 @@ function carrierWhen(iso){const d=finLocalDate(iso);return !d?'':d===finToday()?
    как в Shipping (владелец, 15.10.2026: «для одиночного стекла не увидел
    вес»). */
 function carrierKg(it){
- const k=it.o.id+'|'+it.l.id;if(!carrierWeightMemo.has(k))carrierWeightMemo.set(k,finWithOrder(it.o,()=>salesLineWeight(it.l,it.o)));
+ const k=it.o.id+'|'+it.l.id;if(!carrierWeightMemo.has(k))carrierWeightMemo.set(k,salesLineWeight(it.l,it.o));
  const w=carrierWeightMemo.get(k);if(!w||!(w.rows||[]).length)return null;
  if(it.unit||carrierLites(it)<=1)return w.kg!=null?{kg:w.kg,exact:true}:w.knownKg>0?{kg:w.knownKg,exact:false}:null;
  const c=it.g.c,rows=c?w.rows.filter(r=>String(r.label).startsWith('Lite '+c.lite+' ·')):[];if(!rows.length)return null;

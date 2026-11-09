@@ -62,7 +62,7 @@ function unitRowStation(row){
 }
 /* Сколько стоит отменить юнит: работа по сканам до at. charge null — цена
    строки неполная, сумму вводит продавец. */
-function unitCharge(o,l,u,at){return finWithOrder(o,()=>{
+function unitCharge(o,l,u,at){
  const p=salesLineCommercialPrice(l,o),heat=unitHeatStations(),index=stationPieceIndex(),comps=glassBatchComponents(o,l).filter(c=>!c.missing);
  const seen=u.pieces.map(id=>{const all=stationScansFor(id),before=all.filter(s=>!at||s.at<=at);return {id,c:comps.find(c=>c.key===(index.get(id)||{}).key)||null,scans:before,after:all.length>before.length,tempered:before.some(s=>heat.includes(s.station))};});
  const after=seen.some(x=>x.after),mu=stationUnitMerge(o,l),joined=!!mu&&seen.length>0&&seen.every(x=>x.scans.some(s=>s.station===mu&&s.unit));
@@ -76,24 +76,24 @@ function unitCharge(o,l,u,at){return finWithOrder(o,()=>{
   if(!x.c||!x.scans.length)return;const spec=x.c.spec||{},g=glassProductById(spec.glassProductId);
   /* Плиты уже склеены — лайт идёт целиком, с плёнкой. */
   if(x.c.ply){const plies=seen.filter(y=>y.c&&y.c.paneId===x.c.paneId);
-   if(plies.length>1&&plies.every(y=>y.scans.some(s=>s.station===lam&&s.joined))){if(glued.has(x.c.paneId))return;glued.add(x.c.paneId);const v=x.c.pane.priceOverride!=null?x.c.pane.priceOverride:salesPaneCatalogPrice(x.c.pane);if(v==null)known=false;else glass+=v*area;return;}}
-  const full=x.c.ply?salesPlyPrice(spec):(x.c.pane.priceOverride!=null?x.c.pane.priceOverride:salesPaneCatalogPrice(x.c.pane));
+   if(plies.length>1&&plies.every(y=>y.scans.some(s=>s.station===lam&&s.joined))){if(glued.has(x.c.paneId))return;glued.add(x.c.paneId);const v=x.c.pane.priceOverride!=null?x.c.pane.priceOverride:salesPaneCatalogPrice(x.c.pane,o);if(v==null)known=false;else glass+=v*area;return;}}
+  const full=x.c.ply?salesPlyPrice(spec,o):(x.c.pane.priceOverride!=null?x.c.pane.priceOverride:salesPaneCatalogPrice(x.c.pane,o));
   /* Цену продавца не превышаем: отожжённое по прайсу — не дороже цены лайта в заказе. */
-  const an=g?salesGlassSalePrice(g,false):null,rate=x.tempered||full==null?money(full):money(an!=null?Math.min(an,full):full);
+  const an=g?salesGlassSalePrice(g,false,o):null,rate=x.tempered||full==null?money(full):money(an!=null?Math.min(an,full):full);
   if(rate==null)known=false;else glass+=rate*area;
  });
  if(!known)return {stage,after,charge:null,glass:null,works:null};
  /* Работы строки — доля стёкол юнита, прошедших станцию этой работы до at. */
  let works=0;const allTempered=seen.every(x=>x.tempered);
- salesLineChargeRows(l).forEach(row=>{
-  const rate=salesChargePricingState(l,row).effectiveRate;if(rate==null)return;
+ salesLineChargeRows(l,o).forEach(row=>{
+  const rate=salesChargePricingState(l,row,o).effectiveRate;if(rate==null)return;
   const station=unitRowStation(row),share=station?seen.filter(x=>x.scans.some(s=>s.station===station)).length/seen.length:allTempered?1:0;
   works+=salesChargeUnitAmount(row,rate)*share;
  });
  const base=salesMoney(glass+works);let running=base;
  p.adjustments.forEach(a=>{running=salesMoney(running+salesMoney((a.onTop?running:base)*a.percent/100));});
  return {stage,after,charge:running,glass:salesMoney(glass),works:salesMoney(works)};
-});}
+}
 function unitLine(orderId,lineId){
  const o=salesRecord(orderId),l=o&&(o.lines||[]).find(x=>x.id===lineId);
  unitAssert(o&&l&&!salesIsQuote(o)&&!['closed','cancelled'].includes(o.status),'This order cannot change.');return {o,l};
@@ -150,7 +150,7 @@ function unitCancel(orderId,lineId,count,reason,opts){return storageCommand(()=>
  /* Порезанное в сток: размер реза и стекло каждого лайта. */
  if(glass==='stock'){const index=stationPieceIndex(),comps=glassBatchComponents(o,l);rec.units.forEach(u=>{if(!u.glass)return;u.pieces.forEach(id=>{
   if(!stationScansFor(id).length)return;const h=index.get(id),c=h&&comps.find(x=>x.key===h.key);if(!c||c.missing)return;
-  let d=null;try{d=finWithOrder(o,()=>stkGlassData('production',o,l,c,h.unit,{}));}catch(e){d=null;}const size=d&&(d.cut||d.finished);
+  let d=null;try{d=stkGlassData('production',o,l,c,h.unit,{});}catch(e){d=null;}const size=d&&(d.cut||d.finished);
   if(size)stockOffcutAdd({glass:c.glass,mm:+(c.spec&&c.spec.thicknessMm)||0,w:size.w,h:size.h,at:now});
  });});}
  o.cancellations=(o.cancellations||[]).concat(rec);l.cancelledUnits=unitCancelled(l)+rec.units.length;

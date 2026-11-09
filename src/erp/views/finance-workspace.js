@@ -166,7 +166,7 @@ function finStatementDueHTML(p){
 function finStatementInvoices(on){const p=finPreview;if(!p)return;p.invoices=!!on;p.status='';render();}
 async function finStatementInvoiceBuild(p,key){
  const inPeriod=d=>!!d&&(!p.from||d>=p.from)&&(!p.to||d<=p.to),list=finStatementOrders(p.id,p.from,p.to).filter(x=>inPeriod(x.billed)),old=list.filter(x=>x.archived).map(x=>x.o.id);
- const build=()=>list.flatMap(x=>{const o=salesRecord(x.o.id);return o?finWithOrder(o,()=>docPages(docBuildModel('invoice',o,docDefaultOptions('invoice')))):[];});
+ const build=()=>list.flatMap(x=>{const o=salesRecord(x.o.id);return o?docPages(docBuildModel('invoice',o,docDefaultOptions('invoice'))):[];});
  let pages=[];try{pages=old.length&&typeof archiveWith==='function'?await archiveWith(old,build):build();}catch(e){if(finPreview===p)p.status='Invoices could not be prepared: '+(e&&e.message||e);}
  if(finPreview!==p||p.invoiceKey!==key)return;
  p.invoicePages=pages;p.invoiceCount=list.length;render();
