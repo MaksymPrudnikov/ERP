@@ -1,4 +1,4 @@
-/* Purchasing P2: reusable Sales column filters and draft PO forms.
+/* Экран заказов поставщику (PO): список, черновик формы, письмо через Gmail (Purchasing P2).
    Owner correction 13.10: glass and suppliers use catalogue identities;
    the default purchase is glass, extras are a separate Sales-style block.
    Gmail only opens a compose window. Sending is confirmed manually. */

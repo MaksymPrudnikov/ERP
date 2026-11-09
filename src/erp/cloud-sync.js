@@ -1,5 +1,5 @@
 /* ============================================================================
-   Синхронизация с сервером — этап 4 задания «База» (docs/ЗАДАЧА_БАЗА.md)
+   Синхронизация с сервером: очередь своих изменений, приём чужих, Upload и Download (этап 4 «Базы»).
    IN : набор изменений каждой записи (touch → cloudOutbox), сервер
         erp_apply / erp_changes / erp_get (tools/supabase/schema.sql)
    OUT: cloudSync, cloudOutbox, cloudSyncStart, cloudUpload, cloudDownload,

@@ -1,4 +1,4 @@
-/* Office reverse passage, owner 9 October 2026.
+/* Обратный проход заказа из Sales до станции или Not cut (Unbatch, владелец 9.10.2026).
    A target means waiting at that occurrence of the station. Not cut also
    releases the selected glass from its batches and requires Verify again.
    Actual assemblies travel together. Other units in a PS or scan action do

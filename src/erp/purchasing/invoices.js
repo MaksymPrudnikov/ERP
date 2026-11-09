@@ -1,4 +1,4 @@
-/* Purchasing P4 · supplier invoices and manually recorded payments.
+/* Счета поставщиков и записанные руками оплаты им; Finance клиентов не трогает (Purchasing P4).
    This ledger never writes DB.receipt or customer Finance / QuickBooks.
    Currency and supplier on a payment are historical facts. Editing an
    invoice must not silently turn an old USD payment into CAD, or move it

@@ -1,4 +1,4 @@
-/* Supplier ledger UI. Payments record bank/card/check facts; this screen
+/* Экраны счетов и оплат поставщикам и «We owe» (Purchasing P4). Payments record bank/card/check facts; this screen
    does not initiate transfers. Every list uses the existing Sales filters. */
 let purMoneyDraft=null,purMoneyOriginal='',purMoneyShowUndone=false,purAccountKey='';
 /* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */

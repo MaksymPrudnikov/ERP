@@ -1,4 +1,4 @@
-/* Shipping office · PR 1, 5 October 2026.
+/* Экран Shipping в офисе: Awaiting, Ready по скану, PS, частичная отгрузка (Shipping PR 1, 5.10.2026).
    Ready by scan, one customer/address per PS, partial dispatch and receipt.
    Uses the existing Sales column filters. PR 2, 6 October 2026: customer
    queue in Ready and the Loaded button (rules: erp/shipping/loading).

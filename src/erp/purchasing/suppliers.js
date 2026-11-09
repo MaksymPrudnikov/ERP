@@ -1,5 +1,5 @@
 /* =====================================================================
-   Purchasing · suppliers · 12 October 2026.
+   Поставщики Purchasing: карточки, контакты, старые свободные имена остаются историей (12.10.2026).
    Owner correction 13 October: new glass purchases select supplier cards.
    Legacy free names stay historical; new cards start in CAD.
    The old glassSheet.supplier is a supply-point name used by cutting:
