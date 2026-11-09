@@ -2,6 +2,16 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Руководство: восемь недостающих разделов · 9 ноября 2026
+- **Владелец, 09.11.2026:** «чтобы карта, документация, мануалы были чёткие, ясные и понятные». В `docs/manual/` теперь
+  все разделы меню: добавлены `production` (In production, Stations, Terminals, Dollies & Skids, экран станции, Skip,
+  Unbatch), `inventory`, `purchasing`, `agents`, `customers`, `masterdata`, `users` (с сервером: Connect, Upload,
+  Download, «Server has a new database · Download»), `overview` — по два файла, RU и EN.
+- Каждый экран снят с малой базы симулятора (`sim-shop --small --inventory`), подписи — как на экране; решения владельца —
+  из разделов этого хендоффа с датой. Кода не меняли.
+- Таблица `docs/manual/README.md` — в порядке меню ERP; PDF (`tools/manual-pdf.js`) собирает 15 глав. `test/docs.js`
+  сверяет список разделов с новым порядком.
+
 ## Личный аудит Claude 09.11: кусок стока на двух ПК, Master Data и Users · 9 ноября 2026
 
 После аудита Codex 09.11 — свой проход по тем же классам ошибок. Каждый сценарий — тестом, красным на main.
