@@ -201,6 +201,17 @@ module.exports=async function({page,eq}){
   const ok=await archiveOpenWork(x.a);await storageFlush();salesOrderClose();
   return {went:r.ok&&was,ok,back:!!salesRecord(x.a),index:archiveIndex.has(x.a),view:!!archiveVisit};
  },ids),{went:true,ok:true,back:true,index:false,view:false});
+ /* С сервером: пачка 20 заказов и только после того, как прошлая ушла (первый
+    архив новой базы на Supabase, 09.11.2026). */
+ eq('уход сам: с сервером ждёт, пока очередь уйдёт, пачка 20; без сервера — 300',await t.p.evaluate(()=>{
+  const keep={run:window.archiveRun,on:cloudSync.on,out:cloudSync.out,no:window.GF_NO_ARCHIVE,input:archiveInputAt,day:DB.archiveRunDay},seen=[];
+  const tick=()=>{archiveAuto();clearTimeout(archiveTimer);archiveTimer=null;};
+  window.archiveRun=(d,o)=>{seen.push(o.limit);return {ok:true,value:{orders:0}};};
+  try{window.GF_NO_ARCHIVE=false;archiveInputAt=0;DB.archiveRunDay='';
+   cloudSync.on=true;cloudSync.out=[{}];tick();const waited=seen.length;
+   cloudSync.out=[];tick();cloudSync.on=false;tick();return {waited,limits:seen};}
+  finally{window.archiveRun=keep.run;cloudSync.on=keep.on;cloudSync.out=keep.out;window.GF_NO_ARCHIVE=keep.no;archiveInputAt=keep.input;DB.archiveRunDay=keep.day;}
+ }),{waited:0,limits:[20,300]});
  eq('архив без ошибок страницы',t.errs,[]);
  await t.c.close();
 };
