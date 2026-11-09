@@ -137,15 +137,6 @@ svg{display:block}
 .progress>span{display:block;height:100%;border-radius:20px;background:var(--accent)}
 
 /* production */
-.pipeline{display:flex;align-items:stretch;gap:7px;overflow-x:auto;padding:3px 0 8px}
-.stage{min-width:185px;flex:1;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:12px}
-.stage-top{display:flex;align-items:center;gap:9px}
-.stage-index{width:28px;height:28px;border-radius:9px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:12px}
-.stage b{font-size:12px}
-.stage small{display:block;color:var(--mut);font-size:10px;margin-top:1px}
-.stage-machines{margin-top:10px;font-size:11px;color:var(--text-2)}
-.pipe-arrow{display:flex;align-items:center;color:var(--text-3)}
-.pipe-arrow svg{width:18px;height:18px}
 /* Production → Stations: маршрут списком (владелец, 2 октября 2026). */
 .sf-route-lead{margin:2px 0 8px;color:var(--text-2);font-size:13.5px}
 .sf-route{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px}

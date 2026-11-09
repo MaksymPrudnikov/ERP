@@ -237,6 +237,26 @@ module.exports=async function({page,eq}){
   tab=was;window.GF_CLOUD_MANUAL=true;window.render=r0;render();
   return {moving,rest,station};
  }),{moving:0,rest:1,station:1});
+ /* Сервер очистили и залили другой базой (владелец, 09.11.2026): номера
+    изменений растут дальше — компьютер со старой базой не складывает её с
+    новой и не отправляет туда свои правки, пока не сделает Download. */
+ const markOf=()=>{const r=srv.rec.get('_upload|state');return r?JSON.parse(r.data).id:null;};
+ eq('Upload и Download запоминают отметку базы сервера',await A.p.evaluate(()=>cloudSync.base),markOf());
+ srv.rec.clear();srv.log.length=0;
+ await edit(A,'C-CLOUD','After reset');
+ eq('сервер очищен: A не отправляет правку — «Server has a new database · Download»',{text:await sync(A),sent:srv.rec.size},{text:'Server has a new database · Download',sent:0});
+ const E=await pc('admin@glass-erp.test');
+ await E.p.evaluate(()=>storageCommand(()=>{DB.customer.push({id:'C-NEW',legalName:'New base'});}));
+ await E.p.evaluate(()=>cloudUpload());
+ eq('залита другая база: A по-прежнему ничего не принимает и не отправляет',{text:await sync(A),got:await name(A,'C-NEW'),server:srv.rec.has('customer|C-CLOUD')},
+  {text:'Server has a new database · Download',got:null,server:false});
+ await A.p.evaluate(()=>cloudDownload());
+ eq('Download на A: новая база, старой нет, синхронизация снова идёт',{text:await sync(A),got:await name(A,'C-NEW'),old:await name(A,'C-CLOUD'),base:await A.p.evaluate(()=>cloudSync.base)===markOf()},
+  {text:'Synced',got:'New base',old:null,base:true});
+ eq('компьютер, подключённый до отметки, запоминает базу сервера при первой синхронизации',await A.p.evaluate(async()=>{cloudSync.base=null;await cloudSyncTick();return {text:cloudSyncText(),base:cloudSync.base};}),
+  {text:'Synced',base:markOf()});
+ eq('новый ПК без ошибок страницы (база сервера)',E.errs,[]);
+ await E.c.close();
  eq('синхронизация без ошибок страницы',[A.errs,B.errs],[[],[]]);
  await A.c.close();await B.c.close();
 };

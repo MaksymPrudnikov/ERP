@@ -64,7 +64,6 @@ const MD_MATERIAL_VIEWS={
  lamination:[{k:'interlayerProduct',label:'Interlayers'}],
  stock:     [{k:'stockItem',        label:'Stock items'}]
 };
-const MD_MATERIAL_CATEGORY_LABELS={glass:'Glass',igu:'IGU assembly',lamination:'Lamination',stock:'Stock & consumables'};
 /* Тепловая обработка материалом не является — её нет в разделе 7 и у неё нет
    ни закупки, ни хранения. Это режим цеха, поэтому живёт рядом с работами, а
    не среди материалов. */
@@ -212,23 +211,6 @@ function mdMatSelect(category,viewKey){
 function mdMatSwitch(category,viewKey){
  mdMatSelect(category,viewKey);
  mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdCatEdit=null;mdCatDraft=null;
-}
-function mdSetMatCategory(k){mdMatSwitch(k,null);render();}
-function mdSetMatView(k){mdMatSwitch(mdMatCategory,k);render();}
-function viewMdMaterials(){
- mdMatSelect(mdMatCategory,mdMatView);
- const list=MD_MATERIAL_VIEWS[mdMatCategory],hit=list.find(v=>v.k===mdMatView)||list[0];
- const cats=Object.keys(MD_MATERIAL_VIEWS).map(c=>`<button class="sm ${c===mdMatCategory?'on':''}" onclick="mdSetMatCategory('${c}')">${esc(MD_MATERIAL_CATEGORY_LABELS[c])} <span class="mut">${materialEntries(c).length}</span></button>`).join('');
- const subs=list.length>1?`<div class="md-mat-subs">${list.map(v=>`<button class="sm ${v.k===mdMatView?'on':''}" onclick="mdSetMatView('${v.k}')">${esc(v.label)}</button>`).join('')}</div>`:'';
- const body=hit.view?({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer,recipe:viewMdRecipes})[hit.view]():viewMdCatalogues();
- return `<div class="md-mat-cats">${cats}</div>${subs}${body}`;
-}
-/* Работы и припуск на рез — один вид данных: и то и другое про то, что цех
-   делает со стеклом, и раздел 7 сводит их на один экран. */
-function viewMdWorks(){
- if(MD_WORK_CATALOGUES.indexOf(mdCatKind)<0)mdCatKind='serviceRate';
- const subs=MD_WORK_CATALOGUES.map(k=>{const def=MD_CATALOGUES.find(c=>c.k===k);return `<button class="sm ${k===mdCatKind?'on':''}" onclick="mdSetCatKind('${k}')">${esc(def?def.label:k)}</button>`;}).join('');
- return `<div class="md-mat-subs">${subs}</div>${viewMdCatalogues()}${mdCatEdit===null&&mdCatKind==='serviceRate'?viewMdAllowance():''}`;
 }
 function mdVocabOptions(kind,value,blank){
  const rows=Object.keys(GLASS_VOCAB[kind]||{});

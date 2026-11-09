@@ -440,11 +440,6 @@ function repExcel(wid){
  const title=(r.name+' - '+repWidgetTitle(w)).replace(/[\\/:*?"<>|]+/g,' ').trim();
  storageDownload(title+' '+finToday()+'.xlsx',xlsxBook(repWidgetTitle(w),x.head,x.rows,null),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 }
-function repCsv(wid){
- const r=repOpenReport();if(!r)return;const w=r.pages.flatMap(p=>p.widgets).find(x=>x.id===wid);if(!w)return;
- const name=(r.name+' - '+repWidgetTitle(w)).replace(/[\\/:*?"<>|]+/g,' ').trim()+' '+finToday()+'.csv';
- storageDownload(name,['\ufeff'+readScope(()=>repCsvText(r,w))],'text/csv');
-}
 /* Save as default: свой период и фильтры становятся периодом и фильтрами отчёта. */
 function repSaveDefaults(){const r=repOpenReport();if(!r||repDraft)return;const v=repView(r.id);if(repEditReport(r.id,x=>{if(v.date)x.date=v.date;if(v.f!==undefined)x.filters=v.f;}))repResetView();}
 

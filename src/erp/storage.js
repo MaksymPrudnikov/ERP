@@ -396,7 +396,6 @@ function storageTellHeld(){if(storageChannel)try{storageChannel.postMessage({typ
 /* Ждать, пока всё начатое дойдёт до базы: true — записано, false — нет. */
 function storageFlush(){return !storageBusy&&!storageQueued?Promise.resolve(!storageFailed):new Promise(r=>storageFlushWaiters.push(r));}
 function storageQuotaError(e){return !!e&&(e.name==='QuotaExceededError'||e.name==='NS_ERROR_DOM_QUOTA_REACHED'||e.code===22||e.code===1014);}
-function storageRead(key){try{return localStorage.getItem(key);}catch(e){return null;}}
 function storageReadOnlyText(){return storageStale?'A newer version is open. Reload this tab.':storageTakeover?'Switching editing to this tab — repeat the action in a moment.':'Glass Farm is busy in another tab. Click here to continue, or close the other tab.';}
 /* Место. Браузер даёт базе гигабайты; persist просит не стирать её при
    нехватке места на диске. Размер — администратору внизу экрана, больше

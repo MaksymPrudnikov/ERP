@@ -2,6 +2,23 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## Сервер с новой базой; уборка F16; годовая база для замеров · 9 ноября 2026
+
+- **Новая база на сервере** (владелец: «удали старую базу из Supabase, дай свежую»). Номера изменений на сервере после
+  очистки растут дальше, и компьютер со старой базой молча складывал новую со своей, а свои правки отправлял в чужую.
+  Теперь `cloudSync.base` — отметка Upload его базы (`_upload|state.id`; Download, Upload, подключённый раньше —
+  первая увиденная). `cloudBaseCheck` до первой отправки и перед каждой, `cloudApplyServer` — в ленте: другая отметка
+  или пустой сервер — `newBase`, синхронизация стоит, внизу «Server has a new database · Download». Тест —
+  `test/cloud-sync.js` (+6). Очищать сервер — без сброса счётчика `erp_log.rev`.
+- **F16.** Убраны `viewMdMaterials`, `viewMdWorks` (с `mdSetMatCategory`, `mdSetMatView`, `MD_MATERIAL_CATEGORY_LABELS`),
+  `sfPipelineHTML` со стилями `.pipeline/.stage/.pipe-arrow`, `repCsv` (`repCsvText` остался), `storageRead`, адаптеры
+  `salesSetStatus`, `salesAdvanceStatus`, `salesStepBack`, `salesBatchNewLines`. Ни прямых вызовов, ни строк-обработчиков,
+  ни тестов.
+- **Годовые базы.** `year3` (1.11) и `year2-*` (21.10) старше правила дюймов кромки 02.11 (`inches-2` в
+  `salesMeasureSig`): каждая строка считалась по фигуре при каждом открытии — Finance после F5 24 с ×4, из них 22 с
+  `ShapeModule.compute`; ещё у 4284 заказов из 5349 не закрыт долг. Старые базы удалены, команды в AGENTS.md — на
+  `year.ndjson` (год до вчера). `perf-year --keep` держит профиль и в обычном замере.
+
 ## Аудит Codex 09.11: F02, F04, F05, F08, F10–F14 — формы, таблицы, Excel, отчёты · 9 ноября 2026
 
 Часть 2 из трёх. Каждый сценарий Codex — тестом в `test/audit-2026-11-09.js`, на main все красные.
