@@ -32,6 +32,6 @@ module.exports=async function({eq}){
  /* Сборщик PDF руководства (tools/manual-pdf.js): разделы по README, Markdown → HTML. */
  const mp=require('../tools/manual-pdf.js'),h=mp.md('# A\n\n| x | y |\n|---|---|\n| `1` | **2** |\n\n- one\n- two').html;
  eq('руководство: PDF собирается из разделов README — заголовки, таблицы, списки',{ru:mp.sections('ru'),en:mp.sections('en'),table:/<table>.*<code>1<\/code>.*<b>2<\/b>/s.test(h),list:/<ul><li>one<\/li><li>two<\/li><\/ul>/.test(h),head:/<h1 id="s\d+">A<\/h1>/.test(h)},
-  {ru:['lists','sales','reports','optimization','shipping','forms','finance'],en:['lists','sales','reports','optimization','shipping','forms','finance'],table:true,list:true,head:true});
+  {ru:['lists','sales','optimization','production','shipping','finance','purchasing','inventory','customers','reports','agents','masterdata','forms','users','overview'],en:['lists','sales','optimization','production','shipping','finance','purchasing','inventory','customers','reports','agents','masterdata','forms','users','overview'],table:true,list:true,head:true});
  eq('руководство Reports: поля и показатели в обоих языках — как в коде',mf.FILES.map(f=>[f,mf.current(f)===want]),mf.FILES.map(f=>[f,true]));
 };
