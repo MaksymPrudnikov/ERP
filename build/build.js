@@ -171,4 +171,4 @@ function build(options) {
 
 if (require.main === module) build({ onlyWeb: process.argv.includes('--web') });
 
-module.exports = { build, normalizeNewlines, renderHtml, renderWeb };
+module.exports = { build, normalizeNewlines, renderHtml, renderWeb, CSP };

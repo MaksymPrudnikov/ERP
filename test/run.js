@@ -149,11 +149,11 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     /* Уход в архив сам (erp/archive) — не посреди проверки: test/archive зовёт archiveRun сам. */
     await c.addInitScript(() => { window.GF_NO_ARCHIVE = true; window.GF_SCOPE_CHECK = true; });
     await c.addInitScript(storageHelpers);
-    await c.addInitScript(() => { document.addEventListener('securitypolicyviolation', e => console.error('CSP violation: ' + e.violatedDirective + ' ' + (e.blockedURI || '') + ' ' + (e.sourceFile || '') + ':' + (e.lineNumber || 0))); });
+    await c.addInitScript(() => { document.addEventListener('securitypolicyviolation', e => window.cspExpected || console.error('CSP violation: ' + e.violatedDirective + ' ' + (e.blockedURI || '') + ' ' + (e.sourceFile || '') + ':' + (e.lineNumber || 0))); });
     const p = await c.newPage();
     const errs = [];
     p.on('pageerror', e => errs.push(e.message));
-    p.on('console', m => { if (m.type() === 'error' && m.text().startsWith('CSP violation') && !m.text().includes('csp-test.invalid')) cspViolations.push(m.text()); if (m.type() === 'error' && m.text().startsWith('Outside scope')) outsideScope.push(m.text()); if (m.type() === 'error' && m.text().startsWith('Stale totals')) staleTotals.push(m.text()); if (m.type() === 'error' && /^Stale (boot|ready)/.test(m.text())) staleFast.push(m.text()); if (m.type() === 'error' && m.text().startsWith('Stale measure')) staleMeasure.push(m.text()); if (m.type() === 'error' && m.text().startsWith('Stale save book')) staleBook.push(m.text()); });
+    p.on('console', m => { if (m.type() === 'error' && m.text().startsWith('CSP violation')) cspViolations.push(m.text()); if (m.type() === 'error' && m.text().startsWith('Outside scope')) outsideScope.push(m.text()); if (m.type() === 'error' && m.text().startsWith('Stale totals')) staleTotals.push(m.text()); if (m.type() === 'error' && /^Stale (boot|ready)/.test(m.text())) staleFast.push(m.text()); if (m.type() === 'error' && m.text().startsWith('Stale measure')) staleMeasure.push(m.text()); if (m.type() === 'error' && m.text().startsWith('Stale save book')) staleBook.push(m.text()); });
     p.on('dialog', d => d.accept());
     await p.goto(TARGET);
     await p.evaluate(() => window.storageReady);
