@@ -21,7 +21,7 @@ let stationAreaCache=new Map();
 function stationSqft(g){
  /* У стекла Recut со своим чертежом — его площадь. */
  const geo=stationGeo(g),k=g.o.id+'|'+g.l.id+'|'+(geo===g.l?'':JSON.stringify(geo.shapeRef))+'|'+(g.o.updatedAt||'');
- if(!stationAreaCache.has(k)){let a=null;try{a=finWithOrder(g.o,()=>stkPieceArea(geo,g.o));}catch(e){}stationAreaCache.set(k,Number.isFinite(+a)&&+a>0?+a:(+geo.width16||0)*(+geo.height16||0)/256/144);}
+ if(!stationAreaCache.has(k)){let a=null;try{a=stkPieceArea(geo,g.o);}catch(e){}stationAreaCache.set(k,Number.isFinite(+a)&&+a>0?+a:(+geo.width16||0)*(+geo.height16||0)/256/144);}
  return stationAreaCache.get(k);
 }
 /* Что здесь и что едет на станцию S (стекло, в маршруте которого S впереди). */

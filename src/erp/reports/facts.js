@@ -74,15 +74,15 @@ function repLineWork(o,l,geo,tag){
  const key=[o.id,o.updatedAt||'',l.id,tag].join('|');
  if(repLineMemo.map.has(key))return repLineMemo.map.get(key);
  let out={rows:[],plan:{valid:false},comps:[],unitType:''};
- try{out=finWithOrder(o,()=>({
-  rows:salesLineChargeRows(geo).map(row=>({row,station:repChargeStation(row),rate:salesChargePricingState(geo,row).catalogRate})).filter(x=>x.station),
+ try{out={
+  rows:salesLineChargeRows(geo,o).map(row=>({row,station:repChargeStation(row),rate:salesChargePricingState(geo,row,o).catalogRate})).filter(x=>x.station),
   plan:stkPlan(o,geo),
   comps:glassBatchComponents(o,l).filter(c=>!c.missing).map(c=>{const info=stkGlassInfo(c.pane,c.index,c.ply),mm=info.mm;return Object.assign({},c,{mm:mm||null,heat:info.heat||'Annealed'});}),
   unitType:(()=>{const m=salesMakeupById(o,l.makeupId);return m?(m.unitType==='single'&&(m.panes||[]).some(p=>p.category==='laminated')?'Laminated':docUnitLabel(m.unitType)):'';})(),
   /* Маршрут каждого стекла со своими работами по шагам — тот же, что на стикере. */
   visits:(()=>{const r=salesPrintRoute(geo,o,salesLineGeometryShape(geo),null),m=new Map();
    glassBatchComponents(o,l).forEach(c=>{const row=r.lites.find(x=>x.label==='Lite '+c.lite)||r.lites[c.index]||r.lites[0];m.set(c.key,row?row.stations.map(s=>({code:s.code,works:s.works||[]})):[]);});return m;})()
- }));}catch(e){}
+ };}catch(e){}
  if(repLineMemo.map.size>4000)repLineMemo.map=new Map();
  repLineMemo.map.set(key,out);return out;
 }
@@ -96,7 +96,7 @@ function repGlassWork(g,station,visit){
  const geo=stationGeo(g)||g.l,tag=typeof g.unit==='string'?g.unit:'',lw=repLineWork(g.o,g.l,geo,tag);
  const me=lw.comps.find(c=>c.key===g.c.key);if(!me)return empty;
  const lite=lw.plan&&lw.plan.valid?(lw.plan.lites||[]).find(x=>x.index===g.c.index):null;
- let area=null;try{area=finWithOrder(g.o,()=>stkPieceArea(geo,g.o,lite));}catch(e){}
+ let area=null;try{area=stkPieceArea(geo,g.o,lite);}catch(e){}
  const works=[];
  /* Станция бывает в маршруте дважды: у ламината POLISH до закалки (плиты) и
     после склейки (Lami Polish). Работа засчитывается тому заходу, в маршрут

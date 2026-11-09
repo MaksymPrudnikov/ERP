@@ -358,7 +358,7 @@ function applyDataFixes(){
  /* Номер 11 · 30 октября 2026. Геометрия лайтов для веса — в записи строки
     (line.measure.lites, пункт 14): владелец — «если данные с фигуры уже
     получены, зачем её пересчитывать». Только строкам, чья запись верна. */
- if(have<11&&typeof salesLineLiteGeo==='function')readScope(()=>(DB.salesOrder||[]).forEach(o=>{if(o&&typeof o==='object'&&Array.isArray(o.lines))o.lines.forEach(l=>{if(!l||!l.measure||l.measure.lites)return;try{if(salesMeasureFor(l,o)){l.measure.lites=finWithOrder(o,()=>salesLineLiteGeo(l,o));changed++;}}catch(e){console.warn('lites '+(o.businessNumber||o.id)+': '+e.message);}});}));
+ if(have<11&&typeof salesLineLiteGeo==='function')readScope(()=>(DB.salesOrder||[]).forEach(o=>{if(o&&typeof o==='object'&&Array.isArray(o.lines))o.lines.forEach(l=>{if(!l||!l.measure||l.measure.lites)return;try{if(salesMeasureFor(l,o)){l.measure.lites=salesLineLiteGeo(l,o);changed++;}}catch(e){console.warn('lites '+(o.businessNumber||o.id)+': '+e.message);}});}));
  DB.dataFix=DATA_FIX_VERSION;
  console.info('data fixes '+have+' \u2192 '+DATA_FIX_VERSION+': '+changed+' values');
  return true;

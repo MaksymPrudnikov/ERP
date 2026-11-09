@@ -58,7 +58,7 @@ function repSoldFacts(want){
   let mine=was&&was.key===k?was.rows:null;
   /* Заказ целиком или никак: сломанный расчёт одного заказа не оставляет
      в отчёте его половину. */
-  if(!mine){mine=[];try{finWithOrder(o,()=>repSoldOrder(o,shipped,mine));}catch(e){mine=[];}repSoldByOrder.set(o.id,{key:k,rows:mine});}
+  if(!mine){mine=[];try{repSoldOrder(o,shipped,mine);}catch(e){mine=[];}repSoldByOrder.set(o.id,{key:k,rows:mine});}
   mine.forEach(x=>rows.push(x));
  });
  if(!pick)repSoldByOrder.forEach((v,id)=>{if(!seen.has(id))repSoldByOrder.delete(id);});
@@ -73,7 +73,7 @@ function repSoldOrder(o,shipped,rows){
   if(free&&x.amount!=null)x.amount=0;x.unitPrice=x.amount!=null&&x.qty>0?x.amount/x.qty:null;x.id=o.id+'#'+rows.length;rows.push(x);return x;};
  (o.lines||[]).forEach(l=>repSoldLine(o,l,cad,put));
  (o.extraItems||[]).forEach(x=>{const it=salesExtraItemRow(x.table,x.itemId),n=salesPositiveInt(x.qty,1);
-  put({category:'Catalog items',type:it&&it.subcategory||'Catalog item',product:salesExtraItemName(x),unitName:'pcs',qty:n,pcs:n,amount:cad?salesExtraItemLineTotal(x):null});});
+  put({category:'Catalog items',type:it&&it.subcategory||'Catalog item',product:salesExtraItemName(x),unitName:'pcs',qty:n,pcs:n,amount:cad?salesExtraItemLineTotal(x,o):null});});
  (o.cancellations||[]).forEach(c=>put({category:'Cancelled units',type:'Cancelled units',product:'Charge for cancelled units',unitName:'units',qty:c.units.length,amount:cad?unitChargeOf(c):null}));
  (o.adjustments||[]).forEach(a=>put({category:'Adjustments',type:'Adjustment',product:a.label||'Adjustment',amount:a.amount}));
  const t=finOrderTotals(o);
@@ -106,7 +106,7 @@ function repSoldLine(o,l,cad,put){
    unitName,qty,amount:money(r.amount),mm:g&&g.thicknessMm||ply&&+ply.thicknessMm||null,heat:heatOf(ply),maker:g&&g.manufacturer||'',glassFt2:bill*live*plies});
  });
  (p.chargeRows||[]).forEach(row=>{
-  const st=salesChargePricingState(l,row),c=repSoldCharge(row),unitName=repSoldUnit(row.unit),qty=row.basis*live;
+  const st=salesChargePricingState(l,row,o),c=repSoldCharge(row),unitName=repSoldUnit(row.unit),qty=row.basis*live;
   const mm=/ · ([\d.]+) mm$/.exec(row.label||''),work=!['Surcharges'].includes(c.category);
   add(Object.assign(c,{unitName,qty,amount:money(salesChargeUnitAmount(row,st.effectiveRate)),list:money(salesChargeUnitAmount(row,st.catalogRate)),mm:mm?+mm[1]:thick.ok?thick.thickness:null,
    inches:work&&unitName==='in'?qty:0,pcs:work&&unitName==='pcs'?qty:0,workFt2:work&&unitName==='ft²'?qty:0}));

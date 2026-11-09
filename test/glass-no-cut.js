@@ -8,7 +8,7 @@ module.exports=async function({page,eq}){
   oqReset();window.ncC=oqCustomer();
   window.ncCOG=glassProductByCode('6COG');
   window.ncOrder=(lites)=>{const id=oqOrder(ncC),o=salesRecord(id);lites.forEach(i=>{Object.assign(o.makeups[0].panes[i],{glassProductId:ncCOG.id,heatTreatmentId:'HT-AN'});});soDraft=null;soEdit=null;salesSetRecordStatus(id,'verified');return salesRecord(id);};
-  window.ncRoute=(o,lite)=>{const l=o.lines[0],c=glassBatchComponents(o,l).find(c=>c.lite===String(lite));return finWithOrder(o,()=>stkRoute(o,l,c)).codes;};
+  window.ncRoute=(o,lite)=>{const l=o.lines[0],c=glassBatchComponents(o,l).find(c=>c.lite===String(lite));return (stkRoute(o,l,c)).codes;};
   window.ncPane=(o,patch)=>{const p=JSON.parse(JSON.stringify(o));Object.assign(p.makeups[0].panes[1],patch);return ncRoute(p,2);};
  });
  eq('the catalogue has one manufacturer COG, 3–19 mm, not cut; other glass is cut',await t.p.evaluate(()=>{const cog=DB.glassProduct.filter(g=>g.manufacturer==='COG');return {mm:cog.map(g=>g.thicknessMm),names:cog[3].name,cut:cog.every(g=>g.cut===false),preorder:glassIsPreorder(ncCOG),fresh:normalizeGlassProduct({code:'X'}).cut,base:glassProductByCode('6CLEAR').cut,imported:prepareImportedState(storageExportEnvelope()).glassProduct.find(g=>g.code==='6COG').cut};}),
@@ -45,7 +45,7 @@ module.exports=async function({page,eq}){
  eq('the Sales cut estimate leaves bought glass out with a reason',await t.p.evaluate(()=>{const s=cutEstScan(salesRecord(ncMixed.id));return {pieces:s.pieces.length,skipped:[...new Set(s.skipped.map(x=>x.reason))]};}),{pieces:3,skipped:['Bought glass · no cut']});
  eq('COG glass costs 0 by default, so the order is priced; a price typed on the lite counts',await t.p.evaluate(()=>{
   const o=JSON.parse(JSON.stringify(salesRecord(ncMixed.id))),p=o.makeups[0].panes[1];p.priceOverride=null;
-  const zero=salesPaneCatalogPrice(p),a=finWithOrder(o,()=>salesOrderCommercialTotals(o));p.priceOverride=2;const b=finWithOrder(o,()=>salesOrderCommercialTotals(o));
+  const zero=salesPaneCatalogPrice(p),a=(salesOrderCommercialTotals(o));p.priceOverride=2;const b=(salesOrderCommercialTotals(o));
   return {zero,missing:a.missing,complete:a.complete,more:b.subtotal>a.subtotal};
  }),{zero:0,missing:0,complete:true,more:true});
  eq('Sales shows the glass as bought and Master Data has the tick',await t.p.evaluate(()=>{

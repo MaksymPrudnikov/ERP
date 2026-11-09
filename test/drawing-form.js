@@ -7,7 +7,7 @@ module.exports=async function({page,eq}){
  console.log('drawing-form');const t=await page();await require('./optimization-fixture')(t.p);
  await t.p.evaluate(()=>{
   window.dfOrder=()=>{oqReset();DB.formTemplate={};const c=oqCustomer({legalName:'Lakeside Glass'}),id=oqOrder(c);salesDraftDrop();return salesRecord(id);};
-  window.dfSheet=(o,i)=>finWithOrder(o,()=>salesLineDrawing(o.lines[i||0])).html;
+  window.dfSheet=(o,i)=>salesLineDrawing(o.lines[i||0],null,null,o).html;
   window.dfDoc=h=>{const d=document.createElement('div');d.innerHTML=h;return d;};
   window.dfSave=(style,edit)=>{const t=drawFormDefault();Object.assign(t.style,style||{});if(edit)edit(t);DB.formTemplate=Object.assign({},DB.formTemplate,{drawing:formClean(t,drawFormDefault())});};
   window.dfOpen=()=>{formsUi=null;navGo('masterdata');mdSection='print';mdSetTab('forms');formsSetForm('drawing');};
@@ -83,7 +83,7 @@ module.exports=async function({page,eq}){
  eq('Drawing form: company details and prices as fields — top or bottom of the sheet; the company fields are one set with one name in every form, an old name is renamed; prices are the line cells (Unit Price, Line Total), as on the Invoice',await t.p.evaluate(()=>{
   const o=dfOrder();DB.company=Object.assign({},DB.company,{legalName:'Infinity Glass',address1:'200 Shop Rd',city:'Vaughan',province:'ON',postalCode:'L4K 2Z9',phone:'905-555-0100',email:'office@example.com',website:''});
   dfSave({},t=>{t.parts.foot.blocks.push({id:'co',type:'field',field:'companyLine',place:'center'});t.parts.head.blocks.push({id:'pr',type:'field',field:'linePrice',prefix:'Line total:',place:'right'});});
-  const d=dfDoc(dfSheet(o)),p=finWithOrder(o,()=>salesLineCommercialPrice(o.lines[0],o)),inv=finWithOrder(o,()=>docBuildModel('invoice',o,docDefaultOptions('invoice'))).items[0].amount;
+  const d=dfDoc(dfSheet(o)),p=(salesLineCommercialPrice(o.lines[0],o)),inv=(docBuildModel('invoice',o,docDefaultOptions('invoice'))).items[0].amount;
   return {foot:d.querySelector('.sheet-foot').children[1].textContent,price:[d.querySelector('.sheet-id-o').children[1].textContent===('Line total:'+docMoney(p.line)),docMoney(p.line)===inv],has:!!p.line,
    fields:drawFormFields().filter(f=>f.g==='Prices'||f.g==='Company').map(f=>f.k),saved:DB.formTemplate.drawing.parts.foot.blocks.find(b=>b.id==='co').field,
    same:['packingSlip','invoice','purchaseOrder','tripSheet','carrierSheet'].map(k=>formsDef(k).fields().filter(f=>f.g==='Company'&&!['company.terms','company.footer'].includes(f.k)).map(f=>f.k).join()===formCompanyFields().map(f=>f.k).join())};
@@ -123,7 +123,7 @@ module.exports=async function({page,eq}){
   await storageFlush();const run=archiveRun('2026-06-01');await storageFlush();
   const key=(archiveIndex.get(id)||{}).drawing,stored=!!(key&&DB.drawingFrozen[key]);
   dfSave({units:'mm',paper:'landscape'},t=>{t.parts.foot.blocks.push({id:'co',type:'field',field:'company',place:'center'});});DB.company=Object.assign({},DB.company,{legalName:'New Glass Co'});
-  const look=()=>{const h=finWithOrder(soDraft,()=>salesLineDrawing(soDraft.lines[0])).html,d=dfDoc(h);
+  const look=()=>{const h=salesLineDrawing(soDraft.lines[0]).html,d=dfDoc(h);
    return {mm:[...d.querySelectorAll('.sheet-field svg text')].some(e=>e.textContent==='939.8'),land:/dw-land/.test(d.querySelector('.print-shape-sheet').className),co:d.querySelector('.sheet-foot').children[1].textContent};};
   await archiveOpen(id);const archived=look();salesOrderClose();archiveVisitEnd();
   await archiveReturn(id);await storageFlush();salesOrderEdit(id);const back=look();salesDraftDrop();

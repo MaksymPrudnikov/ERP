@@ -43,8 +43,9 @@ module.exports=async function({page,eq,ok}){
   salesOrderEdit(saved.id);const whenOpen=salesOrderCommercialTotals(soDraft).grand;
   salesOrderNew();const bare=salesOrderCommercialTotals(saved).grand,fin=finOrderTotals(saved).grand;
   soEdit=null;soDraft=null;
-  return {same:fin===whenOpen,bareDiffers:bare!==whenOpen};
- }),{same:true,bareDiffers:true});
+  /* Этап 4 «до 10»: расчёт берёт заказ из параметра — и без Finance сумма та же. */
+  return {same:fin===whenOpen,bare:bare===whenOpen};
+ }),{same:true,bare:true});
 
  eq('новая оплата: Max разносит её на долг заказа, остаток ложится депозитом, в списке строка с заказом',await t.p.evaluate(()=>{
   finCleanup();const {cust,o,total}=finFixture();

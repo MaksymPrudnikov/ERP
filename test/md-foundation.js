@@ -9,13 +9,13 @@ module.exports=async function({page,eq,ok}){
  await t.p.evaluate(()=>{
   window.mdfOrder=function(){const c=oqCustomer({legalName:'Freeze Co'}),id=oqOrder(c);salesOrderEdit(id);
    soDraft.makeups.forEach(m=>m.cavities.forEach(x=>{x.priceOverride=null;}));salesOrderSave();salesDraftDrop(true);return id;};
-  window.mdfWeight=id=>{const o=salesRecord(id);return finWithOrder(o,()=>salesLineWeight(o.lines[0],o).knownKg);};
+  window.mdfWeight=id=>{const o=salesRecord(id);return (salesLineWeight(o.lines[0],o).knownKg);};
  });
 
  eq('Save замораживает обвязку и нормы веса: правка карточки рамки не меняет сохранённый заказ, новый заказ — по новым числам',await t.p.evaluate(()=>{
   oqReset();const id=mdfOrder(),o=salesRecord(id),c=o.makeups[0].cavities[0],sp=mdById('spacerVariant',c.spacerVariantId),rec=surroundRecipeById(sp.recipeId);
   const total=finOrderTotals(o).grand,kg=mdfWeight(id),keys=Object.keys(o.priceBook||{});
-  const surround=finWithOrder(o,()=>salesCavityCatalogPrice(c));
+  const surround=salesCavityCatalogPrice(c,o);
   const was={p:sp.salePrice,w:sp.weightG,pib:rec.pibPerSideMm};
   sp.salePrice+=1;sp.weightG*=2;rec.pibPerSideMm=1;
   const kept={total:finOrderTotals(salesRecord(id)).grand===total,kg:mdfWeight(id)===kg};

@@ -12,13 +12,14 @@
 /* Цена стекла по прайсу — как Makeup берёт её без ручной правки
    (salesPaneCatalogPrice): каталог стекла, закалённое или нет. У плиты
    ламината — своё стекло и своя закалка. $ за ft². */
-/* Цена прайса — на день сохранения заказа (salesGlassSalePrice в контексте
-   заказа): поменяли прайс сегодня — вчерашние цифры не сдвигаются (владелец,
-   20.10.2026: «измерять результаты корректно день за днём, год за годом»). */
-function repGlassPrice(c){
+/* Цена прайса — на день сохранения заказа (salesGlassSalePrice с заказом
+   order): поменяли прайс сегодня — вчерашние цифры не сдвигаются (владелец,
+   20.10.2026: «измерять результаты корректно день за днём, год за годом»).
+   Без заказа — прайс сегодня. */
+function repGlassPrice(c,order){
  const spec=c&&c.spec||{},g=glassProductById(spec.glassProductId);if(!g)return null;
  const ht=mdById('heatTreatment',spec.heatTreatmentId),code=String(ht&&ht.code||'').toUpperCase();
- const v=salesGlassSalePrice(g,code==='FT'||code==='HS');
+ const v=salesGlassSalePrice(g,code==='FT'||code==='HS',order||null);
  return v==null||v===''||!Number.isFinite(+v)?null:+v;
 }
 function repCompMm(c){const mm=c&&c.pane?stkGlassInfo(c.pane,c.index,c.ply).mm:null;return mm||null;}
@@ -38,7 +39,7 @@ function repBreakFacts(){
   const k=g.o.id+'|'+s.recut;if(!byRef.has(k))byRef.set(k,[]);byRef.get(k).push({s,g});
  });
  const row=(kind,ref,src,o,l,c,qty,s)=>{
-  const at=s?s.at:src.createdAt,per=o&&l?finWithOrder(o,()=>{const a=salesLineAreas(l,o);return a&&a.valid?a.actual:0;}):0,area=qty*per,price=o?finWithOrder(o,()=>repGlassPrice(c)):repGlassPrice(c);
+  const at=s?s.at:src.createdAt,per=o&&l?(a=>a&&a.valid?a.actual:0)(salesLineAreas(l,o)):0,area=qty*per,price=repGlassPrice(c,o);
   rows.push({...(o?repOrderInfo(o):{}),...(l?repLineInfo(l):{}),id:kind+'-'+ref+'-'+(s?s.piece:(c?c.key:'')),at,day:repDay(at),hour:repHour(at),kind,ref,station:src.where||'',reason:src.reason||'',
    personId:s?s.byId||s.by||'':'',person:s?s.by||'':'',orderId:o?o.id:'',order:o?o.businessNumber||'':'',customerId:o?o.customerId||'':'',
    glass:c?c.glass:'',mm:repCompMm(c),glassN:qty,area:area||null,usd:price==null||!area?null:area*price});
@@ -115,9 +116,9 @@ function repOrderFacts(){
    lines:lines.length,shapes,hold:o.onHold?'On hold':'Not on hold',
    delivery:o.delivery==='delivery'?'Delivery':'Pickup',status:salesStatusLabel(o),state,daysLate:state==='Late'?Math.max(0,days(due,finish||today)):0,ready,
    lead:shipped&&created?Math.max(0,days(created,shipped)):null,units,glassN,late:state==='Late'?1:0,onTimeN:state==='On time'?1:0,judgedN:state==='On time'||state==='Late'?1:0};
-  repLazy(row,'area',()=>finWithOrder(o,()=>lines.reduce((n,l)=>{const a=salesLineAreas(l,o);return n+(a.valid?a.actual*Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l)):0);},0))||null);
+  repLazy(row,'area',()=>lines.reduce((n,l)=>{const a=salesLineAreas(l,o);return n+(a.valid?a.actual*Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l)):0);},0)||null);
   /* Вес — известное, как в Sales (пункт 14); полнота — своим полем. */
-  let ow=null;const owOf=()=>{if(!ow){try{ow=finWithOrder(o,()=>salesOrderWeight(o));}catch(e){ow={kg:null,complete:false};}}return ow;};
+  let ow=null;const owOf=()=>{if(!ow){try{ow=salesOrderWeight(o);}catch(e){ow={kg:null,complete:false};}}return ow;};
   repLazy(row,'kg',()=>owOf().kg);
   repLazy(row,'kgStatus',()=>{const w=owOf();return w.kg==null?'Unavailable':w.complete?'Complete':'Partial';});
   repLazy(row,'total',()=>{const t=finOrderTotals(o);return t&&t.complete?t.grand:null;});
@@ -138,7 +139,7 @@ function repOrderedFacts(){
  const rows=[];
  (DB.salesOrder||[]).forEach(o=>{if(salesIsDraft(o))return;
   if(!o||salesIsQuote(o)||o.status==='cancelled')return;
-  finWithOrder(o,()=>(o.lines||[]).forEach(l=>{
+  (o.lines||[]).forEach(l=>{
    const live=Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l)),a=salesLineAreas(l,o),per=a&&a.valid?a.actual:0,m=salesMakeupById(o,l.makeupId);
    const unitType=m?(m.unitType==='single'&&(m.panes||[]).some(p=>p.category==='laminated')?'Laminated':docUnitLabel(m.unitType)):'';
    const shape=typeof salesListShapedLine==='function'&&salesListShapedLine(l)?'Shape':'Rectangle';
@@ -147,7 +148,7 @@ function repOrderedFacts(){
     rows.push({...repOrderInfo(o),...repLineInfo(l),sizeBand:repSizeBand(per),maker:repMaker(c.glassId),id:o.id+'|'+l.id+'|'+c.key,at:o.createdAt||'',created:salesListIsoDay(o.createdAt),due:o.dueDate||'',order:o.businessNumber||'',customerId:o.customerId||'',
      status:salesStatusLabel(o),glass:c.glass,mm:info.mm||null,heat:info.heat||'Annealed',unitType,shape,glassN:live,area:live*per||null,units:i?0:live});
    });
-  }));
+  });
  });
  repOrderedCache={stamp,rows};
  return rows;
@@ -210,7 +211,7 @@ function repQuoteFacts(){
   ms.sort((a,b)=>(a.quoteRev||0)-(b.quoteRev||0));
   const base=ms.find(m=>!m.quoteRev)||ms[0],won=ms.find(m=>m.status==='won'),q=won||ms[ms.length-1],sent=ms.map(m=>m.sentAt||'').filter(Boolean).sort().pop()||'';
   const valid=q.validUntil||'',state=won?'Won':valid&&valid<today?'Expired':sent?'Sent':'Not sent',t=finOrderTotals(q),lines=q.lines||[];
-  const units=lines.reduce((n,l)=>n+salesPositiveInt(l.qty,1),0),area=finWithOrder(q,()=>lines.reduce((n,l)=>{const a=salesLineAreas(l,q);return n+(a.valid?a.actual*salesPositiveInt(l.qty,1):0);},0));
+  const units=lines.reduce((n,l)=>n+salesPositiveInt(l.qty,1),0),area=lines.reduce((n,l)=>{const a=salesLineAreas(l,q);return n+(a.valid?a.actual*salesPositiveInt(l.qty,1):0);},0);
   const value=t&&t.complete?t.grand:null,order=won&&won.wonOrderId?(salesRecord(won.wonOrderId)||{}).businessNumber||(archiveKnown(won.wonOrderId)||{}).number||'':'';
   return {...repOrderInfo(q),id:g,at:base.createdAt||'',created:salesListIsoDay(base.createdAt),sent:salesListIsoDay(sent),validUntil:valid,quote:salesQuoteBaseNumber(base),customerId:q.customerId||'',
    state,won:won?1:0,one:1,revisions:ms.length,units,area:area||null,value,wonValue:won?value:0,order};

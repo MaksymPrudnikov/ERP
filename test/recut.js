@@ -99,7 +99,7 @@ module.exports=async function({page,eq,ok}){
   window.rdLine=()=>salesRecord(rd.id).lines[0];
   window.rdSave=(fn)=>{salesOpenRecutShape(rd.r.id);if(fn)fn();saveShape();return DB.recut[0];};
   /* Документы клиента: Recut — внутренняя проблема цеха, всегда $0 (владелец, 7.10.2026). */
-  window.rdDocs=()=>{const o=salesRecord(rd.id);return JSON.stringify(['proforma','confirmation','invoice'].map(k=>finWithOrder(o,()=>docLayout(docBuildModel(k,o)))));};
+  window.rdDocs=()=>{const o=salesRecord(rd.id);return JSON.stringify(['proforma','confirmation','invoice'].map(k=>(docLayout(docBuildModel(k,o)))));};
  });
 
  eq('строка Recut: размер и Shape; редактор — несохранённая копия с полосой RECUT и Was; Cancel ничего не пишет',await t.p.evaluate(()=>{

@@ -113,7 +113,7 @@ module.exports=async function({page,eq}){
  eq('старые заказы при загрузке получают цены, что в них видны сейчас (правка данных 8); отчёт стоимости работ и Convert квоты — по цене дня сохранения',await t.p.evaluate(()=>{
   oqReset();a19Set(10);const id=a19Live(),o=salesRecord(id),before=finOrderTotals(o).grand;delete o.priceBook;DB.dataFix=7;applyDataFixes();
   a19Set(20);const migrated={book:!!salesRecord(id).priceBook,same:finOrderTotals(salesRecord(id)).grand===before};
-  const report=finWithOrder(salesRecord(id),()=>repGlassPrice({spec:{glassProductId:glassProductByCode('6CLEAR').id,heatTreatmentId:'HT-FT'}}));
+  const report=repGlassPrice({spec:{glassProductId:glassProductByCode('6CLEAR').id,heatTreatmentId:'HT-FT'}},salesRecord(id));
   a19Set(10);const q=a19Live('quote'),qt=finOrderTotals(salesRecord(q)).grand;a19Set(20);salesConvertQuoteRecord(q,'PO-A19');
   const won=DB.salesOrder.find(x=>x.fromQuoteId===q);a19Set(null);
   return {migrated,report,converted:!!won&&finOrderTotals(won).grand===qt};

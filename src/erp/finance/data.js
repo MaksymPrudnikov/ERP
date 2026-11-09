@@ -78,14 +78,6 @@ function finReceiptOnAccount(r){return r.voided?0:finMoney(r.amount-finReceiptAp
 /* Долг и лимит — только по заказам: квота не долг, отменённый заказ тоже. */
 function finOrderCounts(o){return !!o&&o.kind!=='quote'&&o.status!=='cancelled'&&o.isDraft!==true;}
 
-/* Цена строки частично читает Makeup из открытого заказа (soDraft). Сумма
-   сохранённого, не открытого заказа поэтому считается с ним «на месте»
-   открытого — иначе, скажем, Heat Soak выпал бы из суммы чужого заказа. */
-function finWithOrder(order,fn){
- if(typeof soDraft==='undefined'||soDraft===order)return fn();
- const keep=soDraft;
- try{soDraft=order;return fn();}finally{soDraft=keep;}
-}
 /* Итоги заказа — один раз на отрисовку (erp/read-scope): Finance спрашивал их
    почти трижды на заказ (задание «База», П2). Пока пишется прайс заказа
    (salesPriceBookOf ловит его по ходу расчёта) — считать по-настоящему. */
@@ -118,12 +110,12 @@ function finTotalsForget(changes){
  }
 }
 function finOrderTotals(order){
- if(!order||!readOn()||salesBookRec)return finWithOrder(order,()=>salesOrderCommercialTotals(order));
+ if(!order||!readOn()||salesBookRec)return salesOrderCommercialTotals(order);
  const m=readMemo('finOrderTotals',[],()=>new WeakMap());let t=m.get(order);
  if(!t){
   const db=readMemo('finDbOrders',[DB.salesOrder],()=>new Set(DB.salesOrder||[])).has(order),k=db?finTotalsKeep.get(String(order.id)):null;
   if(k&&k.order===order){t=k.totals;if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK)finTotalsCheck(order,t);}
-  else{t=finWithOrder(order,()=>salesOrderCommercialTotals(order));if(db&&order.id)finTotalsKeep.set(String(order.id),{order,totals:t});}
+  else{t=salesOrderCommercialTotals(order);if(db&&order.id)finTotalsKeep.set(String(order.id),{order,totals:t});}
   m.set(order,t);
  }
  return t;
@@ -145,7 +137,7 @@ function finTotalsWarm(delay){
  };
  finTotalsWarmTimer=setTimeout(step,delay==null?3000:delay);
 }
-function finTotalsCheck(order,t){const now=finWithOrder(order,()=>salesOrderCommercialTotals(order));if(JSON.stringify(now)!==JSON.stringify(t))console.error('Stale totals: '+order.id+' · '+String(new Error().stack).split('\n').slice(3,6).map(x=>x.trim().split(' ')[1]).join(' < '));}
+function finTotalsCheck(order,t){const now=salesOrderCommercialTotals(order);if(JSON.stringify(now)!==JSON.stringify(t))console.error('Stale totals: '+order.id+' · '+String(new Error().stack).split('\n').slice(3,6).map(x=>x.trim().split(' ')[1]).join(' < '));}
 /* Оплаты заказа: на отрисовку — указатель «заказ → разнесения» за один
    проход по оплатам (erp/read-scope): Finance спрашивает каждый заказ года,
    и каждый вопрос перебирал все оплаты. Порядок сложения тот же. */

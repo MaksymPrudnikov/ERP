@@ -13,14 +13,12 @@ function purSpecComponent(o,l,c){
 }
 function purOrderComponentLine(orderId,lineId,key){
  const o=salesRecord(orderId),l=o&&(o.lines||[]).find(l=>l.id===lineId);if(!o||!l)return null;
- return finWithOrder(o,()=>{
-  const cs=glassBatchComponents(o,l),chosen=key?cs.filter(c=>c.key===key):cs;if(!chosen.length)return null;
-  const m=salesMakeupById(o,l.makeupId),parts=chosen.map(c=>purSpecComponent(o,l,c)),whole=!key;
-  const spec={orderNumber:o.businessNumber,lineNumber:o.lines.indexOf(l)+1,mark:l.mark||'',part:whole?'Whole unit':purComponentLabel(chosen[0]),
-   makeup:whole&&m?docMakeupFullLines(m,{glassNames:'name'}):[],parts,note:l.notes||'',capturedAt:new Date().toISOString()};
-  return purLineClean({id:salesUid('PL'),kind:'order',orderId,lineId,componentKey:key||'',description:whole?(m?docMakeupShort(m,{glassNames:'name'}):'Whole unit'):parts[0].glass,
-   unit:'each',priceUnit:'each',qty:l.qty,spec},0);
- });
+ const cs=glassBatchComponents(o,l),chosen=key?cs.filter(c=>c.key===key):cs;if(!chosen.length)return null;
+ const m=salesMakeupById(o,l.makeupId),parts=chosen.map(c=>purSpecComponent(o,l,c)),whole=!key;
+ const spec={orderNumber:o.businessNumber,lineNumber:o.lines.indexOf(l)+1,mark:l.mark||'',part:whole?'Whole unit':purComponentLabel(chosen[0]),
+  makeup:whole&&m?docMakeupFullLines(m,{glassNames:'name'}):[],parts,note:l.notes||'',capturedAt:new Date().toISOString()};
+ return purLineClean({id:salesUid('PL'),kind:'order',orderId,lineId,componentKey:key||'',description:whole?(m?docMakeupShort(m,{glassNames:'name'}):'Whole unit'):parts[0].glass,
+  unit:'each',priceUnit:'each',qty:l.qty,spec},0);
 }
 function purSpecTexts(spec,opts){
  if(!spec)return [];

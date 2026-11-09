@@ -79,11 +79,11 @@ function drawFormFields(){
 }
 /* Черновик конструктора — на время живого листа; у заказа из архива — вид
    на день его ухода (drawFrozenOf); иначе сохранённый. Заказ — по умолчанию
-   открытый (soDraft): лист рисуется внутри finWithOrder. */
+   заказ чертежа (salesSheetOrder): строка чужого заказа рисуется с ним. */
 let drawFormPreview=null,drawSheetLastFields={};
 function drawFormTpl(o){
  if(drawFormPreview)return drawFormPreview.tpl;
- const f=drawFrozenOf(o===undefined?(typeof soDraft!=='undefined'?soDraft:null):o);if(f)return f.tpl;
+ const f=drawFrozenOf(o===undefined?salesSheetOrder():o);if(f)return f.tpl;
  return formClean(DB.formTemplate&&DB.formTemplate[formUseKey('drawing')],drawFormDefault());
 }
 /* ----------------------- Вид на день архивации ----------------------- */
@@ -229,7 +229,7 @@ function drawFormSheetHTML(tpl,id,view){
  const [oid,lid]=String(id||'').split('|'),o=(DB.salesOrder||[]).find(x=>x.id===oid),l=o&&(o.lines||[]).find(x=>x.id===lid);
  if(!l)return '<div class="fm-note fm-dnote">No drawings yet: add a shape to an order line.</div>';
  const s=formsState(),keep=drawFormPreview;drawFormPreview={tpl,edit:view?null:{sel:s.sel}};
- let d;try{d=finWithOrder(o,()=>salesLineDrawing(l));}finally{drawFormPreview=keep;}
+ let d;try{d=salesLineDrawing(l,null,null,o);}finally{drawFormPreview=keep;}
  if(!d||!d.html)return '<div class="fm-note fm-dnote">'+esc(d&&d.error||'No drawing')+'</div>';
  const pick=(cls,part)=>h=>h.replace('class="'+cls,'data-forms-part-hit="'+part+'"'+(!s.sel&&s.part===part?' data-forms-sel':'')+' onpointerdown="formsSelect(\''+part+'\',\'\')" class="'+cls);
  let h=printSheetUniqueIds(d.html);

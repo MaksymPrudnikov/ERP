@@ -68,7 +68,7 @@ function docToggleRev(id,on){
 function docCurrentPages(){
  const form=docState.form||'';
  if(docState.kind!=='quote')return docPages(Object.assign(docBuildModel(docState.kind,soDraft,docState.opts),{form}));
- return docQuoteRecords().flatMap(r=>finWithOrder(r,()=>docPages(Object.assign(docBuildModel('quote',r,docState.opts),{form}))));
+ return docQuoteRecords().flatMap(r=>docPages(Object.assign(docBuildModel('quote',r,docState.opts),{form})));
 }
 function docRevisionPicker(){
  if(!docState||docState.kind!=='quote')return '';
@@ -294,7 +294,7 @@ function docQuoteEmailBody(recs){
  const c=DB.company||{},q=recs[0],C=salesFindCustomer(q.customerId),first=String((C&&customerPrimaryContact(C).name)||'').trim().split(/\s+/)[0];
  const terms=paymentTermsFrom(C||{}),pct=paymentDepositPercent(terms),many=recs.length>1,po=q.customerPo?' for PO '+q.customerPo:'';
  const lines=['Hello'+(first?' '+first:'')+',','',many?'Please find attached quote '+salesQuoteBaseNumber(q)+' in '+recs.length+' options: '+recs.map(r=>r.businessNumber).join(', ')+po+'.':'Please find attached quote '+q.businessNumber+po+'.'];
- recs.forEach(r=>{const t=finWithOrder(r,()=>salesOrderCommercialTotals(r));if(t.complete)lines.push((many?r.businessNumber+': ':'Total: ')+docMoney(t.grand)+' '+r.currency+'.');});
+ recs.forEach(r=>{const t=salesOrderCommercialTotals(r);if(t.complete)lines.push((many?r.businessNumber+': ':'Total: ')+docMoney(t.grand)+' '+r.currency+'.');});
  lines.push('Prices are valid until '+docDate(salesQuoteValidUntil(q))+'.');
  if(terms.paymentMode==='credit')lines.push('Payment terms: '+paymentTermsLabel(terms)+'.');
  else if(pct>0)lines.push('A '+pct+'% deposit is required to start production.');
@@ -308,7 +308,7 @@ function docEmailQuote(){
  if(before!==cur)ids=ids.filter(id=>id!==before).concat(cur);
  if(!ids.length)ids=[cur];
  const recs=ids.map(id=>DB.salesOrder.find(o=>o.id===id)).sort((a,b)=>(a.quoteRev||0)-(b.quoteRev||0)),files=[];
- try{recs.forEach(r=>{const pages=finWithOrder(r,()=>docPages(Object.assign(docBuildModel('quote',r,docState.opts),{form:docState.form||''})));files.push({name:docFileName('quote',r),bytes:docPdfBytes(pages,{title:'Quote '+r.businessNumber})});});}
+ try{recs.forEach(r=>{const pages=docPages(Object.assign(docBuildModel('quote',r,docState.opts),{form:docState.form||''}));files.push({name:docFileName('quote',r),bytes:docPdfBytes(pages,{title:'Quote '+r.businessNumber})});});}
  catch(e){alert('The PDF could not be prepared: '+(e&&e.message||e));return;}
  const C=salesFindCustomer(recs[0].customerId),to=C?(C.invoiceEmail||customerPrimaryContact(C).email||''):'';
  const url=docGmailUrl(to,docQuoteEmailSubject(recs),docQuoteEmailBody(recs));

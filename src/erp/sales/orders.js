@@ -526,7 +526,7 @@ function salesPaneRemoveLamInterlayer(i,slot){const p=salesCurrentMakeup().panes
 function salesCavitySet(i,k,v){const c=salesCurrentMakeup().cavities[i];if(c)c[k]=v;render();}
 /* Ставка за деление: заводская из прайса; занижают её обычным переопределением
    строки или заказа, как у любой услуги. */
-function salesMuntinCatalogRate(){return salesCatalogRate('muntinSection',{ok:false,band:''});}
+function salesMuntinCatalogRate(order){return salesCatalogRate('muntinSection',salesPricingFor({ok:false,band:''},order));}
 /* Раскладка строки — в её форме. Одиночное стекло баров не несёт: бар стоит
    между стёклами, поэтому у Single Lite раскладки не бывает. */
 function salesLineMuntin(line){
@@ -534,8 +534,9 @@ function salesLineMuntin(line){
  const m=shape&&shape.muntin;
  return m&&m.enabled?m:null;
 }
-function salesLineAllowsMuntin(line){
- const m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null;
+function salesLineAllowsMuntin(line,order){
+ order=salesOrderArg(order);
+ const m=line&&order?salesMakeupById(order,line.makeupId):null;
  return !!(m&&(m.cavities||[]).length);
 }
 /* Width — первый фильтр. При смене размера сохраняем текущую spacer-систему,
@@ -1071,16 +1072,22 @@ function salesExcelApply(){
    Data, этап 4): у каждой работы своя таблица «от – до мм → цена», и строка
    таблицы ищется по толщине у самой работы (serviceRateTierFor). До этапа 4
    здесь были зашиты границы до 7 · 8-11 · 12-19. */
-function salesPricingBandFor(mm){
+function salesPricingBandFor(mm,order){
  const t=+mm;
- return t>0&&Number.isFinite(t)?{ok:true,thickness:t}:{ok:false,thickness:Number.isFinite(t)?t:''};
+ return salesPricingFor(t>0&&Number.isFinite(t)?{ok:true,thickness:t}:{ok:false,thickness:Number.isFinite(t)?t:''},order);
 }
+/* Ставка работы ищется и в прайсах клиента заказа (salesCatalogRate), поэтому
+   заказ едет вместе с толщиной — в отдельной таблице, а не свойством: в строки
+   начисления и в JSON он не попадает, форма объекта толщины та же (так быстрее).
+   Без заказа — прайс открытого в Sales (экран заказа). */
+const salesPricingOrders=new WeakMap();
+function salesPricingFor(ctx,order){if(ctx&&order!==undefined)salesPricingOrders.set(ctx,order);return ctx;}
 /* Полоса строки заказа — тот же расчёт, что и у отдельного стекла. Раньше он
    стоял здесь вторым списком условий и при смене границ разошёлся бы с первым. */
-function salesPricingThickness(line){
- const v=salesLineGlassThicknesses(line);
- if(v.length!==1)return {ok:false,thickness:v.length?v.join(' / '):'',band:''};
- return salesPricingBandFor(v[0]);
+function salesPricingThickness(line,order){
+ const v=salesLineGlassThicknesses(line,order);
+ if(v.length!==1)return salesPricingFor({ok:false,thickness:v.length?v.join(' / '):'',band:''},order);
+ return salesPricingBandFor(v[0],order);
 }
 /* Физические стёкла строки, сгруппированные по полосе прайса.
 
@@ -1098,12 +1105,13 @@ function salesPricingThickness(line){
    существует, функция возвращала `ok:false`, и отверстия, петли, зажимы, нотчи,
    вырезы и радиусы молча оставались без ставки: в счёте `Rate required` вместо
    денег. Кромка так считалась уже давно — тело отстало. */
-function salesLineThicknessGroups(line){
- const m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null,out=[],index=Object.create(null);
+function salesLineThicknessGroups(line,order){
+ order=salesOrderArg(order);
+ const m=line&&order?salesMakeupById(order,line.makeupId):null,out=[],index=Object.create(null);
  if(!m)return out;
  (m.panes||[]).forEach(p=>{
   salesPanePlies(p).forEach(ply=>{
-   const ctx=salesPricingBandFor(ply.mm);
+   const ctx=salesPricingBandFor(ply.mm,order);
    const key=String(ctx.thickness);
    if(!index[key]){index[key]={ctx:ctx,count:0};out.push(index[key]);}
    index[key].count++;
@@ -1118,9 +1126,9 @@ function salesLineThicknessGroups(line){
    одной строкой на две штуки, а не двумя строками по одной. */
 /* Группы — по толщине, а строка счёта — по строке таблицы работы: 5 и 6 мм
    в одной строке таблицы дают одну строку счёта, их количество складывается. */
-function salesPerGlassRows(line,build){
- const groups=salesLineThicknessGroups(line);
- if(!groups.length)return build(salesPricingThickness(line));
+function salesPerGlassRows(line,build,order){
+ const groups=salesLineThicknessGroups(line,order);
+ if(!groups.length)return build(salesPricingThickness(line,order));
  const rows=[],byKey=Object.create(null);
  groups.forEach(g=>{
   build(g.ctx).forEach(r=>{
@@ -1137,10 +1145,10 @@ function salesPerGlassRows(line,build){
    растёт, и занизить счёт хуже, чем завысить. Сегодня ни одна из этих ставок от
    полосы не зависит, поэтому цифры это не меняет, — но перестаёт молча терять
    ставку у юнита из разных стёкол. */
-function salesThickestGlassCtx(line){
- const v=salesLineGlassThicknesses(line);
- if(!v.length)return salesPricingThickness(line);
- return salesPricingBandFor(v[v.length-1]);
+function salesThickestGlassCtx(line,order){
+ const v=salesLineGlassThicknesses(line,order);
+ if(!v.length)return salesPricingThickness(line,order);
+ return salesPricingBandFor(v[v.length-1],order);
 }
 /* Работа отверстия по диаметру: полосы диаметра — в карточках отверстий
    (family 'hole', диапазон диаметра), не в коде. */
@@ -1160,7 +1168,7 @@ function salesCatalogRate(tableKey,ctx,subKey){
  const row=salesServiceRateRow(subKey?tableKey+':'+subKey:tableKey);
  if(!row)return null;
  const tier=serviceRateTierFor(row,ctx&&ctx.ok?ctx.thickness:null);
- const lp=salesPriceListFor('service:'+row.id,tier?tier.id:'');
+ const lp=salesPriceListFor('service:'+row.id,tier?tier.id:'',ctx&&salesPricingOrders.has(ctx)?salesOrderCustomerId(salesPricingOrders.get(ctx)):undefined);
  if(lp){salesRateFrom={price:lp.price,list:lp.listId,svc:row.id};return lp.price;}
  salesRateFrom={svc:row.id};
  /* Выключенная строка прайса — это «услуга есть, цены нет», а не ноль. Строка
@@ -1267,38 +1275,39 @@ function salesNotchChargeRows(def,ctx){
    сервисы строки — рядом с пескоструем и обработкой кромки, где ставку и
    правят. Начисление считается по площади и по каждому лайту, который его
    несёт: в тройном пакете фрит может стоять на двух стёклах. */
-function salesGlazingChargeRows(line,areaFt2){
+function salesGlazingChargeRows(line,areaFt2,order){
  const rows=[],area=+areaFt2>0?+areaFt2:0;
  if(!area||!line)return rows;
- const m=(soDraft&&Array.isArray(soDraft.makeups)?soDraft.makeups:[]).find(x=>x.id===line.makeupId);
+ order=salesOrderArg(order);
+ const m=(order&&Array.isArray(order.makeups)?order.makeups:[]).find(x=>x.id===line.makeupId);
  if(!m)return rows;
- const frit=Object.create(null),spandrel=Object.create(null),order=[];
+ const frit=Object.create(null),spandrel=Object.create(null),seq=[];
  (m.panes||[]).forEach(function(p,i){
   const targets=p.category==='laminated'?[p.laminated.outer,p.laminated.inner]:[p];
   targets.forEach(function(ply,j){
    if(!ply||!ply.heatSoak||ply.heatTreatmentId!=='HT-FT')return;
    const mm=salesPlyThicknessMm(ply),label='Lite '+(i+1)+(p.category==='laminated'?(j?'b':'a'):'');
-   rows.push(salesChargeRow('HEATSOAK:'+p.id+':'+j+':'+mm,'Heat Soak · '+label+' · '+mm+' mm',area,'ft²',salesCatalogRate('heat_soak'),'Makeup'));
+   rows.push(salesChargeRow('HEATSOAK:'+p.id+':'+j+':'+mm,'Heat Soak · '+label+' · '+mm+' mm',area,'ft²',salesCatalogRate('heat_soak',salesPricingFor({},order)),'Makeup'));
   });
   if(p.category==='spandrel'){
    const id=(p.spandrel&&p.spandrel.productId)||'';
-   const k='spandrel:'+id;if(!spandrel[k]){spandrel[k]={id:id,qty:0};order.push(k);}spandrel[k].qty++;
+   const k='spandrel:'+id;if(!spandrel[k]){spandrel[k]={id:id,qty:0};seq.push(k);}spandrel[k].qty++;
    return;
   }
   if(p.category==='laminated')targets.forEach(function(ply){
    if(!ply||!ply.frit||!ply.frit.enabled)return;
    const id=ply.frit.productId||'',k='frit:'+id;
-   if(!frit[k]){frit[k]={id:id,qty:0};order.push(k);}frit[k].qty++;
+   if(!frit[k]){frit[k]={id:id,qty:0};seq.push(k);}frit[k].qty++;
   });
   if(p.category==='vision'&&p.visionType==='frit'){
    const id=(p.frit&&p.frit.productId)||'';
-   const k='frit:'+id;if(!frit[k]){frit[k]={id:id,qty:0};order.push(k);}frit[k].qty++;
+   const k='frit:'+id;if(!frit[k]){frit[k]={id:id,qty:0};seq.push(k);}frit[k].qty++;
   }
  });
- order.forEach(function(k){
+ seq.forEach(function(k){
   const isFrit=k.indexOf('frit:')===0;
   const g=isFrit?frit[k]:spandrel[k];
-  const prod=mdById(isFrit?'fritProduct':'spandrelProduct',g.id),lp=prod?salesPriceListFor('item:'+(isFrit?'fritProduct':'spandrelProduct')+':'+prod.id):null;
+  const prod=mdById(isFrit?'fritProduct':'spandrelProduct',g.id),lp=prod?salesPriceListFor('item:'+(isFrit?'fritProduct':'spandrelProduct')+':'+prod.id,undefined,salesOrderCustomerId(order)):null;
   rows.push(salesChargeRow(
    'GLAZE:'+k,
    (prod?(prod.name||prod.code):(isFrit?'Frit':'Spandrel'))+(g.qty>1?' × '+g.qty+' glass layers':''),
@@ -1322,22 +1331,23 @@ function salesLineAreaFt2(line){
    показываем строку честно как Rate required, пока владелец не задаст цену.
    Shape Unit имеет подтверждённую ставку и считается по габаритной billable
    area. Простой Rectangle не является фигурной единицей; внешний DXF является. */
-function salesUnitSurchargeRows(line,shape){
-  const rows=[],m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null;
+function salesUnitSurchargeRows(line,shape,order){
+  order=salesOrderArg(order);
+  const rows=[],m=line&&order?salesMakeupById(order,line.makeupId):null;
   /* Triple is a percentage of the finished unit, calculated in line-metrics. */
   /* Shape Unit — надбавка за сборку фигурного стеклопакета. Отдельный Single
      Lite оплачивает свою геометрию и обработки, но не является DGU/TGU. */
   if(shape&&m&&(m.unitType==='double'||m.unitType==='triple')&&(shape.type!=='rectangle'||shapeIsDxfSource(shape))){
     const r=ShapeModule.compute(shape),raw=r&&+r.billableArea;
-    const area=salesLineAreas(line,soDraft).billable;
-    if(area>0)rows.push(salesChargeRow('SURCHARGE:shape-unit','Shape Unit',+area.toFixed(4),'ft²',salesCatalogRate('shapeUnit',{}),'Shape surcharge'));
+    const area=salesLineAreas(line,order).billable;
+    if(area>0)rows.push(salesChargeRow('SURCHARGE:shape-unit','Shape Unit',+area.toFixed(4),'ft²',salesCatalogRate('shapeUnit',salesPricingFor({},order)),'Shape surcharge'));
   }
   /* Step Unit — лайты юнита разного размера (sales/step-unit). Ставка из прайса
      (сейчас 0), количество — по единице строки прайса. */
-  const step=shape&&typeof salesShapeStepInfo==='function'?salesShapeStepInfo(shape,line,soDraft):null;
+  const step=shape&&typeof salesShapeStepInfo==='function'?salesShapeStepInfo(shape,line,order):null;
   if(step&&step.step){
-    const rate=salesServiceRateRow('stepUnit'),unit=(rate&&rate.unit)||'pc',qty=salesStepUnitQty(step,line,soDraft,unit);
-    if(qty>0)rows.push(salesChargeRow('SURCHARGE:step-unit','Step Unit',+qty.toFixed(4),unit,salesCatalogRate('stepUnit',{}),'Step unit · '+salesStepSealLabel(shape)));
+    const rate=salesServiceRateRow('stepUnit'),unit=(rate&&rate.unit)||'pc',qty=salesStepUnitQty(step,line,order,unit);
+    if(qty>0)rows.push(salesChargeRow('SURCHARGE:step-unit','Step Unit',+qty.toFixed(4),unit,salesCatalogRate('stepUnit',salesPricingFor({},order)),'Step unit · '+salesStepSealLabel(shape)));
   }
   return rows;
 }
@@ -1363,12 +1373,12 @@ function salesLineChargeRowsRaw(line){
 }
 /* Округление количества и минимальная сумма — из карточки работы (этап 4,
    часть 2), на юнит. Замораживаются в заказе на Save, как ставка. */
-function salesLineChargeRows(line){return readLine('charges',line,soDraft,()=>salesLineChargeRowsLive(line));}
-function salesLineChargeRowsLive(line){
- return salesLineChargeRowsRaw(line).map(row=>{
+function salesLineChargeRows(line,order){order=salesOrderArg(order);return readLine('charges',line,order,()=>salesLineChargeRowsLive(line,order));}
+function salesLineChargeRowsLive(line,order){
+ return salesLineChargeRowsRaw(line,undefined,order).map(row=>{
   if(!row.svc)return row;
   const w=salesServiceRateRow(row.svc);
-  const step=salesBook('svcRound:'+row.svc,()=>w&&w.roundTo||null),min=salesBook('svcMin:'+row.svc,()=>w&&w.minCharge||null);
+  const step=salesBook('svcRound:'+row.svc,()=>w&&w.roundTo||null,order),min=salesBook('svcMin:'+row.svc,()=>w&&w.minCharge||null,order);
   if(!(step>0)&&!(min>0))return row;
   const out=Object.assign({},row);
   if(step>0)out.basis=+(Math.ceil(row.basis/step-1e-9)*step).toFixed(4);
@@ -1428,12 +1438,12 @@ function salesChargeGroupKey(row){
  if(p[0]==='EXTRA')return String(row.key).split('|')[0];
  return String(row&&row.key||'');
 }
-function salesOrderChargePricingRecord(row){const map=soDraft&&soDraft.servicePricing&&typeof soDraft.servicePricing==='object'?soDraft.servicePricing:{},r=map[salesChargeGroupKey(row)]||null;return r&&r.orderRate!=null?r.orderRate:null;}
-function salesChargePricingState(line,row){
+function salesOrderChargePricingRecord(row,order){order=salesOrderArg(order);const map=order&&order.servicePricing&&typeof order.servicePricing==='object'?order.servicePricing:{},r=map[salesChargeGroupKey(row)]||null;return r&&r.orderRate!=null?r.orderRate:null;}
+function salesChargePricingState(line,row,order){
  const map=line.chargePricing&&typeof line.chargePricing==='object'?line.chargePricing:{},saved=Object.prototype.hasOwnProperty.call(map,row.key)?map[row.key]:null;
  /* Once an order is saved, even a missing catalog rate is a snapshot. Do not let
     a future catalog edit silently reprice an old order. */
- const catalog=saved?saved.catalogRate:row.catalogRate,from=saved?saved.from||'':row.from||'',lineRate=saved&&saved.orderRate!=null?saved.orderRate:null,orderRate=salesOrderChargePricingRecord(row);
+ const catalog=saved?saved.catalogRate:row.catalogRate,from=saved?saved.from||'':row.from||'',lineRate=saved&&saved.orderRate!=null?saved.orderRate:null,orderRate=salesOrderChargePricingRecord(row,order);
  const effective=lineRate!=null?lineRate:(orderRate!=null?orderRate:catalog),origin=lineRate!=null?'line':(orderRate!=null?'order':(catalog!=null?(from?'list':'catalog'):'missing'));
  return {catalogRate:catalog,orderRate:orderRate,lineRate:lineRate,effectiveRate:effective,manual:lineRate!=null,origin:origin,from:from,missing:effective==null};
 }
@@ -1456,8 +1466,8 @@ function salesChargeUnitValue(value,unit){
 }
 function salesChargeBasisText(row,line){const q=salesPositiveInt(line.qty,1),total=row.basis*q,one=salesChargeUnitValue(row.basis,row.unit);return one+(q>1?' × '+q+' = '+salesChargeUnitValue(total,row.unit):'')+(row.minCharge?' · min '+row.minCharge.toFixed(2)+' / unit':'');}
 function salesRateText(v,unit,currency){return v==null?'—':Number(v).toFixed(2)+' '+currency+'/'+(unit==='pc'?'pc':unit==='ft²'?'ft²':'in');}
-function salesLinePricingSummary(line){return readLine('services',line,soDraft,()=>salesLinePricingLive(line));}
-function salesLinePricingLive(line){const rows=salesLineChargeRows(line),q=salesPositiveInt(line.qty,1);let total=0,unpriced=0;rows.forEach(function(row){const st=salesChargePricingState(line,row);if(st.effectiveRate==null)unpriced++;else total+=salesChargeUnitAmount(row,st.effectiveRate)*q;});return {total:total,unpriced:unpriced,charges:rows.length,complete:unpriced===0,rows:rows};}
+function salesLinePricingSummary(line,order){order=salesOrderArg(order);return readLine('services',line,order,()=>salesLinePricingLive(line,order));}
+function salesLinePricingLive(line,order){const rows=salesLineChargeRows(line,order),q=salesPositiveInt(line.qty,1);let total=0,unpriced=0;rows.forEach(function(row){const st=salesChargePricingState(line,row,order);if(st.effectiveRate==null)unpriced++;else total+=salesChargeUnitAmount(row,st.effectiveRate)*q;});return {total:total,unpriced:unpriced,charges:rows.length,complete:unpriced===0,rows:rows};}
 function salesOrderPricingSummary(){return (soDraft&&soDraft.lines||[]).reduce(function(a,l){const s=salesLinePricingSummary(l);a.total+=s.total;a.unpriced+=s.unpriced;a.charges+=s.charges;return a;},{total:0,unpriced:0,charges:0});}
 function salesLinePricingTotal(line){return salesLinePricingSummary(line).total;}
 function salesOrderPricingTotal(){return salesOrderPricingSummary().total;}
@@ -1494,19 +1504,20 @@ function salesShapeByRef(ref){
 /* Деления этой строки: раскладка живёт в её форме, поэтому соседние строки с
    тем же makeup остаются без бара и без цены. */
 function salesMuntinSections(line){return salesMuntinSectionsOf(salesLineMuntin(line));}
-function salesMuntinChargeRows(line){
+function salesMuntinChargeRows(line,order){
  const n=salesMuntinSections(line);
- if(!n||!salesLineAllowsMuntin(line))return [];
- return [salesChargeRow('MUNTIN:section','Muntin sections',n,'pc',salesMuntinCatalogRate(),'Shape')];
+ if(!n||!salesLineAllowsMuntin(line,order))return [];
+ return [salesChargeRow('MUNTIN:section','Muntin sections',n,'pc',salesMuntinCatalogRate(order),'Shape')];
 }
 /* Форма с баром на одиночном стекле: бару там физически негде стоять. */
-function salesLineMuntinMisapplied(line){return !!salesLineMuntin(line)&&!salesLineAllowsMuntin(line);}
+function salesLineMuntinMisapplied(line,order){return !!salesLineMuntin(line)&&!salesLineAllowsMuntin(line,order);}
 /* Edge-processing allowance belongs to the glass selected in the line's Makeup,
    not to a manually entered Shape thickness. The Shape editor keeps the legacy
    schema field only as an internal calculation input so old saved definitions and
    v4.5 fingerprints remain compatible. */
-function salesLineGlassThicknesses(line){
- const m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null,out=[];if(!m)return out;
+function salesLineGlassThicknesses(line,order){
+ order=salesOrderArg(order);
+ const m=line&&order?salesMakeupById(order,line.makeupId):null,out=[];if(!m)return out;
  (m.panes||[]).forEach(p=>{
   salesPanePlies(p).forEach(ply=>{if(Number.isFinite(ply.mm)&&ply.mm>0&&out.indexOf(ply.mm)<0)out.push(ply.mm);});
  });
@@ -1521,14 +1532,14 @@ function salesLineGlassThicknesses(line){
      предпросмотр показывает худший случай припуска, а настоящий рез всё равно
      считается по каждому лайту отдельно.
    Закрываемся только когда толщины нет вообще. */
-function salesApplyLineGlassThicknessToShape(line,shape,liteIndex){
+function salesApplyLineGlassThicknessToShape(line,shape,liteIndex,order){
  if(!shape)return null;
- const lites=salesLineLites(line);
+ const lites=salesLineLites(line,order);
  if(liteIndex!=null){
   const one=lites.find(function(l){return l.index===liteIndex;});
   if(one&&+one.thicknessMm>0){shape.thickness=String(one.thicknessMm);return +one.thicknessMm;}
  }
- const values=salesLineGlassThicknesses(line);
+ const values=salesLineGlassThicknesses(line,order);
  if(values.length===1){shape.thickness=String(values[0]);return values[0];}
  const shared=lites.filter(function(l){return !salesLineLiteShape(line,l.index);}).map(function(l){return +l.thicknessMm;}).filter(function(v){return v>0;});
  const pool=shared.length?shared:values.filter(function(v){return +v>0;});
@@ -1826,8 +1837,9 @@ function salesPaneSetEdgework(i,v){
  p.edgework=SALES_PANE_EDGEWORK.indexOf(v)>0?v:'';
  m.updatedAt=new Date().toISOString();touch();render();
 }
-function salesLineLites(line){
- const m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null;
+function salesLineLites(line,order){
+ order=salesOrderArg(order);
+ const m=line&&order?salesMakeupById(order,line.makeupId):null;
  if(!m)return [];
  return (m.panes||[]).map(function(pane,i){
   const mm=salesPaneGlassThicknessMm(pane),kind=salesPaneBaseEdgework(pane,m.unitType);
@@ -1849,13 +1861,13 @@ function salesLineLites(line){
 }
 /* Совместимость: там, где по-прежнему нужен один ответ на строку, берём
    самую строгую обработку — полировка строже ариса. */
-function salesLineBaseEdgeworkKind(line){
+function salesLineBaseEdgeworkKind(line,order){
  let kind='';
- salesLineLites(line).forEach(function(l){if(l.baseEdgework==='polish')kind='polish';else if(l.baseEdgework==='arris'&&kind!=='polish')kind='arris';});
+ salesLineLites(line,order).forEach(function(l){if(l.baseEdgework==='polish')kind='polish';else if(l.baseEdgework==='arris'&&kind!=='polish')kind='arris';});
  return kind;
 }
-function salesLineBaseEdgeworkOps(line){
- const op=glassBaseEdgeworkOp(salesLineBaseEdgeworkKind(line));
+function salesLineBaseEdgeworkOps(line,order){
+ const op=glassBaseEdgeworkOp(salesLineBaseEdgeworkKind(line,order));
  return op?[shapeNormalizeOp(op)].filter(Boolean):[];
 }
 function salesOrderConfigureShape(i){

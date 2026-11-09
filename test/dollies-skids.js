@@ -91,8 +91,8 @@ module.exports=async function({page,eq,ok}){
   dsReset();const a=dsOrder([[36,24,1]],'Granite City Glazing'),ga=dsIds(a);dsScan(ga,'DL-1');
   const c=oqCustomer({legalName:'Royal Crest Windows'}),b=oqOrder(c);salesDraftDrop();oqThrough(b,'batched');const gb=[...glassPieceMap(b).values()].flatMap(r=>r.ids).slice(0,2);dsScan(gb,'DL-1');
   dsOpenTab();carrierWinOpen('DL-1');const m=carrierWinModel(),w=id=>carrierText(m.items.find(i=>i.label===id),'weight');
-  const one=w(ga[0]),lite=w(gb[0]),line=finWithOrder(salesRecord(a),()=>salesLineWeight(salesRecord(a).lines[0],salesRecord(a))).kg;
-  const igu=salesRecord(b),l=igu.lines[0],full=finWithOrder(igu,()=>salesLineWeight(l,igu)),glassRows=full.rows.filter(r=>/^Lite 1 ·/.test(r.label)).reduce((n,r)=>n+r.kg,0);
+  const one=w(ga[0]),lite=w(gb[0]),line=(salesLineWeight(salesRecord(a).lines[0],salesRecord(a))).kg;
+  const igu=salesRecord(b),l=igu.lines[0],full=(salesLineWeight(l,igu)),glassRows=full.rows.filter(r=>/^Lite 1 ·/.test(r.label)).reduce((n,r)=>n+r.kg,0);
   carrierWinClose();const r=oqOrder(c);salesDraftDrop();oqThrough(r,'ready');shippingAvailable(salesRecord(r)).forEach(u=>u.pieces.forEach(p=>{stationScansFor(p).at(-1).on='SL-1';}));
   const save=window.salesWeightRate,card=window.surroundSpacerCard;window.salesWeightRate=(k,o)=>k==='glass'?save(k,o):null;window.surroundSpacerCard=()=>({recipeId:'',weightG:null,weightPer:'ft2'});carrierWinOpen('SL-1');const unit=carrierText(carrierWinModel().items[0],'weight');window.salesWeightRate=save;window.surroundSpacerCard=card;carrierWinClose();
   return {one:one===docNum(line,1),lite:lite===docNum(glassRows,1)&&+lite>0,litePart:+lite<full.kg,unit:/^~[0-9.]+$/.test(unit)};

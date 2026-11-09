@@ -51,7 +51,7 @@ function salesStepSameLite(a,b){
    собой, не с формой): настройка Lite 3, оставшаяся после Triple → Double, и
    одинаковый отступ у всех лайтов ступеньки не дают. Только Double / Triple. */
 function salesShapeStepInfo(shape,line,order){
-  order=order||(typeof soDraft!=='undefined'?soDraft:null);
+  order=salesOrderArg(order);
   var m=line&&order&&typeof salesMakeupById==='function'?salesMakeupById(order,line.makeupId):null;
   if(!shape||!m||(m.unitType!=='double'&&m.unitType!=='triple'))return null;
   var base=salesStepBaseContour(shape);if(!base)return null;

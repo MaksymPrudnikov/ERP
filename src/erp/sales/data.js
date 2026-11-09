@@ -232,24 +232,35 @@ function salesDefaultPane(i){
    читаются через salesBook: у сохранённого заказа — из его priceBook, у нового
    — из Master Data. Save записывает в priceBook ровно те цены, по которым
    посчитан заказ; ставки услуг фиксировались и раньше (chargePricing). Заказ
-   берётся из контекста расчёта (finWithOrder ставит его в soDraft). */
+   передаётся параметром order (этап 4 плана «до 10»): расчёт итогов, Finance,
+   документы и отчёты называют свой заказ сами и открытый в Sales не читают. */
 /* Новая цена сначала ищется в прайсах клиента (erp/sales/price-lists), потом
    в Master Data. Откуда она пришла, заказ помнит в priceFrom: ключ цены →
    прайс. */
+/* Заказ расчёта. Передан — он; не передан (undefined) — открытый в Sales:
+   так зовут экран заказа и его правки. Всё, что считает чужой или
+   сохранённый заказ, передаёт его явно. */
+function salesOrderArg(order){return order===undefined?(typeof soDraft==='undefined'?null:soDraft):order;}
+/* Заказ чертежа строки. Чертёж рисует редактор формы (erp/sales/print-sheet):
+   salesLineDrawing кладёт заказ строки в его мост salesBridge.order. Форма,
+   открытая из строки в Sales, — открытый заказ. */
+function salesSheetOrder(){const b=typeof salesBridge!=='undefined'&&salesBridge;return b&&b.kind==='shape'&&b.order?b.order:(typeof soDraft==='undefined'?null:soDraft);}
+/* Клиент заказа — для его прайсов (erp/sales/price-lists). */
+function salesOrderCustomerId(order){return order&&order.customerId||'';}
 let salesBookRec=null,salesFromRec=null;
-function salesBook(key,live){
- const o=typeof soDraft!=='undefined'&&soDraft,b=o&&o.priceBook;
+function salesBook(key,live,order){
+ const o=salesOrderArg(order),b=o&&o.priceBook;
  let v;
  if(b&&Object.prototype.hasOwnProperty.call(b,key)){v=b[key];if(salesFromRec&&o.priceFrom&&o.priceFrom[key])salesFromRec[key]=o.priceFrom[key];}
- else{const lp=salesPriceListFor(salesPriceTargetOfKey(key));v=lp?lp.price:live();if(salesFromRec&&lp)salesFromRec[key]=lp.listId;}
+ else{const lp=salesPriceListFor(salesPriceTargetOfKey(key),undefined,salesOrderCustomerId(o));v=lp?lp.price:live();if(salesFromRec&&lp)salesFromRec[key]=lp.listId;}
  if(salesBookRec)salesBookRec[key]=v==null?null:v;
  return v;
 }
 /* Откуда цена по ключу priceBook: прайс заказа или живой поиск. '' — общая. */
-function salesPriceFromOf(key){
- const o=typeof soDraft!=='undefined'&&soDraft;if(!o)return '';
+function salesPriceFromOf(key,order){
+ const o=salesOrderArg(order);if(!o)return '';
  if(o.priceBook&&Object.prototype.hasOwnProperty.call(o.priceBook,key))return (o.priceFrom&&o.priceFrom[key])||'';
- const lp=salesPriceListFor(salesPriceTargetOfKey(key));return lp?lp.listId:'';
+ const lp=salesPriceListFor(salesPriceTargetOfKey(key),undefined,salesOrderCustomerId(o));return lp?lp.listId:'';
 }
 /* Цены и нормы веса, по которым заказ посчитан сейчас: прежние — из его
    priceBook, новые позиции — из Master Data. */
@@ -257,7 +268,7 @@ function salesPriceBookOf(o){
  const keep=salesBookRec,keepFrom=salesFromRec;salesBookRec={};salesFromRec={};
  try{
   finOrderTotals(o);
-  if(typeof salesLineWeight==='function')finWithOrder(o,()=>(o.lines||[]).forEach(l=>{try{salesLineWeight(l,o);}catch(e){console.warn('weight book '+(o.businessNumber||o.id)+': '+e.message);}}));
+  if(typeof salesLineWeight==='function')(o.lines||[]).forEach(l=>{try{salesLineWeight(l,o);}catch(e){console.warn('weight book '+(o.businessNumber||o.id)+': '+e.message);}});
   /* Откуда цены — рядом с самими ценами, тем же снимком. */
   if(Object.keys(salesFromRec).length)o.priceFrom=salesFromRec;else delete o.priceFrom;
   return salesBookRec;
@@ -265,53 +276,54 @@ function salesPriceBookOf(o){
 }
 function salesPriceFromClean(f){const out={};if(f&&typeof f==='object'&&!Array.isArray(f))Object.keys(f).forEach(k=>{if(typeof f[k]==='string'&&f[k])out[k]=f[k];});return out;}
 function salesPriceBookClean(b){const out={};Object.keys(b).forEach(k=>{const v=b[k];if(v===null)out[k]=null;else if(typeof v==='number'&&Number.isFinite(v))out[k]=v;else if(typeof v==='string'&&(k.indexOf('unit:')===0||k.indexOf('snap:')===0))out[k]=v;});return out;}
-function salesGlassSalePrice(g,tempered){const f=tempered?'salePriceTempered':'salePriceAnnealed';return salesBook('glass:'+g.id+':'+f,()=>g[f]==null?null:g[f]);}
+function salesGlassSalePrice(g,tempered,order){const f=tempered?'salePriceTempered':'salePriceAnnealed';return salesBook('glass:'+g.id+':'+f,()=>g[f]==null?null:g[f],order);}
 /* Прайс, давший цену листа (лайт или слой ламината) — для «откуда цена». */
-function salesGlassPriceFrom(x){
+function salesGlassPriceFrom(x,order){
  const g=x&&glassProductById(x.glassProductId);if(!g)return '';
  const ht=mdById('heatTreatment',x.heatTreatmentId),code=String((ht&&ht.code)||'').toUpperCase();
- return salesPriceFromOf('glass:'+g.id+':'+(code==='FT'||code==='HS'?'salePriceTempered':'salePriceAnnealed'));
+ return salesPriceFromOf('glass:'+g.id+':'+(code==='FT'||code==='HS'?'salePriceTempered':'salePriceAnnealed'),order);
 }
-function salesInterlayerSalePrice(id){return salesBook('interlayer:'+id,()=>{const p=mdById('interlayerProduct',id);return p&&p.salePrice!=null?p.salePrice:null;});}
+function salesInterlayerSalePrice(id,order){return salesBook('interlayer:'+id,()=>{const p=mdById('interlayerProduct',id);return p&&p.salePrice!=null?p.salePrice:null;},order);}
 /* Обвязка — рецепт из айтемов (этап 3 плана Master Data,
    erp/masterdata/surround): у каждой части своя цена и единица продажи в
    карточке, цена ищется по прайсам клиента, как у любого айтема. */
-function salesSurroundPartPrice(part){
+function salesSurroundPartPrice(part,order){
  if(!part||!part.item)return null;
- return salesBook('item:'+part.table+':'+part.item.id,()=>part.item.salePrice==null?null:part.item.salePrice);
+ return salesBook('item:'+part.table+':'+part.item.id,()=>part.item.salePrice==null?null:part.item.salePrice,order);
 }
 /* Ставка обвязки за ft² юнита: сумма частей, продаваемых за ft² без своих
    минимумов. Части с другой единицей (погонный дюйм, штука, вес) считаются
    в строке заказа по геометрии — salesCavityOtherUnits говорит, что они есть. */
-function salesCavityCatalogPrice(c){
+function salesCavityCatalogPrice(c,order){
  if(!c)return null;
- const parts=surroundCavityParts(c,null,typeof soDraft!=='undefined'?soDraft:null).parts;
+ order=salesOrderArg(order);
+ const parts=surroundCavityParts(c,null,order).parts;
  if(!parts.length)return null;
  let p=0;
  for(const x of parts){
-  const v=salesSurroundPartPrice(x);if(v==null)return null;
-  if(salesSurroundPartIsPlain(x))p+=v;
+  const v=salesSurroundPartPrice(x,order);if(v==null)return null;
+  if(salesSurroundPartIsPlain(x,order))p+=v;
  }
  return Math.round(p*100)/100;
 }
-function salesSurroundPartIsPlain(x){const r=salesItemSaleRules(x.table,x.item);return r.unit==='sqft'&&r.minArea==null&&r.minCharge==null;}
-function salesCavityOtherUnits(c){return !!c&&c.priceOverride==null&&surroundCavityParts(c,null,typeof soDraft!=='undefined'?soDraft:null).parts.some(x=>x.item&&!salesSurroundPartIsPlain(x));}
+function salesSurroundPartIsPlain(x,order){const r=salesItemSaleRules(x.table,x.item,undefined,order);return r.unit==='sqft'&&r.minArea==null&&r.minCharge==null;}
+function salesCavityOtherUnits(c,order){order=salesOrderArg(order);return !!c&&c.priceOverride==null&&surroundCavityParts(c,null,order).parts.some(x=>x.item&&!salesSurroundPartIsPlain(x,order));}
 /* Цена лайта = стекло из прайса + надбавка за то, что на нём делают.
    Spandrel и Frit продаются поверх стекла своей ставкой из справочника, а не
    вместо него: покрасить лист дешевле, чем купить другой лист. */
 /* Цена ламината складывается из того, что в нём физически есть: два стекла плюс
    плёнки по числу слоёв. Считать его «как одно стекло» значит потерять половину
    стоимости — внутренний лист и плёнка стоят не меньше внешнего. */
-function salesPlyCatalogPrice(ply){
+function salesPlyCatalogPrice(ply,order){
  if(!ply)return null;
  const g=glassProductById(ply.glassProductId);
  if(!g)return null;
  const ht=mdById('heatTreatment',ply.heatTreatmentId);
  const code=String((ht&&ht.code)||'').toUpperCase();
- const base=salesGlassSalePrice(g,code==='FT'||code==='HS');
+ const base=salesGlassSalePrice(g,code==='FT'||code==='HS',order);
  return base==null?null:base;
 }
-function salesPlyPrice(ply){
+function salesPlyPrice(ply,order){
  /* Ручная цена плиты старше каталожной — её ввели, глядя на конкретный заказ. */
  if(ply&&ply.priceOverride!=null)return ply.priceOverride;
  if(!ply)return null;
@@ -319,18 +331,18 @@ function salesPlyPrice(ply){
  if(!g)return null;
  const ht=mdById('heatTreatment',ply.heatTreatmentId);
  const code=String((ht&&ht.code)||'').toUpperCase();
- const base=salesGlassSalePrice(g,code==='FT'||code==='HS');
+ const base=salesGlassSalePrice(g,code==='FT'||code==='HS',order);
  if(base==null)return null;
  return base;
 }
-function salesLaminatedPrice(p){
+function salesLaminatedPrice(p,order){
  const lam=(p&&p.laminated)||{};
- const a=salesPlyPrice(lam.outer),b=salesPlyPrice(lam.inner);
+ const a=salesPlyPrice(lam.outer,order),b=salesPlyPrice(lam.inner,order);
  if(a==null||b==null)return null;
  let total=a+b,known=true;
  (lam.interlayers||[]).forEach(function(x){
   const layers=salesInterlayerLayerCount(x.layers!=null?x.layers:2);
-  const rate=x.priceOverride!=null?x.priceOverride:salesInterlayerSalePrice(x.productId);
+  const rate=x.priceOverride!=null?x.priceOverride:salesInterlayerSalePrice(x.productId,order);
   if(rate==null){known=false;return;}
   total+=rate*layers;
  });
@@ -338,15 +350,15 @@ function salesLaminatedPrice(p){
     как цену ламината значит занизить её молча. */
  return known?Math.round(total*100)/100:null;
 }
-function salesPaneCatalogPrice(p){
+function salesPaneCatalogPrice(p,order){
  if(!p)return null;
- if(p.category===`laminated`)return salesLaminatedPrice(p);
+ if(p.category===`laminated`)return salesLaminatedPrice(p,order);
  const g=glassProductById(p.glassProductId);
  if(!g)return null;
  const ht=mdById('heatTreatment',p.heatTreatmentId);
  const code=String((ht&&ht.code)||'').toUpperCase();
  const tempered=code==='FT'||code==='HS';
- const base=salesGlassSalePrice(g,tempered);
+ const base=salesGlassSalePrice(g,tempered,order);
  /* Стекло без цены в прайсе — прочерк, а не надбавка сама по себе:
     складывать надбавку с неизвестной базой значит выдать неполную цену за полную. */
  if(base==null)return null;
@@ -368,15 +380,15 @@ function salesPaneTemperConflict(p){
 /* Итог сборки: сумма ставок за sq ft по всем лайтам и камерам. Площадь сюда не
    входит — она у строки заказа, а не у makeup: один и тот же makeup стоит в
    позициях разного размера. Сервисы и обработка кромки считаются отдельно. */
-function salesMakeupUnitPrice(m){
+function salesMakeupUnitPrice(m,order){
  if(!m)return {total:0,known:true};
  let total=0,known=true;
  (m.panes||[]).forEach(function(p){
-  const v=p.priceOverride!=null?p.priceOverride:salesPaneCatalogPrice(p);
+  const v=p.priceOverride!=null?p.priceOverride:salesPaneCatalogPrice(p,order);
   if(v==null)known=false;else total+=v;
  });
  (m.cavities||[]).forEach(function(c){
-  const v=c.priceOverride!=null?c.priceOverride:salesCavityCatalogPrice(c);
+  const v=c.priceOverride!=null?c.priceOverride:salesCavityCatalogPrice(c,order);
   if(v==null)known=false;else total+=v;
  });
  return {total:Math.round(total*100)/100,known:known};
@@ -574,11 +586,11 @@ function normalizeSalesExtraItem(x){
 /* Цена — снимок каталога на момент, если строка её не переопределила: ставку
    меняют в справочнике, а сохранённый заказ остаётся при своей цифре. Пусто —
    позиция без цены честно встаёт Rate required, а не нулём. */
-function salesExtraItemUnitPrice(x){
+function salesExtraItemUnitPrice(x,order){
  if(x.priceOverride!=null)return x.priceOverride;
- return salesBook('item:'+x.table+':'+x.itemId,()=>{const row=salesExtraItemRow(x.table,x.itemId);return row&&row.salePrice!=null?row.salePrice:null;});
+ return salesBook('item:'+x.table+':'+x.itemId,()=>{const row=salesExtraItemRow(x.table,x.itemId);return row&&row.salePrice!=null?row.salePrice:null;},order);
 }
-function salesExtraItemLineTotal(x){const p=salesExtraItemUnitPrice(x);return p==null?null:salesMoney(p*salesPositiveInt(x.qty,1));}
+function salesExtraItemLineTotal(x,order){const p=salesExtraItemUnitPrice(x,order);return p==null?null:salesMoney(p*salesPositiveInt(x.qty,1));}
 function salesExtraItemName(x){const row=salesExtraItemRow(x.table,x.itemId);return row?row.name:'(removed from catalogue)';}
 function normalizeSalesOrder(o){
  o=o&&typeof o==='object'?o:{};const priority=SALES_PRIORITIES.includes(o.priority)?o.priority:'normal',delivery=SALES_DELIVERY_TYPES.includes(o.delivery)?o.delivery:'pickup',currency=['CAD','USD'].includes(o.currency)?o.currency:'CAD';
@@ -706,9 +718,9 @@ function salesMakeupSummary(m,how){
 /* Толщина пакета складывается из стёкол и КАМЕР, а камера — это фактическая
    толщина рамки, а не её название. Раньше здесь разбиралась дробь из size, и
    пакет с Black Warm Edge 7/16 получался на 0.4 мм тоньше, чем собранный. */
-function salesMakeupThicknessMm(m){
+function salesMakeupThicknessMm(m,order){
  function productMm(g){const q=typeof glassEffectiveThicknessMm==='function'?glassEffectiveThicknessMm(g):null;return q&&q.mm>0?q.mm:null;}
- let total=0,known=true;m.panes.forEach(p=>{if(p.category==='laminated'){const lm=salesLaminatedThicknessMm(p);if(lm!=null)total+=lm;else known=false;}else{const mm=productMm(glassProductById(p.glassProductId));if(mm!=null)total+=mm;else known=false;}});m.cavities.forEach(c=>{const sp=mdById('spacerVariant',c.spacerVariantId),mm=spacerThicknessMm(sp),pib=surroundPibMm(sp,typeof soDraft!=='undefined'?soDraft:null);if(mm!=null&&pib!=null)total+=mm+pib;else known=false;});return known?total:null;
+ let total=0,known=true;m.panes.forEach(p=>{if(p.category==='laminated'){const lm=salesLaminatedThicknessMm(p);if(lm!=null)total+=lm;else known=false;}else{const mm=productMm(glassProductById(p.glassProductId));if(mm!=null)total+=mm;else known=false;}});m.cavities.forEach(c=>{const sp=mdById('spacerVariant',c.spacerVariantId),mm=spacerThicknessMm(sp),pib=surroundPibMm(sp,salesOrderArg(order));if(mm!=null&&pib!=null)total+=mm+pib;else known=false;});return known?total:null;
 }
 
 /* Catalog temperMode remains a hard production fact, but exceptional orders

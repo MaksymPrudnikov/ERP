@@ -256,11 +256,11 @@ module.exports=async function({page,eq,ok}){
   {before:1452.6,amount:387.36,row:{off:false,on:true,tag:'ORDER',value:'40'},badge:'ORDER 1',own:[true,true,true],cell:true,works:50});
  await sf5();
  eq('P15-01 после Save → F5 через 2 с: у заказа 40% и 1355.76; Works 50%; новый заказ — 50% и 1452.60',await s.p.evaluate(id=>{
-  const o=salesRecord(id),saved=finWithOrder(o,()=>salesLineCommercialPrice(o.lines[0],o).unit);
+  const o=salesRecord(id),saved=(salesLineCommercialPrice(o.lines[0],o).unit);
   p15Order();return {rates:o.surchargeRates,saved,works:p15Works('largeUnit'),fresh:p15Unit(),freshRates:soDraft.surchargeRates||null};
  },p15.id),{rates:{largeUnit:{value:40}},saved:1355.76,works:50,fresh:1452.6,freshRates:null});
  eq('P15-06 Order confirmation, Invoice и Finance считают по числу заказа: 1355.76',await s.p.evaluate(id=>{
-  const o=salesRecord(id),docs=['confirmation','invoice'].map(k=>finWithOrder(o,()=>docBuildModel(k,o).items[0].amount));
+  const o=salesRecord(id),docs=['confirmation','invoice'].map(k=>(docBuildModel(k,o).items[0].amount));
   return [docs.map(x=>x===docMoney(1355.76)),finOrderTotals(o).subtotal];
  },p15.id),[[true,true],1355.76]);
  eq('P15-02 порог 80 ft², 0 → Off, включатель, Reset; −5, текст и порог 0 не приняты — прежнее число на месте',await s.p.evaluate(()=>{

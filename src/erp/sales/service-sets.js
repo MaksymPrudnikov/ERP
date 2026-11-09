@@ -19,8 +19,8 @@ function salesSetHasLamiOps(set){
     return salesServiceOps(list).some(function(o){return shapeIsLamiOnlyOp(o.type);});
   });
 }
-function salesLineIsLaminated(line){
-  return salesLineLites(line).some(function(l){return l.laminated;});
+function salesLineIsLaminated(line,order){
+  return salesLineLites(line,order).some(function(l){return l.laminated;});
 }
 
 function salesServiceClone(x){return JSON.parse(JSON.stringify(x==null?null:x));}
@@ -184,7 +184,7 @@ function salesDxfOverrideStale(line,shape){
 /* Единый snapshot. Он не занимается машинным offset — поэтому известные Services
    не исчезают только из-за того, что Cutting сейчас blocked. */
 function salesEffectiveProductionSnapshot(line,shape,order){
-  order=order||soDraft;shape=shape||salesLineGeometryShape(line);
+  order=salesOrderArg(order);shape=shape||salesLineGeometryShape(line);
   if(!shape)return {valid:false,reason:'Line needs Width and Height or a Shape.',groups:[]};
   var set=salesServiceSetById(order,line&&line.serviceSetId);
   if(line&&line.serviceSetId&&!set)return {valid:false,reason:'Referenced Bulk Service Set is missing.',groups:[],shape:shape};
@@ -195,7 +195,7 @@ function salesEffectiveProductionSnapshot(line,shape,order){
      Edgework Set больше НЕ участвует в расчёте: он был третьим источником,
      молча затирал обработку формы и переживал её смену. Ручных правок кромки
      на строке тоже нет — хранить нечего, значит устаревать нечему. */
-  var lites=salesLineLites(line),baseOps=salesLineBaseEdgeworkOps(line),physical=salesShapePhysicalEdges(shape),mappingPending=false,groups=[];
+  var lites=salesLineLites(line,order),baseOps=salesLineBaseEdgeworkOps(line,order),physical=salesShapePhysicalEdges(shape),mappingPending=false,groups=[];
   for(var i=0;i<physical.length;i++){
     var edge=physical[i],shapeOps=salesShapeOpsForPhysicalEdge(shape,edge),side=salesSideForPhysicalEdge(line,edge),setOps=[],ops=shapeOps,source='Shape';
     if(!ops.length&&baseOps.length){ops=baseOps;source='Glass';}
@@ -267,8 +267,8 @@ function salesEffectiveEdgeSignature(line,shape,order){
   return {valid:true,ops:Object.keys(acc).map(function(k){return acc[k];}),snapshot:snap,mappingPending:snap.mappingPending};
 }
 
-function salesLineExactGlassThickness(line){
-  var values=salesLineGlassThicknesses(line);return values.length===1?{ok:true,mm:values[0]}:{ok:false,mm:null,values:values};
+function salesLineExactGlassThickness(line,order){
+  var values=salesLineGlassThicknesses(line,order);return values.length===1?{ok:true,mm:values[0]}:{ok:false,mm:null,values:values};
 }
 
 /* Safety Border — зона, в которую раскрой не имеет права зайти вдоль скошенной
@@ -487,56 +487,57 @@ function salesEdgeChargeMetaForServiceSet(op,ctx){
 /* draft — форма вместо формы строки: salesRemoveShapeCharge (sales/orders)
    пробует чертёж без элемента, не трогая базу. Записанное при Save тогда не
    берётся — оно про настоящую форму. */
-salesLineChargeRowsRaw=function(line,draft){
+salesLineChargeRowsRaw=function(line,draft,order){
+  order=salesOrderArg(order);
   /* Записано при Save (sales/line-measure) — без расчёта фигуры. */
-  var kept=draft?null:salesMeasureFor(line,soDraft);if(kept)return kept.rows.map(function(r){return Object.assign({},r);});
+  var kept=draft?null:salesMeasureFor(line,order);if(kept)return kept.rows.map(function(r){return Object.assign({},r);});
   var rows=[];
   /* Остекление (фрит, спандрел) приходит из makeup, а не из геометрии, и
      считается до выхода по отсутствию контура: наносят его и на прямоугольник. */
-  salesGlazingChargeRows(line,salesLineAreaFt2(line)).forEach(function(row){rows.push(row);});
+  salesGlazingChargeRows(line,salesLineAreaFt2(line),order).forEach(function(row){rows.push(row);});
   /* Раскладка не зависит от геометрии кромки и считается до выхода по
      отсутствию контура — как и остекление выше. */
-  if(typeof salesMuntinChargeRows==='function')salesMuntinChargeRows(line).forEach(function(row){rows.push(row);});
+  if(typeof salesMuntinChargeRows==='function')salesMuntinChargeRows(line,order).forEach(function(row){rows.push(row);});
   var saved=draft||(line&&line.shapeRef?salesShapeByRef(line.shapeRef):null);
-  salesUnitSurchargeRows(line,saved).forEach(function(row){rows.push(row);});
+  salesUnitSurchargeRows(line,saved,order).forEach(function(row){rows.push(row);});
   /* Сервисы, добавленные руками (sales/extra-services), от контура не
      зависят — до выхода по его отсутствию. */
-  if(typeof salesExtraServiceRows==='function')salesExtraServiceRows(line).forEach(function(row){rows.push(row);});
-  var shape=draft||salesLineGeometryShape(line),ctx=salesPricingThickness(line);if(!shape)return rows.filter(function(x){return x.basis>0;});
+  if(typeof salesExtraServiceRows==='function')salesExtraServiceRows(line,order).forEach(function(row){rows.push(row);});
+  var shape=draft||salesLineGeometryShape(line),ctx=salesPricingThickness(line,order);if(!shape)return rows.filter(function(x){return x.basis>0;});
   var items=saved&&Array.isArray(saved.manufacturingItems)?saved.manufacturingItems:[];
   /* Разбор меток общий с обычной веткой расчёта — см. salesManufacturingChargeRows.
      Считается ПО СТЁКЛАМ: отверстие и петля делаются на каждом физическом
      стекле юнита, каждое по своей толщине. */
-  salesPerGlassRows(line,function(c){return salesManufacturingChargeRows(items,c);}).forEach(function(row){rows.push(row);});
+  salesPerGlassRows(line,function(c){return salesManufacturingChargeRows(items,c);},order).forEach(function(row){rows.push(row);});
   var marked=saved?ShapeModule.compute(saved):null,markValid=marked&&marked.valid;
   var sandArea=markValid?marked.area/144:0,markPerimeter=markValid?salesShapePerimeterIn(marked):0;
   /* Метки на поверхности живут на ОДНОМ стекле, поэтому не множатся: см.
      salesThickestGlassCtx. */
-  salesSurfaceMarkChargeRows(saved&&saved.features,salesThickestGlassCtx(line),sandArea,markPerimeter).forEach(function(row){rows.push(row);});
+  salesSurfaceMarkChargeRows(saved&&saved.features,salesThickestGlassCtx(line,order),sandArea,markPerimeter).forEach(function(row){rows.push(row);});
   /* Кромка тарифицируется ПО ЛАЙТАМ: у пакета 10 + 6 обрабатываются два разных
      стекла, каждое по своей ставке. Раньше строка считалась одним куском, и на
      любой комбинации толщин ставка не находилась вовсе. */
-  var snap=salesEffectiveProductionSnapshot(line,shape,soDraft);
+  var snap=salesEffectiveProductionSnapshot(line,shape,order);
   if(snap.valid){
     /* Берём раскладку из ПЛАНА, если он посчитался: там длины кромок уже с
        учётом ступеньки лайта. Если рез заблокирован, счёт всё равно должен
        показывать работу — тогда работаем по снимку. */
-    var plan=salesEffectiveCuttingPlan(line,shape,soDraft);
+    var plan=salesEffectiveCuttingPlan(line,shape,order);
     var liteViews=(plan.valid&&(plan.lites||[]).length)?plan.lites.map(function(l){return {index:l.index,label:l.label,thicknessMm:l.thickness,plies:l.plies,laminated:l.laminated,groups:l.groups};})
       :((snap.lites||[]).length?snap.lites:[{label:'',thicknessMm:null,groups:snap.groups}]);
     /* Одинаковые операции с одинаковой ставкой складываются в одну строку счёта:
        у пакета 10 + 10 это 256″ ариса, а не две строки по 128″. Разные толщины
        остаются разными строками — у них разные ставки. */
-    var acc=Object.create(null),order=[];
+    var acc=Object.create(null),seq=[];
     liteViews.forEach(function(lite){
       lite.groups.forEach(function(group){group.ops.forEach(function(op){
         if(!(group.length>0))return;
         salesEdgeOpThicknessTargets(lite,op).forEach(function(target){
-          var tCtx=target.thicknessMm==null?ctx:salesPricingBandFor(target.thicknessMm);
+          var tCtx=target.thicknessMm==null?ctx:salesPricingBandFor(target.thicknessMm,order);
           var meta=salesEdgeChargeMetaForServiceSet(op,tCtx);
           if(!meta)return;
           var key=meta.id+':'+meta.bandKey;
-          if(!acc[key]){acc[key]={id:meta.id,label:meta.label,band:meta.bandKey,mm:target.thicknessMm,rate:meta.rate,from:meta.from,svc:meta.svc,length:0};order.push(key);}
+          if(!acc[key]){acc[key]={id:meta.id,label:meta.label,band:meta.bandKey,mm:target.thicknessMm,rate:meta.rate,from:meta.from,svc:meta.svc,length:0};seq.push(key);}
           /* Как в Spiel: у прямоугольника каждая сторона вверх до целого
              дюйма; у фигуры контур целиком — ниже, при записи строки. */
           acc[key].length+=(salesPlainRect(saved)?salesWholeInches(group.length):group.length)*(target.count||1);
@@ -546,8 +547,8 @@ salesLineChargeRowsRaw=function(line,draft){
     /* Уточнение толщины в ярлыке нужно, только когда строк с разной толщиной
        больше одной. Считаем по СОБРАННЫМ строкам, а не по лайтам: у ламината
        6+6 толщина лайта 12.76, а работа идёт по двум шестёркам. */
-    var manyThickness=new Set(order.map(function(k){return acc[k].mm;})).size>1;
-    order.forEach(function(key){
+    var manyThickness=new Set(seq.map(function(k){return acc[k].mm;})).size>1;
+    seq.forEach(function(key){
       var x=acc[key];
       rows.push(salesChargeRow('EDGE:'+x.id+':'+x.band,x.label+(manyThickness&&x.mm?' · '+x.mm+' mm':''),salesWholeInches(x.length),'in',x.rate,'Effective Edge Processing',x.from,x.svc));
     });
@@ -556,10 +557,10 @@ salesLineChargeRowsRaw=function(line,draft){
     /* Радиус, вырез и нотч меняют форму КАЖДОГО стекла юнита, поэтому считаются
        по стёклам — так же, как отверстия и фурнитура. */
     var radius=(saved.features||[]).filter(function(f){return f.type==='radius'&&inch(f.radius)>0;}).length;
-    if(radius)salesPerGlassRows(line,function(c){return [salesChargeRow('FEATURE:radius:'+salesRateBandKey('radiusCorner',c),'Radius Corner',radius,'pc',salesCatalogRate('radiusCorner',c),'Shape feature')];}).forEach(function(row){rows.push(row);});
+    if(radius)salesPerGlassRows(line,function(c){return [salesChargeRow('FEATURE:radius:'+salesRateBandKey('radiusCorner',c),'Radius Corner',radius,'pc',salesCatalogRate('radiusCorner',c),'Shape feature')];},order).forEach(function(row){rows.push(row);});
     var cutout=(saved.features||[]).filter(function(f){return f.type==='cutout';}).length;
-    if(cutout)salesPerGlassRows(line,function(c){return [salesChargeRow('FEATURE:cutout:'+salesRateBandKey('cutout',c),'Cutout',cutout,'pc',salesCatalogRate('cutout',c),'Shape feature')];}).forEach(function(row){rows.push(row);});
-    salesPerGlassRows(line,function(c){return salesNotchChargeRows(saved,c);}).forEach(function(row){rows.push(row);});
+    if(cutout)salesPerGlassRows(line,function(c){return [salesChargeRow('FEATURE:cutout:'+salesRateBandKey('cutout',c),'Cutout',cutout,'pc',salesCatalogRate('cutout',c),'Shape feature')];},order).forEach(function(row){rows.push(row);});
+    salesPerGlassRows(line,function(c){return salesNotchChargeRows(saved,c);},order).forEach(function(row){rows.push(row);});
   }
   return rows.filter(function(row){return row.basis>0;});
 };
@@ -673,26 +674,27 @@ function salesSyncLamiOpsForMakeup(makeupId){
   return dropped;
 }
 /* Статус — по фигуре: один раз на отпечаток строки (sales/line-measure). */
-function salesLineServiceStatus(line){return readLine('status',line,soDraft,function(){
-  if(!readOn())return salesLineStatusLive(line);
-  var keep=readMemo('salesLineStatus',[],function(){return new Map();}),sig=salesLineSig(line,soDraft),hit=keep.get(sig);
-  if(!hit){hit=salesLineStatusLive(line);keep.set(sig,hit);}
+function salesLineServiceStatus(line,order){order=salesOrderArg(order);return readLine('status',line,order,function(){
+  if(!readOn())return salesLineStatusLive(line,order);
+  var keep=readMemo('salesLineStatus',[],function(){return new Map();}),sig=salesLineSig(line,order),hit=keep.get(sig);
+  if(!hit){hit=salesLineStatusLive(line,order);keep.set(sig,hit);}
   return hit;
 });}
-function salesLineStatusLive(line){
+function salesLineStatusLive(line,order){
+  order=salesOrderArg(order);
   var shape=salesLineGeometryShape(line);if(!shape)return {key:'geometry',label:'Needs geometry',cls:'warn'};
-  var set=salesServiceSetById(soDraft,line.serviceSetId);if(line.serviceSetId&&!set)return {key:'missing',label:'Missing set',cls:'bad'};
+  var set=salesServiceSetById(order,line.serviceSetId);if(line.serviceSetId&&!set)return {key:'missing',label:'Missing set',cls:'bad'};
   if(salesDxfOverrideStale(line,shape))return {key:'lost',label:'Override needs review',cls:'bad'};
-  var snap=salesEffectiveProductionSnapshot(line,shape,soDraft);
+  var snap=salesEffectiveProductionSnapshot(line,shape,order);
   if(!snap.valid&&snap.lamiMisapplied)return {key:'lami',label:'Lami op on plain lite',cls:'bad'};
-  if(typeof salesLineMuntinMisapplied==='function'&&salesLineMuntinMisapplied(line))return {key:'muntin',label:'Muntin on single lite',cls:'bad'};
+  if(typeof salesLineMuntinMisapplied==='function'&&salesLineMuntinMisapplied(line,order))return {key:'muntin',label:'Muntin on single lite',cls:'bad'};
   if(!snap.valid)return {key:'effective',label:'Needs review',cls:'bad'};
   if(snap.mappingPending){var own=snap.groups.some(function(g){return g.shapeOps.length>0;});return {key:'mapping',label:own?'Set pending mapping':'Needs side mapping',cls:'warn'};}
-  var cut=salesEffectiveCuttingPlan(line,shape,soDraft);if(!cut.valid)return {key:'cutting',label:'Cutting blocked',cls:'bad'};
+  var cut=salesEffectiveCuttingPlan(line,shape,order);if(!cut.valid)return {key:'cutting',label:'Cutting blocked',cls:'bad'};
   /* Габарит станции — предупреждение, не блок реза: пока габариты засеяны, а не
      замерены, строка остаётся рабочей, но подсвечена (sales/station-size). */
-  var big=typeof salesStationSizeProblems==='function'?salesStationSizeProblems(line,soDraft):[];if(big.length)return {key:'size',label:salesStationSizeLabel(big),cls:'warn'};
-  var itemSize=salesItemSizeProblems(line,soDraft);if(itemSize.length)return {key:'itemsize',label:'Item size · '+itemSize[0].split(':')[0],cls:'warn'};
+  var big=typeof salesStationSizeProblems==='function'?salesStationSizeProblems(line,order):[];if(big.length)return {key:'size',label:salesStationSizeLabel(big),cls:'warn'};
+  var itemSize=salesItemSizeProblems(line,order);if(itemSize.length)return {key:'itemsize',label:'Item size · '+itemSize[0].split(':')[0],cls:'warn'};
   if(salesHasLineEdgeOverrides(line))return {key:'override',label:'Line override',cls:'info'};
   if(line.serviceSetId)return {key:'ready',label:'Set applied',cls:'ok'};
   if(snap.groups.some(function(g){return g.shapeOps.length>0;}))return {key:'shape',label:'Ready · custom edge',cls:'ok'};
@@ -700,7 +702,7 @@ function salesLineStatusLive(line){
   if(!line.shapeRef&&salesLineHasRectGeometry(line))return {key:'ready',label:'Rectangle',cls:'ok'};
   return {key:'ready',label:'No processing',cls:'ok'};
 }
-function salesLineNeedsServiceAttention(line){return ['geometry','missing','lost','effective','lami','muntin','mapping','cutting','size'].indexOf(salesLineServiceStatus(line).key)>=0;}
+function salesLineNeedsServiceAttention(line,order){return ['geometry','missing','lost','effective','lami','muntin','mapping','cutting','size'].indexOf(salesLineServiceStatus(line,order).key)>=0;}
 
 function salesLostOverrideEdges(line){
   var shape=salesLineGeometryShape(line),current=salesShapePhysicalEdges(shape).map(function(e){return e.id;}),edges=Object.keys((line&&line.serviceOverrides&&line.serviceOverrides.edges)||{});
@@ -726,18 +728,19 @@ function salesApplyLineEdgeOperation(line,edgeId,type,on){
 }
 
 /* Machine export is intentionally line-specific. Standalone Shape export remains separate. */
-function salesEffectiveMachineIssue(line,shape,plan){
-  plan=plan||salesEffectiveCuttingPlan(line,shape,soDraft);if(!plan.valid)return plan.reason||'Effective cutting is unresolved.';
+function salesEffectiveMachineIssue(line,shape,plan,order){
+  plan=plan||salesEffectiveCuttingPlan(line,shape,salesOrderArg(order));if(!plan.valid)return plan.reason||'Effective cutting is unresolved.';
   if(plan.setPendingMapping)return 'Bulk Service Set is assigned but DXF side mapping is not confirmed. Review mapping before releasing a machine file.';
   return '';
 }
-function salesEffectiveProductionFingerprint(line,shape,plan){
-  plan=plan||salesEffectiveCuttingPlan(line,shape,soDraft);if(!plan.valid)return '';
+function salesEffectiveProductionFingerprint(line,shape,plan,order){
+  plan=plan||salesEffectiveCuttingPlan(line,shape,salesOrderArg(order));if(!plan.valid)return '';
   var snap=plan.snapshot,src=JSON.stringify({lineId:line&&line.id||'',topology:shape&&shapeIsDxfSource(shape)?ShapeModule.dxfTopologyFingerprint(shape):'',dimensions:{w:+line.width16||0,h:+line.height16||0},thickness:plan.thickness,border:{v:(plan.safetyBorder&&plan.safetyBorder.value)||0,a:!!(plan.safetyBorder&&plan.safetyBorder.applies)},groups:(snap.groups||[]).map(function(g){return {id:g.id,ops:salesServiceOps(g.ops),allowance:g.allowance};}),cuttingPoints:(plan.cuttingPoints||[]).map(function(p){return [+p[0],+p[1]];})}),h=2166136261;
   for(var i=0;i<src.length;i++){h^=src.charCodeAt(i);h=Math.imul(h,16777619);}return 'eff-'+(h>>>0).toString(16).padStart(8,'0');
 }
-function salesEffectiveMachinePayload(line){
-  var shape=salesLineGeometryShape(line),plan=salesEffectiveCuttingPlan(line,shape,soDraft),issue=salesEffectiveMachineIssue(line,shape,plan);if(issue)return {ok:false,reason:issue};
+function salesEffectiveMachinePayload(line,order){
+  order=salesOrderArg(order);
+  var shape=salesLineGeometryShape(line),plan=salesEffectiveCuttingPlan(line,shape,order),issue=salesEffectiveMachineIssue(line,shape,plan,order);if(issue)return {ok:false,reason:issue};
   var round=function(v){return Math.round((+v||0)*1000000)/1000000;};
   var brd=plan.safetyBorder||{value:0,state:'AUTO',edgeIds:[],applies:false};
   var fp=plan.footprint||{width:plan.cutW,height:plan.cutH,sides:[]};

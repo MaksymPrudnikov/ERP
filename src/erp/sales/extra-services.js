@@ -40,18 +40,18 @@ function salesExtraServiceGroup(x){
 }
 function salesExtraServiceKey(x){return salesExtraServiceGroup(x)+'|'+x.id;}
 /* Количество на юнит: введённое или, если пусто, по размеру юнита. */
-function salesExtraServiceBasis(line,x){
+function salesExtraServiceBasis(line,x,order){
   if(x.qty!=null)return x.qty;
   var unit=salesExtraServiceUnit(x);
-  if(unit==='ft²'){var a=salesLineAreas(line,soDraft);return a.valid?a.billable:0;}
-  if(unit==='in'){var b=salesLineAreas(line,soDraft);return b.valid?b.perimeterIn:0;}
+  if(unit==='ft²'){var a=salesLineAreas(line,order);return a.valid?a.billable:0;}
+  if(unit==='in'){var b=salesLineAreas(line,order);return b.valid?b.perimeterIn:0;}
   return 1;
 }
-function salesExtraServiceRows(line){
+function salesExtraServiceRows(line,order){
   var ctx=null;
   return (line&&line.extraServices||[]).map(function(x){
-    if(x.rateId&&!ctx)ctx=salesPricingThickness(line);
-    return salesChargeRow(salesExtraServiceKey(x),salesExtraServiceName(x),+(+salesExtraServiceBasis(line,x)).toFixed(4),salesExtraServiceUnit(x),
+    if(x.rateId&&!ctx)ctx=salesPricingThickness(line,order);
+    return salesChargeRow(salesExtraServiceKey(x),salesExtraServiceName(x),+(+salesExtraServiceBasis(line,x,order)).toFixed(4),salesExtraServiceUnit(x),
       x.rateId?salesCatalogRate(x.rateId,ctx):null,x.rateId?'Added':'Custom');
   });
 }

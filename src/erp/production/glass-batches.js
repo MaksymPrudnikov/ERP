@@ -208,8 +208,8 @@ function glassPieceEnsure(o,ctx){
  else{const nextUnits=DB.glassUnitId.filter(r=>!r.key.startsWith(o.id+'|')||units.has(r.key));if(nextUnits.length!==DB.glassUnitId.length){DB.glassUnitId=nextUnits;changed=true;}}
  return changed;
 }
-/* Строки очереди — отдельные стёкла. План резки читает Makeup через soDraft,
-   поэтому считается внутри finWithOrder: очередь работает с сохранённой записью. */
+/* Строки очереди — отдельные стёкла. План резки получает свой заказ
+   параметром: очередь работает с сохранённой записью. */
 /* Стекло со сканом CUT без батча (из стока, Skip) уже порезано: в To batch
    его нет, иначе его порежут второй раз (владелец, 7.10.2026: «в субботу
    стекло могут порезать со стока и выдать клиенту»). */
@@ -229,7 +229,7 @@ function glassBatchRows(orders){
  const rows=[],cutDone=glassCutByScan();
  /* Заказ New в очередь не попадает, кроме его Recut: стекло из стока режут без
     Verify, и сломанное стекло должно уйти в батч сразу. */
- (orders||DB.salesOrder||[]).filter(o=>o&&!salesIsQuote(o)&&(GLASS_WAITING_STATUSES.includes(o.status)||o.status==='new'&&glassRecutSlots(o.id).length)).forEach(o=>finWithOrder(o,()=>{
+ (orders||DB.salesOrder||[]).filter(o=>o&&!salesIsQuote(o)&&(GLASS_WAITING_STATUSES.includes(o.status)||o.status==='new'&&glassRecutSlots(o.id).length)).forEach(o=>{
   const regular=GLASS_WAITING_STATUSES.includes(o.status),active=glassBatchActive(o.id),pieces=glassPieceMap(o.id),customer=salesCustomerDisplay(o.customerId),hasCustomer=!!salesFindCustomer(o.customerId),cancelled=glassCancelledSlots(o);
   (o.lines||[]).forEach((l,li)=>{
    if(!glassBatchRemaining(o,l,active,cancelled))return;
@@ -259,7 +259,7 @@ function glassBatchRows(orders){
     });
    });
   });
- }));
+ });
  return rows;
 }
 function glassBatchSyncLine(o,l,active){

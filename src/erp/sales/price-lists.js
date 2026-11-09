@@ -7,8 +7,9 @@
    0 — это цена: на нём поиск заканчивается. У работы своя цена на каждую
    полосу толщины, как в Works («чем детальней и глубже, тем лучше»); пустая
    полоса — прайс молчит, ищем дальше.
-   IN : DB.priceList, DB.itemGroup, customer.priceGroupId; заказ — soDraft
-        (finWithOrder ставит в него считаемый заказ)
+   IN : DB.priceList, DB.itemGroup, customer.priceGroupId; клиент — параметр
+        customerId (расчёт передаёт клиента своего заказа), без него —
+        клиент открытого в Sales заказа
    OUT: salesPriceListFor(target) — {price, listId, rowId} или null;
         salesPriceTargets() — всё, чему прайс может дать цену;
         salesBook и salesCatalogRate (erp/sales) спрашивают прайсы первыми

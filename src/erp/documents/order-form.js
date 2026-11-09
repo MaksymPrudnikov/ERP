@@ -213,9 +213,9 @@ function docFormSamples(kind){
 }
 function docFormSample(kind,id){
  const o=id&&(DB.salesOrder||[]).find(x=>x.id===id);
- if(o)try{return finWithOrder(o,()=>docBuildModel(kind,o,docDefaultOptions(kind)));}catch(e){}
+ if(o)try{return docBuildModel(kind,o,docDefaultOptions(kind));}catch(e){}
  const s={id:'sample',businessNumber:kind==='quote'?'Q-1001':'1001',customerId:'',customerPo:'PO-1',lines:[],extraItems:[],adjustments:[],cancellations:[],currency:'CAD',delivery:'pickup',priority:'normal',createdAt:finToday(),dueDate:finToday(),notes:''};
- return finWithOrder(s,()=>docBuildModel(kind,s,docDefaultOptions(kind)));
+ return docBuildModel(kind,s,docDefaultOptions(kind));
 }
 /* Конструктор: квитанция и выписка — живой лист на последних квитанциях и
    клиентах (выписка — за этот месяц); без данных — пустой образец. */

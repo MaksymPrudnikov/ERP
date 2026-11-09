@@ -22,7 +22,7 @@ function stationIguCode(){return typeof salesRouteStationOf==='function'?salesRo
 /* Строка целого U и его стикер используют один готовый размер сборки. */
 function stationIguGeometry(g,unit){
  if(!unit)return stationGeo(g);
- const d=finWithOrder(g.o,()=>stkUnitGeometry(g.o,g.l,unit,g.unit));
+ const d=stkUnitGeometry(g.o,g.l,unit,g.unit);
  return {width16:d.finished.w*16,height16:d.finished.h*16};
 }
 /* Заказы с юнитами IGU, которые ещё не погружены; по каждому — скиды,

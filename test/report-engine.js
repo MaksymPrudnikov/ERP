@@ -346,8 +346,8 @@ module.exports=async function({page,eq,ok}){
   const row=()=>repOrderFacts().find(r=>r.id===A),open=()=>['area','kg','total'].map(k=>!!Object.getOwnPropertyDescriptor(row(),k).get);
   repQuery({source:'orders',date:{preset:'all'},metrics:['count','late','onTime','dBatch:avg']});const before=open();
   const q=repQuery({source:'orders',date:{preset:'all'},metrics:['total','area']}),after=open();
-  const t=finOrderTotals(o),area=finWithOrder(o,()=>o.lines.reduce((n,l)=>n+salesLineAreas(l,o).actual*l.qty,0));
-  let kg=0;finWithOrder(o,()=>o.lines.forEach(l=>{kg+=salesLineWeight(l,o).lineKg;}));
+  const t=finOrderTotals(o),area=(o.lines.reduce((n,l)=>n+salesLineAreas(l,o).actual*l.qty,0));
+  let kg=0;(o.lines.forEach(l=>{kg+=salesLineWeight(l,o).lineKg;}));
   return {before,after,total:row().total===t.grand&&q.total[0]===t.grand,area:Math.abs(row().area-area)<1e-9&&q.total[1]===row().area,kg:kg>0&&Math.abs(row().kg-kg)<1e-9,keys:Object.keys(row()).filter(k=>['area','kg','total'].includes(k)).sort()};
  }),{before:[true,true,true],after:[false,true,false],total:true,area:true,kg:true,keys:['area','kg','total']});
 

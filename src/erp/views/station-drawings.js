@@ -20,7 +20,7 @@ function stationDrawingOf(o,l,unit,lite){
  const r=stationDrawRecut(o,l,unit),k=o.id+'|'+l.id+'|'+(r?r.id+JSON.stringify([r.shapeRef,r.liteShapes]):'')+'|'+(o.updatedAt||'')+'|'+(lite==null?'':lite);
  if(stationDrawCache.has(k))return stationDrawCache.get(k);
  let d=null;
- try{d=finWithOrder(o,()=>salesLineDrawing(l,r,lite));}catch(e){d={line:l,error:String(e&&e.message||e)};}
+ try{d=salesLineDrawing(l,r,lite,o);}catch(e){d={line:l,error:String(e&&e.message||e)};}
  if(stationDrawCache.size>200)stationDrawCache=new Map();
  stationDrawCache.set(k,d);return d;
 }
@@ -30,7 +30,7 @@ function stationDrawLines(o){return (o&&o.lines||[]).filter(l=>l.shapeRef&&sales
 function stationDrawItems(o){
  const rc=typeof recutForOrder==='function'?recutForOrder(o.id).filter(recutHasShape).map(r=>({id:r.id,l:(o.lines||[]).find(x=>x.id===r.lineId),r})).filter(x=>x.l):[];
  /* За листом ступенчатого юнита — листы его стёкол «Line N · Lite k». */
- const lites=l=>typeof salesLineStepSheets==='function'?finWithOrder(o,()=>salesLineStepSheets(l,o)).map(k=>({id:l.id+'#L'+k,l,r:null,lite:k})):[];
+ const lites=l=>typeof salesLineStepSheets==='function'?salesLineStepSheets(l,o).map(k=>({id:l.id+'#L'+k,l,r:null,lite:k})):[];
  return stationDrawLines(o).flatMap(l=>[{id:l.id,l,r:null}].concat(lites(l))).concat(rc);
 }
 /* unit — место стекла: стекло Recut со своим чертежом открывает лист Recut. */
