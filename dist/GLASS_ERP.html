@@ -4335,7 +4335,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='1c265f9a3506';
+var ERP_BUILD='b4e028c81284';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -16413,7 +16413,7 @@ function comSummary(ref,range){
 
 /* ==== src/erp/purchasing/suppliers.js ==== */
 /* =====================================================================
-   Purchasing · suppliers · 12 October 2026.
+   Поставщики Purchasing: карточки, контакты, старые свободные имена остаются историей (12.10.2026).
    Owner correction 13 October: new glass purchases select supplier cards.
    Legacy free names stay historical; new cards start in CAD.
    The old glassSheet.supplier is a supply-point name used by cutting:
@@ -16547,7 +16547,7 @@ function purSupplierSave(d){
 }
 
 /* ==== src/erp/purchasing/orders.js ==== */
-/* Purchasing P2 · 13 October 2026.
+/* Заказы поставщику (PO): стекло из каталога, допы, номера, правки на любом этапе с журналом (Purchasing P2, 13.10.2026).
    Owner correction 13 October: new glass lines require catalogue glass
    and a supplier card. Extras and legacy free lines remain editable.
    Price or delivery date may remain unknown.
@@ -16726,7 +16726,7 @@ function purValidateReceiptGlass(d,old){
 function purReceiptSupplierMatches(a,b){return !a.supplierId||!b.supplierId||a.supplierId===b.supplierId;}
 
 /* ==== src/erp/purchasing/receiving.js ==== */
-/* Purchasing P3 · receiving and supplier-held purchases.
+/* Приёмка по PO и стекло, ждущее у поставщика: что пришло, излишки, бой, другой размер листа (Purchasing P3).
    Record what arrived, including excess, damage and a different sheet size.
    Blocks, actual sheets and sheet dimensions belong to each delivery line;
    never infer a fixed pack size and never write inventory or customer Finance.
@@ -16893,7 +16893,7 @@ function purHeldGroups(today){
 }
 
 /* ==== src/erp/purchasing/invoices.js ==== */
-/* Purchasing P4 · supplier invoices and manually recorded payments.
+/* Счета поставщиков и записанные руками оплаты им; Finance клиентов не трогает (Purchasing P4).
    This ledger never writes DB.receipt or customer Finance / QuickBooks.
    Currency and supplier on a payment are historical facts. Editing an
    invoice must not silently turn an old USD payment into CAD, or move it
@@ -17659,7 +17659,7 @@ function viewDashboardNow(){
 
 /* ==== src/erp/cloud.js ==== */
 /* ============================================================================
-   Сервер — этап 4 задания «База» (docs/ЗАДАЧА_БАЗА.md, tools/supabase/schema.sql)
+   Подключение к серверу Supabase: адрес, ключ, вход человека, вызовы RPC (этап 4 «Базы»; сервер — tools/supabase/schema.sql).
    IN : адрес проекта Supabase, publishable-ключ, вход человека (почта, пароль)
    OUT: cloudConfig, cloudConnect, cloudSignOut, cloudRpc, cloudState
    Адрес, ключ и сессия живут на этом устройстве (localStorage), не в базе ERP
@@ -17754,7 +17754,7 @@ function cloudSignOut(){const c=cloudConfig();delete c.session;cloudConfigSave(c
 
 /* ==== src/erp/cloud-sync.js ==== */
 /* ============================================================================
-   Синхронизация с сервером — этап 4 задания «База» (docs/ЗАДАЧА_БАЗА.md)
+   Синхронизация с сервером: очередь своих изменений, приём чужих, Upload и Download (этап 4 «Базы»).
    IN : набор изменений каждой записи (touch → cloudOutbox), сервер
         erp_apply / erp_changes / erp_get (tools/supabase/schema.sql)
    OUT: cloudSync, cloudOutbox, cloudSyncStart, cloudUpload, cloudDownload,
@@ -17921,6 +17921,9 @@ function cloudGuard(tbl,id){const s=cloudSync;if(!s.on||!id||!storageDepth)retur
 /* Заказ — по его условиям оплаты (financeTerms, строка маленькая); нет их —
    по самому заказу. */
 function cloudGuardOrder(id){const t=storageBase.get('financeTerms');cloudGuard(t&&t.has(id)?'financeTerms':'salesOrder',id);}
+/* То же для ближайшей записи вне команды (touch — раскрой батча): запись идёт
+   сразу следом, без изменений страж сбрасывается (storage.js). */
+function cloudGuardWrite(tbl,id){const s=cloudSync;if(!s.on||!id)return;(s.guard||(s.guard=new Map())).set(cloudKey(tbl,id),{tbl,id:String(id)});}
 function cloudGuardDrop(){cloudSync.guard=null;}
 /* Набор изменений записи → команды очереди (ops — в ту же транзакцию, done —
    после того, как запись принята). Версия известна — сервер сверит её; новой
@@ -18393,7 +18396,7 @@ function viewUsers(){
   row:info=>{const u=info.x.u,on=uSel===u.viewProfileId;return {attrs:` data-user-row="${esc(u.viewProfileId)}"${on?' class="oq-selected"':''} ondblclick="userEditOpen(${info.x.i})"`,first:`<td class="sl-check"><input type="checkbox" aria-label="Select ${esc(u.name)}" ${on?'checked':''} onchange="uSel=this.checked?'${esc(u.viewProfileId)}':'';render()"></td>`};}});
  /* Вход ещё выключен (signinOn): пароля нет ни у кого с разделом Users. */
  const off=DB.user.some(userOffice)&&!signinOn()?'<span class="pill warn" data-signin-off>Sign-in is off — set a password for someone with Users</span>':'';
- const tabs=`<div class="sl-filter-row"><div class="sl-quick" role="tablist">${[['office','Office'],['production','Production'],['log','Sign-in log'],['cloud','Cloud']].map(([k,l])=>`<button type="button" role="tab" class="sl-quick-pill${side===k?' on':''}" data-users-side="${k}" onclick="subtab='${k}';uEdit=null;uDraft=null;uSel='';render()">${l} <b>${count(k)}</b></button>`).join('')}</div></div>`;
+ const tabs=`<div class="sl-filter-row"><div class="sl-quick" role="tablist">${[['office','Office'],['production','Production'],['log','Sign-in log'],['cloud','Cloud']].map(([k,l])=>`<button type="button" role="tab" class="sl-quick-pill${side===k?' on':''}" data-users-side="${k}" onclick="usersTab('${k}')">${l} <b>${count(k)}</b></button>`).join('')}</div></div>`;
  const selI=list.findIndex(x=>x.u.viewProfileId===uSel),sel=selI<0?null:list[selI];
  const bar=`<div class="sales-toolbar">${sel?`<b class="oq-sel" title="${esc(sel.u.name)}">1 selected</b>`:''}<button type="button" class="sl-quiet" data-user-edit ${sel?'':'disabled'} onclick="userEditOpen(${sel?sel.i:-1})">Edit</button><button type="button" class="sl-quiet sl-delete-quiet" data-user-remove ${sel?'':'disabled'} title="${prod?'Remove from production':'Remove from office'}" onclick="delUser(${sel?sel.i:-1},'${side}');uSel=''">Remove</button><span class="sales-toolbar-sp"></span>${off}${uEdit!==null||log||cloud?'':`<button class="pri" data-user-add onclick="userEditOpen('new')">Add user</button>`}</div>`;
  return `${cloud?`<div class="card sales-list-card"><div class="sales-toolbar"><span class="sales-toolbar-sp"></span>${off}</div>${tabs}<div style="padding:0 20px 16px">${usersCloudHTML()}</div></div>`:log?`<div class="card sales-list-card users-log-card">${tabs}${authLogTable()}</div>`:`<div class="card sales-list-card sl-foot-pin">${bar}${tabs}
@@ -18553,12 +18556,19 @@ function authLogTable(){
    Черновик формы — только правки: имя, номер, галочки, новые пароль и PIN.
    Отпечатков секретов в нём нет (только «задан / не задан»), версия записи
    (rev) — чтобы чужая правка из другой вкладки не перезаписалась старой. */
+/* Вкладка Office / Production / Sign-in log / Cloud: изменённая карточка
+   человека — вопрос, а не молчаливый сброс (личный аудит Claude 09.11.2026). */
+let uSeen='';
+function usersTab(k){
+ if(uDraft&&(uEdit==='new'||JSON.stringify(uDraft)!==uSeen)&&!confirm('Discard unsaved changes?'))return;
+ subtab=k;uEdit=null;uDraft=null;uSel='';render();
+}
 function userEditOpen(i){
  const u=i==='new'?null:DB.user[i];if(i!=='new'&&!u)return;
  uDraft={id:u?u.viewProfileId:'',rev:u?u.rev:0,name:u?u.name:'',no:u&&u.no?userNoText(u):'',access:u?u.access.slice():[],
   onOffice:u?userOffice(u):usersSide()==='office',onStation:u?userHasPin(u):usersSide()==='production',
   hasPassword:userHasPassword(u),hasPin:userHasPin(u),newPassword:'',newPin:'',email:u&&u.email||''};
- uEdit=u?u.viewProfileId:'new';render();
+ uSeen=JSON.stringify(uDraft);uEdit=u?u.viewProfileId:'new';render();
  setTimeout(()=>{const el=document.getElementById('u_name');if(el&&!u)el.focus();},0);
 }
 function userForm(){
@@ -22017,7 +22027,7 @@ function salesExtraBarHTML(target){
 }
 
 /* ==== src/erp/sales/line-metrics.js ==== */
-/* Commercial line metrics. Geometry stays in Shape; visibility never changes
+/* Площадь, периметр и цена строки заказа до энергии, налога и доставки. Geometry stays in Shape; visibility never changes
    the calculation. Monetary amounts here are before energy, tax and delivery. */
 /* Нормы веса, которых ещё нет в карточках (плёнка, фрит, спандрел,
    шпросы), — строки Weight norms; обвязка — в карточках и рецепте
@@ -31198,7 +31208,7 @@ function viewOrderQueue(shipping){
 }
 
 /* ==== src/erp/views/shipping.js ==== */
-/* Shipping office · PR 1, 5 October 2026.
+/* Экран Shipping в офисе: Awaiting, Ready по скану, PS, частичная отгрузка (Shipping PR 1, 5.10.2026).
    Ready by scan, one customer/address per PS, partial dispatch and receipt.
    Uses the existing Sales column filters. PR 2, 6 October 2026: customer
    queue in Ready and the Loaded button (rules: erp/shipping/loading).
@@ -31938,7 +31948,8 @@ function mdCatalogNode(){
 /* Другой раздел — поиск снова в разделе (P4-R2). */
 function mdCatalogGo(key){
  const hit=MD_CATALOG_TREE.flatMap(g=>g[1]).find(n=>n[0]===key);if(!hit)return;
- mdSetTab(hit[2]);if(hit[2]==='materials')mdMatSwitch(hit[3],key);else if(hit[2]==='works')mdCatKind=key;
+ if(mdSetTab(hit[2])===false)return;
+ if(hit[2]==='materials'){if(mdMatSwitch(hit[3],key)===false)return;}else if(hit[2]==='works')mdCatKind=key;
  mdCatalogQuery='';mdCatalogAll=false;mdCatalogLimit=0;mdPeek='';if(typeof mdGlassLimit!=='undefined')mdGlassLimit=MD_PAGE;render();
 }
 function mdFilmDensity(x){const r=(DB.materialWeightRates||[]).find(r=>r.key==='film:'+x.id);return r?mdNonNeg(r.rate):null;}
@@ -32265,7 +32276,16 @@ function orderSetupCardSet(i,k,v){
  normalizeOrderSetup();touch();render();
 }
 function orderSetupCardRemove(i){DB.orderSetup.cardNetworks.splice(i,1);normalizeOrderSetup();touch();render();}
-function mdSetTab(k){mdTab=k;if(typeof stEdit!=='undefined')stEdit=null;if(typeof cutMdNotice!=='undefined')cutMdNotice='';mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdCatEdit=null;mdCatDraft=null;mdImportReport=null;
+/* Открытая и изменённая карточка (новая или не как при открытии, mdSeen) —
+   смена вкладки, раздела материалов или справочника спрашивает, а не
+   стирает молча (личный аудит Claude 09.11.2026, как F02 в Purchasing).
+   false — человек остался. */
+function mdChanged(){
+ return [[mdEdit,mdDraft,'glass'],[mdSheetEdit,mdSheetDraft,'sheet'],[mdSpacerEdit,mdSpacerDraft,'spacer'],[mdHwKindEdit,mdHwKindDraft,'hwKind'],[mdHwModelEdit,mdHwModelDraft,'hwModel'],[mdCatEdit,mdCatDraft,'cat']]
+  .some(([edit,d,k])=>edit!=null&&!!d&&(edit==='new'||!edit||JSON.stringify(d)!==mdSeen[k]));
+}
+function mdLeave(){return !mdChanged()||confirm('Discard unsaved changes?');}
+function mdSetTab(k){if(!mdLeave())return false;mdTab=k;if(typeof stEdit!=='undefined')stEdit=null;if(typeof cutMdNotice!=='undefined')cutMdNotice='';mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdCatEdit=null;mdCatDraft=null;mdImportReport=null;
  /* Работы и материалы делят одну машинку Catalogues, поэтому при переходе
     между вкладками открытая таблица обязана соответствовать вкладке —
     иначе Works показал бы палитру спандрела. */
@@ -32291,6 +32311,7 @@ function mdMatSelect(category,viewKey){
  if(!r.hit.view&&MD_CATALOGUES.some(c=>c.k===r.hit.k))mdCatKind=r.hit.k;
 }
 function mdMatSwitch(category,viewKey){
+ if(!mdLeave())return false;
  mdMatSelect(category,viewKey);
  mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdCatEdit=null;mdCatDraft=null;
 }
@@ -32572,7 +32593,7 @@ function mdSheetNew(){
  render();
 }
 /* Строка поставки из карточки стекла: стекло уже выбрано. */
-function mdSheetNewFor(code){mdSetTab('materials');mdMatSwitch('glass','glassSheet');mdSheetNew();mdSheetDraft.productCode=code;mdSheetPick={mfr:'',thick:'',coat:''};render();}
+function mdSheetNewFor(code){if(mdSetTab('materials')===false||mdMatSwitch('glass','glassSheet')===false)return;mdSheetNew();mdSheetDraft.productCode=code;mdSheetPick={mfr:'',thick:'',coat:''};render();}
 function mdSheetEditRow(id){
  const s=(DB.glassSheet||[]).find(x=>x.id===id);if(!s)return;
  mdSheetEdit=id;mdSheetDraft=JSON.parse(JSON.stringify(s));mdSeen.sheet=JSON.stringify(s);mdSheetPick={mfr:'',thick:'',coat:''};render();
@@ -33311,7 +33332,7 @@ function mdWorkWarnings(r){
  }
  return out;
 }
-function mdSetCatKind(k){if(!MD_CATALOGUES.some(c=>c.k===k))return;mdCatKind=k;mdCatEdit=null;mdCatDraft=null;render();}
+function mdSetCatKind(k){if(!MD_CATALOGUES.some(c=>c.k===k)||!mdLeave())return;mdCatKind=k;mdCatEdit=null;mdCatDraft=null;render();}
 
 function viewMdCatalogues(){
  if(!MD_CATALOGUES.some(c=>c.k===mdCatKind))mdCatKind=MD_CATALOGUES[0].k;
@@ -35410,7 +35431,7 @@ function comPaySave(){const out=comPayoutAdd(comPayDraft);if(out.error){comNotic
 function comPayDelete(id){if(!confirm('Delete this payout? Its orders are due again.'))return;const out=comPayoutDelete(id);comNotice=out.error||'';render();}
 
 /* ==== src/erp/views/purchasing.js ==== */
-/* Purchasing P1: supplier cards. Column filters use the Sales list engine.
+/* Экран Purchasing → Suppliers: карточки поставщиков (Purchasing P1). Column filters use the Sales list engine.
    Edits stay in a draft until one storageCommand saves the whole card.
    Additional contacts and custom fields are optional (owner, 12.10.2026).
    No global search, no stock balances and no purchase in customer Finance. */
@@ -35517,7 +35538,7 @@ function purSupplierCancel(){
 }
 
 /* ==== src/erp/views/purchase-orders.js ==== */
-/* Purchasing P2: reusable Sales column filters and draft PO forms.
+/* Экран заказов поставщику (PO): список, черновик формы, письмо через Gmail (Purchasing P2).
    Owner correction 13.10: glass and suppliers use catalogue identities;
    the default purchase is glass, extras are a separate Sales-style block.
    Gmail only opens a compose window. Sending is confirmed manually. */
@@ -36019,7 +36040,7 @@ function purRequestGmailURL(d){
 }
 
 /* ==== src/erp/views/purchasing-invoices.js ==== */
-/* Supplier ledger UI. Payments record bank/card/check facts; this screen
+/* Экраны счетов и оплат поставщикам и «We owe» (Purchasing P4). Payments record bank/card/check facts; this screen
    does not initiate transfers. Every list uses the existing Sales filters. */
 let purMoneyDraft=null,purMoneyOriginal='',purMoneyShowUndone=false,purAccountKey='';
 /* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
@@ -37758,7 +37779,7 @@ document.addEventListener('pointermove',e=>{if(salesLineHoldPress)salesLineHoldM
 
 /* ==== src/erp/sales/unit-cancel.js ==== */
 /* =====================================================================
-   erp/sales/unit-cancel  ·  Shipping PR 5, 6 октября 2026
+   erp/sales/unit-cancel  ·  Hold и Cancel отдельных юнитов позиции (Shipping PR 5, 6.10.2026)
    Hold units и Cancel units: клиент отказывается от части позиции.
    IN : заказ и строка в цеху · журнал сканов · цена строки (line-metrics)
    OUT: line.heldUnits [{id, pieces, at, reason}] · line.cancelledUnits (число)
@@ -39561,7 +39582,15 @@ function cutPlanPut(number,plan){
    добавляет). Перенос стёкол в другой
    батч (Move sheet, полка) трогает батчи и заказы — пишет полной записью. */
 function cutPlanScope(number){return {cutPlan:[number],glassBatch:[number],stockOffcut:true,stockOffcutSeq:true};}
-function cutSave(number){if(!cutEstIs(number))touchScope(cutPlanScope(number));}
+/* Куски стока этого раскроя сервер сверяет: два компьютера, взявшие один
+   кусок в разные батчи, — у второго конфликт, а не один кусок на два батча
+   (личный аудит Claude 09.11.2026, как F09). */
+function cutSave(number){
+ if(cutEstIs(number))return;
+ const p=(DB.cutPlan||[]).find(x=>x&&x.batch===number);
+ if(p&&typeof cloudGuardWrite==='function')cutPlanStockKeys(p).forEach(k=>cloudGuardWrite('stockOffcut',k));
+ touchScope(cutPlanScope(number));
+}
 /* Приоритет: 0 — нет (по умолчанию), 1 … 10 — самый срочный, как в
    Perfect Cut (владелец, 4 октября 2026: «перевернуть: 10 — самый срочный»;
    до этого самым срочным был 1, старые значения обнулены — DATA_FIXES 6).
@@ -39700,13 +39729,15 @@ function cutAlignTrim(sheet,size,params){
    рез не идут: пока человек не отметил кусок галочкой, его нет в прогоне. */
 /* Кусок, уже отмеченный или уже лежащий в раскрое другого батча, занят:
    физически он один, и два батча его не поделят. */
+function cutPlanStockKeys(p){
+ const out=new Set();
+ Object.keys(p.sheetPick||{}).forEach(glass=>((p.sheetPick[glass]||{}).sizes||[]).forEach(r=>{if(r&&/^S-/.test(r.key)&&r.off===false)out.add(r.key);}));
+ (p.groups||[]).forEach(g=>g.sheets.forEach(s=>{if(s.size&&/^S-/.test(s.size.key||''))out.add(s.size.key);}));
+ return out;
+}
 function cutStockClaims(exceptBatch){
  const out=new Map();
- (DB.cutPlan||[]).forEach(p=>{
-  if(!p||p.batch===exceptBatch)return;
-  Object.keys(p.sheetPick||{}).forEach(glass=>((p.sheetPick[glass]||{}).sizes||[]).forEach(r=>{if(r&&/^S-/.test(r.key)&&r.off===false)out.set(r.key,p.batch);}));
-  (p.groups||[]).forEach(g=>g.sheets.forEach(s=>{if(s.size&&/^S-/.test(s.size.key||''))out.set(s.size.key,p.batch);}));
- });
+ (DB.cutPlan||[]).forEach(p=>{if(p&&p.batch!==exceptBatch)cutPlanStockKeys(p).forEach(k=>out.set(k,p.batch));});
  return out;
 }
 function cutStockPieces(glassCode,mm,exceptBatch){
@@ -48362,7 +48393,7 @@ function invSizesView(){
 /* Размер из поставки правят в его строке поставки (Data → Supply points). */
 function invSizeSupplyOpen(code,key){
  const s=(DB.glassSheet||[]).find(x=>x&&x.productCode===code&&x.availability!=='inactive'&&cutSheetTrimKey(x.sheetWIn,x.sheetHIn)===key);if(!s)return;
- navGo('masterdata');if(tab!=='masterdata')return;mdSetTab('materials');mdMatSwitch('glass','glassSheet');mdSheetEditRow(s.id);
+ navGo('masterdata');if(tab!=='masterdata')return;if(mdSetTab('materials')===false||mdMatSwitch('glass','glassSheet')===false)return;mdSheetEditRow(s.id);
 }
 function invSizeAddUi(){const r=cutShopSizeAdd(mdVal('invSizeW'),mdVal('invSizeH'));invSizeNotice=r.error||'';render();}
 function invSizeRemoveUi(key){if(!confirm('Remove this sheet size?'))return;const r=cutShopSizeRemove(key);invSizeNotice=r.error||'';render();}
@@ -50054,7 +50085,7 @@ function stationPrintHTML(){
 
 /* ==== src/erp/views/station-shipping.js ==== */
 /* =====================================================================
-   erp/views/station-shipping  ·  Shipping PR 2, 6 октября 2026
+   erp/views/station-shipping  ·  станции SHIPR и SHIP на экране станции (Shipping PR 2, 6.10.2026)
    Две последние станции маршрута на экране станции.
    Станция готовности (SHIPR): на карточке стекла — очередь клиента и
    сколько юнитов заказа уже готово; чужое стекло на скиде — цвет и звук,
@@ -50288,7 +50319,7 @@ function stationTripsCard(){
 
 /* ==== src/erp/views/station-from-igu.js ==== */
 /* =====================================================================
-   erp/views/station-from-igu  ·  7 октября 2026
+   erp/views/station-from-igu  ·  лист «собрал IGU / отсканировал Shipping ready» (7.10.2026)
    Shipping ready у IGU: лист всего, что собрал IGU, и что из этого
    отсканировал Shipping ready. Владелец, 7.10.2026:
    - спейсер (Андрей) и силикон со скидами (Олег) — в 50 метрах; Андрей
@@ -50702,7 +50733,7 @@ function shippingLookupHTML(){
 
 /* ==== src/erp/views/delivery.js ==== */
 /* =====================================================================
-   view/delivery  ·  Shipping PR 3, 6 октября 2026
+   view/delivery  ·  Shipping → Delivery: машины, остановки, лист рейса (Shipping PR 3)
    Shipping → Delivery: день → машины → остановки (PS) по порядку, у каждой
    время отбытия; PS этого дня без машины; самовывозы отдельным списком.
    Master Data → Trucks. Лист рейса на Letter — один или вместе с PS.
@@ -50854,7 +50885,7 @@ function mdTruckSet(id,field,value){const out=truckSet(id,field,value);if(!out.o
 
 /* ==== src/erp/views/skids.js ==== */
 /* =====================================================================
-   view/skids  ·  Shipping PR 4, 6 октября 2026
+   view/skids  ·  Shipping → Skids: наши скиды у клиентов, обмен, возврат (Shipping PR 4)
    Shipping → Skids: у какого клиента наши скиды, с какого дня, сколько
    дней, с каким PS уехали. Обмен — «Skid from ABC»: чужой скид получает
    новый код и этикетку, наш самый давний у этого клиента списывается.
@@ -51949,7 +51980,7 @@ function carrierCountScreen(){
 }
 
 /* ==== src/erp/shipping/data.js ==== */
-/* Shipping · office shipments, 5 October 2026.
+/* Отгрузки офиса: юниты, Ready по сканам, количества в PS (Shipping, 5.10.2026).
    IN: actual assemblies/scans, saved orders; OUT: units and PS quantities.
    Owner: one PS per customer/address, no prices; Net after the last receipt.
    A unit is an actual assembly, never matching indices of its component Gs.
@@ -52173,7 +52204,7 @@ function validateShipmentPayload(src){
 }
 
 /* ==== src/erp/shipping/commands.js ==== */
-/* Office PS commands. All writes, scans, order statuses and log entries commit
+/* Команды PS офиса: создание, печать, Shipped, возврат — одной записью. All writes, scans, order statuses and log entries commit
    together. Owner, 5 October 2026: after printing a PS, missing/broken goods
    are NCR, not a recut/backorder. Printing itself is not proof of delivery.
    SHIP skid loading and queue priority: erp/shipping/loading (PR 2). Truck
@@ -52356,7 +52387,7 @@ function shippingWithChecks(ids,method,printing,done){
 }
 
 /* ==== src/erp/shipping/loading.js ==== */
-/* Shipping · очередь клиента и погрузка на станции отгрузки (PR 2, 6.10.2026).
+/* Очередь клиента и погрузка скидов на станции отгрузки (Shipping PR 2, 6.10.2026).
    IN : готовые юниты (erp/shipping/data) · открытые PS · журнал сканов.
    OUT: line.shipQueue · SHIP-сканы погрузки · состав PS (item.added).
    Владелец: офис открывает рейс, водитель сам выбирает скиды — скан пишет и
@@ -52504,7 +52535,7 @@ function shippingLoadUndone(recs){
 }
 
 /* ==== src/erp/shipping/delivery.js ==== */
-/* Shipping · план доставки (PR 3, 6 октября 2026).
+/* План доставки: машины, водитель, остановки PS по порядку, время отбытия (Shipping PR 3, 6.10.2026).
    IN : DB.shipment (PS со способом Delivery) · DB.user (водитель)
    OUT: DB.truck {id, name, note, active} · у PS: truckId, driverId, departAt, stop
    Владелец: свои машины, нужен план на день и лист рейса водителю. Машина
@@ -52658,7 +52689,7 @@ async function tripKmCalc(date,truckId){
 }
 
 /* ==== src/erp/shipping/skids.js ==== */
-/* Shipping · скиды у клиентов (PR 4, 6 октября 2026).
+/* Скиды у клиентов: где наши скиды, возврат и обмен на чужой (Shipping PR 4, 6.10.2026).
    IN : отправленные PS со способом Delivery (скиды в их составе) · DB.carrier
    OUT: DB.skidReturn {id, at, code, customerId, kind:'back'|'swap', newCode, by}
    Владелец: «бывает, скид остаётся и нам на замену дают другие; бывает,
@@ -53352,7 +53383,7 @@ function skipDialogHTML(){
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&skipDialog)skipClose();});
 
 /* ==== src/erp/shopfloor/production-unbatch.js ==== */
-/* Office reverse passage, owner 9 October 2026.
+/* Обратный проход заказа из Sales до станции или Not cut (Unbatch, владелец 9.10.2026).
    A target means waiting at that occurrence of the station. Not cut also
    releases the selected glass from its batches and requires Verify again.
    Actual assemblies travel together. Other units in a PS or scan action do
@@ -53545,7 +53576,7 @@ function validateProductionUnbatchPayload(src){
 }
 
 /* ==== src/erp/views/production-unbatch-ui.js ==== */
-/* Sales → Unbatch order. Same selection vocabulary as Skip, reverse targets.
+/* Окно Sales → Unbatch order: выбор стёкол и станции, предпросмотр, подтверждение. Same selection vocabulary as Skip, reverse targets.
    The preview is read-only. Confirmation submits the captured database stamp;
    a stale window or failed save keeps the selection open. No Undo button. */
 let productionUnbatchDialog=null;
