@@ -1,4 +1,4 @@
-/* Purchasing P1: supplier cards. Column filters use the Sales list engine.
+/* Экран Purchasing → Suppliers: карточки поставщиков (Purchasing P1). Column filters use the Sales list engine.
    Edits stay in a draft until one storageCommand saves the whole card.
    Additional contacts and custom fields are optional (owner, 12.10.2026).
    No global search, no stock balances and no purchase in customer Finance. */

@@ -29,7 +29,8 @@ A person has two sign-ins, both optional, possibly both — for example a shop f
     reports on station and people screens (Reports → Show on); **Cost & margin** — see and edit purchase prices in Data.
 - **Station sign-in · number · PIN**: **No.** — the personal number, **PIN** — 4 digits. “Any station. The office gives
   the PIN.” People do not change their PIN themselves. Removing a PIN ends the station sign-in at once.
-- **Save** / **Cancel**. Passwords and PINs are not stored — only their fingerprints.
+- **Save** / **Cancel**. Passwords and PINs are not stored — only their fingerprints. Switching to another Users tab with
+  an unsaved card asks “Discard unsaved changes?”.
 
 **Users never locks itself**: the last person with the Users box cannot lose it or be removed — “Someone must keep
 Users”. An administrator (the Users box) sees everything.

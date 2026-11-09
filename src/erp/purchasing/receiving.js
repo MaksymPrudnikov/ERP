@@ -1,4 +1,4 @@
-/* Purchasing P3 · receiving and supplier-held purchases.
+/* Приёмка по PO и стекло, ждущее у поставщика: что пришло, излишки, бой, другой размер листа (Purchasing P3).
    Record what arrived, including excess, damage and a different sheet size.
    Blocks, actual sheets and sheet dimensions belong to each delivery line;
    never infer a fixed pack size and never write inventory or customer Finance.

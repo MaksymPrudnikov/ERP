@@ -1,4 +1,4 @@
-/* Shipping · план доставки (PR 3, 6 октября 2026).
+/* План доставки: машины, водитель, остановки PS по порядку, время отбытия (Shipping PR 3, 6.10.2026).
    IN : DB.shipment (PS со способом Delivery) · DB.user (водитель)
    OUT: DB.truck {id, name, note, active} · у PS: truckId, driverId, departAt, stop
    Владелец: свои машины, нужен план на день и лист рейса водителю. Машина

@@ -1,4 +1,4 @@
-/* Purchasing P2 · 13 October 2026.
+/* Заказы поставщику (PO): стекло из каталога, допы, номера, правки на любом этапе с журналом (Purchasing P2, 13.10.2026).
    Owner correction 13 October: new glass lines require catalogue glass
    and a supplier card. Extras and legacy free lines remain editable.
    Price or delivery date may remain unknown.

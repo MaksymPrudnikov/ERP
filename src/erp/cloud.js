@@ -1,5 +1,5 @@
 /* ============================================================================
-   Сервер — этап 4 задания «База» (docs/ЗАДАЧА_БАЗА.md, tools/supabase/schema.sql)
+   Подключение к серверу Supabase: адрес, ключ, вход человека, вызовы RPC (этап 4 «Базы»; сервер — tools/supabase/schema.sql).
    IN : адрес проекта Supabase, publishable-ключ, вход человека (почта, пароль)
    OUT: cloudConfig, cloudConnect, cloudSignOut, cloudRpc, cloudState
    Адрес, ключ и сессия живут на этом устройстве (localStorage), не в базе ERP

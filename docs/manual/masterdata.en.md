@@ -35,6 +35,7 @@ Tables work as in Sales ([lists.en.md](lists.en.md)); fields in settings rows ar
 - **Clicking a row** (not a field or a button) opens a preview on the right: what is missing, the main fields, the last
   change, **Open** — the card.
 - **A card** — tabs on the left, an orange dot on a tab where something is missing. Save reads the fields of all tabs.
+  Leaving for another tab or list with unsaved edits asks “Discard unsaved changes?”.
 
 ### Glass
 

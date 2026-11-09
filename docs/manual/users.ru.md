@@ -28,7 +28,8 @@ Sales ([lists.ru.md](lists.ru.md)).
     станций и людей (Reports → Show on); **Cost & margin** — видеть и править закупочные цены в Data.
 - **Station sign-in · number · PIN**: **No.** — личный номер, **PIN** — 4 цифры. «Any station. The office gives the PIN.»
   PIN человек сам не меняет. Снятый PIN сразу заканчивает вход на станции.
-- **Save** / **Cancel**. Пароля и PIN в базе нет — только отпечатки.
+- **Save** / **Cancel**. Пароля и PIN в базе нет — только отпечатки. Переход на другую вкладку Users с несохранённой
+  карточкой спросит «Discard unsaved changes?».
 
 **Users не запирается**: последнему человеку с галочкой Users её не снять и его не удалить — «Someone must keep Users».
 Администратор (галочка Users) видит всё.

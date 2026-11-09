@@ -1,4 +1,4 @@
-/* Shipping · office shipments, 5 October 2026.
+/* Отгрузки офиса: юниты, Ready по сканам, количества в PS (Shipping, 5.10.2026).
    IN: actual assemblies/scans, saved orders; OUT: units and PS quantities.
    Owner: one PS per customer/address, no prices; Net after the last receipt.
    A unit is an actual assembly, never matching indices of its component Gs.
