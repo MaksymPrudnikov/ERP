@@ -245,15 +245,6 @@ svg{display:block}
 .progress>span{display:block;height:100%;border-radius:20px;background:var(--accent)}
 
 /* production */
-.pipeline{display:flex;align-items:stretch;gap:7px;overflow-x:auto;padding:3px 0 8px}
-.stage{min-width:185px;flex:1;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:12px}
-.stage-top{display:flex;align-items:center;gap:9px}
-.stage-index{width:28px;height:28px;border-radius:9px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:12px}
-.stage b{font-size:12px}
-.stage small{display:block;color:var(--mut);font-size:10px;margin-top:1px}
-.stage-machines{margin-top:10px;font-size:11px;color:var(--text-2)}
-.pipe-arrow{display:flex;align-items:center;color:var(--text-3)}
-.pipe-arrow svg{width:18px;height:18px}
 /* Production → Stations: маршрут списком (владелец, 2 октября 2026). */
 .sf-route-lead{margin:2px 0 8px;color:var(--text-2);font-size:13.5px}
 .sf-route{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px}
@@ -3182,8 +3173,6 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 .pb-bar i{display:block;height:100%;background:var(--green)}
 .pb-sub td{background:var(--surface-2);font-size:12.5px;padding-top:5px;padding-bottom:5px}
 /* Станции в Master Data: параллельные — столбиком в одном шаге */
-.stage-step{display:flex;flex-direction:column;gap:6px;min-width:185px;flex:1;align-self:center}
-.stage-step .stage{flex:none}
 .sf-step{width:64px}
 /* Очередь станций после резки */
 .st-flow{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap}
@@ -4346,7 +4335,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='8dd31bc92444';
+var ERP_BUILD='b03a01687bed';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -14802,11 +14791,6 @@ function salesUnbatchRecord(orderId,lineIds,opts){
  o.status='new';o.statusDates={new:now};o.fulfilledVia='';o.updatedAt=now;
  salesSyncRecordLifecycle(o);if(!opts.deferTouch)touch();return true;
 }
-/* Существующие имена оставлены как адаптеры; кнопок этих действий в заказе нет. */
-function salesSetStatus(next,opts){const changed=soDraft&&salesSetRecordStatus(soDraft.id,next,opts);render();return !!changed;}
-function salesAdvanceStatus(){if(soDraft)optimizationRunOrders([soDraft.id],salesNextStatus(soDraft),{delivery:soDraft.delivery});}
-function salesStepBack(){if(soDraft)optimizationRunOrders([soDraft.id],'back');}
-function salesBatchNewLines(){if(soDraft)optimizationRunOrders([soDraft.id],'batched');}
 function salesCancelOrder(orderId){const id=orderId||(soDraft&&soDraft.id);if(id)optimizationRunOrders([id],'cancelled');}
 function salesRestoreOrder(orderId){
  const id=orderId||(soDraft&&soDraft.id),o=salesRecord(id);
@@ -17812,7 +17796,7 @@ const CLOUD_NUMBER={
 const CLOUD_BLOCK={
  glass:[1000,()=>DB.glassPieceSeq],unit:[500,()=>DB.glassUnitIdSeq],scan:[1000,()=>DB.stationScanSeq],
  offcut:[100,()=>DB.stockOffcutSeq],batch:[20,()=>typeof salesBatchTop==='function'?salesBatchTop():0],journal:[50,()=>finJournalTop()]};
-let cloudSync={loaded:false,on:false,ref:'',since:0,n:0,vers:new Map(),out:[],early:[],lost:new Set(),lostGrp:new Set(),blocks:new Map(),blockDirty:new Set(),refresh:new Set(),
+let cloudSync={loaded:false,on:false,ref:'',base:null,newBase:false,since:0,n:0,vers:new Map(),out:[],early:[],lost:new Set(),lostGrp:new Set(),blocks:new Map(),blockDirty:new Set(),refresh:new Set(),
  uploading:false,dirty:null,running:false,timer:null,wait:CLOUD_POLL_MS,busy:'',error:'',warn:'',offline:false,at:''};
 const CLOUD_NO_BLOCK='No server numbers here yet. IDs may repeat.';
 function cloudKey(tbl,id){return tbl+'\u0000'+id;}
@@ -17910,10 +17894,10 @@ async function cloudLoadHead(){
 }
 async function cloudLoad(){
  const got=await storageIdbCloudAll(),s=cloudSync,head=s.head;
- s.vers=new Map();s.out=[];s.ref='';s.since=0;s.n=0;
+ s.vers=new Map();s.out=[];s.ref='';s.base=null;s.since=0;s.n=0;
  got.keys.forEach((k,i)=>{
   const v=got.values[i];
-  if(k==='ref')s.ref=v;else if(k==='since')s.since=+v||0;else if(k==='n')s.n=+v||0;
+  if(k==='ref')s.ref=v;else if(k==='base')s.base=v;else if(k==='since')s.since=+v||0;else if(k==='n')s.n=+v||0;
   else if(k.startsWith('v\u0000'))s.vers.set(k.slice(2),v);
   else if(k.startsWith('o\u0000'))s.out.push(Object.assign({key:k},v));
   /* Блоки старта уже в ходу: их остаток новее записанного. */
@@ -17998,7 +17982,7 @@ async function cloudColdOf(owners){
 function cloudApplyServer(rows,asked,ops){
  const s=cloudSync,list=[],seen=new Set();
  rows.forEach(r=>{
-  if(r.tbl===CLOUD_UPLOAD.tbl)return;
+  if(r.tbl===CLOUD_UPLOAD.tbl){if(r.id===CLOUD_UPLOAD.id)cloudBaseSeen(r.deleted?null:cloudUploadOf(r));return;}
   const k=cloudKey(r.tbl,r.id);seen.add(k);
   if(r.deleted){
    const b=storageBase.get(r.tbl);
@@ -18116,7 +18100,9 @@ async function cloudSyncTick(){
   s.running=true;
   try{
    if(!s.loaded)await cloudLoad();
-   if(s.on&&storageWriter){await cloudPushAll();await cloudPull();await cloudBlocksFill();s.offline=false;s.error='';s.wait=CLOUD_POLL_MS;s.at=new Date().toISOString();}
+   /* Чья это база: до первой отправки и перед каждой (cloudBaseCheck). */
+   if(s.on&&storageWriter&&!s.newBase&&(s.base==null||s.out.length))await cloudBaseCheck();
+   if(s.on&&storageWriter&&!s.newBase){await cloudPushAll();await cloudPull();await cloudBlocksFill();s.offline=false;s.error='';s.wait=CLOUD_POLL_MS;s.at=new Date().toISOString();}
   }catch(e){
    /* Просрочен вход: сырой ответ сервера людям ни о чём не говорит. */
    if(/No connection/.test(e.message))s.offline=true;else s.error=/JWT|refresh token/i.test(e.message)?'Sign in to the server again.':e.message;
@@ -18131,6 +18117,7 @@ function cloudSyncText(){
  const s=cloudSync,n=s.out.length;
  if(s.busy)return s.busy;
  if(!s.on)return '';
+ if(s.newBase)return 'Server has a new database · Download';
  if(!cloudConfig().session)return 'Sign in to sync'+(n?' · '+n+' waiting':'');
  if(s.offline)return 'Offline · '+n+' waiting';
  if(s.error)return s.error;
@@ -18139,13 +18126,13 @@ function cloudSyncText(){
 /* Связать базы. Upload — эта база становится серверной (сервер пуст).
    Download — эта база заменяется серверной. Stop — компьютер больше не
    синхронизирует, его база остаётся как есть. */
-async function cloudSaveAll(ref,since,vers){
+async function cloudSaveAll(ref,since,vers,base){
  await storageFlush();
  await storageIdbTx(['cloud'],'readwrite',tx=>{
   const st=tx.objectStore('cloud');st.clear();
-  if(ref){st.put(ref,'ref');st.put(since,'since');st.put(0,'n');vers.forEach((v,k)=>st.put(v,'v\u0000'+k));}
+  if(ref){st.put(ref,'ref');st.put(base||'','base');st.put(since,'since');st.put(0,'n');vers.forEach((v,k)=>st.put(v,'v\u0000'+k));}
  });
- Object.assign(cloudSync,{loaded:true,on:!!ref,ref:ref||'',since:since||0,n:0,vers:ref?vers:new Map(),out:[],early:[],blocks:new Map(),blockDirty:new Set(),refresh:new Set()});
+ Object.assign(cloudSync,{loaded:true,on:!!ref,ref:ref||'',base:ref?base||'':null,newBase:false,since:since||0,n:0,vers:ref?vers:new Map(),out:[],early:[],blocks:new Map(),blockDirty:new Set(),refresh:new Set()});
 }
 async function cloudRun(label,fn){
  const s=cloudSync;
@@ -18172,6 +18159,27 @@ const CLOUD_UPLOAD={tbl:'_upload',id:'state'};
 async function cloudUploadState(){
  const got=await cloudRpc('erp_get',{keys:[CLOUD_UPLOAD]}),r=Array.isArray(got)&&got.find(x=>x.tbl===CLOUD_UPLOAD.tbl&&!x.deleted);
  try{return r?JSON.parse(cloudText(r.data)):null;}catch(e){return null;}
+}
+function cloudUploadOf(r){try{const x=JSON.parse(cloudText(r.data));return x&&x.id||'';}catch(e){return '';}}
+/* Сервер очистили и залили заново: номера изменений растут дальше, и
+   компьютер со старой базой молча сложил бы новую со своей, а свои правки
+   отправил в чужую. Он помнит отметку Upload своей базы (Download, Upload;
+   подключённый раньше — первую увиденную) и сверяет её до первой отправки,
+   перед каждой отправкой и в ленте. Другая или сервер пуст — не отправляет
+   и не принимает, внизу «Download» (владелец, 09.11.2026). id — отметка
+   сервера, null — её нет. */
+function cloudBaseSeen(id){
+ const s=cloudSync,now=id||'';
+ if(s.base==null){s.base=now;storageWrite([],[['base',now]]);return;}
+ if(id==null||now!==s.base)s.newBase=true;
+}
+async function cloudBaseCheck(){
+ const got=await cloudRpc('erp_get',{keys:[CLOUD_UPLOAD]}),r=Array.isArray(got)&&got.find(x=>x.tbl===CLOUD_UPLOAD.tbl&&!x.deleted);
+ if(r){cloudBaseSeen(cloudUploadOf(r));return;}
+ /* Отметки нет: сервер залит до неё (номера изменений есть) — как прежде;
+    пуст — его очистили. */
+ const any=await cloudRpc('erp_changes',{since:0,lim:1});
+ cloudBaseSeen(any&&+any.last>0?'':null);
 }
 function cloudUploadMark(state){return {tbl:CLOUD_UPLOAD.tbl,id:CLOUD_UPLOAD.id,seq:0,data:JSON.stringify(state)};}
 function cloudUpload(){
@@ -18205,7 +18213,7 @@ function cloudUpload(){
    const end=await cloudRpc('erp_apply',{command_id:'up-'+cloudId(),build:storageBuildId(),device:cloudDevice(),expect:[],changes:[cloudChange(cloudUploadMark(Object.assign(mark,{done:true,rows:recs.length-1})))]});
    if(!end||!end.ok)throw new Error('Upload refused by the server.');
    last=+end.rev||last;
-   await cloudSaveAll(url,last,vers);
+   await cloudSaveAll(url,last,vers,mark.id);
   }finally{s.uploading=false;}
   /* Правки во время отправки — следом обычной командой. */
   /* Как было записано: строка, ушедшая в архив посреди отправки, на сервере
@@ -18249,7 +18257,7 @@ function cloudDownload(){
      версии и очередь этого ПК как были (аудит 25.10.2026, A-1). */
   const ok=await storageImportState(state,{test:storageTest,cold:[],archive,cloud:true,before:()=>cloudSaveAll('',0,null)});
   if(!ok)return false;
-  await cloudSaveAll(url,since,vers);cloudSoon();return true;
+  await cloudSaveAll(url,since,vers,up?up.id:'');cloudSoon();return true;
  });
 }
 async function cloudSyncStop(){
@@ -31618,10 +31626,6 @@ function sfDimText(s){
    параллельные станции: «CNC shape edge стоит на уровне с полировкой»;
    стекло заходит только на те, чьи работы ему нужны. */
 function sfSteps(){const m=new Map();DB.station.forEach(s=>{if(!m.has(s.seq))m.set(s.seq,[]);m.get(s.seq).push(s);});return [...m.entries()].sort((a,b)=>a[0]-b[0]);}
-function sfPipelineHTML(){
- return sfSteps().map(([seq,list],i)=>`${i?`<div class="pipe-arrow">${ico('arrow')}</div>`:''}<div class="stage-step">${list.map(s=>{const w=stationOperations(s.code);
-  return `<div class="stage"><div class="stage-top"><div class="stage-code" data-raw>${esc(s.code)}</div>${s.always?'<span class="pill ok">always</span>':''}</div><div class="stage-name">${sfLabel(s)}</div><div class="stage-count">${w.length?w.length+' work'+(w.length===1?'':'s'):'no works'}</div></div>`;}).join('')}</div>`).join('');
-}
 /* Маршрут для людей (владелец, 2 октября 2026: «логично для нас, а другие не
    поймут эту длинную ветку»). Нумерованный список шагов: что делают со
    стеклом простыми словами, всегда или по надобности, коды станций.
@@ -32142,7 +32146,6 @@ const MD_MATERIAL_VIEWS={
  lamination:[{k:'interlayerProduct',label:'Interlayers'}],
  stock:     [{k:'stockItem',        label:'Stock items'}]
 };
-const MD_MATERIAL_CATEGORY_LABELS={glass:'Glass',igu:'IGU assembly',lamination:'Lamination',stock:'Stock & consumables'};
 /* Тепловая обработка материалом не является — её нет в разделе 7 и у неё нет
    ни закупки, ни хранения. Это режим цеха, поэтому живёт рядом с работами, а
    не среди материалов. */
@@ -32290,23 +32293,6 @@ function mdMatSelect(category,viewKey){
 function mdMatSwitch(category,viewKey){
  mdMatSelect(category,viewKey);
  mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdCatEdit=null;mdCatDraft=null;
-}
-function mdSetMatCategory(k){mdMatSwitch(k,null);render();}
-function mdSetMatView(k){mdMatSwitch(mdMatCategory,k);render();}
-function viewMdMaterials(){
- mdMatSelect(mdMatCategory,mdMatView);
- const list=MD_MATERIAL_VIEWS[mdMatCategory],hit=list.find(v=>v.k===mdMatView)||list[0];
- const cats=Object.keys(MD_MATERIAL_VIEWS).map(c=>`<button class="sm ${c===mdMatCategory?'on':''}" onclick="mdSetMatCategory('${c}')">${esc(MD_MATERIAL_CATEGORY_LABELS[c])} <span class="mut">${materialEntries(c).length}</span></button>`).join('');
- const subs=list.length>1?`<div class="md-mat-subs">${list.map(v=>`<button class="sm ${v.k===mdMatView?'on':''}" onclick="mdSetMatView('${v.k}')">${esc(v.label)}</button>`).join('')}</div>`:'';
- const body=hit.view?({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer,recipe:viewMdRecipes})[hit.view]():viewMdCatalogues();
- return `<div class="md-mat-cats">${cats}</div>${subs}${body}`;
-}
-/* Работы и припуск на рез — один вид данных: и то и другое про то, что цех
-   делает со стеклом, и раздел 7 сводит их на один экран. */
-function viewMdWorks(){
- if(MD_WORK_CATALOGUES.indexOf(mdCatKind)<0)mdCatKind='serviceRate';
- const subs=MD_WORK_CATALOGUES.map(k=>{const def=MD_CATALOGUES.find(c=>c.k===k);return `<button class="sm ${k===mdCatKind?'on':''}" onclick="mdSetCatKind('${k}')">${esc(def?def.label:k)}</button>`;}).join('');
- return `<div class="md-mat-subs">${subs}</div>${viewMdCatalogues()}${mdCatEdit===null&&mdCatKind==='serviceRate'?viewMdAllowance():''}`;
 }
 function mdVocabOptions(kind,value,blank){
  const rows=Object.keys(GLASS_VOCAB[kind]||{});
@@ -56563,11 +56549,6 @@ function repExcel(wid){
  const title=(r.name+' - '+repWidgetTitle(w)).replace(/[\\/:*?"<>|]+/g,' ').trim();
  storageDownload(title+' '+finToday()+'.xlsx',xlsxBook(repWidgetTitle(w),x.head,x.rows,null),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 }
-function repCsv(wid){
- const r=repOpenReport();if(!r)return;const w=r.pages.flatMap(p=>p.widgets).find(x=>x.id===wid);if(!w)return;
- const name=(r.name+' - '+repWidgetTitle(w)).replace(/[\\/:*?"<>|]+/g,' ').trim()+' '+finToday()+'.csv';
- storageDownload(name,['\ufeff'+readScope(()=>repCsvText(r,w))],'text/csv');
-}
 /* Save as default: свой период и фильтры становятся периодом и фильтрами отчёта. */
 function repSaveDefaults(){const r=repOpenReport();if(!r||repDraft)return;const v=repView(r.id);if(repEditReport(r.id,x=>{if(v.date)x.date=v.date;if(v.f!==undefined)x.filters=v.f;}))repResetView();}
 
@@ -58650,7 +58631,6 @@ function storageTellHeld(){if(storageChannel)try{storageChannel.postMessage({typ
 /* Ждать, пока всё начатое дойдёт до базы: true — записано, false — нет. */
 function storageFlush(){return !storageBusy&&!storageQueued?Promise.resolve(!storageFailed):new Promise(r=>storageFlushWaiters.push(r));}
 function storageQuotaError(e){return !!e&&(e.name==='QuotaExceededError'||e.name==='NS_ERROR_DOM_QUOTA_REACHED'||e.code===22||e.code===1014);}
-function storageRead(key){try{return localStorage.getItem(key);}catch(e){return null;}}
 function storageReadOnlyText(){return storageStale?'A newer version is open. Reload this tab.':storageTakeover?'Switching editing to this tab — repeat the action in a moment.':'Glass Farm is busy in another tab. Click here to continue, or close the other tab.';}
 /* Место. Браузер даёт базе гигабайты; persist просит не стирать её при
    нехватке места на диске. Размер — администратору внизу экрана, больше
