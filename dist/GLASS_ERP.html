@@ -4336,7 +4336,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='012c531a214d';
+var ERP_BUILD='07a23fa953c3';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -9884,7 +9884,7 @@ function applyDataFixes(){
  /* Номер 11 · 30 октября 2026. Геометрия лайтов для веса — в записи строки
     (line.measure.lites, пункт 14): владелец — «если данные с фигуры уже
     получены, зачем её пересчитывать». Только строкам, чья запись верна. */
- if(have<11&&typeof salesLineLiteGeo==='function')readScope(()=>(DB.salesOrder||[]).forEach(o=>{if(o&&typeof o==='object'&&Array.isArray(o.lines))o.lines.forEach(l=>{if(!l||!l.measure||l.measure.lites)return;try{if(salesMeasureFor(l,o)){l.measure.lites=finWithOrder(o,()=>salesLineLiteGeo(l,o));changed++;}}catch(e){console.warn('lites '+(o.businessNumber||o.id)+': '+e.message);}});}));
+ if(have<11&&typeof salesLineLiteGeo==='function')readScope(()=>(DB.salesOrder||[]).forEach(o=>{if(o&&typeof o==='object'&&Array.isArray(o.lines))o.lines.forEach(l=>{if(!l||!l.measure||l.measure.lites)return;try{if(salesMeasureFor(l,o)){l.measure.lites=salesLineLiteGeo(l,o);changed++;}}catch(e){console.warn('lites '+(o.businessNumber||o.id)+': '+e.message);}});}));
  DB.dataFix=DATA_FIX_VERSION;
  console.info('data fixes '+have+' \u2192 '+DATA_FIX_VERSION+': '+changed+' values');
  return true;
@@ -13590,24 +13590,35 @@ function salesDefaultPane(i){
    читаются через salesBook: у сохранённого заказа — из его priceBook, у нового
    — из Master Data. Save записывает в priceBook ровно те цены, по которым
    посчитан заказ; ставки услуг фиксировались и раньше (chargePricing). Заказ
-   берётся из контекста расчёта (finWithOrder ставит его в soDraft). */
+   передаётся параметром order (этап 4 плана «до 10»): расчёт итогов, Finance,
+   документы и отчёты называют свой заказ сами и открытый в Sales не читают. */
 /* Новая цена сначала ищется в прайсах клиента (erp/sales/price-lists), потом
    в Master Data. Откуда она пришла, заказ помнит в priceFrom: ключ цены →
    прайс. */
+/* Заказ расчёта. Передан — он; не передан (undefined) — открытый в Sales:
+   так зовут экран заказа и его правки. Всё, что считает чужой или
+   сохранённый заказ, передаёт его явно. */
+function salesOrderArg(order){return order===undefined?(typeof soDraft==='undefined'?null:soDraft):order;}
+/* Заказ чертежа строки. Чертёж рисует редактор формы (erp/sales/print-sheet):
+   salesLineDrawing кладёт заказ строки в его мост salesBridge.order. Форма,
+   открытая из строки в Sales, — открытый заказ. */
+function salesSheetOrder(){const b=typeof salesBridge!=='undefined'&&salesBridge;return b&&b.kind==='shape'&&b.order?b.order:(typeof soDraft==='undefined'?null:soDraft);}
+/* Клиент заказа — для его прайсов (erp/sales/price-lists). */
+function salesOrderCustomerId(order){return order&&order.customerId||'';}
 let salesBookRec=null,salesFromRec=null;
-function salesBook(key,live){
- const o=typeof soDraft!=='undefined'&&soDraft,b=o&&o.priceBook;
+function salesBook(key,live,order){
+ const o=salesOrderArg(order),b=o&&o.priceBook;
  let v;
  if(b&&Object.prototype.hasOwnProperty.call(b,key)){v=b[key];if(salesFromRec&&o.priceFrom&&o.priceFrom[key])salesFromRec[key]=o.priceFrom[key];}
- else{const lp=salesPriceListFor(salesPriceTargetOfKey(key));v=lp?lp.price:live();if(salesFromRec&&lp)salesFromRec[key]=lp.listId;}
+ else{const lp=salesPriceListFor(salesPriceTargetOfKey(key),undefined,salesOrderCustomerId(o));v=lp?lp.price:live();if(salesFromRec&&lp)salesFromRec[key]=lp.listId;}
  if(salesBookRec)salesBookRec[key]=v==null?null:v;
  return v;
 }
 /* Откуда цена по ключу priceBook: прайс заказа или живой поиск. '' — общая. */
-function salesPriceFromOf(key){
- const o=typeof soDraft!=='undefined'&&soDraft;if(!o)return '';
+function salesPriceFromOf(key,order){
+ const o=salesOrderArg(order);if(!o)return '';
  if(o.priceBook&&Object.prototype.hasOwnProperty.call(o.priceBook,key))return (o.priceFrom&&o.priceFrom[key])||'';
- const lp=salesPriceListFor(salesPriceTargetOfKey(key));return lp?lp.listId:'';
+ const lp=salesPriceListFor(salesPriceTargetOfKey(key),undefined,salesOrderCustomerId(o));return lp?lp.listId:'';
 }
 /* Цены и нормы веса, по которым заказ посчитан сейчас: прежние — из его
    priceBook, новые позиции — из Master Data. */
@@ -13615,7 +13626,7 @@ function salesPriceBookOf(o){
  const keep=salesBookRec,keepFrom=salesFromRec;salesBookRec={};salesFromRec={};
  try{
   finOrderTotals(o);
-  if(typeof salesLineWeight==='function')finWithOrder(o,()=>(o.lines||[]).forEach(l=>{try{salesLineWeight(l,o);}catch(e){console.warn('weight book '+(o.businessNumber||o.id)+': '+e.message);}}));
+  if(typeof salesLineWeight==='function')(o.lines||[]).forEach(l=>{try{salesLineWeight(l,o);}catch(e){console.warn('weight book '+(o.businessNumber||o.id)+': '+e.message);}});
   /* Откуда цены — рядом с самими ценами, тем же снимком. */
   if(Object.keys(salesFromRec).length)o.priceFrom=salesFromRec;else delete o.priceFrom;
   return salesBookRec;
@@ -13623,53 +13634,54 @@ function salesPriceBookOf(o){
 }
 function salesPriceFromClean(f){const out={};if(f&&typeof f==='object'&&!Array.isArray(f))Object.keys(f).forEach(k=>{if(typeof f[k]==='string'&&f[k])out[k]=f[k];});return out;}
 function salesPriceBookClean(b){const out={};Object.keys(b).forEach(k=>{const v=b[k];if(v===null)out[k]=null;else if(typeof v==='number'&&Number.isFinite(v))out[k]=v;else if(typeof v==='string'&&(k.indexOf('unit:')===0||k.indexOf('snap:')===0))out[k]=v;});return out;}
-function salesGlassSalePrice(g,tempered){const f=tempered?'salePriceTempered':'salePriceAnnealed';return salesBook('glass:'+g.id+':'+f,()=>g[f]==null?null:g[f]);}
+function salesGlassSalePrice(g,tempered,order){const f=tempered?'salePriceTempered':'salePriceAnnealed';return salesBook('glass:'+g.id+':'+f,()=>g[f]==null?null:g[f],order);}
 /* Прайс, давший цену листа (лайт или слой ламината) — для «откуда цена». */
-function salesGlassPriceFrom(x){
+function salesGlassPriceFrom(x,order){
  const g=x&&glassProductById(x.glassProductId);if(!g)return '';
  const ht=mdById('heatTreatment',x.heatTreatmentId),code=String((ht&&ht.code)||'').toUpperCase();
- return salesPriceFromOf('glass:'+g.id+':'+(code==='FT'||code==='HS'?'salePriceTempered':'salePriceAnnealed'));
+ return salesPriceFromOf('glass:'+g.id+':'+(code==='FT'||code==='HS'?'salePriceTempered':'salePriceAnnealed'),order);
 }
-function salesInterlayerSalePrice(id){return salesBook('interlayer:'+id,()=>{const p=mdById('interlayerProduct',id);return p&&p.salePrice!=null?p.salePrice:null;});}
+function salesInterlayerSalePrice(id,order){return salesBook('interlayer:'+id,()=>{const p=mdById('interlayerProduct',id);return p&&p.salePrice!=null?p.salePrice:null;},order);}
 /* Обвязка — рецепт из айтемов (этап 3 плана Master Data,
    erp/masterdata/surround): у каждой части своя цена и единица продажи в
    карточке, цена ищется по прайсам клиента, как у любого айтема. */
-function salesSurroundPartPrice(part){
+function salesSurroundPartPrice(part,order){
  if(!part||!part.item)return null;
- return salesBook('item:'+part.table+':'+part.item.id,()=>part.item.salePrice==null?null:part.item.salePrice);
+ return salesBook('item:'+part.table+':'+part.item.id,()=>part.item.salePrice==null?null:part.item.salePrice,order);
 }
 /* Ставка обвязки за ft² юнита: сумма частей, продаваемых за ft² без своих
    минимумов. Части с другой единицей (погонный дюйм, штука, вес) считаются
    в строке заказа по геометрии — salesCavityOtherUnits говорит, что они есть. */
-function salesCavityCatalogPrice(c){
+function salesCavityCatalogPrice(c,order){
  if(!c)return null;
- const parts=surroundCavityParts(c,null,typeof soDraft!=='undefined'?soDraft:null).parts;
+ order=salesOrderArg(order);
+ const parts=surroundCavityParts(c,null,order).parts;
  if(!parts.length)return null;
  let p=0;
  for(const x of parts){
-  const v=salesSurroundPartPrice(x);if(v==null)return null;
-  if(salesSurroundPartIsPlain(x))p+=v;
+  const v=salesSurroundPartPrice(x,order);if(v==null)return null;
+  if(salesSurroundPartIsPlain(x,order))p+=v;
  }
  return Math.round(p*100)/100;
 }
-function salesSurroundPartIsPlain(x){const r=salesItemSaleRules(x.table,x.item);return r.unit==='sqft'&&r.minArea==null&&r.minCharge==null;}
-function salesCavityOtherUnits(c){return !!c&&c.priceOverride==null&&surroundCavityParts(c,null,typeof soDraft!=='undefined'?soDraft:null).parts.some(x=>x.item&&!salesSurroundPartIsPlain(x));}
+function salesSurroundPartIsPlain(x,order){const r=salesItemSaleRules(x.table,x.item,undefined,order);return r.unit==='sqft'&&r.minArea==null&&r.minCharge==null;}
+function salesCavityOtherUnits(c,order){order=salesOrderArg(order);return !!c&&c.priceOverride==null&&surroundCavityParts(c,null,order).parts.some(x=>x.item&&!salesSurroundPartIsPlain(x,order));}
 /* Цена лайта = стекло из прайса + надбавка за то, что на нём делают.
    Spandrel и Frit продаются поверх стекла своей ставкой из справочника, а не
    вместо него: покрасить лист дешевле, чем купить другой лист. */
 /* Цена ламината складывается из того, что в нём физически есть: два стекла плюс
    плёнки по числу слоёв. Считать его «как одно стекло» значит потерять половину
    стоимости — внутренний лист и плёнка стоят не меньше внешнего. */
-function salesPlyCatalogPrice(ply){
+function salesPlyCatalogPrice(ply,order){
  if(!ply)return null;
  const g=glassProductById(ply.glassProductId);
  if(!g)return null;
  const ht=mdById('heatTreatment',ply.heatTreatmentId);
  const code=String((ht&&ht.code)||'').toUpperCase();
- const base=salesGlassSalePrice(g,code==='FT'||code==='HS');
+ const base=salesGlassSalePrice(g,code==='FT'||code==='HS',order);
  return base==null?null:base;
 }
-function salesPlyPrice(ply){
+function salesPlyPrice(ply,order){
  /* Ручная цена плиты старше каталожной — её ввели, глядя на конкретный заказ. */
  if(ply&&ply.priceOverride!=null)return ply.priceOverride;
  if(!ply)return null;
@@ -13677,18 +13689,18 @@ function salesPlyPrice(ply){
  if(!g)return null;
  const ht=mdById('heatTreatment',ply.heatTreatmentId);
  const code=String((ht&&ht.code)||'').toUpperCase();
- const base=salesGlassSalePrice(g,code==='FT'||code==='HS');
+ const base=salesGlassSalePrice(g,code==='FT'||code==='HS',order);
  if(base==null)return null;
  return base;
 }
-function salesLaminatedPrice(p){
+function salesLaminatedPrice(p,order){
  const lam=(p&&p.laminated)||{};
- const a=salesPlyPrice(lam.outer),b=salesPlyPrice(lam.inner);
+ const a=salesPlyPrice(lam.outer,order),b=salesPlyPrice(lam.inner,order);
  if(a==null||b==null)return null;
  let total=a+b,known=true;
  (lam.interlayers||[]).forEach(function(x){
   const layers=salesInterlayerLayerCount(x.layers!=null?x.layers:2);
-  const rate=x.priceOverride!=null?x.priceOverride:salesInterlayerSalePrice(x.productId);
+  const rate=x.priceOverride!=null?x.priceOverride:salesInterlayerSalePrice(x.productId,order);
   if(rate==null){known=false;return;}
   total+=rate*layers;
  });
@@ -13696,15 +13708,15 @@ function salesLaminatedPrice(p){
     как цену ламината значит занизить её молча. */
  return known?Math.round(total*100)/100:null;
 }
-function salesPaneCatalogPrice(p){
+function salesPaneCatalogPrice(p,order){
  if(!p)return null;
- if(p.category===`laminated`)return salesLaminatedPrice(p);
+ if(p.category===`laminated`)return salesLaminatedPrice(p,order);
  const g=glassProductById(p.glassProductId);
  if(!g)return null;
  const ht=mdById('heatTreatment',p.heatTreatmentId);
  const code=String((ht&&ht.code)||'').toUpperCase();
  const tempered=code==='FT'||code==='HS';
- const base=salesGlassSalePrice(g,tempered);
+ const base=salesGlassSalePrice(g,tempered,order);
  /* Стекло без цены в прайсе — прочерк, а не надбавка сама по себе:
     складывать надбавку с неизвестной базой значит выдать неполную цену за полную. */
  if(base==null)return null;
@@ -13726,15 +13738,15 @@ function salesPaneTemperConflict(p){
 /* Итог сборки: сумма ставок за sq ft по всем лайтам и камерам. Площадь сюда не
    входит — она у строки заказа, а не у makeup: один и тот же makeup стоит в
    позициях разного размера. Сервисы и обработка кромки считаются отдельно. */
-function salesMakeupUnitPrice(m){
+function salesMakeupUnitPrice(m,order){
  if(!m)return {total:0,known:true};
  let total=0,known=true;
  (m.panes||[]).forEach(function(p){
-  const v=p.priceOverride!=null?p.priceOverride:salesPaneCatalogPrice(p);
+  const v=p.priceOverride!=null?p.priceOverride:salesPaneCatalogPrice(p,order);
   if(v==null)known=false;else total+=v;
  });
  (m.cavities||[]).forEach(function(c){
-  const v=c.priceOverride!=null?c.priceOverride:salesCavityCatalogPrice(c);
+  const v=c.priceOverride!=null?c.priceOverride:salesCavityCatalogPrice(c,order);
   if(v==null)known=false;else total+=v;
  });
  return {total:Math.round(total*100)/100,known:known};
@@ -13932,11 +13944,11 @@ function normalizeSalesExtraItem(x){
 /* Цена — снимок каталога на момент, если строка её не переопределила: ставку
    меняют в справочнике, а сохранённый заказ остаётся при своей цифре. Пусто —
    позиция без цены честно встаёт Rate required, а не нулём. */
-function salesExtraItemUnitPrice(x){
+function salesExtraItemUnitPrice(x,order){
  if(x.priceOverride!=null)return x.priceOverride;
- return salesBook('item:'+x.table+':'+x.itemId,()=>{const row=salesExtraItemRow(x.table,x.itemId);return row&&row.salePrice!=null?row.salePrice:null;});
+ return salesBook('item:'+x.table+':'+x.itemId,()=>{const row=salesExtraItemRow(x.table,x.itemId);return row&&row.salePrice!=null?row.salePrice:null;},order);
 }
-function salesExtraItemLineTotal(x){const p=salesExtraItemUnitPrice(x);return p==null?null:salesMoney(p*salesPositiveInt(x.qty,1));}
+function salesExtraItemLineTotal(x,order){const p=salesExtraItemUnitPrice(x,order);return p==null?null:salesMoney(p*salesPositiveInt(x.qty,1));}
 function salesExtraItemName(x){const row=salesExtraItemRow(x.table,x.itemId);return row?row.name:'(removed from catalogue)';}
 function normalizeSalesOrder(o){
  o=o&&typeof o==='object'?o:{};const priority=SALES_PRIORITIES.includes(o.priority)?o.priority:'normal',delivery=SALES_DELIVERY_TYPES.includes(o.delivery)?o.delivery:'pickup',currency=['CAD','USD'].includes(o.currency)?o.currency:'CAD';
@@ -14064,9 +14076,9 @@ function salesMakeupSummary(m,how){
 /* Толщина пакета складывается из стёкол и КАМЕР, а камера — это фактическая
    толщина рамки, а не её название. Раньше здесь разбиралась дробь из size, и
    пакет с Black Warm Edge 7/16 получался на 0.4 мм тоньше, чем собранный. */
-function salesMakeupThicknessMm(m){
+function salesMakeupThicknessMm(m,order){
  function productMm(g){const q=typeof glassEffectiveThicknessMm==='function'?glassEffectiveThicknessMm(g):null;return q&&q.mm>0?q.mm:null;}
- let total=0,known=true;m.panes.forEach(p=>{if(p.category==='laminated'){const lm=salesLaminatedThicknessMm(p);if(lm!=null)total+=lm;else known=false;}else{const mm=productMm(glassProductById(p.glassProductId));if(mm!=null)total+=mm;else known=false;}});m.cavities.forEach(c=>{const sp=mdById('spacerVariant',c.spacerVariantId),mm=spacerThicknessMm(sp),pib=surroundPibMm(sp,typeof soDraft!=='undefined'?soDraft:null);if(mm!=null&&pib!=null)total+=mm+pib;else known=false;});return known?total:null;
+ let total=0,known=true;m.panes.forEach(p=>{if(p.category==='laminated'){const lm=salesLaminatedThicknessMm(p);if(lm!=null)total+=lm;else known=false;}else{const mm=productMm(glassProductById(p.glassProductId));if(mm!=null)total+=mm;else known=false;}});m.cavities.forEach(c=>{const sp=mdById('spacerVariant',c.spacerVariantId),mm=spacerThicknessMm(sp),pib=surroundPibMm(sp,salesOrderArg(order));if(mm!=null&&pib!=null)total+=mm+pib;else known=false;});return known?total:null;
 }
 
 /* Catalog temperMode remains a hard production fact, but exceptional orders
@@ -14099,8 +14111,9 @@ function salesTemperCompatibilityWarnings(order){
    0 — это цена: на нём поиск заканчивается. У работы своя цена на каждую
    полосу толщины, как в Works («чем детальней и глубже, тем лучше»); пустая
    полоса — прайс молчит, ищем дальше.
-   IN : DB.priceList, DB.itemGroup, customer.priceGroupId; заказ — soDraft
-        (finWithOrder ставит в него считаемый заказ)
+   IN : DB.priceList, DB.itemGroup, customer.priceGroupId; клиент — параметр
+        customerId (расчёт передаёт клиента своего заказа), без него —
+        клиент открытого в Sales заказа
    OUT: salesPriceListFor(target) — {price, listId, rowId} или null;
         salesPriceTargets() — всё, чему прайс может дать цену;
         salesBook и salesCatalogRate (erp/sales) спрашивают прайсы первыми
@@ -15665,14 +15678,6 @@ function finReceiptOnAccount(r){return r.voided?0:finMoney(r.amount-finReceiptAp
 /* Долг и лимит — только по заказам: квота не долг, отменённый заказ тоже. */
 function finOrderCounts(o){return !!o&&o.kind!=='quote'&&o.status!=='cancelled'&&o.isDraft!==true;}
 
-/* Цена строки частично читает Makeup из открытого заказа (soDraft). Сумма
-   сохранённого, не открытого заказа поэтому считается с ним «на месте»
-   открытого — иначе, скажем, Heat Soak выпал бы из суммы чужого заказа. */
-function finWithOrder(order,fn){
- if(typeof soDraft==='undefined'||soDraft===order)return fn();
- const keep=soDraft;
- try{soDraft=order;return fn();}finally{soDraft=keep;}
-}
 /* Итоги заказа — один раз на отрисовку (erp/read-scope): Finance спрашивал их
    почти трижды на заказ (задание «База», П2). Пока пишется прайс заказа
    (salesPriceBookOf ловит его по ходу расчёта) — считать по-настоящему. */
@@ -15705,12 +15710,12 @@ function finTotalsForget(changes){
  }
 }
 function finOrderTotals(order){
- if(!order||!readOn()||salesBookRec)return finWithOrder(order,()=>salesOrderCommercialTotals(order));
+ if(!order||!readOn()||salesBookRec)return salesOrderCommercialTotals(order);
  const m=readMemo('finOrderTotals',[],()=>new WeakMap());let t=m.get(order);
  if(!t){
   const db=readMemo('finDbOrders',[DB.salesOrder],()=>new Set(DB.salesOrder||[])).has(order),k=db?finTotalsKeep.get(String(order.id)):null;
   if(k&&k.order===order){t=k.totals;if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK)finTotalsCheck(order,t);}
-  else{t=finWithOrder(order,()=>salesOrderCommercialTotals(order));if(db&&order.id)finTotalsKeep.set(String(order.id),{order,totals:t});}
+  else{t=salesOrderCommercialTotals(order);if(db&&order.id)finTotalsKeep.set(String(order.id),{order,totals:t});}
   m.set(order,t);
  }
  return t;
@@ -15732,7 +15737,7 @@ function finTotalsWarm(delay){
  };
  finTotalsWarmTimer=setTimeout(step,delay==null?3000:delay);
 }
-function finTotalsCheck(order,t){const now=finWithOrder(order,()=>salesOrderCommercialTotals(order));if(JSON.stringify(now)!==JSON.stringify(t))console.error('Stale totals: '+order.id+' · '+String(new Error().stack).split('\n').slice(3,6).map(x=>x.trim().split(' ')[1]).join(' < '));}
+function finTotalsCheck(order,t){const now=salesOrderCommercialTotals(order);if(JSON.stringify(now)!==JSON.stringify(t))console.error('Stale totals: '+order.id+' · '+String(new Error().stack).split('\n').slice(3,6).map(x=>x.trim().split(' ')[1]).join(' < '));}
 /* Оплаты заказа: на отрисовку — указатель «заказ → разнесения» за один
    проход по оплатам (erp/read-scope): Finance спрашивает каждый заказ года,
    и каждый вопрос перебирал все оплаты. Порядок сложения тот же. */
@@ -16993,14 +16998,12 @@ function purSpecComponent(o,l,c){
 }
 function purOrderComponentLine(orderId,lineId,key){
  const o=salesRecord(orderId),l=o&&(o.lines||[]).find(l=>l.id===lineId);if(!o||!l)return null;
- return finWithOrder(o,()=>{
-  const cs=glassBatchComponents(o,l),chosen=key?cs.filter(c=>c.key===key):cs;if(!chosen.length)return null;
-  const m=salesMakeupById(o,l.makeupId),parts=chosen.map(c=>purSpecComponent(o,l,c)),whole=!key;
-  const spec={orderNumber:o.businessNumber,lineNumber:o.lines.indexOf(l)+1,mark:l.mark||'',part:whole?'Whole unit':purComponentLabel(chosen[0]),
-   makeup:whole&&m?docMakeupFullLines(m,{glassNames:'name'}):[],parts,note:l.notes||'',capturedAt:new Date().toISOString()};
-  return purLineClean({id:salesUid('PL'),kind:'order',orderId,lineId,componentKey:key||'',description:whole?(m?docMakeupShort(m,{glassNames:'name'}):'Whole unit'):parts[0].glass,
-   unit:'each',priceUnit:'each',qty:l.qty,spec},0);
- });
+ const cs=glassBatchComponents(o,l),chosen=key?cs.filter(c=>c.key===key):cs;if(!chosen.length)return null;
+ const m=salesMakeupById(o,l.makeupId),parts=chosen.map(c=>purSpecComponent(o,l,c)),whole=!key;
+ const spec={orderNumber:o.businessNumber,lineNumber:o.lines.indexOf(l)+1,mark:l.mark||'',part:whole?'Whole unit':purComponentLabel(chosen[0]),
+  makeup:whole&&m?docMakeupFullLines(m,{glassNames:'name'}):[],parts,note:l.notes||'',capturedAt:new Date().toISOString()};
+ return purLineClean({id:salesUid('PL'),kind:'order',orderId,lineId,componentKey:key||'',description:whole?(m?docMakeupShort(m,{glassNames:'name'}):'Whole unit'):parts[0].glass,
+  unit:'each',priceUnit:'each',qty:l.qty,spec},0);
 }
 function purSpecTexts(spec,opts){
  if(!spec)return [];
@@ -17290,12 +17293,14 @@ function readMemo(key,sources,build){
 /* Посчитанное по строке заказа — один раз за отрисовку: цену строки спрашивали
    каждая колонка, каждый итог внизу и каждый счётчик, 12 расчётов на строку
    (заказ на 521 строку — 1,6 с на клик, 2.11.2026). Save считает мимо: он
-   записывает прайс заказа по ходу расчёта. */
+   записывает прайс заказа по ходу расчёта. Ключ — строка и её заказ: расчёт
+   получает заказ параметром (этап 4 плана «до 10»), открытый в Sales ему не
+   нужен. */
 function readLine(key,line,order,build){
  if(!readOn()||!line||salesBookRec||salesMeasureOff)return build();
  const memo=readMemo('line:'+key,[],()=>new WeakMap()),hit=memo.get(line);
- if(hit&&hit.order===order&&hit.draft===soDraft)return hit.value;
- const value=build();memo.set(line,{order,draft:soDraft,value});return value;
+ if(hit&&hit.order===order)return hit.value;
+ const value=build();memo.set(line,{order,value});return value;
 }
 /* Чистое чтение посреди действия (документ PS, проверка выбора): свои
    указатели на время fn. Внутри fn база не меняется — указатели не соврут;
@@ -19717,7 +19722,7 @@ function salesPaneRemoveLamInterlayer(i,slot){const p=salesCurrentMakeup().panes
 function salesCavitySet(i,k,v){const c=salesCurrentMakeup().cavities[i];if(c)c[k]=v;render();}
 /* Ставка за деление: заводская из прайса; занижают её обычным переопределением
    строки или заказа, как у любой услуги. */
-function salesMuntinCatalogRate(){return salesCatalogRate('muntinSection',{ok:false,band:''});}
+function salesMuntinCatalogRate(order){return salesCatalogRate('muntinSection',salesPricingFor({ok:false,band:''},order));}
 /* Раскладка строки — в её форме. Одиночное стекло баров не несёт: бар стоит
    между стёклами, поэтому у Single Lite раскладки не бывает. */
 function salesLineMuntin(line){
@@ -19725,8 +19730,9 @@ function salesLineMuntin(line){
  const m=shape&&shape.muntin;
  return m&&m.enabled?m:null;
 }
-function salesLineAllowsMuntin(line){
- const m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null;
+function salesLineAllowsMuntin(line,order){
+ order=salesOrderArg(order);
+ const m=line&&order?salesMakeupById(order,line.makeupId):null;
  return !!(m&&(m.cavities||[]).length);
 }
 /* Width — первый фильтр. При смене размера сохраняем текущую spacer-систему,
@@ -20262,16 +20268,22 @@ function salesExcelApply(){
    Data, этап 4): у каждой работы своя таблица «от – до мм → цена», и строка
    таблицы ищется по толщине у самой работы (serviceRateTierFor). До этапа 4
    здесь были зашиты границы до 7 · 8-11 · 12-19. */
-function salesPricingBandFor(mm){
+function salesPricingBandFor(mm,order){
  const t=+mm;
- return t>0&&Number.isFinite(t)?{ok:true,thickness:t}:{ok:false,thickness:Number.isFinite(t)?t:''};
+ return salesPricingFor(t>0&&Number.isFinite(t)?{ok:true,thickness:t}:{ok:false,thickness:Number.isFinite(t)?t:''},order);
 }
+/* Ставка работы ищется и в прайсах клиента заказа (salesCatalogRate), поэтому
+   заказ едет вместе с толщиной — в отдельной таблице, а не свойством: в строки
+   начисления и в JSON он не попадает, форма объекта толщины та же (так быстрее).
+   Без заказа — прайс открытого в Sales (экран заказа). */
+const salesPricingOrders=new WeakMap();
+function salesPricingFor(ctx,order){if(ctx&&order!==undefined)salesPricingOrders.set(ctx,order);return ctx;}
 /* Полоса строки заказа — тот же расчёт, что и у отдельного стекла. Раньше он
    стоял здесь вторым списком условий и при смене границ разошёлся бы с первым. */
-function salesPricingThickness(line){
- const v=salesLineGlassThicknesses(line);
- if(v.length!==1)return {ok:false,thickness:v.length?v.join(' / '):'',band:''};
- return salesPricingBandFor(v[0]);
+function salesPricingThickness(line,order){
+ const v=salesLineGlassThicknesses(line,order);
+ if(v.length!==1)return salesPricingFor({ok:false,thickness:v.length?v.join(' / '):'',band:''},order);
+ return salesPricingBandFor(v[0],order);
 }
 /* Физические стёкла строки, сгруппированные по полосе прайса.
 
@@ -20289,12 +20301,13 @@ function salesPricingThickness(line){
    существует, функция возвращала `ok:false`, и отверстия, петли, зажимы, нотчи,
    вырезы и радиусы молча оставались без ставки: в счёте `Rate required` вместо
    денег. Кромка так считалась уже давно — тело отстало. */
-function salesLineThicknessGroups(line){
- const m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null,out=[],index=Object.create(null);
+function salesLineThicknessGroups(line,order){
+ order=salesOrderArg(order);
+ const m=line&&order?salesMakeupById(order,line.makeupId):null,out=[],index=Object.create(null);
  if(!m)return out;
  (m.panes||[]).forEach(p=>{
   salesPanePlies(p).forEach(ply=>{
-   const ctx=salesPricingBandFor(ply.mm);
+   const ctx=salesPricingBandFor(ply.mm,order);
    const key=String(ctx.thickness);
    if(!index[key]){index[key]={ctx:ctx,count:0};out.push(index[key]);}
    index[key].count++;
@@ -20309,9 +20322,9 @@ function salesLineThicknessGroups(line){
    одной строкой на две штуки, а не двумя строками по одной. */
 /* Группы — по толщине, а строка счёта — по строке таблицы работы: 5 и 6 мм
    в одной строке таблицы дают одну строку счёта, их количество складывается. */
-function salesPerGlassRows(line,build){
- const groups=salesLineThicknessGroups(line);
- if(!groups.length)return build(salesPricingThickness(line));
+function salesPerGlassRows(line,build,order){
+ const groups=salesLineThicknessGroups(line,order);
+ if(!groups.length)return build(salesPricingThickness(line,order));
  const rows=[],byKey=Object.create(null);
  groups.forEach(g=>{
   build(g.ctx).forEach(r=>{
@@ -20328,10 +20341,10 @@ function salesPerGlassRows(line,build){
    растёт, и занизить счёт хуже, чем завысить. Сегодня ни одна из этих ставок от
    полосы не зависит, поэтому цифры это не меняет, — но перестаёт молча терять
    ставку у юнита из разных стёкол. */
-function salesThickestGlassCtx(line){
- const v=salesLineGlassThicknesses(line);
- if(!v.length)return salesPricingThickness(line);
- return salesPricingBandFor(v[v.length-1]);
+function salesThickestGlassCtx(line,order){
+ const v=salesLineGlassThicknesses(line,order);
+ if(!v.length)return salesPricingThickness(line,order);
+ return salesPricingBandFor(v[v.length-1],order);
 }
 /* Работа отверстия по диаметру: полосы диаметра — в карточках отверстий
    (family 'hole', диапазон диаметра), не в коде. */
@@ -20351,7 +20364,7 @@ function salesCatalogRate(tableKey,ctx,subKey){
  const row=salesServiceRateRow(subKey?tableKey+':'+subKey:tableKey);
  if(!row)return null;
  const tier=serviceRateTierFor(row,ctx&&ctx.ok?ctx.thickness:null);
- const lp=salesPriceListFor('service:'+row.id,tier?tier.id:'');
+ const lp=salesPriceListFor('service:'+row.id,tier?tier.id:'',ctx&&salesPricingOrders.has(ctx)?salesOrderCustomerId(salesPricingOrders.get(ctx)):undefined);
  if(lp){salesRateFrom={price:lp.price,list:lp.listId,svc:row.id};return lp.price;}
  salesRateFrom={svc:row.id};
  /* Выключенная строка прайса — это «услуга есть, цены нет», а не ноль. Строка
@@ -20458,38 +20471,39 @@ function salesNotchChargeRows(def,ctx){
    сервисы строки — рядом с пескоструем и обработкой кромки, где ставку и
    правят. Начисление считается по площади и по каждому лайту, который его
    несёт: в тройном пакете фрит может стоять на двух стёклах. */
-function salesGlazingChargeRows(line,areaFt2){
+function salesGlazingChargeRows(line,areaFt2,order){
  const rows=[],area=+areaFt2>0?+areaFt2:0;
  if(!area||!line)return rows;
- const m=(soDraft&&Array.isArray(soDraft.makeups)?soDraft.makeups:[]).find(x=>x.id===line.makeupId);
+ order=salesOrderArg(order);
+ const m=(order&&Array.isArray(order.makeups)?order.makeups:[]).find(x=>x.id===line.makeupId);
  if(!m)return rows;
- const frit=Object.create(null),spandrel=Object.create(null),order=[];
+ const frit=Object.create(null),spandrel=Object.create(null),seq=[];
  (m.panes||[]).forEach(function(p,i){
   const targets=p.category==='laminated'?[p.laminated.outer,p.laminated.inner]:[p];
   targets.forEach(function(ply,j){
    if(!ply||!ply.heatSoak||ply.heatTreatmentId!=='HT-FT')return;
    const mm=salesPlyThicknessMm(ply),label='Lite '+(i+1)+(p.category==='laminated'?(j?'b':'a'):'');
-   rows.push(salesChargeRow('HEATSOAK:'+p.id+':'+j+':'+mm,'Heat Soak · '+label+' · '+mm+' mm',area,'ft²',salesCatalogRate('heat_soak'),'Makeup'));
+   rows.push(salesChargeRow('HEATSOAK:'+p.id+':'+j+':'+mm,'Heat Soak · '+label+' · '+mm+' mm',area,'ft²',salesCatalogRate('heat_soak',salesPricingFor({},order)),'Makeup'));
   });
   if(p.category==='spandrel'){
    const id=(p.spandrel&&p.spandrel.productId)||'';
-   const k='spandrel:'+id;if(!spandrel[k]){spandrel[k]={id:id,qty:0};order.push(k);}spandrel[k].qty++;
+   const k='spandrel:'+id;if(!spandrel[k]){spandrel[k]={id:id,qty:0};seq.push(k);}spandrel[k].qty++;
    return;
   }
   if(p.category==='laminated')targets.forEach(function(ply){
    if(!ply||!ply.frit||!ply.frit.enabled)return;
    const id=ply.frit.productId||'',k='frit:'+id;
-   if(!frit[k]){frit[k]={id:id,qty:0};order.push(k);}frit[k].qty++;
+   if(!frit[k]){frit[k]={id:id,qty:0};seq.push(k);}frit[k].qty++;
   });
   if(p.category==='vision'&&p.visionType==='frit'){
    const id=(p.frit&&p.frit.productId)||'';
-   const k='frit:'+id;if(!frit[k]){frit[k]={id:id,qty:0};order.push(k);}frit[k].qty++;
+   const k='frit:'+id;if(!frit[k]){frit[k]={id:id,qty:0};seq.push(k);}frit[k].qty++;
   }
  });
- order.forEach(function(k){
+ seq.forEach(function(k){
   const isFrit=k.indexOf('frit:')===0;
   const g=isFrit?frit[k]:spandrel[k];
-  const prod=mdById(isFrit?'fritProduct':'spandrelProduct',g.id),lp=prod?salesPriceListFor('item:'+(isFrit?'fritProduct':'spandrelProduct')+':'+prod.id):null;
+  const prod=mdById(isFrit?'fritProduct':'spandrelProduct',g.id),lp=prod?salesPriceListFor('item:'+(isFrit?'fritProduct':'spandrelProduct')+':'+prod.id,undefined,salesOrderCustomerId(order)):null;
   rows.push(salesChargeRow(
    'GLAZE:'+k,
    (prod?(prod.name||prod.code):(isFrit?'Frit':'Spandrel'))+(g.qty>1?' × '+g.qty+' glass layers':''),
@@ -20513,22 +20527,23 @@ function salesLineAreaFt2(line){
    показываем строку честно как Rate required, пока владелец не задаст цену.
    Shape Unit имеет подтверждённую ставку и считается по габаритной billable
    area. Простой Rectangle не является фигурной единицей; внешний DXF является. */
-function salesUnitSurchargeRows(line,shape){
-  const rows=[],m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null;
+function salesUnitSurchargeRows(line,shape,order){
+  order=salesOrderArg(order);
+  const rows=[],m=line&&order?salesMakeupById(order,line.makeupId):null;
   /* Triple is a percentage of the finished unit, calculated in line-metrics. */
   /* Shape Unit — надбавка за сборку фигурного стеклопакета. Отдельный Single
      Lite оплачивает свою геометрию и обработки, но не является DGU/TGU. */
   if(shape&&m&&(m.unitType==='double'||m.unitType==='triple')&&(shape.type!=='rectangle'||shapeIsDxfSource(shape))){
     const r=ShapeModule.compute(shape),raw=r&&+r.billableArea;
-    const area=salesLineAreas(line,soDraft).billable;
-    if(area>0)rows.push(salesChargeRow('SURCHARGE:shape-unit','Shape Unit',+area.toFixed(4),'ft²',salesCatalogRate('shapeUnit',{}),'Shape surcharge'));
+    const area=salesLineAreas(line,order).billable;
+    if(area>0)rows.push(salesChargeRow('SURCHARGE:shape-unit','Shape Unit',+area.toFixed(4),'ft²',salesCatalogRate('shapeUnit',salesPricingFor({},order)),'Shape surcharge'));
   }
   /* Step Unit — лайты юнита разного размера (sales/step-unit). Ставка из прайса
      (сейчас 0), количество — по единице строки прайса. */
-  const step=shape&&typeof salesShapeStepInfo==='function'?salesShapeStepInfo(shape,line,soDraft):null;
+  const step=shape&&typeof salesShapeStepInfo==='function'?salesShapeStepInfo(shape,line,order):null;
   if(step&&step.step){
-    const rate=salesServiceRateRow('stepUnit'),unit=(rate&&rate.unit)||'pc',qty=salesStepUnitQty(step,line,soDraft,unit);
-    if(qty>0)rows.push(salesChargeRow('SURCHARGE:step-unit','Step Unit',+qty.toFixed(4),unit,salesCatalogRate('stepUnit',{}),'Step unit · '+salesStepSealLabel(shape)));
+    const rate=salesServiceRateRow('stepUnit'),unit=(rate&&rate.unit)||'pc',qty=salesStepUnitQty(step,line,order,unit);
+    if(qty>0)rows.push(salesChargeRow('SURCHARGE:step-unit','Step Unit',+qty.toFixed(4),unit,salesCatalogRate('stepUnit',salesPricingFor({},order)),'Step unit · '+salesStepSealLabel(shape)));
   }
   return rows;
 }
@@ -20554,12 +20569,12 @@ function salesLineChargeRowsRaw(line){
 }
 /* Округление количества и минимальная сумма — из карточки работы (этап 4,
    часть 2), на юнит. Замораживаются в заказе на Save, как ставка. */
-function salesLineChargeRows(line){return readLine('charges',line,soDraft,()=>salesLineChargeRowsLive(line));}
-function salesLineChargeRowsLive(line){
- return salesLineChargeRowsRaw(line).map(row=>{
+function salesLineChargeRows(line,order){order=salesOrderArg(order);return readLine('charges',line,order,()=>salesLineChargeRowsLive(line,order));}
+function salesLineChargeRowsLive(line,order){
+ return salesLineChargeRowsRaw(line,undefined,order).map(row=>{
   if(!row.svc)return row;
   const w=salesServiceRateRow(row.svc);
-  const step=salesBook('svcRound:'+row.svc,()=>w&&w.roundTo||null),min=salesBook('svcMin:'+row.svc,()=>w&&w.minCharge||null);
+  const step=salesBook('svcRound:'+row.svc,()=>w&&w.roundTo||null,order),min=salesBook('svcMin:'+row.svc,()=>w&&w.minCharge||null,order);
   if(!(step>0)&&!(min>0))return row;
   const out=Object.assign({},row);
   if(step>0)out.basis=+(Math.ceil(row.basis/step-1e-9)*step).toFixed(4);
@@ -20619,12 +20634,12 @@ function salesChargeGroupKey(row){
  if(p[0]==='EXTRA')return String(row.key).split('|')[0];
  return String(row&&row.key||'');
 }
-function salesOrderChargePricingRecord(row){const map=soDraft&&soDraft.servicePricing&&typeof soDraft.servicePricing==='object'?soDraft.servicePricing:{},r=map[salesChargeGroupKey(row)]||null;return r&&r.orderRate!=null?r.orderRate:null;}
-function salesChargePricingState(line,row){
+function salesOrderChargePricingRecord(row,order){order=salesOrderArg(order);const map=order&&order.servicePricing&&typeof order.servicePricing==='object'?order.servicePricing:{},r=map[salesChargeGroupKey(row)]||null;return r&&r.orderRate!=null?r.orderRate:null;}
+function salesChargePricingState(line,row,order){
  const map=line.chargePricing&&typeof line.chargePricing==='object'?line.chargePricing:{},saved=Object.prototype.hasOwnProperty.call(map,row.key)?map[row.key]:null;
  /* Once an order is saved, even a missing catalog rate is a snapshot. Do not let
     a future catalog edit silently reprice an old order. */
- const catalog=saved?saved.catalogRate:row.catalogRate,from=saved?saved.from||'':row.from||'',lineRate=saved&&saved.orderRate!=null?saved.orderRate:null,orderRate=salesOrderChargePricingRecord(row);
+ const catalog=saved?saved.catalogRate:row.catalogRate,from=saved?saved.from||'':row.from||'',lineRate=saved&&saved.orderRate!=null?saved.orderRate:null,orderRate=salesOrderChargePricingRecord(row,order);
  const effective=lineRate!=null?lineRate:(orderRate!=null?orderRate:catalog),origin=lineRate!=null?'line':(orderRate!=null?'order':(catalog!=null?(from?'list':'catalog'):'missing'));
  return {catalogRate:catalog,orderRate:orderRate,lineRate:lineRate,effectiveRate:effective,manual:lineRate!=null,origin:origin,from:from,missing:effective==null};
 }
@@ -20647,8 +20662,8 @@ function salesChargeUnitValue(value,unit){
 }
 function salesChargeBasisText(row,line){const q=salesPositiveInt(line.qty,1),total=row.basis*q,one=salesChargeUnitValue(row.basis,row.unit);return one+(q>1?' × '+q+' = '+salesChargeUnitValue(total,row.unit):'')+(row.minCharge?' · min '+row.minCharge.toFixed(2)+' / unit':'');}
 function salesRateText(v,unit,currency){return v==null?'—':Number(v).toFixed(2)+' '+currency+'/'+(unit==='pc'?'pc':unit==='ft²'?'ft²':'in');}
-function salesLinePricingSummary(line){return readLine('services',line,soDraft,()=>salesLinePricingLive(line));}
-function salesLinePricingLive(line){const rows=salesLineChargeRows(line),q=salesPositiveInt(line.qty,1);let total=0,unpriced=0;rows.forEach(function(row){const st=salesChargePricingState(line,row);if(st.effectiveRate==null)unpriced++;else total+=salesChargeUnitAmount(row,st.effectiveRate)*q;});return {total:total,unpriced:unpriced,charges:rows.length,complete:unpriced===0,rows:rows};}
+function salesLinePricingSummary(line,order){order=salesOrderArg(order);return readLine('services',line,order,()=>salesLinePricingLive(line,order));}
+function salesLinePricingLive(line,order){const rows=salesLineChargeRows(line,order),q=salesPositiveInt(line.qty,1);let total=0,unpriced=0;rows.forEach(function(row){const st=salesChargePricingState(line,row,order);if(st.effectiveRate==null)unpriced++;else total+=salesChargeUnitAmount(row,st.effectiveRate)*q;});return {total:total,unpriced:unpriced,charges:rows.length,complete:unpriced===0,rows:rows};}
 function salesOrderPricingSummary(){return (soDraft&&soDraft.lines||[]).reduce(function(a,l){const s=salesLinePricingSummary(l);a.total+=s.total;a.unpriced+=s.unpriced;a.charges+=s.charges;return a;},{total:0,unpriced:0,charges:0});}
 function salesLinePricingTotal(line){return salesLinePricingSummary(line).total;}
 function salesOrderPricingTotal(){return salesOrderPricingSummary().total;}
@@ -20685,19 +20700,20 @@ function salesShapeByRef(ref){
 /* Деления этой строки: раскладка живёт в её форме, поэтому соседние строки с
    тем же makeup остаются без бара и без цены. */
 function salesMuntinSections(line){return salesMuntinSectionsOf(salesLineMuntin(line));}
-function salesMuntinChargeRows(line){
+function salesMuntinChargeRows(line,order){
  const n=salesMuntinSections(line);
- if(!n||!salesLineAllowsMuntin(line))return [];
- return [salesChargeRow('MUNTIN:section','Muntin sections',n,'pc',salesMuntinCatalogRate(),'Shape')];
+ if(!n||!salesLineAllowsMuntin(line,order))return [];
+ return [salesChargeRow('MUNTIN:section','Muntin sections',n,'pc',salesMuntinCatalogRate(order),'Shape')];
 }
 /* Форма с баром на одиночном стекле: бару там физически негде стоять. */
-function salesLineMuntinMisapplied(line){return !!salesLineMuntin(line)&&!salesLineAllowsMuntin(line);}
+function salesLineMuntinMisapplied(line,order){return !!salesLineMuntin(line)&&!salesLineAllowsMuntin(line,order);}
 /* Edge-processing allowance belongs to the glass selected in the line's Makeup,
    not to a manually entered Shape thickness. The Shape editor keeps the legacy
    schema field only as an internal calculation input so old saved definitions and
    v4.5 fingerprints remain compatible. */
-function salesLineGlassThicknesses(line){
- const m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null,out=[];if(!m)return out;
+function salesLineGlassThicknesses(line,order){
+ order=salesOrderArg(order);
+ const m=line&&order?salesMakeupById(order,line.makeupId):null,out=[];if(!m)return out;
  (m.panes||[]).forEach(p=>{
   salesPanePlies(p).forEach(ply=>{if(Number.isFinite(ply.mm)&&ply.mm>0&&out.indexOf(ply.mm)<0)out.push(ply.mm);});
  });
@@ -20712,14 +20728,14 @@ function salesLineGlassThicknesses(line){
      предпросмотр показывает худший случай припуска, а настоящий рез всё равно
      считается по каждому лайту отдельно.
    Закрываемся только когда толщины нет вообще. */
-function salesApplyLineGlassThicknessToShape(line,shape,liteIndex){
+function salesApplyLineGlassThicknessToShape(line,shape,liteIndex,order){
  if(!shape)return null;
- const lites=salesLineLites(line);
+ const lites=salesLineLites(line,order);
  if(liteIndex!=null){
   const one=lites.find(function(l){return l.index===liteIndex;});
   if(one&&+one.thicknessMm>0){shape.thickness=String(one.thicknessMm);return +one.thicknessMm;}
  }
- const values=salesLineGlassThicknesses(line);
+ const values=salesLineGlassThicknesses(line,order);
  if(values.length===1){shape.thickness=String(values[0]);return values[0];}
  const shared=lites.filter(function(l){return !salesLineLiteShape(line,l.index);}).map(function(l){return +l.thicknessMm;}).filter(function(v){return v>0;});
  const pool=shared.length?shared:values.filter(function(v){return +v>0;});
@@ -21017,8 +21033,9 @@ function salesPaneSetEdgework(i,v){
  p.edgework=SALES_PANE_EDGEWORK.indexOf(v)>0?v:'';
  m.updatedAt=new Date().toISOString();touch();render();
 }
-function salesLineLites(line){
- const m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null;
+function salesLineLites(line,order){
+ order=salesOrderArg(order);
+ const m=line&&order?salesMakeupById(order,line.makeupId):null;
  if(!m)return [];
  return (m.panes||[]).map(function(pane,i){
   const mm=salesPaneGlassThicknessMm(pane),kind=salesPaneBaseEdgework(pane,m.unitType);
@@ -21040,13 +21057,13 @@ function salesLineLites(line){
 }
 /* Совместимость: там, где по-прежнему нужен один ответ на строку, берём
    самую строгую обработку — полировка строже ариса. */
-function salesLineBaseEdgeworkKind(line){
+function salesLineBaseEdgeworkKind(line,order){
  let kind='';
- salesLineLites(line).forEach(function(l){if(l.baseEdgework==='polish')kind='polish';else if(l.baseEdgework==='arris'&&kind!=='polish')kind='arris';});
+ salesLineLites(line,order).forEach(function(l){if(l.baseEdgework==='polish')kind='polish';else if(l.baseEdgework==='arris'&&kind!=='polish')kind='arris';});
  return kind;
 }
-function salesLineBaseEdgeworkOps(line){
- const op=glassBaseEdgeworkOp(salesLineBaseEdgeworkKind(line));
+function salesLineBaseEdgeworkOps(line,order){
+ const op=glassBaseEdgeworkOp(salesLineBaseEdgeworkKind(line,order));
  return op?[shapeNormalizeOp(op)].filter(Boolean):[];
 }
 function salesOrderConfigureShape(i){
@@ -21102,8 +21119,8 @@ function salesSetHasLamiOps(set){
     return salesServiceOps(list).some(function(o){return shapeIsLamiOnlyOp(o.type);});
   });
 }
-function salesLineIsLaminated(line){
-  return salesLineLites(line).some(function(l){return l.laminated;});
+function salesLineIsLaminated(line,order){
+  return salesLineLites(line,order).some(function(l){return l.laminated;});
 }
 
 function salesServiceClone(x){return JSON.parse(JSON.stringify(x==null?null:x));}
@@ -21267,7 +21284,7 @@ function salesDxfOverrideStale(line,shape){
 /* Единый snapshot. Он не занимается машинным offset — поэтому известные Services
    не исчезают только из-за того, что Cutting сейчас blocked. */
 function salesEffectiveProductionSnapshot(line,shape,order){
-  order=order||soDraft;shape=shape||salesLineGeometryShape(line);
+  order=salesOrderArg(order);shape=shape||salesLineGeometryShape(line);
   if(!shape)return {valid:false,reason:'Line needs Width and Height or a Shape.',groups:[]};
   var set=salesServiceSetById(order,line&&line.serviceSetId);
   if(line&&line.serviceSetId&&!set)return {valid:false,reason:'Referenced Bulk Service Set is missing.',groups:[],shape:shape};
@@ -21278,7 +21295,7 @@ function salesEffectiveProductionSnapshot(line,shape,order){
      Edgework Set больше НЕ участвует в расчёте: он был третьим источником,
      молча затирал обработку формы и переживал её смену. Ручных правок кромки
      на строке тоже нет — хранить нечего, значит устаревать нечему. */
-  var lites=salesLineLites(line),baseOps=salesLineBaseEdgeworkOps(line),physical=salesShapePhysicalEdges(shape),mappingPending=false,groups=[];
+  var lites=salesLineLites(line,order),baseOps=salesLineBaseEdgeworkOps(line,order),physical=salesShapePhysicalEdges(shape),mappingPending=false,groups=[];
   for(var i=0;i<physical.length;i++){
     var edge=physical[i],shapeOps=salesShapeOpsForPhysicalEdge(shape,edge),side=salesSideForPhysicalEdge(line,edge),setOps=[],ops=shapeOps,source='Shape';
     if(!ops.length&&baseOps.length){ops=baseOps;source='Glass';}
@@ -21350,8 +21367,8 @@ function salesEffectiveEdgeSignature(line,shape,order){
   return {valid:true,ops:Object.keys(acc).map(function(k){return acc[k];}),snapshot:snap,mappingPending:snap.mappingPending};
 }
 
-function salesLineExactGlassThickness(line){
-  var values=salesLineGlassThicknesses(line);return values.length===1?{ok:true,mm:values[0]}:{ok:false,mm:null,values:values};
+function salesLineExactGlassThickness(line,order){
+  var values=salesLineGlassThicknesses(line,order);return values.length===1?{ok:true,mm:values[0]}:{ok:false,mm:null,values:values};
 }
 
 /* Safety Border — зона, в которую раскрой не имеет права зайти вдоль скошенной
@@ -21570,56 +21587,57 @@ function salesEdgeChargeMetaForServiceSet(op,ctx){
 /* draft — форма вместо формы строки: salesRemoveShapeCharge (sales/orders)
    пробует чертёж без элемента, не трогая базу. Записанное при Save тогда не
    берётся — оно про настоящую форму. */
-salesLineChargeRowsRaw=function(line,draft){
+salesLineChargeRowsRaw=function(line,draft,order){
+  order=salesOrderArg(order);
   /* Записано при Save (sales/line-measure) — без расчёта фигуры. */
-  var kept=draft?null:salesMeasureFor(line,soDraft);if(kept)return kept.rows.map(function(r){return Object.assign({},r);});
+  var kept=draft?null:salesMeasureFor(line,order);if(kept)return kept.rows.map(function(r){return Object.assign({},r);});
   var rows=[];
   /* Остекление (фрит, спандрел) приходит из makeup, а не из геометрии, и
      считается до выхода по отсутствию контура: наносят его и на прямоугольник. */
-  salesGlazingChargeRows(line,salesLineAreaFt2(line)).forEach(function(row){rows.push(row);});
+  salesGlazingChargeRows(line,salesLineAreaFt2(line),order).forEach(function(row){rows.push(row);});
   /* Раскладка не зависит от геометрии кромки и считается до выхода по
      отсутствию контура — как и остекление выше. */
-  if(typeof salesMuntinChargeRows==='function')salesMuntinChargeRows(line).forEach(function(row){rows.push(row);});
+  if(typeof salesMuntinChargeRows==='function')salesMuntinChargeRows(line,order).forEach(function(row){rows.push(row);});
   var saved=draft||(line&&line.shapeRef?salesShapeByRef(line.shapeRef):null);
-  salesUnitSurchargeRows(line,saved).forEach(function(row){rows.push(row);});
+  salesUnitSurchargeRows(line,saved,order).forEach(function(row){rows.push(row);});
   /* Сервисы, добавленные руками (sales/extra-services), от контура не
      зависят — до выхода по его отсутствию. */
-  if(typeof salesExtraServiceRows==='function')salesExtraServiceRows(line).forEach(function(row){rows.push(row);});
-  var shape=draft||salesLineGeometryShape(line),ctx=salesPricingThickness(line);if(!shape)return rows.filter(function(x){return x.basis>0;});
+  if(typeof salesExtraServiceRows==='function')salesExtraServiceRows(line,order).forEach(function(row){rows.push(row);});
+  var shape=draft||salesLineGeometryShape(line),ctx=salesPricingThickness(line,order);if(!shape)return rows.filter(function(x){return x.basis>0;});
   var items=saved&&Array.isArray(saved.manufacturingItems)?saved.manufacturingItems:[];
   /* Разбор меток общий с обычной веткой расчёта — см. salesManufacturingChargeRows.
      Считается ПО СТЁКЛАМ: отверстие и петля делаются на каждом физическом
      стекле юнита, каждое по своей толщине. */
-  salesPerGlassRows(line,function(c){return salesManufacturingChargeRows(items,c);}).forEach(function(row){rows.push(row);});
+  salesPerGlassRows(line,function(c){return salesManufacturingChargeRows(items,c);},order).forEach(function(row){rows.push(row);});
   var marked=saved?ShapeModule.compute(saved):null,markValid=marked&&marked.valid;
   var sandArea=markValid?marked.area/144:0,markPerimeter=markValid?salesShapePerimeterIn(marked):0;
   /* Метки на поверхности живут на ОДНОМ стекле, поэтому не множатся: см.
      salesThickestGlassCtx. */
-  salesSurfaceMarkChargeRows(saved&&saved.features,salesThickestGlassCtx(line),sandArea,markPerimeter).forEach(function(row){rows.push(row);});
+  salesSurfaceMarkChargeRows(saved&&saved.features,salesThickestGlassCtx(line,order),sandArea,markPerimeter).forEach(function(row){rows.push(row);});
   /* Кромка тарифицируется ПО ЛАЙТАМ: у пакета 10 + 6 обрабатываются два разных
      стекла, каждое по своей ставке. Раньше строка считалась одним куском, и на
      любой комбинации толщин ставка не находилась вовсе. */
-  var snap=salesEffectiveProductionSnapshot(line,shape,soDraft);
+  var snap=salesEffectiveProductionSnapshot(line,shape,order);
   if(snap.valid){
     /* Берём раскладку из ПЛАНА, если он посчитался: там длины кромок уже с
        учётом ступеньки лайта. Если рез заблокирован, счёт всё равно должен
        показывать работу — тогда работаем по снимку. */
-    var plan=salesEffectiveCuttingPlan(line,shape,soDraft);
+    var plan=salesEffectiveCuttingPlan(line,shape,order);
     var liteViews=(plan.valid&&(plan.lites||[]).length)?plan.lites.map(function(l){return {index:l.index,label:l.label,thicknessMm:l.thickness,plies:l.plies,laminated:l.laminated,groups:l.groups};})
       :((snap.lites||[]).length?snap.lites:[{label:'',thicknessMm:null,groups:snap.groups}]);
     /* Одинаковые операции с одинаковой ставкой складываются в одну строку счёта:
        у пакета 10 + 10 это 256″ ариса, а не две строки по 128″. Разные толщины
        остаются разными строками — у них разные ставки. */
-    var acc=Object.create(null),order=[];
+    var acc=Object.create(null),seq=[];
     liteViews.forEach(function(lite){
       lite.groups.forEach(function(group){group.ops.forEach(function(op){
         if(!(group.length>0))return;
         salesEdgeOpThicknessTargets(lite,op).forEach(function(target){
-          var tCtx=target.thicknessMm==null?ctx:salesPricingBandFor(target.thicknessMm);
+          var tCtx=target.thicknessMm==null?ctx:salesPricingBandFor(target.thicknessMm,order);
           var meta=salesEdgeChargeMetaForServiceSet(op,tCtx);
           if(!meta)return;
           var key=meta.id+':'+meta.bandKey;
-          if(!acc[key]){acc[key]={id:meta.id,label:meta.label,band:meta.bandKey,mm:target.thicknessMm,rate:meta.rate,from:meta.from,svc:meta.svc,length:0};order.push(key);}
+          if(!acc[key]){acc[key]={id:meta.id,label:meta.label,band:meta.bandKey,mm:target.thicknessMm,rate:meta.rate,from:meta.from,svc:meta.svc,length:0};seq.push(key);}
           /* Как в Spiel: у прямоугольника каждая сторона вверх до целого
              дюйма; у фигуры контур целиком — ниже, при записи строки. */
           acc[key].length+=(salesPlainRect(saved)?salesWholeInches(group.length):group.length)*(target.count||1);
@@ -21629,8 +21647,8 @@ salesLineChargeRowsRaw=function(line,draft){
     /* Уточнение толщины в ярлыке нужно, только когда строк с разной толщиной
        больше одной. Считаем по СОБРАННЫМ строкам, а не по лайтам: у ламината
        6+6 толщина лайта 12.76, а работа идёт по двум шестёркам. */
-    var manyThickness=new Set(order.map(function(k){return acc[k].mm;})).size>1;
-    order.forEach(function(key){
+    var manyThickness=new Set(seq.map(function(k){return acc[k].mm;})).size>1;
+    seq.forEach(function(key){
       var x=acc[key];
       rows.push(salesChargeRow('EDGE:'+x.id+':'+x.band,x.label+(manyThickness&&x.mm?' · '+x.mm+' mm':''),salesWholeInches(x.length),'in',x.rate,'Effective Edge Processing',x.from,x.svc));
     });
@@ -21639,10 +21657,10 @@ salesLineChargeRowsRaw=function(line,draft){
     /* Радиус, вырез и нотч меняют форму КАЖДОГО стекла юнита, поэтому считаются
        по стёклам — так же, как отверстия и фурнитура. */
     var radius=(saved.features||[]).filter(function(f){return f.type==='radius'&&inch(f.radius)>0;}).length;
-    if(radius)salesPerGlassRows(line,function(c){return [salesChargeRow('FEATURE:radius:'+salesRateBandKey('radiusCorner',c),'Radius Corner',radius,'pc',salesCatalogRate('radiusCorner',c),'Shape feature')];}).forEach(function(row){rows.push(row);});
+    if(radius)salesPerGlassRows(line,function(c){return [salesChargeRow('FEATURE:radius:'+salesRateBandKey('radiusCorner',c),'Radius Corner',radius,'pc',salesCatalogRate('radiusCorner',c),'Shape feature')];},order).forEach(function(row){rows.push(row);});
     var cutout=(saved.features||[]).filter(function(f){return f.type==='cutout';}).length;
-    if(cutout)salesPerGlassRows(line,function(c){return [salesChargeRow('FEATURE:cutout:'+salesRateBandKey('cutout',c),'Cutout',cutout,'pc',salesCatalogRate('cutout',c),'Shape feature')];}).forEach(function(row){rows.push(row);});
-    salesPerGlassRows(line,function(c){return salesNotchChargeRows(saved,c);}).forEach(function(row){rows.push(row);});
+    if(cutout)salesPerGlassRows(line,function(c){return [salesChargeRow('FEATURE:cutout:'+salesRateBandKey('cutout',c),'Cutout',cutout,'pc',salesCatalogRate('cutout',c),'Shape feature')];},order).forEach(function(row){rows.push(row);});
+    salesPerGlassRows(line,function(c){return salesNotchChargeRows(saved,c);},order).forEach(function(row){rows.push(row);});
   }
   return rows.filter(function(row){return row.basis>0;});
 };
@@ -21756,26 +21774,27 @@ function salesSyncLamiOpsForMakeup(makeupId){
   return dropped;
 }
 /* Статус — по фигуре: один раз на отпечаток строки (sales/line-measure). */
-function salesLineServiceStatus(line){return readLine('status',line,soDraft,function(){
-  if(!readOn())return salesLineStatusLive(line);
-  var keep=readMemo('salesLineStatus',[],function(){return new Map();}),sig=salesLineSig(line,soDraft),hit=keep.get(sig);
-  if(!hit){hit=salesLineStatusLive(line);keep.set(sig,hit);}
+function salesLineServiceStatus(line,order){order=salesOrderArg(order);return readLine('status',line,order,function(){
+  if(!readOn())return salesLineStatusLive(line,order);
+  var keep=readMemo('salesLineStatus',[],function(){return new Map();}),sig=salesLineSig(line,order),hit=keep.get(sig);
+  if(!hit){hit=salesLineStatusLive(line,order);keep.set(sig,hit);}
   return hit;
 });}
-function salesLineStatusLive(line){
+function salesLineStatusLive(line,order){
+  order=salesOrderArg(order);
   var shape=salesLineGeometryShape(line);if(!shape)return {key:'geometry',label:'Needs geometry',cls:'warn'};
-  var set=salesServiceSetById(soDraft,line.serviceSetId);if(line.serviceSetId&&!set)return {key:'missing',label:'Missing set',cls:'bad'};
+  var set=salesServiceSetById(order,line.serviceSetId);if(line.serviceSetId&&!set)return {key:'missing',label:'Missing set',cls:'bad'};
   if(salesDxfOverrideStale(line,shape))return {key:'lost',label:'Override needs review',cls:'bad'};
-  var snap=salesEffectiveProductionSnapshot(line,shape,soDraft);
+  var snap=salesEffectiveProductionSnapshot(line,shape,order);
   if(!snap.valid&&snap.lamiMisapplied)return {key:'lami',label:'Lami op on plain lite',cls:'bad'};
-  if(typeof salesLineMuntinMisapplied==='function'&&salesLineMuntinMisapplied(line))return {key:'muntin',label:'Muntin on single lite',cls:'bad'};
+  if(typeof salesLineMuntinMisapplied==='function'&&salesLineMuntinMisapplied(line,order))return {key:'muntin',label:'Muntin on single lite',cls:'bad'};
   if(!snap.valid)return {key:'effective',label:'Needs review',cls:'bad'};
   if(snap.mappingPending){var own=snap.groups.some(function(g){return g.shapeOps.length>0;});return {key:'mapping',label:own?'Set pending mapping':'Needs side mapping',cls:'warn'};}
-  var cut=salesEffectiveCuttingPlan(line,shape,soDraft);if(!cut.valid)return {key:'cutting',label:'Cutting blocked',cls:'bad'};
+  var cut=salesEffectiveCuttingPlan(line,shape,order);if(!cut.valid)return {key:'cutting',label:'Cutting blocked',cls:'bad'};
   /* Габарит станции — предупреждение, не блок реза: пока габариты засеяны, а не
      замерены, строка остаётся рабочей, но подсвечена (sales/station-size). */
-  var big=typeof salesStationSizeProblems==='function'?salesStationSizeProblems(line,soDraft):[];if(big.length)return {key:'size',label:salesStationSizeLabel(big),cls:'warn'};
-  var itemSize=salesItemSizeProblems(line,soDraft);if(itemSize.length)return {key:'itemsize',label:'Item size · '+itemSize[0].split(':')[0],cls:'warn'};
+  var big=typeof salesStationSizeProblems==='function'?salesStationSizeProblems(line,order):[];if(big.length)return {key:'size',label:salesStationSizeLabel(big),cls:'warn'};
+  var itemSize=salesItemSizeProblems(line,order);if(itemSize.length)return {key:'itemsize',label:'Item size · '+itemSize[0].split(':')[0],cls:'warn'};
   if(salesHasLineEdgeOverrides(line))return {key:'override',label:'Line override',cls:'info'};
   if(line.serviceSetId)return {key:'ready',label:'Set applied',cls:'ok'};
   if(snap.groups.some(function(g){return g.shapeOps.length>0;}))return {key:'shape',label:'Ready · custom edge',cls:'ok'};
@@ -21783,7 +21802,7 @@ function salesLineStatusLive(line){
   if(!line.shapeRef&&salesLineHasRectGeometry(line))return {key:'ready',label:'Rectangle',cls:'ok'};
   return {key:'ready',label:'No processing',cls:'ok'};
 }
-function salesLineNeedsServiceAttention(line){return ['geometry','missing','lost','effective','lami','muntin','mapping','cutting','size'].indexOf(salesLineServiceStatus(line).key)>=0;}
+function salesLineNeedsServiceAttention(line,order){return ['geometry','missing','lost','effective','lami','muntin','mapping','cutting','size'].indexOf(salesLineServiceStatus(line,order).key)>=0;}
 
 function salesLostOverrideEdges(line){
   var shape=salesLineGeometryShape(line),current=salesShapePhysicalEdges(shape).map(function(e){return e.id;}),edges=Object.keys((line&&line.serviceOverrides&&line.serviceOverrides.edges)||{});
@@ -21809,18 +21828,19 @@ function salesApplyLineEdgeOperation(line,edgeId,type,on){
 }
 
 /* Machine export is intentionally line-specific. Standalone Shape export remains separate. */
-function salesEffectiveMachineIssue(line,shape,plan){
-  plan=plan||salesEffectiveCuttingPlan(line,shape,soDraft);if(!plan.valid)return plan.reason||'Effective cutting is unresolved.';
+function salesEffectiveMachineIssue(line,shape,plan,order){
+  plan=plan||salesEffectiveCuttingPlan(line,shape,salesOrderArg(order));if(!plan.valid)return plan.reason||'Effective cutting is unresolved.';
   if(plan.setPendingMapping)return 'Bulk Service Set is assigned but DXF side mapping is not confirmed. Review mapping before releasing a machine file.';
   return '';
 }
-function salesEffectiveProductionFingerprint(line,shape,plan){
-  plan=plan||salesEffectiveCuttingPlan(line,shape,soDraft);if(!plan.valid)return '';
+function salesEffectiveProductionFingerprint(line,shape,plan,order){
+  plan=plan||salesEffectiveCuttingPlan(line,shape,salesOrderArg(order));if(!plan.valid)return '';
   var snap=plan.snapshot,src=JSON.stringify({lineId:line&&line.id||'',topology:shape&&shapeIsDxfSource(shape)?ShapeModule.dxfTopologyFingerprint(shape):'',dimensions:{w:+line.width16||0,h:+line.height16||0},thickness:plan.thickness,border:{v:(plan.safetyBorder&&plan.safetyBorder.value)||0,a:!!(plan.safetyBorder&&plan.safetyBorder.applies)},groups:(snap.groups||[]).map(function(g){return {id:g.id,ops:salesServiceOps(g.ops),allowance:g.allowance};}),cuttingPoints:(plan.cuttingPoints||[]).map(function(p){return [+p[0],+p[1]];})}),h=2166136261;
   for(var i=0;i<src.length;i++){h^=src.charCodeAt(i);h=Math.imul(h,16777619);}return 'eff-'+(h>>>0).toString(16).padStart(8,'0');
 }
-function salesEffectiveMachinePayload(line){
-  var shape=salesLineGeometryShape(line),plan=salesEffectiveCuttingPlan(line,shape,soDraft),issue=salesEffectiveMachineIssue(line,shape,plan);if(issue)return {ok:false,reason:issue};
+function salesEffectiveMachinePayload(line,order){
+  order=salesOrderArg(order);
+  var shape=salesLineGeometryShape(line),plan=salesEffectiveCuttingPlan(line,shape,order),issue=salesEffectiveMachineIssue(line,shape,plan,order);if(issue)return {ok:false,reason:issue};
   var round=function(v){return Math.round((+v||0)*1000000)/1000000;};
   var brd=plan.safetyBorder||{value:0,state:'AUTO',edgeIds:[],applies:false};
   var fp=plan.footprint||{width:plan.cutW,height:plan.cutH,sides:[]};
@@ -21883,7 +21903,7 @@ function salesStepSameLite(a,b){
    собой, не с формой): настройка Lite 3, оставшаяся после Triple → Double, и
    одинаковый отступ у всех лайтов ступеньки не дают. Только Double / Triple. */
 function salesShapeStepInfo(shape,line,order){
-  order=order||(typeof soDraft!=='undefined'?soDraft:null);
+  order=salesOrderArg(order);
   var m=line&&order&&typeof salesMakeupById==='function'?salesMakeupById(order,line.makeupId):null;
   if(!shape||!m||(m.unitType!=='double'&&m.unitType!=='triple'))return null;
   var base=salesStepBaseContour(shape);if(!base)return null;
@@ -21987,18 +22007,18 @@ function salesExtraServiceGroup(x){
 }
 function salesExtraServiceKey(x){return salesExtraServiceGroup(x)+'|'+x.id;}
 /* Количество на юнит: введённое или, если пусто, по размеру юнита. */
-function salesExtraServiceBasis(line,x){
+function salesExtraServiceBasis(line,x,order){
   if(x.qty!=null)return x.qty;
   var unit=salesExtraServiceUnit(x);
-  if(unit==='ft²'){var a=salesLineAreas(line,soDraft);return a.valid?a.billable:0;}
-  if(unit==='in'){var b=salesLineAreas(line,soDraft);return b.valid?b.perimeterIn:0;}
+  if(unit==='ft²'){var a=salesLineAreas(line,order);return a.valid?a.billable:0;}
+  if(unit==='in'){var b=salesLineAreas(line,order);return b.valid?b.perimeterIn:0;}
   return 1;
 }
-function salesExtraServiceRows(line){
+function salesExtraServiceRows(line,order){
   var ctx=null;
   return (line&&line.extraServices||[]).map(function(x){
-    if(x.rateId&&!ctx)ctx=salesPricingThickness(line);
-    return salesChargeRow(salesExtraServiceKey(x),salesExtraServiceName(x),+(+salesExtraServiceBasis(line,x)).toFixed(4),salesExtraServiceUnit(x),
+    if(x.rateId&&!ctx)ctx=salesPricingThickness(line,order);
+    return salesChargeRow(salesExtraServiceKey(x),salesExtraServiceName(x),+(+salesExtraServiceBasis(line,x,order)).toFixed(4),salesExtraServiceUnit(x),
       x.rateId?salesCatalogRate(x.rateId,ctx):null,x.rateId?'Added':'Custom');
   });
 }
@@ -22148,7 +22168,7 @@ function salesSurcharges(order){
 function salesMinAreaFor(x,makeupId){const b=x&&x.byMakeup&&x.byMakeup[makeupId];return b&&b.value!=null?b.value:x.value;}
 function salesMinAreaParts(order,m,rounded){
  const out={};if(!m)return out;const kinds=salesUnitKinds(m);
- salesSurcharges(order||soDraft).forEach(x=>{
+ salesSurcharges(salesOrderArg(order)).forEach(x=>{
   if(x.rule.kind!=='minArea'||!salesSurchargeFits(x.rule,kinds,rounded))return;
   const b=x.byMakeup&&x.byMakeup[m.id];if(!b||!b.parts)return;
   Object.keys(b.parts).forEach(k=>{if(out[k]==null||b.parts[k]>out[k])out[k]=b.parts[k];});
@@ -22208,11 +22228,13 @@ function salesNormalizeWeightRates(){
  DB.materialWeightRates=(Array.isArray(DB.materialWeightRates)?DB.materialWeightRates:[]).filter(r=>r&&typeof r.key==='string'&&!seen.has(r.key)&&(seen.add(r.key),true)).map(r=>({key:r.key,label:mdString(r.label),rate:mdNonNeg(r.rate),unit:mdString(r.unit),note:mdString(r.note)}));
 }
 function salesLineAreas(line,order){
+ order=salesOrderArg(order);
  return Object.assign({},readLine('areas',line,order,()=>salesLineAreasLive(line,order)));
 }
 function salesLineAreasLive(line,order){
+ order=salesOrderArg(order);
  /* Записано при Save (sales/line-measure) — без расчёта фигуры. */
- const kept=salesMeasureFor(line,order||soDraft);if(kept)return Object.assign({},kept.areas);
+ const kept=salesMeasureFor(line,order);if(kept)return Object.assign({},kept.areas);
  const lineW=(+(line&&line.width16)||0)/16,lineH=(+(line&&line.height16)||0)/16;
  const shape=salesShapeByRef(line&&line.shapeRef),r=shape?ShapeModule.compute(shape):null;
  const shapeValid=!!(r&&(r.valid||r.externalFile&&r.sourceValid)),w=shapeValid&&+r.width>0?+r.width:lineW,h=shapeValid&&+r.height>0?+r.height:lineH;
@@ -22228,8 +22250,8 @@ function salesLineAreasLive(line,order){
  /* Минимальная площадь — самая большая из подходящих надбавок minArea. Вид
     юнита нужен только при условии по видам: без макапа условие не сходится. */
  let min=0,minBy=null;
- if(valid){const kinds=salesUnitKinds(salesMakeupById(order||soDraft,line&&line.makeupId));
-  const mid=line&&line.makeupId;salesSurcharges(order||soDraft).forEach(x=>{const v=salesMinAreaFor(x,mid);if(x.rule.kind==='minArea'&&v>min&&salesSurchargeFits(x.rule,kinds,rounded)){min=v;minBy=x;}});}
+ if(valid){const kinds=salesUnitKinds(salesMakeupById(order,line&&line.makeupId));
+  const mid=line&&line.makeupId;salesSurcharges(order).forEach(x=>{const v=salesMinAreaFor(x,mid);if(x.rule.kind==='minArea'&&v>min&&salesSurchargeFits(x.rule,kinds,rounded)){min=v;minBy=x;}});}
  return {actual:actual,rounded:rounded,billable:valid?Math.max(rounded,min):null,minArea:valid&&min>rounded?{id:minBy.id,name:minBy.name,value:min}:null,perimeterIn:perimeterIn,width:w,height:h,roundedWidth:Math.ceil(w),roundedHeight:Math.ceil(h),valid:valid};
 }
 /* Центы: «ничья» в полцента (98.175 + 2.82 = 100.995) округляется вверх.
@@ -22260,13 +22282,13 @@ function salesApplyOrderCharges(subtotal,raw){
  return {charges:c,subtotal:base,energy:energy,hstBase:hstBase,hst:hst,cardBase:cardBase,card:card,delivery:delivery,skidDeposit:skidDeposit,grand:salesMoney(base+energy+hst+card+delivery+skidDeposit)};
 }
 function salesOrderCommercialTotals(order){
- order=order||soDraft;let subtotal=0,missing=0,qty=0;
+ order=salesOrderArg(order);let subtotal=0,missing=0,qty=0;
  /* Переделка NCR без оплаты: итог заказа $0, пока офис не снимет No charge. */
  if(order&&order.noCharge){(order.lines||[]).forEach(l=>{qty+=salesPositiveInt(l.qty,1);});const out=salesApplyOrderCharges(0,{});Object.keys(out).forEach(k=>{if(typeof out[k]==='number')out[k]=0;});out.complete=true;out.missing=0;out.qty=qty;out.noCharge=true;return out;}
  (order&&order.lines||[]).forEach(function(line){const p=salesLineCommercialPrice(line,order);qty+=p.qty;if(p.complete)subtotal+=p.exact;else missing++;});
  /* Позиции каталога — те же деньги, в тот же subtotal, без геометрии и без
     Makeup: у них попросту нет areas/services, которые считает p.complete выше. */
- (order&&order.extraItems||[]).forEach(function(x){const t=salesExtraItemLineTotal(x);qty+=salesPositiveInt(x.qty,1);if(t!=null)subtotal+=t;else missing++;});
+ (order&&order.extraItems||[]).forEach(function(x){const t=salesExtraItemLineTotal(x,order);qty+=salesPositiveInt(x.qty,1);if(t!=null)subtotal+=t;else missing++;});
  /* Отменённые юниты: клиент платит за сделанную работу (erp/sales/unit-cancel). */
  (order&&order.cancellations||[]).forEach(function(c){const v=unitChargeOf(c);if(v!=null)subtotal+=v;else missing++;});
  /* Поправки руками (normalizeSalesAdjustments). */
@@ -22279,12 +22301,12 @@ function salesOrderCommercialTotals(order){
    Свой минимум площади и суммы айтема поднимает счёт (выбор владельца
    22.10.2026), с пометкой в строке; ручная цена юнита всё равно главнее.
    Единица и минимумы замораживаются в заказе на Save, как цены. */
-function salesItemSaleRules(table,x,fallbackUnit){
+function salesItemSaleRules(table,x,fallbackUnit,order){
  if(!x)return {unit:fallbackUnit||'sqft',minArea:null,minCharge:null};
  const k=table+':'+x.id;
- return {unit:salesBook('unit:'+k,()=>mdUnitCode(x.salesUnit,fallbackUnit||'sqft'))||fallbackUnit||'sqft',
-  minArea:salesBook('minArea:'+k,()=>x.minAreaFt2==null?null:x.minAreaFt2),
-  minCharge:salesBook('minCharge:'+k,()=>x.minCharge==null?null:x.minCharge)};
+ return {unit:salesBook('unit:'+k,()=>mdUnitCode(x.salesUnit,fallbackUnit||'sqft'),order)||fallbackUnit||'sqft',
+  minArea:salesBook('minArea:'+k,()=>x.minAreaFt2==null?null:x.minAreaFt2,order),
+  minCharge:salesBook('minCharge:'+k,()=>x.minCharge==null?null:x.minCharge,order)};
 }
 const SALES_KG_PER_LB=0.45359237;
 /* Количество одного лайта в единице продажи. kg — вес этого айтема в лайте. */
@@ -22301,14 +22323,14 @@ function salesSaleQty(rules,areas,kg){
    меняются. Остальные — цена × своё количество, со своими минимумами. */
 function salesLineMaterials(m,areas,order){
  const out={total:0,amount:0,known:true,rows:[]};
- if(!m||!areas.valid)return Object.assign(out,salesMakeupUnitPrice(m),{amount:0});
+ if(!m||!areas.valid)return Object.assign(out,salesMakeupUnitPrice(m,order),{amount:0});
  let plain=0;const minParts=salesMinAreaParts(order,m,areas.rounded);
  /* Что именно продано — справочник и айтем, лайт, плита, слои плёнки (tag):
     по ним отчёт Products · sold (reports/facts-sold) делит продажи. */
  const add=(label,price,table,item,kg,fixedUnit,tag)=>{
   const ref=Object.assign({table:table||'',itemId:item&&item.id||''},tag);
   if(price==null){out.known=false;out.rows.push(Object.assign({label,price:null},ref));return;}
-  const rules=fixedUnit?{unit:fixedUnit,minArea:null,minCharge:null}:salesItemSaleRules(table,item);
+  const rules=fixedUnit?{unit:fixedUnit,minArea:null,minCharge:null}:salesItemSaleRules(table,item,undefined,order);
   /* Свой минимум материала в этом заказе (окно Surcharges → By makeup):
      площадь — от округлённой площади юнита, а не от минимума юнита; погонная —
      от своей длины. Остальные единицы (вес, штука) минимума не имеют. */
@@ -22333,18 +22355,18 @@ function salesLineMaterials(m,areas,order){
   if(p.category==='laminated'){
    if(p.priceOverride!=null)return add(label+' · laminated',p.priceOverride,'','',null,'sqft',{pane:i});
    const lam=p.laminated||{};
-   [lam.outer,lam.inner].forEach((ply,j)=>{const g=ply&&glassProductById(ply.glassProductId);add(label+(j?'b':'a')+(g?' · '+glassShortName(g):''),salesPlyPrice(ply),'glassProduct',g,glassKg(ply,g),null,{pane:i,ply:j?'inner':'outer'});});
+   [lam.outer,lam.inner].forEach((ply,j)=>{const g=ply&&glassProductById(ply.glassProductId);add(label+(j?'b':'a')+(g?' · '+glassShortName(g):''),salesPlyPrice(ply,order),'glassProduct',g,glassKg(ply,g),null,{pane:i,ply:j?'inner':'outer'});});
    (lam.interlayers||[]).forEach(f=>{
     const prod=mdById('interlayerProduct',f.productId),layers=salesInterlayerLayerCount(f.layers!=null?f.layers:2);
-    const price=f.priceOverride!=null?f.priceOverride:salesInterlayerSalePrice(f.productId);
-    const rules=salesItemSaleRules('interlayerProduct',prod),byWeight=rules.unit==='kg'||rules.unit==='lb';
+    const price=f.priceOverride!=null?f.priceOverride:salesInterlayerSalePrice(f.productId,order);
+    const rules=salesItemSaleRules('interlayerProduct',prod,undefined,order),byWeight=rules.unit==='kg'||rules.unit==='lb';
     const kg=()=>{const d=salesWeightRate('film:'+f.productId,order);return d!=null&&areas.actual!=null&&+f.thicknessMm>0?d*areas.actual*GLASS_M2_PER_FT2*f.thicknessMm/1000:null;};
     /* Плёнка за вес — вес всей плёнки; иначе цена × число слоёв, как раньше. */
     add(label+' · '+(prod?prod.name:'Interlayer')+(byWeight||layers===1?'':' × '+layers),price==null?null:byWeight?price:price*layers,'interlayerProduct',prod,kg,null,{pane:i,layers});
    });
   }else{
    const g=glassProductById(p.glassProductId);
-   add(label+(g?' · '+glassShortName(g):''),p.priceOverride!=null?p.priceOverride:salesPaneCatalogPrice(p),'glassProduct',g,glassKg(p,g),null,{pane:i});
+   add(label+(g?' · '+glassShortName(g):''),p.priceOverride!=null?p.priceOverride:salesPaneCatalogPrice(p,order),'glassProduct',g,glassKg(p,g),null,{pane:i});
   }
  });
  /* Обвязка — по частям рецепта; ручная ставка камеры — одна строка за ft². */
@@ -22353,7 +22375,7 @@ function salesLineMaterials(m,areas,order){
   const at=out.rows.length;
   if(c.priceOverride!=null)add('Surround · cavity '+(i+1),c.priceOverride,'','',null,'sqft');
   else{const parts=surroundCavityParts(c,geo,order).parts;if(!parts.length)add('Surround · cavity '+(i+1),null);
-   parts.forEach(x=>add('Cavity '+(i+1)+' · '+x.label,salesSurroundPartPrice(x),x.table,x.item,()=>x.usedKg));}
+   parts.forEach(x=>add('Cavity '+(i+1)+' · '+x.label,salesSurroundPartPrice(x,order),x.table,x.item,()=>x.usedKg));}
   for(let k=at;k<out.rows.length;k++)out.rows[k].cavity=i;
  });
  out.amount=salesExact(out.amount+plain*areas.billable);
@@ -22375,12 +22397,12 @@ function salesItemSizeWarnings(order){
  const out=[];(order&&order.lines||[]).forEach((line,i)=>salesItemSizeProblems(line,order).forEach(t=>out.push('Line '+(i+1)+(line.mark?' ('+line.mark+')':'')+' · '+t)));return out;
 }
 function salesLineCommercialPrice(line,order){
- order=order||soDraft;
+ order=salesOrderArg(order);
  return readLine('price',line,order,()=>salesLinePriceLive(line,order));
 }
 function salesLinePriceLive(line,order){
  const areas=salesLineAreas(line,order),m=salesMakeupById(order,line.makeupId),q=salesPositiveInt(line.qty,1),live=Math.max(0,q-unitCancelled(line));
- const rate=salesLineMaterials(m,areas,order),services=salesLinePricingSummary(line),materials=areas.valid?rate.amount:0;
+ const rate=salesLineMaterials(m,areas,order),services=salesLinePricingSummary(line,order),materials=areas.valid?rate.amount:0;
  const base=salesExact(materials+services.total/q);
  const unsupportedCurrency=!!(order.currency&&order.currency!=='CAD');
  const incomplete=!areas.valid||!m||!rate.known||services.unpriced>0||unsupportedCurrency;
@@ -22405,7 +22427,7 @@ function salesLineCommercialAdjustments(line,order){
  return price.adjustments.map(a=>({key:a.key,label:a.label,percent:a.percent,rule:a.rule,catalog:a.catalog,base:price.complete?a.base:null,unitAmount:price.complete?a.amount:null,qty:price.qty,lineAmount:price.complete?salesMoney(a.amount*price.qty):null,complete:price.complete}));
 }
 function salesOrderCommercialAdjustments(order){
- order=order||soDraft;
+ order=salesOrderArg(order);
  const groups=Object.create(null);
  (order&&order.lines||[]).forEach((line,lineIndex)=>salesLineCommercialAdjustments(line,order).forEach(a=>{
   if(!groups[a.key])groups[a.key]={key:a.key,label:a.label,percent:a.percent,rule:a.rule,lines:0,qty:0,total:0,incomplete:0,entries:[]};
@@ -22452,7 +22474,7 @@ function salesLineLiteGeo(line,order){
  return salesWeightLiteGeo(shape&&m?salesEffectiveCuttingPlan(line,shape,order):null);
 }
 function salesLineWeight(line,order,productionPlan){
- order=order||soDraft;
+ order=salesOrderArg(order);
  return productionPlan?salesLineWeightLive(line,order,productionPlan):readLine('weight',line,order,()=>salesLineWeightLive(line,order));
 }
 function salesLineWeightLive(line,order,productionPlan){
@@ -22528,7 +22550,7 @@ function salesLineWeightLive(line,order,productionPlan){
    все нормы есть; estimated — где-то номинальная толщина вместо фактической.
    Qty — заказанное (отгрузки, сканы и Recut вес заказа не меняют). */
 function salesOrderWeight(order){
- order=order||soDraft;
+ order=salesOrderArg(order);
  if(!order)return {kg:null,complete:false,estimated:false,partial:false,gaps:[]};
  const lines=order&&order.lines||[],gaps=new Map();let kg=0,counted=0,estimated=false,complete=lines.length>0;
  lines.forEach((l,i)=>{
@@ -22617,7 +22639,7 @@ function salesMeasureSig(line,order){
 /* Расчёт по фигуре — то, что записывается. */
 function salesMeasureLive(line,order){
  salesMeasureOff++;
- try{return finWithOrder(order,()=>({rows:salesLineChargeRowsRaw(line),areas:salesLineAreas(line,order),lites:salesLineLiteGeo(line,order)}));}
+ try{return {rows:salesLineChargeRowsRaw(line,undefined,order),areas:salesLineAreas(line,order),lites:salesLineLiteGeo(line,order)};}
  finally{salesMeasureOff--;}
 }
 /* pre — посчитанное заранее Save в фоне (erp/sales/save-job): строка с тем же
@@ -23120,7 +23142,7 @@ function salesRouteAppendMerge(lites,merge,work){
   return lites;
 }
 function salesPrintRoute(line,order,shape,result){
-  order=order||(typeof soDraft!=='undefined'?soDraft:null);
+  order=salesOrderArg(order);
   var lites=[],merge='';
   var mk=(line&&order&&typeof salesMakeupById==='function')?salesMakeupById(order,line.makeupId):null;
   if(mk&&typeof salesEffectiveProductionSnapshot==='function'){
@@ -23314,9 +23336,9 @@ function salesStationSizeLabel(problems){
    ===================================================================== */
 
 function salesSheetLineOf(shape){
-  if(typeof soDraft==='undefined'||!soDraft)return null;
+  var order=salesSheetOrder();if(!order)return null;
   var id=(typeof salesBridge!=='undefined'&&salesBridge&&salesBridge.kind==='shape')?salesBridge.lineId:null;
-  var lines=soDraft.lines||[];
+  var lines=order.lines||[];
   var line=id?lines.find(function(l){return l.id===id;}):null;
   if(!line&&shape&&shape.ownerLineId)line=lines.find(function(l){return l.id===shape.ownerLineId;});
   /* Лист Recut — по чертежу Recut (erp/quality/recut). */
@@ -23328,15 +23350,15 @@ function salesSheetRecut(){
   return id&&typeof recutFind==='function'?recutFind(id):null;
 }
 function salesSheetLineNumber(line){
-  if(!line||typeof soDraft==='undefined'||!soDraft)return '';
-  var i=(soDraft.lines||[]).findIndex(function(l){return l.id===line.id;}),rc=salesSheetRecut();
+  var order=salesSheetOrder();if(!line||!order)return '';
+  var i=(order.lines||[]).findIndex(function(l){return l.id===line.id;}),rc=salesSheetRecut();
   return i<0?'':String(i+1)+(rc?' · RECUT '+rc.no:'');
 }
 /* Заголовок листа: у одинарного стекла это само стекло, у пакета — его состав.
    Разбивка L1 / C1 / L2 показывает, что за чем стоит. */
 function salesSheetTitleLines(makeup,line){
   if(makeup&&(makeup.panes||[]).length>1){
-    var mm=salesMakeupThicknessMm(makeup),kind=makeup.unitType==='triple'?'Triple':'Double';
+    var mm=salesMakeupThicknessMm(makeup,salesSheetOrder()),kind=makeup.unitType==='triple'?'Triple':'Double';
     return {name:'Makeup '+String(makeup.code||''),spec:kind+(mm?' '+(Math.round(mm*10)/10)+' mm':'')};
   }
   var pane=makeup&&(makeup.panes||[])[0];
@@ -23604,7 +23626,7 @@ function salesSheetWeightText(w){
 function salesShapeSheetHTML(shape,result,svg,kind,opts){
   opts=opts||{};
   var line=salesSheetLineOf(shape);
-  var order=(typeof soDraft!=='undefined')?soDraft:null;
+  var order=salesSheetOrder();
   var makeup=(line&&order&&typeof salesMakeupById==='function')?salesMakeupById(order,line.makeupId):null;
   var ok=typeof shapeSheetOk==='function'?shapeSheetOk(result):!!(result&&result.valid);
   /* Форма своего лайта, открытая из строки, — это лист того стекла. */
@@ -23700,17 +23722,18 @@ function salesSheetFoot(html,text){
    лист», владелец 20.10.2026): лайт со своей формой — её чертёж, лайт с
    отступом — его контур (shapeLiteSheetSvg), лайт размером с форму — чертёж
    формы без пунктира меньшего лайта. Обычный юнит получает лист строки. */
-function salesLineDrawing(line,recut,liteIndex){
+function salesLineDrawing(line,recut,liteIndex,order){
+  order=salesOrderArg(order);
   var geo=recut&&typeof recutLine==='function'?recutLine(recut,line):line;
   var shape=geo&&salesShapeByRef(geo.shapeRef);if(!shape)return null;
   var keep={draft:sDraft,bridge:salesBridge,view:sView,lite:typeof sEdgeLite==='undefined'?null:sEdgeLite,place:sManufacturingPlace};
   try{
-    sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(shape)));salesBridge=Object.assign({kind:'shape',lineId:line.id},geo!==line?{recutId:recut.id}:{});
+    sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(shape)));salesBridge=Object.assign({kind:'shape',lineId:line.id,order:order},geo!==line?{recutId:recut.id}:{});
     sView='production';sEdgeLite=null;sManufacturingPlace=null;
-    if(typeof salesApplyLineGlassThicknessToShape==='function')salesApplyLineGlassThicknessToShape(geo,sDraft);
+    if(typeof salesApplyLineGlassThicknessToShape==='function')salesApplyLineGlassThicknessToShape(geo,sDraft,undefined,order);
     var r=ShapeModule.compute(sDraft);
     if(!shapeSheetOk(r))return {line:line,error:String((r.errors&&r.errors[0])||r.reason||'Invalid geometry')};
-    var step=liteIndex!=null&&typeof salesShapeStepInfo==='function'?salesShapeStepInfo(sDraft,geo,soDraft):null,sheet=salesStepLiteSheet(r,geo,liteIndex,step);
+    var step=liteIndex!=null&&typeof salesShapeStepInfo==='function'?salesShapeStepInfo(sDraft,geo,order):null,sheet=salesStepLiteSheet(r,geo,liteIndex,step);
     if(sheet)return Object.assign({line:line,lite:liteIndex},sheet);
     return {line:line,html:salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,false),'PRODUCTION DRAWING')};
   }catch(e){return {line:line,error:String(e&&e.message||e)};}
@@ -23791,7 +23814,7 @@ const SALES_FRIT_PATTERNS={
  '2 x 4 diamond':{dx:4,dy:2,stag:true}
 };
 function salesFritDrawingSpecs(shape){
- var line=salesSheetLineOf(shape),mk=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null,out=[];
+ var line=salesSheetLineOf(shape),order=salesSheetOrder(),mk=line&&order?salesMakeupById(order,line.makeupId):null,out=[];
  var only=typeof salesBridge!=='undefined'&&salesBridge&&salesBridge.liteIndex!=null?salesBridge.liteIndex:null;
  (mk&&mk.panes||[]).forEach(function(p,i){
   if(only!=null&&only!==i)return;
@@ -24387,8 +24410,9 @@ function docIncompleteReason(p){
 }
 /* Step Unit клиент не видит, пока его ставка 0 (владелец, 20.10.2026): в ERP,
    на станции и на чертеже он виден всегда, с ценой появится в документах сам. */
-function docServiceRows(line,qty=1){
- return salesLineChargeRows(line).map(row=>{const st=salesChargePricingState(line,row);return {key:row.key,label:row.label,basis:row.basis,unit:row.unit,rate:st.effectiveRate,value:st.effectiveRate==null?null:salesCents(salesChargeUnitAmount(row,st.effectiveRate)*qty)};})
+function docServiceRows(line,qty,order){
+ qty=qty===undefined?1:qty;
+ return salesLineChargeRows(line,order).map(row=>{const st=salesChargePricingState(line,row,order);return {key:row.key,label:row.label,basis:row.basis,unit:row.unit,rate:st.effectiveRate,value:st.effectiveRate==null?null:salesCents(salesChargeUnitAmount(row,st.effectiveRate)*qty)};})
   .filter(r=>!(r.key==='SURCHARGE:step-unit'&&r.rate===0));
 }
 function docLineRoute(line,order){
@@ -24450,7 +24474,7 @@ function docSaleItem(model,line,index,order){
  if(bits.length)it.sub.push({text:bits.join(' · ')});
  docItemDetails(it,opts,line,m,order);
  if(!p.complete&&mode!=='none')it.sub.push({text:'Pricing incomplete — '+docIncompleteReason(p),tone:'warn'});
- const services=docServiceRows(line,q),names=services.map(s=>s.label).join(', ');
+ const services=docServiceRows(line,q,order),names=services.map(s=>s.label).join(', ');
  const adj=x=>fmt({desc:x.label,basis:docMoney(x.base*q),rate:'+'+x.percent+'%',value:p.complete?salesCents(x.amount*q):null,tone:'adj'});
  const fmt=r=>({desc:r.desc,basis:opts.basisRate?r.basis||'':'',rate:opts.basisRate?r.rate||'':'',amount:r.value==null?(r.required?'Rate required':''):docMoney(r.value),tone:r.tone||''});
  /* Цена руками — без разбивки: итог юнита не сложить из материалов и работ. */
@@ -24458,15 +24482,15 @@ function docSaleItem(model,line,index,order){
  else if(mode==='full'){
   const mat=[],svc=[];
   (m?m.panes:[]).forEach((pn,i)=>{
-   const rate=pn.priceOverride!=null?pn.priceOverride:salesPaneCatalogPrice(pn),heat=docHeatName(pn.category==='laminated'?(pn.laminated||{}).outer:pn);
+   const rate=pn.priceOverride!=null?pn.priceOverride:salesPaneCatalogPrice(pn,order),heat=docHeatName(pn.category==='laminated'?(pn.laminated||{}).outer:pn);
    mat.push({desc:'Lite '+(i+1)+' · '+docPaneName(pn)+(heat?' · '+heat:''),basis:areaAll,rate:rate==null?'':docMoney(rate),value:rate==null||!a.valid?null:salesCents(rate*a.billable*q),required:rate==null});
   });
   (m?m.cavities:[]).forEach((c,i)=>{
    /* Обвязка по частям рецепта: сумма частей этой камеры, в том числе за
       дюйм периметра или штуку (erp/masterdata/surround). */
-   const rate=c.priceOverride!=null?c.priceOverride:salesCavityCatalogPrice(c),parts=(p.materialRows||[]).filter(r=>r.cavity===i);
+   const rate=c.priceOverride!=null?c.priceOverride:salesCavityCatalogPrice(c,order),parts=(p.materialRows||[]).filter(r=>r.cavity===i);
    const value=!a.valid||parts.some(r=>r.amount==null)?null:salesCents(parts.reduce((n,r)=>n+r.amount,0)*q);
-   mat.push({desc:'Cavity '+(i+1)+' · '+docCavityText(c),basis:areaAll,rate:rate==null?'':docMoney(rate)+(salesCavityOtherUnits(c)?' +':''),value:value,required:value==null});
+   mat.push({desc:'Cavity '+(i+1)+' · '+docCavityText(c),basis:areaAll,rate:rate==null?'':docMoney(rate)+(salesCavityOtherUnits(c,order)?' +':''),value:value,required:value==null});
   });
   services.forEach(s=>svc.push({desc:s.label,basis:docBasis(s.basis*q,s.unit),rate:s.rate==null?'':docMoney(s.rate),value:s.value,required:s.rate==null}));
   if(mat.length)it.groups.push({label:'Materials',rows:mat.map(fmt)});
@@ -24495,7 +24519,7 @@ function docItemBase(opts,line,index,m,q){
   size:opts.size?docSize(line):'',qty:'Qty '+q,amount:null,info:'',sub:[],full:[],drawing:null,groups:[],note:'',unitRow:null,lites:[],cavities:[]};
 }
 function docItemDetails(it,opts,line,m,order){
- if(opts.thickness&&m){const mm=salesMakeupThicknessMm(m);if(mm)it.sub.push({text:'Unit thickness '+docNum(mm,1)+' mm'});}
+ if(opts.thickness&&m){const mm=salesMakeupThicknessMm(m,order);if(mm)it.sub.push({text:'Unit thickness '+docNum(mm,1)+' mm'});}
  if(opts.makeupFull&&m)it.full=docMakeupFullLines(m,opts);
  if(opts.shapeDrawing)it.drawing=docLineDrawing(line,order);
 }
@@ -24618,7 +24642,7 @@ function docDateWeek(v){
 
 /* ------------------------------ Бланк ------------------------------- */
 function docBuildModel(kind,order,opts){
- order=order||soDraft;opts=Object.assign(docBaseOptions(kind),opts||{},{glassNames:kind==='workOrder'?'short':'name'});
+ order=salesOrderArg(order);opts=Object.assign(docBaseOptions(kind),opts||{},{glassNames:kind==='workOrder'?'short':'name'});
  const sale=kind!=='workOrder',mode=sale?opts.priceMode:'none',C=salesFindCustomer(order.customerId),company=DB.company||{};
  const number=order.businessNumber||'Draft',docName=docKindLabel(kind),terms=finTermsFor(order);
  const model={kind,sale,mode,opts,title:DOC_TITLES[kind],docName,number,customerName:C?(C.legalName||C.displayName):'',po:order.customerPo||'',
@@ -24664,7 +24688,7 @@ function docBuildModel(kind,order,opts){
  (order.lines||[]).forEach((l,i)=>model.items.push(sale?docSaleItem(model,l,i,order):docShopItem(model,l,i,order)));
  if(opts.extraItems&&(order.extraItems||[]).length){
   const priced=sale&&mode!=='none';
-  model.extra={title:sale?'Additional items':'From stock',rows:order.extraItems.map(x=>{const total=salesExtraItemLineTotal(x),unit=salesExtraItemUnitPrice(x);
+  model.extra={title:sale?'Additional items':'From stock',rows:order.extraItems.map(x=>{const total=salesExtraItemLineTotal(x,order),unit=salesExtraItemUnitPrice(x,order);
    return {name:salesExtraItemName(x),qty:'Qty '+salesPositiveInt(x.qty,1),rate:priced&&unit!=null?docMoney(unit):'',amount:priced?(total==null?'Rate required':docMoney(total)):''};})};
  }
  /* Поправки руками — строками, как товар (normalizeSalesAdjustments). */
@@ -24697,7 +24721,7 @@ function docBuildModel(kind,order,opts){
    if(opts.groupTotals||mode==='glass'){
     const g={glass:0,services:0,surcharges:0,extra:0};
     (order.lines||[]).forEach(l=>{const p=salesLineCommercialPrice(l,order);if(!p.complete)return;const gl=p.manual?p.line:salesMoney(p.materials*p.qty),su=p.manual?0:salesMoney((p.unit-p.base)*p.qty);g.glass+=gl;g.surcharges+=su;g.services+=salesMoney(p.line-gl-su);});
-    (order.extraItems||[]).forEach(x=>{const v=salesExtraItemLineTotal(x);if(v!=null)g.extra+=v;});
+    (order.extraItems||[]).forEach(x=>{const v=salesExtraItemLineTotal(x,order);if(v!=null)g.extra+=v;});
     (order.adjustments||[]).forEach(a=>{g.extra+=+a.amount||0;});
     rows.push({label:'Glass & IGU',value:money(salesMoney(g.glass))},{label:'Services and processing',value:money(salesMoney(g.services))});
     if(g.surcharges)rows.push({label:'Surcharges',value:money(salesMoney(g.surcharges))});
@@ -25920,9 +25944,9 @@ function docFormSamples(kind){
 }
 function docFormSample(kind,id){
  const o=id&&(DB.salesOrder||[]).find(x=>x.id===id);
- if(o)try{return finWithOrder(o,()=>docBuildModel(kind,o,docDefaultOptions(kind)));}catch(e){}
+ if(o)try{return docBuildModel(kind,o,docDefaultOptions(kind));}catch(e){}
  const s={id:'sample',businessNumber:kind==='quote'?'Q-1001':'1001',customerId:'',customerPo:'PO-1',lines:[],extraItems:[],adjustments:[],cancellations:[],currency:'CAD',delivery:'pickup',priority:'normal',createdAt:finToday(),dueDate:finToday(),notes:''};
- return finWithOrder(s,()=>docBuildModel(kind,s,docDefaultOptions(kind)));
+ return docBuildModel(kind,s,docDefaultOptions(kind));
 }
 /* Конструктор: квитанция и выписка — живой лист на последних квитанциях и
    клиентах (выписка — за этот месяц); без данных — пустой образец. */
@@ -26023,11 +26047,11 @@ function drawFormFields(){
 }
 /* Черновик конструктора — на время живого листа; у заказа из архива — вид
    на день его ухода (drawFrozenOf); иначе сохранённый. Заказ — по умолчанию
-   открытый (soDraft): лист рисуется внутри finWithOrder. */
+   заказ чертежа (salesSheetOrder): строка чужого заказа рисуется с ним. */
 let drawFormPreview=null,drawSheetLastFields={};
 function drawFormTpl(o){
  if(drawFormPreview)return drawFormPreview.tpl;
- const f=drawFrozenOf(o===undefined?(typeof soDraft!=='undefined'?soDraft:null):o);if(f)return f.tpl;
+ const f=drawFrozenOf(o===undefined?salesSheetOrder():o);if(f)return f.tpl;
  return formClean(DB.formTemplate&&DB.formTemplate[formUseKey('drawing')],drawFormDefault());
 }
 /* ----------------------- Вид на день архивации ----------------------- */
@@ -26173,7 +26197,7 @@ function drawFormSheetHTML(tpl,id,view){
  const [oid,lid]=String(id||'').split('|'),o=(DB.salesOrder||[]).find(x=>x.id===oid),l=o&&(o.lines||[]).find(x=>x.id===lid);
  if(!l)return '<div class="fm-note fm-dnote">No drawings yet: add a shape to an order line.</div>';
  const s=formsState(),keep=drawFormPreview;drawFormPreview={tpl,edit:view?null:{sel:s.sel}};
- let d;try{d=finWithOrder(o,()=>salesLineDrawing(l));}finally{drawFormPreview=keep;}
+ let d;try{d=salesLineDrawing(l,null,null,o);}finally{drawFormPreview=keep;}
  if(!d||!d.html)return '<div class="fm-note fm-dnote">'+esc(d&&d.error||'No drawing')+'</div>';
  const pick=(cls,part)=>h=>h.replace('class="'+cls,'data-forms-part-hit="'+part+'"'+(!s.sel&&s.part===part?' data-forms-sel':'')+' onpointerdown="formsSelect(\''+part+'\',\'\')" class="'+cls);
  let h=printSheetUniqueIds(d.html);
@@ -28856,7 +28880,7 @@ function shapeDrawnProductionSvg(result,interactive,extra){
      step-unit). На вкладке одного лайта и на листе стекла (noStep — лист
      стекла размером с форму) — без пунктира. */
   if(!metricOpts.lite&&!metricOpts.noStep&&sEdgeLite==null&&typeof salesShapeStepInfo==='function'){
-    var stepLine=shapeBridgeLine(),stepInfo=stepLine?salesShapeStepInfo(sDraft||result.definition,stepLine,soDraft):null;
+    var stepLine=shapeBridgeLine(),stepInfo=stepLine?salesShapeStepInfo(sDraft||result.definition,stepLine,salesSheetOrder()):null;
     if(stepInfo&&stepInfo.step)metricOpts.step=salesStepDrawingData(stepInfo,shapeEdgeNames(result.geometry));
   }
   var svg=ShapeModule.productionSvg(result,metricOpts),T=shapeDrawnPreviewTransform(result,extra);if(!T)return svg;
@@ -29356,7 +29380,7 @@ function shapeSheetSvgBody(r,cutting,extra){
 var sPrintMenu=false;
 function shapeStepPrintLites(){
   if(sView==='cutting'||typeof salesShapeStepInfo!=='function'||(typeof salesBridge!=='undefined'&&salesBridge&&salesBridge.liteIndex!=null))return [];
-  var line=shapeBridgeLine(),info=line&&sDraft?salesShapeStepInfo(sDraft,line,soDraft):null;
+  var line=shapeBridgeLine(),info=line&&sDraft?salesShapeStepInfo(sDraft,line,salesSheetOrder()):null;
   return info&&info.step?info.lites.map(function(l){return l.index;}):[];
 }
 function shapePrintButtonHTML(){
@@ -29373,7 +29397,7 @@ function shapePrintDrawing(which){
   var kind=cutting?(r.externalFile?'CUTTING DXF':'CUTTING SHAPE'):'PRODUCTION DRAWING';
   var unit=salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,cutting),kind);
   if(which==null||which==='unit'||cutting){printSheet(unit,'',salesSheetFitDrawing);return;}
-  var line=shapeBridgeLine(),step=line?salesShapeStepInfo(sDraft,line,soDraft):null;
+  var line=shapeBridgeLine(),step=line?salesShapeStepInfo(sDraft,line,salesSheetOrder()):null;
   var idx=which==='all'?shapeStepPrintLites():[+which];
   var sheets=idx.map(function(i){return salesStepLiteSheet(r,line,i,step);}).filter(function(x){return x&&x.html;}).map(function(x){return x.html;});
   printSheet((which==='all'?[unit]:[]).concat(sheets),'',salesSheetFitDrawing);
@@ -29592,9 +29616,10 @@ function setShapeOpParam(groupIndex,type,k,v){var op=shapeOperationAt(groupIndex
    вкладку при открытии формы из строки заказа. */
 var sEdgeLite=null;
 function shapeEditorLites(){
-  if(!salesBridge||salesBridge.kind!=='shape'||typeof soDraft==='undefined'||!soDraft)return [];
-  var line=(soDraft.lines||[]).find(function(l){return l.id===salesBridge.lineId;});
-  return line?salesLineLites(line).map(function(l){return {index:l.index,label:l.label,mm:l.thicknessMm,laminated:l.laminated};}):[];
+  var order=salesSheetOrder();
+  if(!salesBridge||salesBridge.kind!=='shape'||!order)return [];
+  var line=(order.lines||[]).find(function(l){return l.id===salesBridge.lineId;});
+  return line?salesLineLites(line,order).map(function(l){return {index:l.index,label:l.label,mm:l.thicknessMm,laminated:l.laminated};}):[];
 }
 /* Есть ли под этой вкладкой склейка. Полировка склеенной кромки предлагается
    только там, где склеивать есть что: на вкладке конкретного лайта — по нему,
@@ -29628,10 +29653,11 @@ function setShapeLiteInset(groupIndex,value){
    база номер один и её перекрывает; подсказка показывает, что применится,
    если тут не трогать ничего. */
 function shapeBaseEdgeworkHint(has){
-  if(!salesBridge||salesBridge.kind!=='shape'||typeof soDraft==='undefined'||!soDraft)return '';
+  var order=salesSheetOrder();
+  if(!salesBridge||salesBridge.kind!=='shape'||!order)return '';
   if(SHAPE_PRIMARY_FINISHES.some(function(t){return has(t);}))return '';
-  var line=(soDraft.lines||[]).find(function(l){return l.id===salesBridge.lineId;});
-  var kind=line?salesLineBaseEdgeworkKind(line):'';
+  var line=(order.lines||[]).find(function(l){return l.id===salesBridge.lineId;});
+  var kind=line?salesLineBaseEdgeworkKind(line,order):'';
   return kind?`<small class='shape-edge-base' title='${esc(glassBaseEdgeworkLabel(kind))}'><span>from glass</span> <span data-raw>${esc(kind==='polish'?'Flat':'Rough')}</span></small>`:'';
 }
 /* Вкладки лайтов: «Все лайты» правит общую обработку формы, вкладка лайта —
@@ -29641,8 +29667,9 @@ function shapeBaseEdgeworkHint(has){
 /* Строка заказа под редактором; у чертежа Recut — вид строки с его формами
    (erp/quality/recut). */
 function shapeBridgeLine(){
-  if(typeof soDraft==='undefined'||!soDraft||typeof salesBridge==='undefined'||!salesBridge||salesBridge.kind!=='shape')return null;
-  var line=(soDraft.lines||[]).find(function(l){return l.id===salesBridge.lineId;})||null;
+  var order=salesSheetOrder();
+  if(!order||typeof salesBridge==='undefined'||!salesBridge||salesBridge.kind!=='shape')return null;
+  var line=(order.lines||[]).find(function(l){return l.id===salesBridge.lineId;})||null;
   var rc=line&&salesBridge.recutId&&typeof recutFind==='function'?recutFind(salesBridge.recutId):null;
   return rc?recutLine(rc,line):line;
 }
@@ -29650,7 +29677,7 @@ function shapeBridgeLine(){
    строки заказа, по которому порезали с ошибкой. */
 function shapeRecutBanner(){
   var rc=salesBridge&&salesBridge.kind==='shape'&&salesBridge.recutId&&typeof recutFind==='function'?recutFind(salesBridge.recutId):null;if(!rc)return '';
-  var line=typeof soDraft!=='undefined'&&soDraft?(soDraft.lines||[]).find(function(l){return l.id===rc.lineId;}):null;
+  var order=salesSheetOrder(),line=order?(order.lines||[]).find(function(l){return l.id===rc.lineId;}):null;
   var was=line?dimIn16(line.width16/16)+' × '+dimIn16(line.height16/16):'';
   return `<div class='shape-recut-band' data-shape-recut-band>${esc(['RECUT '+rc.no,'Line '+rc.line,ncrWhereLabel(rc),rc.reason,was?'Was '+was:''].filter(Boolean).join(' · '))}</div>`;
 }
@@ -29750,7 +29777,7 @@ function shapeLiteSplitEditor(){
   var warn=orphan?`<div class='shape-lite-note own'>No lite lives on this Shape — each has its own. Changes here affect nothing until a lite is sent back with “Back to shared”.</div>`:'';
   /* Вид шва ступенчатого юнита — выбор офиса; поле только при ступеньке, по
      умолчанию Flat seal (владелец, 20.10.2026). */
-  var step=line&&typeof salesShapeStepInfo==='function'?salesShapeStepInfo(sDraft,line,soDraft):null;
+  var step=line&&typeof salesShapeStepInfo==='function'?salesShapeStepInfo(sDraft,line,salesSheetOrder()):null;
   var seal=step&&step.step?`<label class='shape-lite-seal'><span>Step seal</span><select onchange='setShapeStepSeal(this.value)'>${Object.keys(SALES_STEP_SEALS).map(function(k){return `<option value='${k}' ${salesStepSealKey(sDraft)===k?'selected':''}>${esc(SALES_STEP_SEALS[k])}</option>`;}).join('')}</select></label>`:'';
   return `<div class='shape-subsection shape-accordion'><button type='button' class='shape-accordion-head' onclick='toggleShapeLiteSplit()'><span><b>Lites of the unit</b><small>mirror · inset · own shape</small></span><span class='shape-accordion-state'>${changed?`<span data-raw>${changed}</span> differ`:'all on the shared shape'}${step&&step.step?' · Step unit':''}<i>${sLiteSplitOpen?'−':'+'}</i></span></button>${sLiteSplitOpen?`<div class='shape-lite-cards'>${warn}${rows}${seal}</div>`:''}</div>`;
 }
@@ -34139,7 +34166,7 @@ function docToggleRev(id,on){
 function docCurrentPages(){
  const form=docState.form||'';
  if(docState.kind!=='quote')return docPages(Object.assign(docBuildModel(docState.kind,soDraft,docState.opts),{form}));
- return docQuoteRecords().flatMap(r=>finWithOrder(r,()=>docPages(Object.assign(docBuildModel('quote',r,docState.opts),{form}))));
+ return docQuoteRecords().flatMap(r=>docPages(Object.assign(docBuildModel('quote',r,docState.opts),{form})));
 }
 function docRevisionPicker(){
  if(!docState||docState.kind!=='quote')return '';
@@ -34365,7 +34392,7 @@ function docQuoteEmailBody(recs){
  const c=DB.company||{},q=recs[0],C=salesFindCustomer(q.customerId),first=String((C&&customerPrimaryContact(C).name)||'').trim().split(/\s+/)[0];
  const terms=paymentTermsFrom(C||{}),pct=paymentDepositPercent(terms),many=recs.length>1,po=q.customerPo?' for PO '+q.customerPo:'';
  const lines=['Hello'+(first?' '+first:'')+',','',many?'Please find attached quote '+salesQuoteBaseNumber(q)+' in '+recs.length+' options: '+recs.map(r=>r.businessNumber).join(', ')+po+'.':'Please find attached quote '+q.businessNumber+po+'.'];
- recs.forEach(r=>{const t=finWithOrder(r,()=>salesOrderCommercialTotals(r));if(t.complete)lines.push((many?r.businessNumber+': ':'Total: ')+docMoney(t.grand)+' '+r.currency+'.');});
+ recs.forEach(r=>{const t=salesOrderCommercialTotals(r);if(t.complete)lines.push((many?r.businessNumber+': ':'Total: ')+docMoney(t.grand)+' '+r.currency+'.');});
  lines.push('Prices are valid until '+docDate(salesQuoteValidUntil(q))+'.');
  if(terms.paymentMode==='credit')lines.push('Payment terms: '+paymentTermsLabel(terms)+'.');
  else if(pct>0)lines.push('A '+pct+'% deposit is required to start production.');
@@ -34379,7 +34406,7 @@ function docEmailQuote(){
  if(before!==cur)ids=ids.filter(id=>id!==before).concat(cur);
  if(!ids.length)ids=[cur];
  const recs=ids.map(id=>DB.salesOrder.find(o=>o.id===id)).sort((a,b)=>(a.quoteRev||0)-(b.quoteRev||0)),files=[];
- try{recs.forEach(r=>{const pages=finWithOrder(r,()=>docPages(Object.assign(docBuildModel('quote',r,docState.opts),{form:docState.form||''})));files.push({name:docFileName('quote',r),bytes:docPdfBytes(pages,{title:'Quote '+r.businessNumber})});});}
+ try{recs.forEach(r=>{const pages=docPages(Object.assign(docBuildModel('quote',r,docState.opts),{form:docState.form||''}));files.push({name:docFileName('quote',r),bytes:docPdfBytes(pages,{title:'Quote '+r.businessNumber})});});}
  catch(e){alert('The PDF could not be prepared: '+(e&&e.message||e));return;}
  const C=salesFindCustomer(recs[0].customerId),to=C?(C.invoiceEmail||customerPrimaryContact(C).email||''):'';
  const url=docGmailUrl(to,docQuoteEmailSubject(recs),docQuoteEmailBody(recs));
@@ -34834,7 +34861,7 @@ function finStatementDueHTML(p){
 function finStatementInvoices(on){const p=finPreview;if(!p)return;p.invoices=!!on;p.status='';render();}
 async function finStatementInvoiceBuild(p,key){
  const inPeriod=d=>!!d&&(!p.from||d>=p.from)&&(!p.to||d<=p.to),list=finStatementOrders(p.id,p.from,p.to).filter(x=>inPeriod(x.billed)),old=list.filter(x=>x.archived).map(x=>x.o.id);
- const build=()=>list.flatMap(x=>{const o=salesRecord(x.o.id);return o?finWithOrder(o,()=>docPages(docBuildModel('invoice',o,docDefaultOptions('invoice')))):[];});
+ const build=()=>list.flatMap(x=>{const o=salesRecord(x.o.id);return o?docPages(docBuildModel('invoice',o,docDefaultOptions('invoice'))):[];});
  let pages=[];try{pages=old.length&&typeof archiveWith==='function'?await archiveWith(old,build):build();}catch(e){if(finPreview===p)p.status='Invoices could not be prepared: '+(e&&e.message||e);}
  if(finPreview!==p||p.invoiceKey!==key)return;
  p.invoicePages=pages;p.invoiceCount=list.length;render();
@@ -36547,7 +36574,7 @@ function salesListValue(info,k){
   case 'newLines':v=salesUnbatchedLines(o).length;break;
   case 'units':v=lines.reduce((s,l)=>s+salesPositiveInt(l.qty,1),0);break;
   case 'pcs':v=lines.reduce((s,l)=>s+salesPositiveInt(l.qty,1)*glassBatchComponents(o,l).length,0);break;
-  case 'area':v=Math.round(finWithOrder(o,()=>lines.reduce((s,l)=>{const a=salesLineAreas(l,o);return s+(a.valid?a.actual*salesPositiveInt(l.qty,1):0);},0))*10)/10;break;
+  case 'area':v=Math.round(lines.reduce((s,l)=>{const a=salesLineAreas(l,o);return s+(a.valid?a.actual*salesPositiveInt(l.qty,1):0);},0)*10)/10;break;
   case 'total':{const t=finOrderTotals(o);v=t.complete?finMoney(t.grand):null;break;}
   case 'receipts':v=!q&&finOrderCounts(o)?finOrderPaid(o.id).paid:null;break;
   case 'balance':if(!q&&finOrderCounts(o)){const b=finOrderBalance(o);info.memo.balanceInfo=b;v=b.balance;}break;
@@ -36568,7 +36595,7 @@ function salesListValue(info,k){
   case 'lines':v=lines.length;break;
   /* Пункт 14: известный вес всегда, неполный — с Partial (salesListWeightCell);
      число — для сортировки и фильтра, признак — в memo. */
-  case 'weight':{const w=finWithOrder(o,()=>salesOrderWeight(o));info.memo.weightInfo=w;v=w.kg;break;}
+  case 'weight':{const w=salesOrderWeight(o);info.memo.weightInfo=w;v=w.kg;break;}
   case 'unitType':v=[...new Set((o.makeups||[]).filter(m=>lines.some(l=>l.makeupId===m.id)).map(m=>docUnitLabel(m.unitType)))].join(', ');break;
   case 'shapes':v=lines.filter(salesListShapedLine).length;break;
   case 'validUntil':v=q?(o.validUntil||''):'';break;
@@ -37906,7 +37933,7 @@ function unitRowStation(row){
 }
 /* Сколько стоит отменить юнит: работа по сканам до at. charge null — цена
    строки неполная, сумму вводит продавец. */
-function unitCharge(o,l,u,at){return finWithOrder(o,()=>{
+function unitCharge(o,l,u,at){
  const p=salesLineCommercialPrice(l,o),heat=unitHeatStations(),index=stationPieceIndex(),comps=glassBatchComponents(o,l).filter(c=>!c.missing);
  const seen=u.pieces.map(id=>{const all=stationScansFor(id),before=all.filter(s=>!at||s.at<=at);return {id,c:comps.find(c=>c.key===(index.get(id)||{}).key)||null,scans:before,after:all.length>before.length,tempered:before.some(s=>heat.includes(s.station))};});
  const after=seen.some(x=>x.after),mu=stationUnitMerge(o,l),joined=!!mu&&seen.length>0&&seen.every(x=>x.scans.some(s=>s.station===mu&&s.unit));
@@ -37920,24 +37947,24 @@ function unitCharge(o,l,u,at){return finWithOrder(o,()=>{
   if(!x.c||!x.scans.length)return;const spec=x.c.spec||{},g=glassProductById(spec.glassProductId);
   /* Плиты уже склеены — лайт идёт целиком, с плёнкой. */
   if(x.c.ply){const plies=seen.filter(y=>y.c&&y.c.paneId===x.c.paneId);
-   if(plies.length>1&&plies.every(y=>y.scans.some(s=>s.station===lam&&s.joined))){if(glued.has(x.c.paneId))return;glued.add(x.c.paneId);const v=x.c.pane.priceOverride!=null?x.c.pane.priceOverride:salesPaneCatalogPrice(x.c.pane);if(v==null)known=false;else glass+=v*area;return;}}
-  const full=x.c.ply?salesPlyPrice(spec):(x.c.pane.priceOverride!=null?x.c.pane.priceOverride:salesPaneCatalogPrice(x.c.pane));
+   if(plies.length>1&&plies.every(y=>y.scans.some(s=>s.station===lam&&s.joined))){if(glued.has(x.c.paneId))return;glued.add(x.c.paneId);const v=x.c.pane.priceOverride!=null?x.c.pane.priceOverride:salesPaneCatalogPrice(x.c.pane,o);if(v==null)known=false;else glass+=v*area;return;}}
+  const full=x.c.ply?salesPlyPrice(spec,o):(x.c.pane.priceOverride!=null?x.c.pane.priceOverride:salesPaneCatalogPrice(x.c.pane,o));
   /* Цену продавца не превышаем: отожжённое по прайсу — не дороже цены лайта в заказе. */
-  const an=g?salesGlassSalePrice(g,false):null,rate=x.tempered||full==null?money(full):money(an!=null?Math.min(an,full):full);
+  const an=g?salesGlassSalePrice(g,false,o):null,rate=x.tempered||full==null?money(full):money(an!=null?Math.min(an,full):full);
   if(rate==null)known=false;else glass+=rate*area;
  });
  if(!known)return {stage,after,charge:null,glass:null,works:null};
  /* Работы строки — доля стёкол юнита, прошедших станцию этой работы до at. */
  let works=0;const allTempered=seen.every(x=>x.tempered);
- salesLineChargeRows(l).forEach(row=>{
-  const rate=salesChargePricingState(l,row).effectiveRate;if(rate==null)return;
+ salesLineChargeRows(l,o).forEach(row=>{
+  const rate=salesChargePricingState(l,row,o).effectiveRate;if(rate==null)return;
   const station=unitRowStation(row),share=station?seen.filter(x=>x.scans.some(s=>s.station===station)).length/seen.length:allTempered?1:0;
   works+=salesChargeUnitAmount(row,rate)*share;
  });
  const base=salesMoney(glass+works);let running=base;
  p.adjustments.forEach(a=>{running=salesMoney(running+salesMoney((a.onTop?running:base)*a.percent/100));});
  return {stage,after,charge:running,glass:salesMoney(glass),works:salesMoney(works)};
-});}
+}
 function unitLine(orderId,lineId){
  const o=salesRecord(orderId),l=o&&(o.lines||[]).find(x=>x.id===lineId);
  unitAssert(o&&l&&!salesIsQuote(o)&&!['closed','cancelled'].includes(o.status),'This order cannot change.');return {o,l};
@@ -37994,7 +38021,7 @@ function unitCancel(orderId,lineId,count,reason,opts){return storageCommand(()=>
  /* Порезанное в сток: размер реза и стекло каждого лайта. */
  if(glass==='stock'){const index=stationPieceIndex(),comps=glassBatchComponents(o,l);rec.units.forEach(u=>{if(!u.glass)return;u.pieces.forEach(id=>{
   if(!stationScansFor(id).length)return;const h=index.get(id),c=h&&comps.find(x=>x.key===h.key);if(!c||c.missing)return;
-  let d=null;try{d=finWithOrder(o,()=>stkGlassData('production',o,l,c,h.unit,{}));}catch(e){d=null;}const size=d&&(d.cut||d.finished);
+  let d=null;try{d=stkGlassData('production',o,l,c,h.unit,{});}catch(e){d=null;}const size=d&&(d.cut||d.finished);
   if(size)stockOffcutAdd({glass:c.glass,mm:+(c.spec&&c.spec.thicknessMm)||0,w:size.w,h:size.h,at:now});
  });});}
  o.cancellations=(o.cancellations||[]).concat(rec);l.cancelledUnits=unitCancelled(l)+rec.units.length;
@@ -38259,8 +38286,8 @@ function glassPieceEnsure(o,ctx){
  else{const nextUnits=DB.glassUnitId.filter(r=>!r.key.startsWith(o.id+'|')||units.has(r.key));if(nextUnits.length!==DB.glassUnitId.length){DB.glassUnitId=nextUnits;changed=true;}}
  return changed;
 }
-/* Строки очереди — отдельные стёкла. План резки читает Makeup через soDraft,
-   поэтому считается внутри finWithOrder: очередь работает с сохранённой записью. */
+/* Строки очереди — отдельные стёкла. План резки получает свой заказ
+   параметром: очередь работает с сохранённой записью. */
 /* Стекло со сканом CUT без батча (из стока, Skip) уже порезано: в To batch
    его нет, иначе его порежут второй раз (владелец, 7.10.2026: «в субботу
    стекло могут порезать со стока и выдать клиенту»). */
@@ -38280,7 +38307,7 @@ function glassBatchRows(orders){
  const rows=[],cutDone=glassCutByScan();
  /* Заказ New в очередь не попадает, кроме его Recut: стекло из стока режут без
     Verify, и сломанное стекло должно уйти в батч сразу. */
- (orders||DB.salesOrder||[]).filter(o=>o&&!salesIsQuote(o)&&(GLASS_WAITING_STATUSES.includes(o.status)||o.status==='new'&&glassRecutSlots(o.id).length)).forEach(o=>finWithOrder(o,()=>{
+ (orders||DB.salesOrder||[]).filter(o=>o&&!salesIsQuote(o)&&(GLASS_WAITING_STATUSES.includes(o.status)||o.status==='new'&&glassRecutSlots(o.id).length)).forEach(o=>{
   const regular=GLASS_WAITING_STATUSES.includes(o.status),active=glassBatchActive(o.id),pieces=glassPieceMap(o.id),customer=salesCustomerDisplay(o.customerId),hasCustomer=!!salesFindCustomer(o.customerId),cancelled=glassCancelledSlots(o);
   (o.lines||[]).forEach((l,li)=>{
    if(!glassBatchRemaining(o,l,active,cancelled))return;
@@ -38310,7 +38337,7 @@ function glassBatchRows(orders){
     });
    });
   });
- }));
+ });
  return rows;
 }
 function glassBatchSyncLine(o,l,active){
@@ -39010,17 +39037,15 @@ function stkSheetOf(batch,piece){
 /* kind: production | final. unit — номер изделия или место Recut «R1.2». */
 function stkGlassData(kind,o,l,c,unit,opts){
  opts=opts||{};
- return finWithOrder(o,()=>{
-  const li=o.lines.indexOf(l),m=salesMakeupById(o,l.makeupId),panes=m&&m.panes||[],recut=typeof unit==='string',nr=recut?unit.split('.')[0]:'';
-  /* Размер, контур и маршрут стекла Recut — по его чертежу (erp/quality/recut). */
-  const geo=glassRecutLine(o,l,unit),plan=stkPlan(o,geo),cut=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index);
-  const rec=glassPieceMap(o.id).get(c.key),comps=glassBatchComponents(o,l);
-  return Object.assign(stkOrderData(o,l,li,geo),{kind,id:glassPieceAt(rec,unit)||'',unit:recut?0:unit,of:l.qty,lite:c.lite,lites:panes.length,recut:recut?'RECUT '+nr.replace(/^R/,''):'',batch:opts.batch||'',
-   glass:c.missing?{name:'Glass missing',code:'',mm:null,heat:'',heatSoak:false,surface:'',paint:[],ply:''}:stkGlassInfo(c.pane,c.index,c.ply),
-   cut:stkCut(cut,stkFinished(cut,geo)),finished:stkFinished(cut,geo),area:stkPieceArea(geo,o,cut),weight:stkWeight(geo,o,c.lite),
-   sheet:stkSheetOf(opts.batch,glassPieceAt(rec,unit)),
-   shape:stkShapeOf(cut),route:kind==='production'&&typeof stationRouteOf==='function'?stationRouteOf({o,l,c,unit}):kind==='production'?stkRoute(o,geo,c):null,summary:comps.length>1&&m?salesMakeupSummary(m):''});
- });
+ const li=o.lines.indexOf(l),m=salesMakeupById(o,l.makeupId),panes=m&&m.panes||[],recut=typeof unit==='string',nr=recut?unit.split('.')[0]:'';
+ /* Размер, контур и маршрут стекла Recut — по его чертежу (erp/quality/recut). */
+ const geo=glassRecutLine(o,l,unit),plan=stkPlan(o,geo),cut=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index);
+ const rec=glassPieceMap(o.id).get(c.key),comps=glassBatchComponents(o,l);
+ return Object.assign(stkOrderData(o,l,li,geo),{kind,id:glassPieceAt(rec,unit)||'',unit:recut?0:unit,of:l.qty,lite:c.lite,lites:panes.length,recut:recut?'RECUT '+nr.replace(/^R/,''):'',batch:opts.batch||'',
+  glass:c.missing?{name:'Glass missing',code:'',mm:null,heat:'',heatSoak:false,surface:'',paint:[],ply:''}:stkGlassInfo(c.pane,c.index,c.ply),
+  cut:stkCut(cut,stkFinished(cut,geo)),finished:stkFinished(cut,geo),area:stkPieceArea(geo,o,cut),weight:stkWeight(geo,o,c.lite),
+  sheet:stkSheetOf(opts.batch,glassPieceAt(rec,unit)),
+  shape:stkShapeOf(cut),route:kind==='production'&&typeof stationRouteOf==='function'?stationRouteOf({o,l,c,unit}):kind==='production'?stkRoute(o,geo,c):null,summary:comps.length>1&&m?salesMakeupSummary(m):''});
 }
 /* Владелец, 8 октября 2026: обычный юнит — лайты одного размера; offset /
    step — стикер по большему лайту. Источник — вся действующая сборка,
@@ -39039,22 +39064,20 @@ function stkUnitGeometry(o,l,unit,from){
  return Object.assign({},chosen,{finished:stkFinished(chosen.lite,chosen.geo),plan:lites.length?{valid:true,lites}:null});
 }
 function stkUnitData(o,l,unit,from){
- return finWithOrder(o,()=>{
-  const {geo,lite,finished,plan}=stkUnitGeometry(o,l,unit,from);
-  const li=o.lines.indexOf(l),m=salesMakeupById(o,l.makeupId),panes=m&&m.panes||[],lam=panes.some(p=>p.category==='laminated');
-  const rows=[];
-  panes.forEach((p,i)=>{
-   if(i){const cav=m.cavities[i-1]||{},sp=mdById('spacerVariant',cav.spacerVariantId),gas=mdById('gasProduct',cav.gasProductId),seal=[cav.primarySealantId,cav.secondarySealantId].map(id=>mdById('sealantProduct',id)).filter(Boolean);
-    rows.push({kind:'space',label:'Space',spacer:sp?sp.name:'',gas:gas&&gas.code!=='AIR'?gas.name:'',sealant:seal.map(x=>x.code||x.name).join(' / ')});}
-   if(p.category==='laminated'){const L=p.laminated||{};
-    rows.push({kind:'lam',label:'Lite '+(i+1),outer:stkGlassInfo(p,i,'outer'),inner:stkGlassInfo(p,i,'inner'),films:(L.interlayers||[]).map(f=>{const prod=mdById('interlayerProduct',f.productId);return {name:prod?prod.name:'Interlayer',mm:+f.thicknessMm||null,layers:+f.layers||1};})});}
-   else rows.push({kind:'glass',label:'Lite '+(i+1),glass:stkGlassInfo(p,i,'')});
-  });
-  const mm=m?salesMakeupThicknessMm(m):null,type=m&&m.unitType==='triple'?'Triple IGU':m&&m.unitType==='double'?'IGU':lam?'Laminated glass':'Single lite',muntin=salesLineMuntin(l);
-  return Object.assign(stkOrderData(o,l,li,Object.assign({},geo,{width16:finished.w*16,height16:finished.h*16})),{kind:'unit',id:unitIdAt(o.id,l.id,unit),unit,of:l.qty,lite:'',lites:panes.length,recut:'',batch:'',
-   heading:type+(lam&&m.unitType!=='single'?' · laminated':''),thicknessMm:mm,code:m?salesMakeupSummary(m,'code'):'',rows,muntin:muntin?'Muntins · '+salesMuntinSections(l)+' sections':'',
-   finished,cut:null,area:stkPieceArea(geo,o,lite),weight:stkWeight(geo,o,null,plan),shape:stkShapeOf(lite)});
+ const {geo,lite,finished,plan}=stkUnitGeometry(o,l,unit,from);
+ const li=o.lines.indexOf(l),m=salesMakeupById(o,l.makeupId),panes=m&&m.panes||[],lam=panes.some(p=>p.category==='laminated');
+ const rows=[];
+ panes.forEach((p,i)=>{
+  if(i){const cav=m.cavities[i-1]||{},sp=mdById('spacerVariant',cav.spacerVariantId),gas=mdById('gasProduct',cav.gasProductId),seal=[cav.primarySealantId,cav.secondarySealantId].map(id=>mdById('sealantProduct',id)).filter(Boolean);
+   rows.push({kind:'space',label:'Space',spacer:sp?sp.name:'',gas:gas&&gas.code!=='AIR'?gas.name:'',sealant:seal.map(x=>x.code||x.name).join(' / ')});}
+  if(p.category==='laminated'){const L=p.laminated||{};
+   rows.push({kind:'lam',label:'Lite '+(i+1),outer:stkGlassInfo(p,i,'outer'),inner:stkGlassInfo(p,i,'inner'),films:(L.interlayers||[]).map(f=>{const prod=mdById('interlayerProduct',f.productId);return {name:prod?prod.name:'Interlayer',mm:+f.thicknessMm||null,layers:+f.layers||1};})});}
+  else rows.push({kind:'glass',label:'Lite '+(i+1),glass:stkGlassInfo(p,i,'')});
  });
+ const mm=m?salesMakeupThicknessMm(m,o):null,type=m&&m.unitType==='triple'?'Triple IGU':m&&m.unitType==='double'?'IGU':lam?'Laminated glass':'Single lite',muntin=salesLineMuntin(l);
+ return Object.assign(stkOrderData(o,l,li,Object.assign({},geo,{width16:finished.w*16,height16:finished.h*16})),{kind:'unit',id:unitIdAt(o.id,l.id,unit),unit,of:l.qty,lite:'',lites:panes.length,recut:'',batch:'',
+  heading:type+(lam&&m.unitType!=='single'?' · laminated':''),thicknessMm:mm,code:m?salesMakeupSummary(m,'code'):'',rows,muntin:muntin?'Muntins · '+salesMuntinSections(l)+' sections':'',
+  finished,cut:null,area:stkPieceArea(geo,o,lite),weight:stkWeight(geo,o,null,plan),shape:stkShapeOf(lite)});
 }
 /* Данные стикера остатка из записи DB.stockOffcut. */
 function stkStockData(r){
@@ -39586,7 +39609,7 @@ function cutPieces(batch,settings){
   /* Стекло Recut со своим чертежом режется по нему (erp/quality/recut). */
   const geo=typeof glassRecutLine==='function'?glassRecutLine(o,l,item.unit):l;
   let plan=plans.get(geo);
-  if(!plan){plan=finWithOrder(o,()=>{try{return salesEffectiveCuttingPlan(geo,salesLineGeometryShape(geo),o);}catch(e){return {valid:false};}});plans.set(geo,plan);}
+  if(!plan){try{plan=salesEffectiveCuttingPlan(geo,salesLineGeometryShape(geo),o);}catch(e){plan={valid:false};}plans.set(geo,plan);}
   const lite=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index);if(!lite||!(+lite.cutW>0)||!(+lite.cutH>0))return;
   /* Стекло из прошлого батча режется первым: приоритет 10, пока его не
      поменяли руками (владелец, 5 октября 2026: «дата выполнения ближе»). */
@@ -43274,7 +43297,7 @@ function consKey(table,id){return table+':'+id;}
 function consPerUnit(line,order){
  const out=new Map();
  /* Лайты строки читаются из soDraft — заказ подставляется, как в Finance. */
- finWithOrder(order,()=>salesLineWeight(line,order)).rows.forEach(r=>{
+ salesLineWeight(line,order).rows.forEach(r=>{
   if(!r.table||!r.itemId||!consUnitOf(r.table))return;
   const k=consKey(r.table,r.itemId),waste=1+(r.wastePct||0)/100;
   const q=r.table==='spacerVariant'?(r.perimeterM!=null?r.perimeterM*CONS_FT_PER_M*waste:null):r.usedKg;
@@ -44380,7 +44403,7 @@ function stationRouteOf(g){
  const key=[g.o.id,g.l.id,rk,geo===g.l?'':geo.shapeRef.id+'#'+geo.shapeRef.revision,g.o.updatedAt||''].join('|');
  if(stationRouteCache.has(key))return stationRouteCache.get(key);
  let r=null;
- try{if(g.c&&!g.c.missing)r=finWithOrder(g.o,()=>stkRoute(g.o,geo,g.c));}catch(e){r=null;}
+ try{if(g.c&&!g.c.missing)r=stkRoute(g.o,geo,g.c);}catch(e){r=null;}
  if(!r||!Array.isArray(r.codes)||!r.codes.length){
   /* Маршрут не собрался (нет стекла в Makeup) — стекло всё равно проходит
      резку и отгрузку: станции «always». */
@@ -44816,15 +44839,13 @@ function stationDrawingFits(o,l,a,b){
  const ta=stationDrawingKey(o,l,a.unit),tb=stationDrawingKey(o,l,b.unit);if(ta===tb)return true;
  const covers=(t,key)=>!!t&&(DB.recut||[]).some(r=>r&&r.orderId===o.id&&r.lineId===l.id&&'R'+r.no===t&&(r.keys||[]).includes(key));
  if(covers(ta,b.key)||covers(tb,a.key))return false;
- return finWithOrder(o,()=>{
-  const comps=glassBatchComponents(o,l),ca=comps.find(c=>c.key===a.key),cb=comps.find(c=>c.key===b.key);
-  const pa=stkPlan(o,glassRecutLine(o,l,a.unit)),pb=stkPlan(o,glassRecutLine(o,l,b.unit));
-  if(!ca||!cb||!pa.valid||!pb.valid)return false;
-  const step=p=>p.lites.some(x=>x.inset||Math.abs(x.finishedW-p.lites[0].finishedW)>1e-6||Math.abs(x.finishedH-p.lites[0].finishedH)>1e-6);
-  if(step(pa)||step(pb))return true;
-  const da=pa.lites.find(x=>x.index===ca.index),db=pb.lites.find(x=>x.index===cb.index);
-  return !!da&&!!db&&Math.abs(da.finishedW-db.finishedW)<1e-6&&Math.abs(da.finishedH-db.finishedH)<1e-6;
- });
+ const comps=glassBatchComponents(o,l),ca=comps.find(c=>c.key===a.key),cb=comps.find(c=>c.key===b.key);
+ const pa=stkPlan(o,glassRecutLine(o,l,a.unit)),pb=stkPlan(o,glassRecutLine(o,l,b.unit));
+ if(!ca||!cb||!pa.valid||!pb.valid)return false;
+ const step=p=>p.lites.some(x=>x.inset||Math.abs(x.finishedW-p.lites[0].finishedW)>1e-6||Math.abs(x.finishedH-p.lites[0].finishedH)>1e-6);
+ if(step(pa)||step(pb))return true;
+ const da=pa.lites.find(x=>x.index===ca.index),db=pb.lites.find(x=>x.index===cb.index);
+ return !!da&&!!db&&Math.abs(da.finishedW-db.finishedW)<1e-6&&Math.abs(da.finishedH-db.finishedH)<1e-6;
 }
 /* Стекло p подходит к сборке a: со всеми её стёклами. */
 function stationAsmFits(a,o,l,index,p){return a.recs.every(s=>{const h=index.get(s.piece);return !h||stationDrawingFits(o,l,h,p);});}
@@ -48553,7 +48574,7 @@ function cutEstPieceId(o,line,lite,unit){return String(o.businessNumber||o.id).r
 function cutEstScan(o){
  if(cutEstMemo&&cutEstMemo.has(o.id))return cutEstMemo.get(o.id);
  const pieces=[],skipped=[];
- finWithOrder(o,()=>(o.lines||[]).forEach((l,li)=>{
+ (o.lines||[]).forEach((l,li)=>{
   let plan=null;
   glassBatchComponents(o,l).forEach(c=>{
    const miss=reason=>skipped.push({order:o.businessNumber||'',line:li+1,lite:c.lite,qty:+l.qty||0,reason});
@@ -48564,7 +48585,7 @@ function cutEstScan(o){
    if(!lite||!(+lite.cutW>0)||!(+lite.cutH>0))return miss(plan.reason||'Check cutting geometry');
    for(let unit=1;unit<=(+l.qty||0);unit++)pieces.push({l,c,lite,unit,line:li+1});
   });
- }));
+ });
  const out={pieces,skipped};
  if(cutEstMemo)cutEstMemo.set(o.id,out);
  return out;
@@ -49943,7 +49964,7 @@ function stationDrawingOf(o,l,unit,lite){
  const r=stationDrawRecut(o,l,unit),k=o.id+'|'+l.id+'|'+(r?r.id+JSON.stringify([r.shapeRef,r.liteShapes]):'')+'|'+(o.updatedAt||'')+'|'+(lite==null?'':lite);
  if(stationDrawCache.has(k))return stationDrawCache.get(k);
  let d=null;
- try{d=finWithOrder(o,()=>salesLineDrawing(l,r,lite));}catch(e){d={line:l,error:String(e&&e.message||e)};}
+ try{d=salesLineDrawing(l,r,lite,o);}catch(e){d={line:l,error:String(e&&e.message||e)};}
  if(stationDrawCache.size>200)stationDrawCache=new Map();
  stationDrawCache.set(k,d);return d;
 }
@@ -49953,7 +49974,7 @@ function stationDrawLines(o){return (o&&o.lines||[]).filter(l=>l.shapeRef&&sales
 function stationDrawItems(o){
  const rc=typeof recutForOrder==='function'?recutForOrder(o.id).filter(recutHasShape).map(r=>({id:r.id,l:(o.lines||[]).find(x=>x.id===r.lineId),r})).filter(x=>x.l):[];
  /* За листом ступенчатого юнита — листы его стёкол «Line N · Lite k». */
- const lites=l=>typeof salesLineStepSheets==='function'?finWithOrder(o,()=>salesLineStepSheets(l,o)).map(k=>({id:l.id+'#L'+k,l,r:null,lite:k})):[];
+ const lites=l=>typeof salesLineStepSheets==='function'?salesLineStepSheets(l,o).map(k=>({id:l.id+'#L'+k,l,r:null,lite:k})):[];
  return stationDrawLines(o).flatMap(l=>[{id:l.id,l,r:null}].concat(lites(l))).concat(rc);
 }
 /* unit — место стекла: стекло Recut со своим чертежом открывает лист Recut. */
@@ -50402,7 +50423,7 @@ function stationIguCode(){return typeof salesRouteStationOf==='function'?salesRo
 /* Строка целого U и его стикер используют один готовый размер сборки. */
 function stationIguGeometry(g,unit){
  if(!unit)return stationGeo(g);
- const d=finWithOrder(g.o,()=>stkUnitGeometry(g.o,g.l,unit,g.unit));
+ const d=stkUnitGeometry(g.o,g.l,unit,g.unit);
  return {width16:d.finished.w*16,height16:d.finished.h*16};
 }
 /* Заказы с юнитами IGU, которые ещё не погружены; по каждому — скиды,
@@ -51077,7 +51098,7 @@ let stationAreaCache=new Map();
 function stationSqft(g){
  /* У стекла Recut со своим чертежом — его площадь. */
  const geo=stationGeo(g),k=g.o.id+'|'+g.l.id+'|'+(geo===g.l?'':JSON.stringify(geo.shapeRef))+'|'+(g.o.updatedAt||'');
- if(!stationAreaCache.has(k)){let a=null;try{a=finWithOrder(g.o,()=>stkPieceArea(geo,g.o));}catch(e){}stationAreaCache.set(k,Number.isFinite(+a)&&+a>0?+a:(+geo.width16||0)*(+geo.height16||0)/256/144);}
+ if(!stationAreaCache.has(k)){let a=null;try{a=stkPieceArea(geo,g.o);}catch(e){}stationAreaCache.set(k,Number.isFinite(+a)&&+a>0?+a:(+geo.width16||0)*(+geo.height16||0)/256/144);}
  return stationAreaCache.get(k);
 }
 /* Что здесь и что едет на станцию S (стекло, в маршруте которого S впереди). */
@@ -51604,7 +51625,7 @@ function carrierWhen(iso){const d=finLocalDate(iso);return !d?'':d===finToday()?
    как в Shipping (владелец, 15.10.2026: «для одиночного стекла не увидел
    вес»). */
 function carrierKg(it){
- const k=it.o.id+'|'+it.l.id;if(!carrierWeightMemo.has(k))carrierWeightMemo.set(k,finWithOrder(it.o,()=>salesLineWeight(it.l,it.o)));
+ const k=it.o.id+'|'+it.l.id;if(!carrierWeightMemo.has(k))carrierWeightMemo.set(k,salesLineWeight(it.l,it.o));
  const w=carrierWeightMemo.get(k);if(!w||!(w.rows||[]).length)return null;
  if(it.unit||carrierLites(it)<=1)return w.kg!=null?{kg:w.kg,exact:true}:w.knownKg>0?{kg:w.knownKg,exact:false}:null;
  const c=it.g.c,rows=c?w.rows.filter(r=>String(r.label).startsWith('Lite '+c.lite+' ·')):[];if(!rows.length)return null;
@@ -52856,7 +52877,7 @@ function shippingDocument(s){
   const rows=(o.lines||[]).map((l,n)=>{
    const items=s.items.filter(i=>i.orderId===id&&i.lineId===l.id);
    const before=shippingForOrder(id).filter(p=>p.id!==s.id&&shippingSent(p)).flatMap(p=>p.items).filter(i=>i.orderId===id&&i.lineId===l.id).length;
-   const weight=finWithOrder(o,()=>salesLineWeight(l,o)),m=salesMakeupById(o,l.makeupId);
+   const weight=salesLineWeight(l,o),m=salesMakeupById(o,l.makeupId);
    return {lineId:l.id,line:n+1,mark:l.mark||'',size:docSize(l),makeup:m?salesMakeupSummary(m,'name'):'',ordered:l.qty,before,now:items.length,back:Math.max(0,shippingLineQty(l)-before-items.length),note:shippingCancelNote(o,l,s.id),kg:weight.kg,knownKg:weight.knownKg,skids:[...new Set(items.map(i=>i.skid).filter(Boolean))].join(', ')};
   }).filter(Boolean);
   const extras=(o.extraItems||[]).map(x=>{
@@ -53759,15 +53780,15 @@ function repLineWork(o,l,geo,tag){
  const key=[o.id,o.updatedAt||'',l.id,tag].join('|');
  if(repLineMemo.map.has(key))return repLineMemo.map.get(key);
  let out={rows:[],plan:{valid:false},comps:[],unitType:''};
- try{out=finWithOrder(o,()=>({
-  rows:salesLineChargeRows(geo).map(row=>({row,station:repChargeStation(row),rate:salesChargePricingState(geo,row).catalogRate})).filter(x=>x.station),
+ try{out={
+  rows:salesLineChargeRows(geo,o).map(row=>({row,station:repChargeStation(row),rate:salesChargePricingState(geo,row,o).catalogRate})).filter(x=>x.station),
   plan:stkPlan(o,geo),
   comps:glassBatchComponents(o,l).filter(c=>!c.missing).map(c=>{const info=stkGlassInfo(c.pane,c.index,c.ply),mm=info.mm;return Object.assign({},c,{mm:mm||null,heat:info.heat||'Annealed'});}),
   unitType:(()=>{const m=salesMakeupById(o,l.makeupId);return m?(m.unitType==='single'&&(m.panes||[]).some(p=>p.category==='laminated')?'Laminated':docUnitLabel(m.unitType)):'';})(),
   /* Маршрут каждого стекла со своими работами по шагам — тот же, что на стикере. */
   visits:(()=>{const r=salesPrintRoute(geo,o,salesLineGeometryShape(geo),null),m=new Map();
    glassBatchComponents(o,l).forEach(c=>{const row=r.lites.find(x=>x.label==='Lite '+c.lite)||r.lites[c.index]||r.lites[0];m.set(c.key,row?row.stations.map(s=>({code:s.code,works:s.works||[]})):[]);});return m;})()
- }));}catch(e){}
+ };}catch(e){}
  if(repLineMemo.map.size>4000)repLineMemo.map=new Map();
  repLineMemo.map.set(key,out);return out;
 }
@@ -53781,7 +53802,7 @@ function repGlassWork(g,station,visit){
  const geo=stationGeo(g)||g.l,tag=typeof g.unit==='string'?g.unit:'',lw=repLineWork(g.o,g.l,geo,tag);
  const me=lw.comps.find(c=>c.key===g.c.key);if(!me)return empty;
  const lite=lw.plan&&lw.plan.valid?(lw.plan.lites||[]).find(x=>x.index===g.c.index):null;
- let area=null;try{area=finWithOrder(g.o,()=>stkPieceArea(geo,g.o,lite));}catch(e){}
+ let area=null;try{area=stkPieceArea(geo,g.o,lite);}catch(e){}
  const works=[];
  /* Станция бывает в маршруте дважды: у ламината POLISH до закалки (плиты) и
     после склейки (Lami Polish). Работа засчитывается тому заходу, в маршрут
@@ -53894,13 +53915,14 @@ function repWorkFacts(day){
 /* Цена стекла по прайсу — как Makeup берёт её без ручной правки
    (salesPaneCatalogPrice): каталог стекла, закалённое или нет. У плиты
    ламината — своё стекло и своя закалка. $ за ft². */
-/* Цена прайса — на день сохранения заказа (salesGlassSalePrice в контексте
-   заказа): поменяли прайс сегодня — вчерашние цифры не сдвигаются (владелец,
-   20.10.2026: «измерять результаты корректно день за днём, год за годом»). */
-function repGlassPrice(c){
+/* Цена прайса — на день сохранения заказа (salesGlassSalePrice с заказом
+   order): поменяли прайс сегодня — вчерашние цифры не сдвигаются (владелец,
+   20.10.2026: «измерять результаты корректно день за днём, год за годом»).
+   Без заказа — прайс сегодня. */
+function repGlassPrice(c,order){
  const spec=c&&c.spec||{},g=glassProductById(spec.glassProductId);if(!g)return null;
  const ht=mdById('heatTreatment',spec.heatTreatmentId),code=String(ht&&ht.code||'').toUpperCase();
- const v=salesGlassSalePrice(g,code==='FT'||code==='HS');
+ const v=salesGlassSalePrice(g,code==='FT'||code==='HS',order||null);
  return v==null||v===''||!Number.isFinite(+v)?null:+v;
 }
 function repCompMm(c){const mm=c&&c.pane?stkGlassInfo(c.pane,c.index,c.ply).mm:null;return mm||null;}
@@ -53920,7 +53942,7 @@ function repBreakFacts(){
   const k=g.o.id+'|'+s.recut;if(!byRef.has(k))byRef.set(k,[]);byRef.get(k).push({s,g});
  });
  const row=(kind,ref,src,o,l,c,qty,s)=>{
-  const at=s?s.at:src.createdAt,per=o&&l?finWithOrder(o,()=>{const a=salesLineAreas(l,o);return a&&a.valid?a.actual:0;}):0,area=qty*per,price=o?finWithOrder(o,()=>repGlassPrice(c)):repGlassPrice(c);
+  const at=s?s.at:src.createdAt,per=o&&l?(a=>a&&a.valid?a.actual:0)(salesLineAreas(l,o)):0,area=qty*per,price=repGlassPrice(c,o);
   rows.push({...(o?repOrderInfo(o):{}),...(l?repLineInfo(l):{}),id:kind+'-'+ref+'-'+(s?s.piece:(c?c.key:'')),at,day:repDay(at),hour:repHour(at),kind,ref,station:src.where||'',reason:src.reason||'',
    personId:s?s.byId||s.by||'':'',person:s?s.by||'':'',orderId:o?o.id:'',order:o?o.businessNumber||'':'',customerId:o?o.customerId||'':'',
    glass:c?c.glass:'',mm:repCompMm(c),glassN:qty,area:area||null,usd:price==null||!area?null:area*price});
@@ -53997,9 +54019,9 @@ function repOrderFacts(){
    lines:lines.length,shapes,hold:o.onHold?'On hold':'Not on hold',
    delivery:o.delivery==='delivery'?'Delivery':'Pickup',status:salesStatusLabel(o),state,daysLate:state==='Late'?Math.max(0,days(due,finish||today)):0,ready,
    lead:shipped&&created?Math.max(0,days(created,shipped)):null,units,glassN,late:state==='Late'?1:0,onTimeN:state==='On time'?1:0,judgedN:state==='On time'||state==='Late'?1:0};
-  repLazy(row,'area',()=>finWithOrder(o,()=>lines.reduce((n,l)=>{const a=salesLineAreas(l,o);return n+(a.valid?a.actual*Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l)):0);},0))||null);
+  repLazy(row,'area',()=>lines.reduce((n,l)=>{const a=salesLineAreas(l,o);return n+(a.valid?a.actual*Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l)):0);},0)||null);
   /* Вес — известное, как в Sales (пункт 14); полнота — своим полем. */
-  let ow=null;const owOf=()=>{if(!ow){try{ow=finWithOrder(o,()=>salesOrderWeight(o));}catch(e){ow={kg:null,complete:false};}}return ow;};
+  let ow=null;const owOf=()=>{if(!ow){try{ow=salesOrderWeight(o);}catch(e){ow={kg:null,complete:false};}}return ow;};
   repLazy(row,'kg',()=>owOf().kg);
   repLazy(row,'kgStatus',()=>{const w=owOf();return w.kg==null?'Unavailable':w.complete?'Complete':'Partial';});
   repLazy(row,'total',()=>{const t=finOrderTotals(o);return t&&t.complete?t.grand:null;});
@@ -54020,7 +54042,7 @@ function repOrderedFacts(){
  const rows=[];
  (DB.salesOrder||[]).forEach(o=>{if(salesIsDraft(o))return;
   if(!o||salesIsQuote(o)||o.status==='cancelled')return;
-  finWithOrder(o,()=>(o.lines||[]).forEach(l=>{
+  (o.lines||[]).forEach(l=>{
    const live=Math.max(0,salesPositiveInt(l.qty,1)-unitCancelled(l)),a=salesLineAreas(l,o),per=a&&a.valid?a.actual:0,m=salesMakeupById(o,l.makeupId);
    const unitType=m?(m.unitType==='single'&&(m.panes||[]).some(p=>p.category==='laminated')?'Laminated':docUnitLabel(m.unitType)):'';
    const shape=typeof salesListShapedLine==='function'&&salesListShapedLine(l)?'Shape':'Rectangle';
@@ -54029,7 +54051,7 @@ function repOrderedFacts(){
     rows.push({...repOrderInfo(o),...repLineInfo(l),sizeBand:repSizeBand(per),maker:repMaker(c.glassId),id:o.id+'|'+l.id+'|'+c.key,at:o.createdAt||'',created:salesListIsoDay(o.createdAt),due:o.dueDate||'',order:o.businessNumber||'',customerId:o.customerId||'',
      status:salesStatusLabel(o),glass:c.glass,mm:info.mm||null,heat:info.heat||'Annealed',unitType,shape,glassN:live,area:live*per||null,units:i?0:live});
    });
-  }));
+  });
  });
  repOrderedCache={stamp,rows};
  return rows;
@@ -54092,7 +54114,7 @@ function repQuoteFacts(){
   ms.sort((a,b)=>(a.quoteRev||0)-(b.quoteRev||0));
   const base=ms.find(m=>!m.quoteRev)||ms[0],won=ms.find(m=>m.status==='won'),q=won||ms[ms.length-1],sent=ms.map(m=>m.sentAt||'').filter(Boolean).sort().pop()||'';
   const valid=q.validUntil||'',state=won?'Won':valid&&valid<today?'Expired':sent?'Sent':'Not sent',t=finOrderTotals(q),lines=q.lines||[];
-  const units=lines.reduce((n,l)=>n+salesPositiveInt(l.qty,1),0),area=finWithOrder(q,()=>lines.reduce((n,l)=>{const a=salesLineAreas(l,q);return n+(a.valid?a.actual*salesPositiveInt(l.qty,1):0);},0));
+  const units=lines.reduce((n,l)=>n+salesPositiveInt(l.qty,1),0),area=lines.reduce((n,l)=>{const a=salesLineAreas(l,q);return n+(a.valid?a.actual*salesPositiveInt(l.qty,1):0);},0);
   const value=t&&t.complete?t.grand:null,order=won&&won.wonOrderId?(salesRecord(won.wonOrderId)||{}).businessNumber||(archiveKnown(won.wonOrderId)||{}).number||'':'';
   return {...repOrderInfo(q),id:g,at:base.createdAt||'',created:salesListIsoDay(base.createdAt),sent:salesListIsoDay(sent),validUntil:valid,quote:salesQuoteBaseNumber(base),customerId:q.customerId||'',
    state,won:won?1:0,one:1,revisions:ms.length,units,area:area||null,value,wonValue:won?value:0,order};
@@ -54196,7 +54218,7 @@ function repSoldFacts(want){
   let mine=was&&was.key===k?was.rows:null;
   /* Заказ целиком или никак: сломанный расчёт одного заказа не оставляет
      в отчёте его половину. */
-  if(!mine){mine=[];try{finWithOrder(o,()=>repSoldOrder(o,shipped,mine));}catch(e){mine=[];}repSoldByOrder.set(o.id,{key:k,rows:mine});}
+  if(!mine){mine=[];try{repSoldOrder(o,shipped,mine);}catch(e){mine=[];}repSoldByOrder.set(o.id,{key:k,rows:mine});}
   mine.forEach(x=>rows.push(x));
  });
  if(!pick)repSoldByOrder.forEach((v,id)=>{if(!seen.has(id))repSoldByOrder.delete(id);});
@@ -54211,7 +54233,7 @@ function repSoldOrder(o,shipped,rows){
   if(free&&x.amount!=null)x.amount=0;x.unitPrice=x.amount!=null&&x.qty>0?x.amount/x.qty:null;x.id=o.id+'#'+rows.length;rows.push(x);return x;};
  (o.lines||[]).forEach(l=>repSoldLine(o,l,cad,put));
  (o.extraItems||[]).forEach(x=>{const it=salesExtraItemRow(x.table,x.itemId),n=salesPositiveInt(x.qty,1);
-  put({category:'Catalog items',type:it&&it.subcategory||'Catalog item',product:salesExtraItemName(x),unitName:'pcs',qty:n,pcs:n,amount:cad?salesExtraItemLineTotal(x):null});});
+  put({category:'Catalog items',type:it&&it.subcategory||'Catalog item',product:salesExtraItemName(x),unitName:'pcs',qty:n,pcs:n,amount:cad?salesExtraItemLineTotal(x,o):null});});
  (o.cancellations||[]).forEach(c=>put({category:'Cancelled units',type:'Cancelled units',product:'Charge for cancelled units',unitName:'units',qty:c.units.length,amount:cad?unitChargeOf(c):null}));
  (o.adjustments||[]).forEach(a=>put({category:'Adjustments',type:'Adjustment',product:a.label||'Adjustment',amount:a.amount}));
  const t=finOrderTotals(o);
@@ -54244,7 +54266,7 @@ function repSoldLine(o,l,cad,put){
    unitName,qty,amount:money(r.amount),mm:g&&g.thicknessMm||ply&&+ply.thicknessMm||null,heat:heatOf(ply),maker:g&&g.manufacturer||'',glassFt2:bill*live*plies});
  });
  (p.chargeRows||[]).forEach(row=>{
-  const st=salesChargePricingState(l,row),c=repSoldCharge(row),unitName=repSoldUnit(row.unit),qty=row.basis*live;
+  const st=salesChargePricingState(l,row,o),c=repSoldCharge(row),unitName=repSoldUnit(row.unit),qty=row.basis*live;
   const mm=/ · ([\d.]+) mm$/.exec(row.label||''),work=!['Surcharges'].includes(c.category);
   add(Object.assign(c,{unitName,qty,amount:money(salesChargeUnitAmount(row,st.effectiveRate)),list:money(salesChargeUnitAmount(row,st.catalogRate)),mm:mm?+mm[1]:thick.ok?thick.thickness:null,
    inches:work&&unitName==='in'?qty:0,pcs:work&&unitName==='pcs'?qty:0,workFt2:work&&unitName==='ft²'?qty:0}));
@@ -54298,7 +54320,7 @@ function repShopFacts(){
  (DB.stationScan||[]).forEach(s=>{if(s.undoneAt)return;if(!scansBy.has(s.piece))scansBy.set(s.piece,[]);scansBy.get(s.piece).push(s);});
  (DB.salesOrder||[]).forEach(o=>{if(salesIsDraft(o))return;
   if(!o||salesIsQuote(o)||REP_SHOP_DONE.includes(o.status))return;
-  try{finWithOrder(o,()=>repShopOrder(o,{today,ship,batches,scansBy,rows}));}catch(e){}
+  try{repShopOrder(o,{today,ship,batches,scansBy,rows});}catch(e){}
  });
  repShopCache={stamp,rows};
  return rows;
