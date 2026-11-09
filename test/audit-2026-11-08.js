@@ -204,6 +204,30 @@ module.exports=async function({page,eq}){
   eq('C13: два прихода +5 в одну минуту складываются без конфликта',await w.A.p.evaluate(()=>sinvRowOf('STK-A8').onHand),90);
   await w.close();}
 
+ /* Аудит Codex 09.11.2026: та же защита у выплаты агенту (F06) и пересчёта
+    листов и расходников (F09). */
+ {const w=await twoPcs(()=>{oqReset();DB.referrer=[];DB.referrerPayout=[];const c=oqCustomer();const id=oqOrder(c);salesDraftDrop();a8Pay(c.id,finToday(),100,[{orderId:id,amount:100}]);
+   const r=comSave({name:'Audit Agent',customers:[{customerId:c.id,pct:10}]}).value;return {rid:r.id,oid:id,due:comDue(r).get(id).due};});
+  for(const x of [w.A,w.B])await x.p.evaluate(s=>comPayoutAdd({referrerId:s.rid,date:finToday(),orderIds:[s.oid]}).ok,w.seed);
+  await w.sync();
+  eq('F06: два компьютера платят агенту один долг — одна выплата, второй — конфликт',await w.B.p.evaluate(s=>({payouts:DB.referrerPayout.length,paid:DB.referrerPayout.reduce((n,p)=>n+p.amount,0)===s.due,left:comDue(comFind(s.rid)).get(s.oid).due,warn:/Changed on another computer: Audit Agent/.test(cloudSync.warn)}),w.seed),
+   {payouts:1,paid:true,left:0,warn:true});
+  await w.close();}
+
+ {const w=await twoPcs(()=>{oqReset();DB.inventoryEvent=[];const key='6CLEAR|144x96';invCountSave({[key]:'10'});return {key};});
+  for(const x of [w.A,w.B])await x.p.evaluate(s=>invCountSave({[s.key]:'9'}).ok,w.seed);
+  await w.sync();
+  eq('F09: два пересчёта листов «9» при 10 на стеллаже — 9, а не 8; второй — конфликт',await w.B.p.evaluate(s=>({onRack:invSheetRows().find(r=>r.key===s.key).onRack,warn:/Changed on another computer/.test(cloudSync.warn)}),w.seed),
+   {onRack:9,warn:true});
+  await w.close();}
+
+ {const w=await twoPcs(()=>{oqReset();DB.consumableEvent=[];const k=consRows()[0].key;consCountSave({[k]:'10'});return {k};});
+  for(const x of [w.A,w.B])await x.p.evaluate(s=>consCountSave({[s.k]:'9'}).ok,w.seed);
+  await w.sync();
+  eq('F09: два пересчёта расходника «9» при 10 — 9, а не 8; второй — конфликт',await w.B.p.evaluate(s=>({onHand:consRows().find(r=>r.key===s.k).onHand,warn:/Changed on another computer/.test(cloudSync.warn)}),w.seed),
+   {onHand:9,warn:true});
+  await w.close();}
+
  /* C3: большой Save частями — заказ на другом компьютере поменяли. */
  {const w=await twoPcs(()=>{oqReset();const c=oqCustomer();const id=oqOrder(c);salesDraftDrop();return {oid:id,glass:DB.glassPiece.length};});
   await w.B.p.evaluate(s=>{const o=salesRecord(s.oid);return storageCommand(()=>{o.notes='Edited on B';}).ok;},w.seed);

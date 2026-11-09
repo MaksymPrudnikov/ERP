@@ -126,6 +126,8 @@ function consCountSave(counts,why){
   Object.entries(counts||{}).forEach(([key,v])=>{
    const r=rows.get(key);if(!r)throw new Error('Item not found. Reopen the count.');
    const n=consNumber(v,r.name),before=Math.round(r.onHand*1000)/1000;
+   /* Карточку сервер сверяет — как у листов (F09). */
+   if(typeof cloudGuard==='function'){const[t,...id]=String(key).split(':');cloudGuard(t,id.join(':'));}
    const e=Object.assign({id:salesUid('CE'),key,qty:n-r.onHand,before,after:n},stockReasonOf(why&&why[key]),{at:now,by:actor.by,byId:actor.byId});
    DB.consumableEvent.push(e);out.push(e);
   });

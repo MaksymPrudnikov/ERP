@@ -14,7 +14,8 @@ Customers, Agents, Users and Data.
   widths.
 - **Excel** — the first item in the gear menu of every table (owner, 8 Nov 2026: "it is inside the table and is about
   the table"). An `.xlsx` file: visible columns in screen order, rows after filters, dates and sorting — the same as in
-  the table; at the bottom, totals of the columns that sum in the footer. Numbers as numbers, money with two decimals,
+  the table, also after a screen pill (Delivery — a truck, Not on a truck); at the bottom, totals of the columns that
+  sum in the footer, and the row count in the first column without a sum (Total as the first column keeps its sum). Numbers as numbers, money with two decimals,
   dates as Excel dates, the first row frozen with Excel filters. In Sales: rows ticked — only they go to the file. File
   name — the table and the date (`sales_2026-11-08.xlsx`).
 - **Header** — the ▾ arrow left of the name: filter, condition and sort of the column; drag the edge of a header to
@@ -33,7 +34,8 @@ Customers, Agents, Users and Data.
   green; clear it to remove the filter. Another condition (greater, less, equal, Contains…) is in ▾, and the header
   shows its sign: “> 1000”. If values are ticked in ▾ or a date column has a period (Last 30 days and so on),
   clicking the name opens ▾. Esc closes the field. One click anywhere on the name is enough; dragging the header
-  moves the column and opens no field.
+  moves the column and opens no field. What you type belongs to its table: go to another section and the filter stays
+  with that table, no field appears in another one.
 - **Freeze** — the pin in the Sort row of the column menu: the column moves to the left and stays when the table
   scrolls sideways; its header shows the pin, the edge of the frozen columns has a shadow (text goes under them).
   Click again to unfreeze; Standard view unfreezes all.

@@ -5,7 +5,7 @@ let purMoneyDraft=null,purMoneyOriginal='',purMoneyShowUndone=false,purAccountKe
 (window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!purMoneyDraft&&JSON.stringify(purMoneyDraft)!==purMoneyOriginal);
 function purMoneyLeave(){if(purMoneyDraft&&JSON.stringify(purMoneyDraft)!==purMoneyOriginal&&!confirm('Discard unsaved invoice or payment changes?'))return false;purMoneyDraft=null;purAccountKey='';return true;}
 function purMoneyEdit(kind,id,invoiceId,poId){
- if(!accessCan('purchasing')||!purMoneyLeave()||!purFulfilLeave()||!purOrderLeave())return;
+ if(!accessCan('purchasing')||!purSupplierLeave()||!purMoneyLeave()||!purFulfilLeave()||!purOrderLeave())return;
  const old=id?purMoneyFind(kind,id):null;if(id&&!old)return;
  purNewSupplier=null;purSupplierDraft=null;purView=kind==='invoice'?'invoices':'payments';purMoneyDraft={kind,data:purClone(old||purMoneyClean({date:finToday(),method:kind==='payment'?'Bank transfer':''}))};purNotice='';
  if(invoiceId)purMoneyPickInvoice(invoiceId,false);if(poId)purInvoiceAddPO(poId,false);purMoneyOriginal=JSON.stringify(purMoneyDraft);render();

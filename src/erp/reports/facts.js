@@ -138,6 +138,10 @@ function repHour(iso){const d=new Date(iso);return Number.isNaN(d.getTime())?-1:
    фигура или прямоугольник. Заказ считается один раз на сборку фактов. */
 function repCustomerAddr(c){const list=c&&Array.isArray(c.addresses)?c.addresses:[];return list.find(a=>a&&a.isPrimary)||list.find(a=>a&&a.isInvoice)||list[0]||{};}
 function repCustomerInfo(id){const c=salesFindCustomer(id)||{},a=repCustomerAddr(c);return {rep:c.salesRep||'',city:a.city||'',province:a.province||'',ctype:c.customerType||''};}
+/* Что из клиента и условий оплаты попадает в факты — частью отпечатка кэша:
+   смена Sales rep или срока оплаты не была видна отчёту до F5 (аудит Codex
+   09.11.2026, F08). */
+function repCustomerStamp(){return (DB.customer||[]).map(c=>{const a=repCustomerAddr(c);return [c.id,c.salesRep,c.customerType,a.city,a.province].join(':');}).join(',')+'|'+JSON.stringify(DB.financeTerms||[]);}
 function repOrderInfo(o){
  const t=typeof finTermsFor==='function'?finTermsFor(o)||{}:{};
  return Object.assign(repCustomerInfo(o.customerId),{po:o.customerPo||'',terms:t.paymentMode==='credit'?'Credit':'Cash',due:o.dueDate||'',delivery:o.delivery==='delivery'?'Delivery':'Pickup'});
@@ -151,7 +155,7 @@ let repWorkCache={stamp:'',rows:null},repWorkDayCache={stamp:'',day:'',rows:null
 let repWorkBuilds=0;
 function repWorkStamp(){
  const scans=DB.stationScan||[];let undone=0;scans.forEach(s=>{if(s.undoneAt)undone++;});
- return [scans.length,undone,DB.stationScanSeq,repCatalogStamp(),(DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')).join(',')].join('|');
+ return [scans.length,undone,DB.stationScanSeq,repCatalogStamp(),(DB.salesOrder||[]).map(o=>o.id+(o.updatedAt||'')).join(','),repCustomerStamp()].join('|');
 }
 /* day — только сканы этого дня (Overview и доска станции показывают
    сегодня): на старте не считать работу по всей истории сканов (задание

@@ -91,6 +91,14 @@ function purSupplierFormSave(){
  if(!r.ok){purNotice=r.error;render();return;}
  purSupplierDraft=null;purNotice='';render();
 }
+/* Уход из изменённой карточки поставщика — тот же вопрос, что у PO,
+   приёмки и счёта: смена раздела Purchasing и меню слева стирали её молча
+   (аудит Codex 09.11.2026, F02). */
+function purSupplierLeave(){
+ if(purSupplierDraft&&JSON.stringify(purSupplierDraft)!==purSupplierOriginal&&!confirm('Discard unsaved supplier changes?'))return false;
+ purSupplierDraft=null;return true;
+}
+(window.NAV_GUARDS=window.NAV_GUARDS||[]).push(to=>tab==='purchasing'&&to!=='purchasing'&&!purSupplierLeave());
 function purSupplierCancel(){
  if(purSupplierDraft&&JSON.stringify(purSupplierDraft)!==purSupplierOriginal&&!confirm('Discard changes and return to suppliers?'))return;
  purSupplierDraft=null;purNotice='';render();

@@ -27,7 +27,9 @@ module.exports=async function({page,eq}){
    const s=shippingMarkShipped(ps.value.id);if(!s.ok)throw new Error(s.error);return ps.value.id;};
   window.siC=window.siC||DB.customer.find(c=>c.legalName==='Stock Door Homes');
  });
- const f5=async()=>{await t.p.reload();await t.p.evaluate(()=>window.storageReady);await require('./optimization-fixture')(t.p);await helpers();};
+ /* F5 — после записи: иначе тест зависел от скорости записи в фоне (аудит
+    Codex 09.11.2026, F13). F5 посреди записи — test/audit-2026-11-09.js. */
+ const f5=async()=>{await t.p.evaluate(()=>storageFlush());await t.p.reload();await t.p.evaluate(()=>window.storageReady);await require('./optimization-fixture')(t.p);await helpers();};
  await helpers();
 
  eq('P4-01: поиск в разделе Stock items не находит стекло; All catalog — находит; + New при пустом ответе; другой раздел — снова в разделе',await run(async()=>{

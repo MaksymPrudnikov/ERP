@@ -12,9 +12,15 @@
    ===================================================================== */
 
 const SL_GENERIC={};
-let slScopeNow='',slScopePin='';
-function slGenericScope(){return slScopeNow||slScopePin||'';}
-document.addEventListener('pointerdown',e=>{const w=e.target&&e.target.closest?e.target.closest('[data-sl-scope]'):null;slScopePin=w?w.dataset.slScope:'';},true);
+let slScopeNow='',slScopePin='',slScopePinTab='';
+/* Закреплённая таблица — только в том разделе, где её закрепили: переход
+   ссылкой или кодом (tab=…) мимо меню оставлял чужие колонки (F04). */
+function slGenericScope(){return slScopeNow||(slScopePinTab===tab?slScopePin:'')||'';}
+/* Клавиатура — как мышь: Enter в меню слева после клика в таблице станций
+   оставлял Sales с колонками станций (аудит Codex 09.11.2026, F04). */
+function slScopePinAt(e){const w=e.target&&e.target.closest?e.target.closest('[data-sl-scope]'):null;slScopePin=w?w.dataset.slScope:'';slScopePinTab=tab;}
+document.addEventListener('pointerdown',slScopePinAt,true);
+document.addEventListener('keydown',slScopePinAt,true);
 
 /* Строки: memo — значения всех колонок (фильтр и сортировка читают их). */
 function slInfos(list,id,cols){

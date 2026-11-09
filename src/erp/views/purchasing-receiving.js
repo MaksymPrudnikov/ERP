@@ -9,7 +9,7 @@ function purFulfilLeave(){
  purFulfilDraft=null;purFulfilPreview=false;purPicker=null;return true;
 }
 function purFulfilEdit(kind,id,poId,requestId){
- if(!accessCan('purchasing')||!purMoneyLeave()||!purFulfilLeave()||!purOrderLeave())return;
+ if(!accessCan('purchasing')||!purSupplierLeave()||!purMoneyLeave()||!purFulfilLeave()||!purOrderLeave())return;
  const d=id?purFulfilFind(kind,id):purFulfilFromPO(kind,poId||'',requestId);if(!d)return;
  purNewSupplier=null;purSupplierDraft=null;purView=kind==='receipt'?'receipts':'requests';purFulfilDraft={kind,data:purClone(d)};purFulfilOriginal=JSON.stringify(purFulfilDraft);purNotice='';render();
 }

@@ -96,7 +96,7 @@ function purQuickTest(key,info){
  if(key==='week')return dates.some(d=>d>=week[0]&&d<=week[1]);
  return dates.some(d=>d<today)||!purOrderTotals(p).complete;
 }
-function purOrderListRows(infos){const quick=salesListLoadPrefs().quick||'all';return purView==='orders'&&quick!=='all'?salesListRows(infos,['date']).filter(i=>purQuickTest(quick,i)):salesListRows(infos);}
+function purOrderListRows(infos){const quick=salesListLoadPrefs().quick||'all';return purView==='orders'&&quick!=='all'?salesListShown(salesListRows(infos,['date']).filter(i=>purQuickTest(quick,i))):salesListRows(infos);}
 function purQuickSet(key){const p=salesListLoadPrefs();p.quick=SALES_QUICK.some(q=>q[0]===key)?key:'all';salesListSavePrefs();render();}
 
 function purListDefaults(){return ['orders','receipts','requests','invoices','payments'].includes(purView)?{date:{preset:'last30'}}:purView==='history'?{at:{preset:'last30'}}:{};}

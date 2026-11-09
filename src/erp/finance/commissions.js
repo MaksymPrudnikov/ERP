@@ -88,7 +88,10 @@ function comPayoutAdd(d){
  if(!p.date)return {error:'Enter the date.'};
  if(!plan.pay.length)return {error:'Nothing to pay.'};
  if(plan.total<=0)return {error:'Nothing to pay: earlier payouts cover it.'};
- return finPersist(()=>{if(!Array.isArray(DB.referrerPayout))DB.referrerPayout=[];DB.referrerPayout.push(p);return p;});
+ /* Долг считан по этой копии — строку агента сервер сверяет: второй
+    компьютер, плативший тот же долг, получает конфликт (аудит Codex
+    09.11.2026, F06). */
+ return finPersist(()=>{if(typeof cloudGuard==='function')cloudGuard('referrer',ref.id);if(!Array.isArray(DB.referrerPayout))DB.referrerPayout=[];DB.referrerPayout.push(p);return p;});
 }
 function comPayoutDelete(id){return finPersist(()=>{DB.referrerPayout=(DB.referrerPayout||[]).filter(p=>p.id!==id);return true;});}
 

@@ -58,7 +58,10 @@ function salesListQuickBlur(){
 }
 function salesListQuickApply(){
  const q=salesListQuick;if(!q)return;
- salesListQuickWith(q.wrap,()=>{
+ /* Своя таблица (scope при нажатии), а не та, что на экране сейчас: Enter
+    после перехода в Shipping писал фильтр Sales туда (аудит Codex
+    09.11.2026, F05). */
+ salesListQuickWith(q.scope,()=>{
   const f=salesListLoadPrefs().filters[q.k],c=salesListQuickCond(f),v=String(q.v||'');
   if(salesListFilterActive(f)&&!c)return;
   salesListSetFilter(q.k,v.trim()===''?null:{mode:'include',conds:[{op:c?c.op:'startsWith',v,v2:'',join:'and'}],values:null,preset:''});
@@ -70,7 +73,7 @@ function salesListQuickDecorate(){
  document.querySelectorAll('#app th .sl-fbtn[data-filter-col]').forEach(btn=>{
   const th=btn.closest('th'),lab=th.querySelector('[data-cw-label]');if(!lab||lab.querySelector('.sl-qf'))return;
   const k=btn.dataset.filterCol,wrap=salesListQuickScopeOf(th),q=salesListQuick;
-  if(q&&q.k===k&&q.wrap===wrap){
+  if(q&&q.k===k&&q.wrap===wrap&&q.scope===(wrap||salesListScope())){
    lab.dataset.label=lab.dataset.label||lab.textContent;
    lab.innerHTML=`<input class="sl-qf" data-sl-quick="${esc(k)}" aria-label="Filter ${esc(lab.dataset.label)}" value="${esc(q.v)}" oninput="salesListQuickInput(this)" onkeydown="salesListQuickKey(event,this)" onblur="salesListQuickBlur()">`;
    const i=lab.firstChild;i.focus();try{i.setSelectionRange(i.value.length,i.value.length);}catch(x){}

@@ -142,9 +142,12 @@ create or replace function public.erp_can_read(m public.erp_member, t text) retu
 language sql stable set search_path = public, pg_temp as $$
   select public.erp_can(m, (select read_section from public.erp_table_rule where tbl = t))
 $$;
+-- Отметку Upload (_upload) пишет только администратор: Download ей верит
+-- (аудит Codex 09.11.2026, F07). Не правилом таблицы — erp_rules_set
+-- переписывает их все.
 create or replace function public.erp_can_write(m public.erp_member, t text) returns boolean
 language sql stable set search_path = public, pg_temp as $$
-  select public.erp_can(m, (select write_section from public.erp_table_rule where tbl = t))
+  select (t <> '_upload' or m.admin) and public.erp_can(m, (select write_section from public.erp_table_rule where tbl = t))
 $$;
 -- Строка архива (_archive) читается ещё и по правилу своей таблицы: выписка
 -- `L:<таблица>:<id>` — как та таблица (оплата — как оплата), указатель Sales

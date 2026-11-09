@@ -16,6 +16,10 @@
 /* Строки, которые движок последний раз показал в таблице каждого scope:
    salesListRows без skip их записывает (фильтр меню считает с skip). */
 const salesListLastRows=Object.create(null);
+/* Экран дофильтровал строки после salesListRows (таблетка рейса Delivery,
+   быстрый вид Purchasing) — в Excel идут показанные (аудит Codex 09.11.2026,
+   F10). */
+function salesListShown(rows){salesListLastRows[salesListScope()]=rows;return rows;}
 
 const XLSX_CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
 function xlsxCrc(b){let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=XLSX_CRC[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
@@ -68,7 +72,10 @@ function salesListExcelData(){
   if(c.type==='date')return {v:String(v),t:'d'};
   return {v:Array.isArray(v)?v.join(', '):String(v),t:'s'};};
  const rows=sel.map(r=>cols.map(c=>val(r,c)));
- const foot=cols.some(c=>salesListCalc(c)==='sum')?cols.map((c,i)=>{if(i===0)return {v:sel.length+' rows',t:'s'};if(salesListCalc(c)!=='sum')return null;
+ /* «N rows» — в первую колонку без суммы: Total первой колонкой терял итог
+    (аудит Codex 09.11.2026, F12). Все с суммой — число строк не пишется. */
+ const free=cols.findIndex(c=>salesListCalc(c)!=='sum');
+ const foot=cols.some(c=>salesListCalc(c)==='sum')?cols.map((c,i)=>{if(salesListCalc(c)!=='sum')return i===free?{v:sel.length+' rows',t:'s'}:null;
   return {v:Math.round(rows.reduce((s,x)=>s+(x[i]&&x[i].t==='n'?x[i].v:0),0)*100)/100,t:'n',money:!!c.money};}):null;
  return {scope,head:cols.map(c=>String(c.label).replace(/<[^>]*>/g,'')),rows,foot};
 }
