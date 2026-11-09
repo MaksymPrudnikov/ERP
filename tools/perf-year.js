@@ -318,6 +318,10 @@ const fmt = ms => ms == null ? '—' : ms >= 1000 ? (ms / 1000).toFixed(1) + ' s
   }
   if (o.reports) return reportsOnly(report);
   report.size = await page.evaluate(() => PERF.size());
+  /* Пересчёт готовых цифр с меткой counted: в цеху он идёт сам через 30 с
+     простоя после старта, а GF_NO_ARCHIVE замера его выключает — без метки
+     каждый F5 замера шёл полным проходом (09.11.2026). */
+  report.recount = await page.evaluate(() => { archiveInputAt = 0; return storageRecount(); });
   report.size.disk = await page.evaluate(async () => navigator.storage && navigator.storage.estimate ? (await navigator.storage.estimate()) : null);
 
   for (const cpu of o.cpu) {
