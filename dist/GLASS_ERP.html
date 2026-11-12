@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 205 модулей, 27 стиля.
+  Состав сборки: 206 модулей, 27 стиля.
 -->
 <html lang="en">
 <head>
@@ -4337,7 +4337,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='f33c9b54d7ad';
+var ERP_BUILD='aee01edcacc6';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -14666,7 +14666,7 @@ function salesTransitionChecks(o,next){
  }else if((next==='done'||next==='closed')&&b.balance!=null&&b.balance>0){
   out.push({title:'Order '+num+' has a balance due',sub,rows:[['Order total',finFmt(b.total)],['Paid',finFmt(b.paid)],['Balance due',finFmt(b.balance),true]],
    note:next==='done'?'Take payment first.':'Balance due.',
-   anyway:next==='closed'?'Close anyway':anyway,pay:next==='done'?b.balance:null});
+   anyway:next==='closed'?'Close anyway':anyway,pay:next==='done'?b.balance:null,release:next==='done'?{orderId:o.id,balance:b.balance}:null});
  }
  return out;
 }
@@ -14687,11 +14687,16 @@ function salesRunChecksMany(list,done,anyway){
  /* В подписи — все выбранные заказы: «anyway» отправляет и те, у кого всё в порядке. */
  const n=list.length;
  salesDialogOpen({title:ids.size+' orders need attention',rows:all.map(x=>[x.o.businessNumber+' · '+salesCustomerDisplay(x.o.customerId),x.c.short||x.c.title,true]),
-  note:'Back changes nothing. '+anyway+' — '+(n===2?'both orders':'all '+n+' orders')+'.',buttons:[{label:'Back'},{label:anyway,kind:'pri',run:done}]});
+  note:'Back changes nothing. '+anyway+' — '+(n===2?'both orders':'all '+n+' orders')+'.',buttons:[{label:'Back'},{label:anyway,kind:'pri',run:()=>{all.filter(x=>x.c.release).forEach(x=>salesReleaseLog(Object.assign({},x.c,{anyway})));done();}}]});
 }
-function salesRunChecks(checks,done,takePayment){
- if(!checks.length){done();return;}
- const c=checks[0],rest=()=>salesRunChecks(checks.slice(1),done,takePayment),buttons=[{label:'Back'}];
+/* Выдача с долгом (release) — строка в журнале заказа, когда человек прошёл
+   все окна (владелец 12.11.2026: «выдать несмотря ни на что подтверждает тот,
+   кто печатает»). keep — собрать строки, а не писать: Shipping пишет их,
+   когда прошли окна всех заказов (Back на втором ничего не создаёт). */
+function salesRunChecks(checks,done,takePayment,keep,taken){
+ taken=taken||[];
+ if(!checks.length){if(keep)keep.push(...taken);else taken.forEach(salesReleaseLog);done();return;}
+ const c=checks[0],rest=()=>salesRunChecks(checks.slice(1),done,takePayment,keep,c.release?taken.concat([c]):taken),buttons=[{label:'Back'}];
  /* Take payment — только с галочкой Finance: без неё кнопка уводила в Sales
     (проход 11.10.2026). Окно всё равно показывает долг, решает человек
     (владелец: «решит это на его ответственность… ничего не блокируем»). */
@@ -14755,7 +14760,7 @@ function salesSyncRecordLifecycle(o){
    квитанции тоже в области записи (аудит 29.10.2026, А5). */
 function salesSetRecordStatus(orderId,next,opts){
  if(storageDepth||opts&&opts.deferTouch)return salesSetRecordStatusCommand(orderId,next,opts);
- const paid=next==='cancelled'?(DB.receipt||[]).filter(r=>r.allocations.some(a=>a.orderId===orderId)).map(r=>r.id):[];
+ const paid=next==='cancelled'?finOrderReceiptIds(orderId):[];
  const out=storageCommand(()=>salesSetRecordStatusCommand(orderId,next,opts),Object.assign(salesOrderScope(orderId),{glassBatch:glassBatchEntries(orderId).map(x=>x.batch.number).concat(glassBatchScope([{orderId}],opts).glassBatch),receipt:paid}));return out.ok&&out.value;
 }
 function salesSetRecordStatusCommand(orderId,next,opts){
@@ -14815,16 +14820,11 @@ function salesRestoreOrder(orderId){
  if(!o||o.status!=='cancelled'||!confirm('Restore order '+o.businessNumber+' as New? Batched lines stay locked.'))return;
  salesSetRecordStatus(id,'new',{restore:true});render();
 }
-/* Оплата из очереди не сохраняет посторонний открытый черновик. */
-function salesTakeRecordPayment(orderId,amount){
- const o=salesRecord(orderId);if(!o)return;
- const b=finOrderBalance(o),from=tab,fromSub=subtab;
- if(finNewReceipt(o.customerId)===false)return;
- /* После Save — назад туда, откуда пришли; в Payments — этот заказ. */
- finBack=from!=='finance'?{tab:from,subtab:fromSub}:null;finOrderFilter=o.id;finCustomerFilter='';finPaymentsClearFilters();tab='finance';subtab=null;
- if(b.balance>0){const v=Math.min(salesMoney(+amount||b.balance),b.balance).toFixed(2);finDraft.amount=v;finDraft.apply[o.id]=v;}
- finDraft.note='Order '+o.businessNumber;render();
-}
+/* Оплата из очереди не сохраняет посторонний открытый черновик: форму
+   открывает Finance (finStartOrderPayment, erp/views/finance). */
+function salesTakeRecordPayment(orderId,amount){finStartOrderPayment(orderId,amount);}
+/* Строка журнала заказа: выдали с долгом — сколько и какой кнопкой. */
+function salesReleaseLog(c){if(c&&c.release)orderLogAdd(c.release.orderId,'Released with balance due',finFmt(c.release.balance)+' · '+c.anyway);}
 function salesTakePayment(amount){if(soDraft)salesTakeRecordPayment(soDraft.id,amount);}
 function salesNewOrderForCustomer(customerId){
  salesLeaveDraft(()=>{salesOrderNew('order');if(customerId){salesApplyCustomerDefaults(customerId);render();}});
@@ -15657,6 +15657,7 @@ function finNextReceiptNumber(){
  return 'R-'+String(max+1).padStart(4,'0');
 }
 function normalizeReceipts(){
+ finMark('receipt');
  if(!Array.isArray(DB.receipt))DB.receipt=[];
  const orders=new Map((DB.salesOrder||[]).map(o=>[o.id,o])),ids=new Set(),numbers=new Set(),known=id=>orders.get(id)||(typeof archiveKnown==='function'?archiveKnown(id):null);
  DB.receipt=DB.receipt.filter(x=>x&&typeof x==='object'&&!Array.isArray(x)).map(x=>{
@@ -15786,6 +15787,7 @@ function finCustomerAccount(c){
    которых есть незачтённый остаток; в заказ ложится не больше его долга.
    receiptIds — только из этих квитанций (окно Allocate payments). */
 function finApplyDeposit(customerId,orderId,amount,receiptIds){
+ finNeedAccess();
  const order=(DB.salesOrder||[]).find(o=>o.id===orderId);
  if(!order||order.customerId!==customerId||!finOrderCounts(order)||finCurrency(order)!=='CAD')return 0;
  const b=finOrderBalance(order);if(b.status!=='due')return 0;
@@ -15805,6 +15807,7 @@ function finApplyDeposit(customerId,orderId,amount,receiptIds){
    заказы по порядку orderIds, каждому не больше его долга. amount — потолок
    (Ask amount); без него разносится сколько хватает. */
 function finAllocate(customerId,orderIds,receiptIds,amount){
+ finNeedAccess();
  let left=amount==null?Infinity:finMoney(amount),done=0;
  (orderIds||[]).forEach(id=>{
   const o=(DB.salesOrder||[]).find(x=>x.id===id);if(!o||!(left>0))return;
@@ -15828,6 +15831,7 @@ async function finBringBack(ids){
 /* Снять разнесение: деньги квитанции из заказа возвращаются на счёт клиента.
    pairs — [{receiptId, orderId}], каждая пара снимается целиком. */
 function finUnallocate(customerId,pairs){
+ finNeedAccess();
  let moved=0;const now=new Date().toISOString();
  (pairs||[]).forEach(p=>{
   const r=(DB.receipt||[]).find(x=>x.id===p.receiptId),a=r&&r.allocations.find(x=>x.orderId===p.orderId);
@@ -15842,6 +15846,7 @@ function finUnallocate(customerId,pairs){
 /* Заказ подешевел после оплаты — лишнее уходит обратно на депозит, начиная с
    последних квитанций. */
 function finReleaseOverpayment(order){
+ finNeedAccess();
  const b=finOrderBalance(order);if(b.status!=='overpaid')return 0;
  let extra=finMoney(-b.balance),moved=0;const now=new Date().toISOString();
  finActiveReceipts().slice().sort((x,y)=>finDocOrder(y,x)).forEach(r=>{
@@ -15878,9 +15883,17 @@ function finReleaseCurrency(order){
   finEvent('released',before,r,'Order currency changed to '+finCurrency(order)+'; allocation returned to deposit.');
  });
 }
+/* Оплаты заказа для других разделов: Sales берёт их в область записи
+   отмены и Save, не открывая таблицу оплат сам (этап 5, 12.11.2026). */
+function finOrderReceiptIds(orderId){return (DB.receipt||[]).filter(r=>r.allocations.some(a=>a.orderId===orderId)).map(r=>r.id);}
+/* Дата последней оплаты заказа — под отметкой PAID документов. */
+function finLastPaymentDate(orderId){return (DB.receipt||[]).filter(r=>!r.voided&&(r.allocations||[]).some(a=>a.orderId===orderId&&+a.amount>0)).map(r=>r.date).sort().pop()||'';}
+/* Последние квитанции, новые сверху (образец квитанции в конструкторе форм). */
+function finLatestReceipts(limit){return (DB.receipt||[]).slice().sort((a,b)=>String(b.number).localeCompare(String(a.number),undefined,{numeric:true})).slice(0,limit);}
 /* Ошибочная квитанция не удаляется, а аннулируется с причиной: остаётся в
    списке для сверки с QuickBooks и перестаёт считаться в балансах. */
 function finVoidReceipt(id,reason){
+ finNeedAccess();
  const r=(DB.receipt||[]).find(x=>x.id===id);if(!r||r.voided||!String(reason||'').trim()||finRefunded(id)>0)return false;
  finArchivedGuard(r.allocations.map(a=>a.orderId));
  finEnsureHistory(r);const before=finCopy(r);
@@ -15901,6 +15914,30 @@ function finOrderNumber(id){const o=(DB.salesOrder||[]).find(x=>x.id===id),a=!o&
 DEFAULT.refund=[];DEFAULT.financeEvent=[];DEFAULT.financeTerms=[];DEFAULT.financeExport=[];DEFAULT.financeExportBatch=[];DEFAULT.financeVersion=1;
 const FIN_TABLES=['refund','financeEvent','financeTerms','financeExport','financeExportBatch'];
 for(const k of FIN_TABLES)if(!Array.isArray(DB[k]))DB[k]=[];
+/* Таблицы денег пишет только Finance (план «до 10», этап 5, 12.11.2026).
+   Другие разделы зовут его команды (erp/finance/api: FIN_API). Сторож —
+   test/finance-api.js: по тексту кода никто вне Finance не пишет в эти
+   таблицы, а в тестах (GF_SCOPE_CHECK) каждая командная запись, тронувшая
+   таблицу денег, должна быть отмечена Finance (finMark) — иначе в консоли
+   «Money outside Finance». Отметку ставят: журнал денег (finEvent), условия
+   (finCaptureTerms), выгрузка QuickBooks, запись Finance (finPersist),
+   приведение базы при загрузке; архив переносит строки целиком. */
+const FIN_OWN=['receipt','refund','financeTerms','financeEvent','financeExport','financeExportBatch','referrer','referrerPayout'];
+const finMarked=new Set();
+function finMark(...tables){(tables.length?tables:FIN_OWN).forEach(t=>finMarked.add(t));}
+/* Начало команды записи (storageCommand): прошлые отметки не в счёт. */
+function finGuardReset(){finMarked.clear();}
+/* touch(): checked — запись команды (с областью). Записанные таблицы
+   отметки теряют: следующая запись отмечается заново. */
+function finGuardCheck(changes,checked){
+ const hit=new Map();changes.forEach(c=>{if(FIN_OWN.includes(c.tbl)&&!hit.has(c.tbl))hit.set(c.tbl,c.id);});
+ hit.forEach((id,t)=>{if(checked&&!finMarked.has(t))console.error('Money outside Finance: '+t+' '+id);finMarked.delete(t);});
+}
+/* Деньги вносит, исправляет и возвращает только тот, у кого галочка Finance
+   (владелец 12.11.2026: Sales кладёт деньги с листом бумаги, водитель отдаёт
+   чек — вносит бухгалтер). Переносы по отмене, удалению и Save заказа
+   (finReleaseOrder, finReleaseCurrency, finCaptureTerms) — у всех. */
+function finNeedAccess(key){finAssert(typeof accessCan!=='function'||accessCan(key||'finance'),key==='commissions'?'Commissions access is required.':'Finance access is required to record money.');}
 const FIN_EVENT_LABELS={opening:'Opening record',received:'Payment received',corrected:'Payment corrected',allocated:'Deposit allocated',released:'Allocation released',voided:'Payment voided',refunded:'Money refunded',refund_voided:'Refund voided',terms:'Payment terms changed'};
 /* Who recorded an entry. Stays empty until the app has sign-in: a name picked
    by hand is not evidence, so the screen no longer asks for it. */
@@ -15914,6 +15951,7 @@ function finRefunded(id){return finMoney((DB.refund||[]).filter(r=>r.receiptId==
 function finHistoryFor(id){return (DB.financeEvent||[]).filter(e=>e.entityId===id);}
 function finJournalTop(){return (DB.financeEvent||[]).reduce((n,e)=>Math.max(n,e.seq||0),typeof archiveFloor==='function'?archiveFloor('financeEvent'):0);}
 function finEvent(kind,before,after,reason,entity){
+ finMark('financeEvent',{refund:'refund',terms:'financeTerms'}[entity]||'receipt');
  const r=after||before,customer=(DB.customer||[]).find(c=>c.id===r.customerId);
  const number=r.number||finOrderNumber(r.orderId),snapshot=x=>x?finCopy(x):null;
  /* С сервером номер — из блока: у двух компьютеров «последний + 1» совпадал,
@@ -15927,6 +15965,7 @@ function finEvent(kind,before,after,reason,entity){
 }
 function finEnsureHistory(r){if(!finHistoryFor(r.id).length)finEvent('opening',null,r,'Existing record; earlier changes are not available.');}
 function normalizeFinanceLedger(){
+ finMark();
  for(const k of FIN_TABLES)if(!Array.isArray(DB[k]))DB[k]=[];
  /* Invoice хранится на заказе: его отметка тоже переживает загрузку базы. */
  const alive=new Set((DB.receipt||[]).concat(DB.refund||[],DB.salesOrder||[]).map(x=>x&&x.id));
@@ -15940,7 +15979,7 @@ function normalizeFinanceLedger(){
 }
 /* Commit money and its history together. A failed write leaves the UI draft
    available, and restores the previous in-memory balances. */
-function finPersist(fn,scope){return storageCommand(fn,scope);}
+function finPersist(fn,scope){return storageCommand(()=>{finMark();return fn();},scope);}
 /* Область записи оплаты (storageCommand): оплата, история денег, заказы, на
    которые она легла. */
 function finReceiptScope(d,id){return {receipt:id?[id]:[],financeEvent:[],salesOrder:(d&&d.allocations||[]).map(a=>a.orderId)};}
@@ -15949,6 +15988,7 @@ function finReceiptDuplicates(d,id){
  return (DB.receipt||[]).filter(r=>!r.voided&&r.id!==id&&r.customerId===d.customerId&&r.method===d.method&&r.reference.trim().toLowerCase()===ref);
 }
 function finSaveReceiptRecord(d,id,reason,allowDuplicate){
+ finNeedAccess();
  const old=id?(DB.receipt||[]).find(r=>r.id===id):null;
  finAssert(!id||!!old,'Payment not found.');finAssert(!old||!old.voided,'A void payment cannot be edited.');
  finAssert(!!salesFindCustomer(d.customerId),'Select a customer');
@@ -15981,6 +16021,7 @@ function finSaveReceiptRecord(d,id,reason,allowDuplicate){
  DB.receipt.push(next);finEvent('received',null,next,'');return next;
 }
 function finCreateRefund(d){
+ finNeedAccess();
  const r=DB.receipt.find(r=>r.id===d.receiptId);
  finAssert(r&&!r.voided,'Select an active payment.');finAssert(finCurrency(r)==='CAD','Refunds currently support CAD only.');
  const cents=finCents(d.amount);finAssert(cents!=null&&cents>0,'Enter a positive refund amount.');
@@ -15997,6 +16038,7 @@ function finCreateRefund(d){
  DB.refund.push(out);finEvent('refunded',null,out,out.reason,'refund');return out;
 }
 function finVoidRefund(id,reason){
+ finNeedAccess();
  const r=DB.refund.find(r=>r.id===id);finAssert(r&&!r.voided,'Refund not found or already void.');finAssert(String(reason||'').trim(),'Enter a reason.');
  const before=finCopy(r);r.voided=true;r.voidReason=String(reason).trim().slice(0,300);r.voidedAt=new Date().toISOString();finEvent('refund_voided',before,r,r.voidReason,'refund');return r;
 }
@@ -16012,10 +16054,12 @@ function finCaptureTerms(o){
  if(!o||o.kind==='quote')return;
  const at=DB.financeTerms.findIndex(t=>t.orderId===o.id),old=DB.financeTerms[at];
  if(old&&old.customerId===o.customerId)return;
+ finMark('financeTerms');
  const next=Object.assign({},finTermsFor(o),{capturedAt:new Date().toISOString()});
  if(old){DB.financeTerms[at]=next;finEvent('terms',old,next,'Order customer changed.','terms');}else DB.financeTerms.push(next);
 }
 function finSaveTerms(orderId,d,reason){
+ finNeedAccess();
  const o=(DB.salesOrder||[]).find(o=>o.id===orderId);finAssert(o&&finOrderCounts(o),'Select an active order.');
  finAssert(['cash','credit'].includes(d.paymentMode),'Select payment terms.');
  const pct=Number(d.depositPercent),days=d.creditDays===''||d.creditDays==null?null:Number(d.creditDays);
@@ -16213,7 +16257,7 @@ function finExportPending(){
 }
 function finExportLastBatch(){return (DB.financeExport||[]).concat(DB.financeExportBatch||[]).reduce((n,e)=>Math.max(n,e.batch||0),0);}
 function finExportMark(list){
- finAssert(list.length,'Nothing new to export.');
+ finNeedAccess();finAssert(list.length,'Nothing new to export.');finMark('financeExport','financeExportBatch');
  const batch=finExportLastBatch()+1,at=new Date().toISOString();
  const states=new Map(list.map(x=>[x.x.id,x.state]));
  DB.financeExportBatch.push({batch,at,name:'quickbooks_'+finToday()+'_'+String(batch).padStart(3,'0')+'.csv',csv:finMovementsCSV(list.filter(x=>x.kind==='receipt').map(x=>x.x),list.filter(x=>x.kind==='refund').map(x=>x.x),states,list.filter(x=>x.kind==='invoice').map(x=>x.x))});
@@ -16305,6 +16349,7 @@ function comPayoutClean(p){
  return {id:comStr(p.id,60),referrerId:comStr(p.referrerId,60),date:/^\d{4}-\d{2}-\d{2}$/.test(p.date||'')?p.date:'',amount:finMoney(orders.reduce((n,x)=>n+x.amount,0)),note:comStr(p.note,300),createdAt:comStr(p.createdAt,40),orders};
 }
 function normalizeCommissions(){
+ finMark('referrer','referrerPayout');
  const ids=new Set(),owner=new Set();
  DB.referrer=(Array.isArray(DB.referrer)?DB.referrer:[]).filter(r=>r&&typeof r==='object'&&comStr(r.id)&&!ids.has(r.id)&&(ids.add(r.id),true)).map(comClean).filter(r=>r.name);
  DB.referrer.forEach(r=>{r.customers=r.customers.filter(c=>!owner.has(c.customerId)&&(owner.add(c.customerId),true));});
@@ -16328,6 +16373,7 @@ function comSave(d){
  if(r.customers.some(c=>!salesFindCustomer(c.customerId)))return {error:'Pick a customer.'};
  if(r.customers.some(c=>!c.pct))return {error:'Enter a percent from 0.01 to 100.'};
  return finPersist(()=>{
+  finNeedAccess('commissions');
   if(!Array.isArray(DB.referrer))DB.referrer=[];
   const mine=new Set(r.customers.map(c=>c.customerId));
   DB.referrer.forEach(x=>{if(x.id!==r.id)x.customers=x.customers.filter(c=>!mine.has(c.customerId));});
@@ -16335,7 +16381,7 @@ function comSave(d){
   return r;
  });
 }
-function comDelete(id){return finPersist(()=>{DB.referrer=(DB.referrer||[]).filter(r=>r.id!==id);DB.referrerPayout=(DB.referrerPayout||[]).filter(p=>p.referrerId!==id);return true;});}
+function comDelete(id){return finPersist(()=>{finNeedAccess('commissions');DB.referrer=(DB.referrer||[]).filter(r=>r.id!==id);DB.referrerPayout=(DB.referrerPayout||[]).filter(p=>p.referrerId!==id);return true;});}
 /* Выплата по выбранным заказам: каждый — на свой долг сейчас. Заказ без
    долга в выплату не входит — дважды за один заказ не заплатить. Переплата
    по другим заказам (оплату клиента перенесли на другой заказ, заказ
@@ -16358,9 +16404,9 @@ function comPayoutAdd(d){
  /* Долг считан по этой копии — строку агента сервер сверяет: второй
     компьютер, плативший тот же долг, получает конфликт (аудит Codex
     09.11.2026, F06). */
- return finPersist(()=>{if(!Array.isArray(DB.referrerPayout))DB.referrerPayout=[];DB.referrerPayout.push(p);return p;});
+ return finPersist(()=>{finNeedAccess('commissions');if(!Array.isArray(DB.referrerPayout))DB.referrerPayout=[];DB.referrerPayout.push(p);return p;});
 }
-function comPayoutDelete(id){return finPersist(()=>{DB.referrerPayout=(DB.referrerPayout||[]).filter(p=>p.id!==id);return true;});}
+function comPayoutDelete(id){return finPersist(()=>{finNeedAccess('commissions');DB.referrerPayout=(DB.referrerPayout||[]).filter(p=>p.id!==id);return true;});}
 
 /* Итоги заказа считаются один раз за экран (ревью 12.10.2026: каждый
    показ считал их ~10 раз на заказ — секунды на сотнях заказов). comScope —
@@ -16417,6 +16463,96 @@ function comSummary(ref,range){
  return {rows,orders:rows.length,base:sum(rows,'base'),paid:sum(rows,'paid'),com:sum(rows,'com'),comHst:sum(rows,'comHst'),
   earned:sum(all,'com'),earnedHst:sum(all,'comHst'),paidOut,toPay:finMoney(sum(all,'com')-paidOut),toPayHst:finMoney(sum(all,'comHst')-paidOut)};
 }
+
+/* ==== src/erp/finance/api.js ==== */
+/* =====================================================================
+   erp/finance/api  ·  finance-api-1.0
+   Что Finance даёт другим разделам: список имён с одной строкой «что
+   делает». Таблицы денег (FIN_OWN в erp/finance/ledger) пишет только
+   Finance; Sales, Shipping, документы, отчёты, архив и база зовут эти
+   имена и ничего другого из Finance (план «до 10», этап 5, 12.11.2026).
+   IN : функции erp/finance/* и экранов Finance (erp/views/finance*,
+        erp/views/commissions)
+   OUT: FIN_API — набор имён (что делает — комментарий у имени); сверяет
+        test/finance-api.js
+   Имена остаются прежними (глобальные функции раздела, как в плане:
+   «явные функции раздела»), список — договор. Нужно новое имя снаружи —
+   сначала строка здесь, иначе сторож красный.
+   ===================================================================== */
+const FIN_API=new Set([
+ /* Команды для других разделов: переносы денег, которые делает сама система. */
+ 'finCaptureTerms', // Save заказа: запомнить условия оплаты (новый клиент — новые условия, запись в журнал денег).
+ 'finReleaseOrder', // Отмена или удаление заказа: его оплаты уходят на депозит клиента.
+ 'finReleaseCurrency', // Смена валюты заказа: оплаты в прежней валюте уходят на депозит.
+ 'finCurrencyMoved', // Какие оплаты уйдут на депозит при смене валюты (Save спрашивает об этом).
+ /* Чтения: деньги заказа. */
+ 'finOrderTotals', // Итог заказа (Subtotal, HST, Total) из расчёта самого заказа.
+ 'finOrderPaid', // Сколько разнесено на заказ.
+ 'finOrderBalance', // Итог, оплачено, долг и состояние заказа (due, paid, overpaid, review).
+ 'finOrderFinancial', // Деньги заказа для таблиц: долг, срок, просрочка.
+ 'finOrderCounts', // Считается ли заказ в деньгах (не квота, не черновик, не отменён).
+ 'finOrderReceiptIds', // Квитанции, разнесённые на заказ (область записи отмены и Save).
+ 'finLastPaymentDate', // Дата последней оплаты заказа (отметка PAID документов).
+ 'finTermsFor', // Условия оплаты заказа: cash или credit, депозит, дни.
+ 'finBillingDate', // День счёта заказа.
+ 'finInvoiceDate', // День счёта, если заказ выдан.
+ 'finPaymentDue', // Срок оплаты заказа.
+ /* Чтения: деньги клиента. */
+ 'finCustomerAccount', // Счёт клиента: долг, депозит, лимит.
+ 'finCustomerMoney', // Долг, просрочка и депозит клиента для таблицы Customers.
+ 'finCustomerOverdue', // Просрочка клиента.
+ 'finActiveReceipts', // Действующие (не аннулированные) квитанции.
+ 'finReceiptOnAccount', // Свободный остаток квитанции на счёте клиента.
+ 'finLatestReceipts', // Последние квитанции, новые сверху (образец в конструкторе форм).
+ /* Чтения: выписка, квитанция, выгрузка QuickBooks — документы и архив. */
+ 'finStatementLines', // Строки выписки клиента.
+ 'finStatementOrderLine', // Строка выписки: заказ.
+ 'finStatementPaymentLine', // Строка выписки: оплата.
+ 'finStatementRefundLine', // Строка выписки: возврат.
+ 'finStatementModel', // Выписка клиента для бланка.
+ 'finReceiptModel', // Квитанция для бланка.
+ 'finDocBase', // Общие поля бланков Finance.
+ 'finDocTable', // Таблица бланка Finance.
+ 'finMonthRange', // Первый и последний день месяца со сдвигом.
+ 'finExportRecord', // Отметка выгрузки QuickBooks у заказа или оплаты.
+ 'finExportPending', // Что ещё не выгружено в QuickBooks (архив ждёт выгрузки).
+ /* Экраны Finance, которые открывают из других разделов. */
+ 'finStartOrderPayment', // Take payment: форма оплаты на этот заказ, после Save — назад.
+ 'finDropDrafts', // Выход из входа: забыть недописанную оплату.
+ 'finApplyModal', // Окно зачёта депозита в заказ (из заказа в Sales).
+ 'finCustomerStrip', // Полоса денег клиента в карточке Customers.
+ 'finListScope', // Таблица Finance в общем движке таблиц Sales: какая.
+ 'finListColumns', // Колонки таблиц Finance.
+ 'finListDefaults', // Колонки по умолчанию таблиц Finance.
+ 'finListDefaultSort', // Сортировка по умолчанию таблиц Finance.
+ 'finListDateColumn', // Колонка даты таблиц Finance.
+ 'finListInfos', // Строки таблиц Finance.
+ 'finListContextHTML', // Правый клик в таблицах Finance.
+ 'finConfirmApply', // Кнопка записи Finance (база узнаёт её по onclick).
+ 'finExportQuickBooks', // Кнопка выгрузки QuickBooks (база узнаёт её по onclick).
+ 'comListScope', // Таблица Agents в общем движке таблиц: какая.
+ 'comListColumns', // Колонки таблицы Agents.
+ 'comHstHidden', // Скрыта ли HST в комиссиях.
+ 'comDue', // Долг комиссии агенту по заказам.
+ 'comOrders', // Заказы агента за период.
+ 'comWithScope', // Один проход расчёта комиссий на отчёт.
+ /* База, облако, архив: служебное. */
+ 'finValidatePayload', // Import: проверка денег в файле базы.
+ 'finJournalTop', // Последний номер журнала денег (счётчик сервера).
+ 'finTotalsWarm', // Прогреть итоги заказов после загрузки.
+ 'finTotalsForget', // Забыть итоги изменившихся заказов.
+ 'finTotalsKeep', // Держать итоги заказов архива на время отчёта.
+ 'finMark', // Архив: строки денег переносятся целиком (отметка для сторожа).
+ 'finGuardReset', // База: начало команды записи — сторож денег с нуля.
+ 'finGuardCheck', // База, тесты: запись тронула таблицу денег без Finance.
+ /* Общие помощники: дата и деньги — ими пользуются все разделы. */
+ 'finToday', // Сегодня, ГГГГ-ММ-ДД.
+ 'finLocalDate', // Дата по часам цеха из времени ISO.
+ 'finAddDays', // Дата плюс дни.
+ 'finMoney', // Округление денег до цента.
+ 'finFmt', // Деньги для экрана: $1,234.56.
+ 'finCurrency', // Валюта записи, по умолчанию CAD.
+]);
 
 /* ==== src/erp/purchasing/suppliers.js ==== */
 /* =====================================================================
@@ -18773,7 +18909,7 @@ function signinMarkOwner(){
 }
 function signinFresh(){
  try{if(typeof soDraft!=='undefined'&&soDraft){if(typeof storageWriter!=='undefined'&&storageWriter&&typeof salesDraftDrop==='function')salesDraftDrop(true);else{soDraft=null;soEdit=null;}}}catch(e){}
- try{if(typeof finDraft!=='undefined'){finDraft=null;finAction=null;}}catch(e){}
+ try{if(typeof finDropDrafts==='function')finDropDrafts();}catch(e){}
  location.reload();
 }
 /* Первый пароль ставят только в Users (владелец, 3 октября 2026): самому
@@ -19434,7 +19570,7 @@ function salesRebaseDraft(current){
    29.10.2026, А4). */
 function salesOrderScope(id){
  const own=id&&id!=='new'?[id]:[];
- return {salesOrder:own,financeTerms:own,financeEvent:[],receipt:own.length?(DB.receipt||[]).filter(r=>r.allocations.some(a=>a.orderId===id)).map(r=>r.id):[],glassPiece:true,glassPieceSeq:true,glassUnitId:true,glassUnitIdSeq:true,glassBatch:own.length?glassBatchEntries(id).map(x=>x.batch.number):[]};
+ return {salesOrder:own,financeTerms:own,financeEvent:[],receipt:own.length?finOrderReceiptIds(id):[],glassPiece:true,glassPieceSeq:true,glassUnitId:true,glassUnitIdSeq:true,glassBatch:own.length?glassBatchEntries(id).map(x=>x.batch.number):[]};
 }
 /* opts.bg — кнопка: большой заказ сохраняется в фоне (erp/sales/save-job);
    opts.noRender — экран нарисует он сам, opts.failed — ему текст отказа:
@@ -19481,7 +19617,7 @@ function salesOrderSaveCommand(opts){
  if(!salesIsQuote(soDraft)&&!String(soDraft.customerPo||'').trim())return fail(e,'Enter the Customer PO.');
  previousOrder=DB.salesOrder.find(o=>o.id===soDraft.id);
  const shippingError=shippingSaveGuard(soDraft,previousOrder);if(shippingError)return fail(e,shippingError);
- if(previousOrder&&previousOrder.customerId!==soDraft.customerId&&(DB.receipt||[]).some(r=>r.allocations.some(a=>a.orderId===soDraft.id)))return fail(e,'This order has payment records. Its customer cannot change.');
+ if(previousOrder&&previousOrder.customerId!==soDraft.customerId&&finOrderReceiptIds(soDraft.id).length)return fail(e,'This order has payment records. Its customer cannot change.');
  /* Другая валюта — оплаты в прежней уходят на счёт клиента (C2). */
  const curMoved=typeof finCurrencyMoved==='function'?finCurrencyMoved(soDraft).filter(r=>!r.voided):[];
  if(curMoved.length&&!ask('Order currency is now '+soDraft.currency+'. Payments '+curMoved.map(r=>r.number).join(', ')+' ('+curMoved.map(r=>'$'+r.allocations.find(a=>a.orderId===soDraft.id).amount.toFixed(2)+' '+finCurrency(r)).join(', ')+') go back to the customer account.\n\nSave the order?')){render();return false;}
@@ -24472,7 +24608,7 @@ function docInvoiceShipTo(order){
 }
 /* Дата последней оплаты заказа — под отметкой PAID. */
 function docLastPaidOn(order){
- return (DB.receipt||[]).filter(r=>!r.voided&&(r.allocations||[]).some(a=>a.orderId===order.id&&+a.amount>0)).map(r=>r.date).sort().pop()||'';
+ return finLastPaymentDate(order.id);
 }
 function docCompanyBlock(src){
  const c=src||DB.company||{};
@@ -25977,7 +26113,7 @@ function docFormSample(kind,id){
 /* Конструктор: квитанция и выписка — живой лист на последних квитанциях и
    клиентах (выписка — за этот месяц); без данных — пустой образец. */
 function docFormFinSamples(kind){
- if(kind==='receipt')return (DB.receipt||[]).slice().sort((a,b)=>String(b.number).localeCompare(String(a.number),undefined,{numeric:true})).slice(0,100).map(r=>({id:r.id,label:r.number+' · '+salesCustomerDisplay(r.customerId)}));
+ if(kind==='receipt')return finLatestReceipts(100).map(r=>({id:r.id,label:r.number+' · '+salesCustomerDisplay(r.customerId)}));
  return (DB.customer||[]).filter(c=>c&&!c.deletedAt).slice(0,100).map(c=>({id:c.id,label:(c.code?c.code+' · ':'')+(c.legalName||c.displayName||'')}));
 }
 function docFormFinSample(kind,id){
@@ -31443,11 +31579,12 @@ function shippingQueueChange(orderId,lineId,value){const out=shippingQueueSet(or
    PS с долгом: Back · Ship anyway · Take payment (после оплаты — обратно
    сюда). Кредитных не спрашиваем. */
 function shippingCashFirst(s,done){
- const ids=shippingOrderIds(s).filter(oid=>{const o=salesRecord(oid);return o&&shippingBalanceDue(o);});
+ const ids=shippingOrderIds(s).filter(oid=>{const o=salesRecord(oid);return o&&shippingBalanceDue(o);}),released=[];
  const run=n=>{
-  if(n===ids.length){done();return;}
+  /* Выдача с долгом — в журнал заказа, когда прошли окна всех заказов PS. */
+  if(n===ids.length){released.forEach(salesReleaseLog);done();return;}
   const o=salesRecord(ids[n]),checks=salesTransitionChecks(Object.assign({},o,{delivery:s.method}),'done').filter(c=>c.pay!=null).map(c=>Object.assign({},c,{anyway:'Ship anyway'}));
-  salesRunChecks(checks,()=>run(n+1),amount=>salesTakeRecordPayment(o.id,amount));
+  salesRunChecks(checks,()=>run(n+1),amount=>salesTakeRecordPayment(o.id,amount),released);
  };run(0);
 }
 /* Заказ на Hold в накладной. Его стекло уже погрузили на SHIP — только
@@ -34529,6 +34666,20 @@ function finNewReceipt(customerId){
  finDraft={customerId:customerId&&salesFindCustomer(customerId)?customerId:'',date:finToday(),method:'cash',reference:'',amount:'',note:'',apply:{},currency:'CAD',reason:'',duplicate:false};
  finDraftBaseline=JSON.stringify(finDraft);render();return true;
 }
+/* Оплата заказа из другого раздела (окно долга в Sales и Shipping, Take
+   payment): форма новой оплаты на этот заказ; после Save — назад туда,
+   откуда пришли, в Payments — этот заказ. Раньше это делал Sales сам,
+   заполняя черновик Finance (этап 5, 12.11.2026). */
+function finStartOrderPayment(orderId,amount){
+ const o=salesRecord(orderId);if(!o)return;
+ const b=finOrderBalance(o),from=tab,fromSub=subtab;
+ if(finNewReceipt(o.customerId)===false)return;
+ finBack=from!=='finance'?{tab:from,subtab:fromSub}:null;finOrderFilter=o.id;finCustomerFilter='';finPaymentsClearFilters();tab='finance';subtab=null;
+ if(b.balance>0){const v=Math.min(salesMoney(+amount||b.balance),b.balance).toFixed(2);finDraft.amount=v;finDraft.apply[o.id]=v;}
+ finDraft.note='Order '+o.businessNumber;render();
+}
+/* Выход из входа (erp/signin): недописанная оплата не переживает смену человека. */
+function finDropDrafts(){finDraft=null;finAction=null;}
 /* Список открыт по заказу (кнопка Payments в заказе) или по клиенту — новая
    квитанция сразу на них: клиент выбран, долг заказа разнесён (проход
    7.10.2026: клиент не подставлялся, сумма шла «на счёт», заказ оставался
@@ -52474,10 +52625,11 @@ function shippingCheckStamp(){return JSON.stringify(DB);}
    заказы»). Долг cash-заказа спрашивается по каждому заказу: оплату
    принимают в заказ. */
 function shippingWithChecks(ids,method,printing,done){
- ids=[...new Set(ids)];const stamp=shippingCheckStamp(),told=new Set();
+ ids=[...new Set(ids)];const stamp=shippingCheckStamp(),told=new Set(),released=[];
  const run=n=>{
   if(shippingCheckStamp()!==stamp){shippingNotice={error:true,text:'Data changed. Review and try again.'};render();return;}
-  if(n===ids.length){done();return;}
+  /* Выдача с долгом — в журнал заказа, когда прошли окна всех заказов. */
+  if(n===ids.length){released.forEach(salesReleaseLog);done();return;}
   /* Заказ в архиве — закрыт и оплачен, проверять нечего; старый лист печатается. */
   const o=salesRecord(ids[n]);if(!o&&typeof archiveKnown==='function'&&archiveKnown(ids[n])){run(n+1);return;}
   if(!o){shippingNotice={error:true,text:'Order not found.'};render();return;}
@@ -52488,7 +52640,7 @@ function shippingWithChecks(ids,method,printing,done){
    out.rows=c.rows.concat([[mine.length>1?'These '+mine.length+' orders':'Order '+o.businessNumber,finFmt(finMoney(mine.reduce((s,x)=>s+Math.max(0,finOrderBalance(x).balance||0),0)))]]);
    return out;
   });
-  salesRunChecks(checks,()=>run(n+1),amount=>salesTakeRecordPayment(o.id,amount));
+  salesRunChecks(checks,()=>run(n+1),amount=>salesTakeRecordPayment(o.id,amount),released);
  };run(0);
 }
 
@@ -57473,6 +57625,8 @@ function archiveRun(day,opts){
  if(archiveVisit||archiveScope)return {ok:false,error:'Archived orders are open.'};
  const now=new Date().toISOString();
  return storageCommand(()=>{
+  /* Архив переносит строки денег целиком, не меняя их (erp/finance/ledger: FIN_OWN). */
+  finMark();
   let due=[...archiveDue(day)];if(opts.limit)due=due.slice(0,opts.limit);
   /* Последняя пачка дня — день отмечен: следующий уход завтра. */
   if(opts.mark&&due.length<(opts.limit||Infinity))DB.archiveRunDay=day;
@@ -57534,6 +57688,7 @@ async function archiveReturn(orderId){
  const got=await storageColdOf(orderId);if(!got.length)return {ok:true,value:0};
  const owners=new Set();got.forEach(r=>(r.owners||[]).forEach(o=>owners.add(o)));
  return storageCommand(()=>{
+  finMark();
   const before=archiveInvState();
   got.forEach(r=>storageColdPut(r));
   /* Заказ ушёл при прежней версии программы — в работу он встаёт в
@@ -58669,6 +58824,8 @@ function storageCommand(fn,scope){
     удалённые, без JSON каждой фигуры (задание «База», скан подряд). */
  let before;try{before=storageDiff(DB,typeof soDraft!=='undefined'&&soDraft?STORAGE_UNSAVED_TABLES:new Map([...STORAGE_UNSAVED_TABLES].map(k=>[k,new Set()])));}catch(e){before=[];}
  let scopeBefore=null;if(scope&&typeof window!=='undefined'&&window.GF_SCOPE_CHECK)try{scopeBefore=storageScopeSig();}catch(e){}
+ /* Таблицы денег: что запишет команда, должен отметить Finance (erp/finance/ledger). */
+ if(typeof finGuardReset==='function')finGuardReset();
  storageDepth++;
  try{
   const value=fn();if(value===false||value&&value.error)throw new Error(value&&value.error||'The operation could not be completed.');
@@ -58714,6 +58871,8 @@ function touch(){
      пополнился — набор собирается заново, чтобы записи журнала ушли с правкой. */
   let diff=storageDiff(DB,only);if(typeof mdLogCapture==='function'&&mdLogCapture(diff))diff=storageDiff(DB,only);
   const changes=storageColdApply(diff);
+  /* Тесты: запись команды тронула таблицу денег без Finance — ошибка в консоли. */
+  if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK&&typeof finGuardCheck==='function')finGuardCheck(changes,!!only);
   /* Ничего не изменилось (старт без новых граф) — и отмечать нечего. */
   if(!changes.length){storageLastError=storageFailed?storageLastError:'';storageScopeMark();return true;}
   /* Сервер (erp/cloud-sync.js): набор встаёт в очередь отправки той же записью. */
