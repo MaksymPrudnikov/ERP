@@ -90,9 +90,9 @@ module.exports=async function({page,eq}){
   const before=await t.p.evaluate(()=>!!document.querySelector('[data-cloud-journal]'));
   await t.p.click('[data-journal-load]');await t.p.waitForFunction(()=>document.querySelectorAll('[data-journal-row]').length===200);
   const first=await t.p.evaluate(()=>{const tr=[...document.querySelectorAll('[data-journal-row]')].slice(0,3);
-   return tr.map(r=>[...r.cells].slice(1).map(c=>c.textContent.trim()));});
+   return tr.map(r=>[...r.cells].slice(2,6).map(c=>c.textContent.trim()));});
   await t.p.click('[data-journal-older]');await t.p.waitForFunction(()=>document.querySelectorAll('[data-journal-row]').length===201);
-  const older=await t.p.evaluate(()=>({more:!!document.querySelector('[data-journal-older]'),last:[...document.querySelectorAll('[data-journal-row]')].pop().cells[2].textContent}));
+  const older=await t.p.evaluate(()=>({more:!!document.querySelector('[data-journal-older]'),last:[...document.querySelectorAll('[data-journal-row]')].pop().cells[3].textContent}));
   return {before,first,older,asked:srv.calls.filter(c=>c[0]==='erp_journal').map(c=>[!!c[1].before_at,c[1].n])};
  })(),{before:false,first:[['office@glass-erp.test','pc1','Saved','orderEvent × 3, salesOrder'],['Office','pc2','Denied','No access: receipt'],['Office','pc1','Conflict','Changed on another computer']],
   older:{more:false,last:'pc1'},asked:[[false,200],[true,200]]});
