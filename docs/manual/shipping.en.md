@@ -2,6 +2,15 @@
 
 Everything that leaves the shop: what is ready, packing slips, trucks, skids at customers, backorders.
 
+## Who releases glass
+
+- Creating, correcting and printing a PS, Shipped / Delivered, reverting a shipment, trucks and trips — for people
+  with the **Sales** or **Shipping** box in Users (owner, 12.11.2026: Sales releases at pickup). Optimization only —
+  no ("Sales or Shipping access is required."). The command itself checks this, not just the screen.
+- Stations (PIN sign-in): SHIP loading, skid return — no boxes, as before.
+- Other sections' actions that change a PS themselves (Skip, unbatching glass, deleting an order) follow their own
+  section's rules.
+
 ## The screen
 
 On top — the navigation card: only the tab pills Awaiting readiness, Ready, Shipments, Delivery, Skids, Backorders,

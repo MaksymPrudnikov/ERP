@@ -56,7 +56,7 @@ async function tripKmCalc(date,truckId){
  const res=await new Promise((ok,no)=>new maps.DirectionsService().route({origin,destination:origin,waypoints:addr.map(a=>({location:a,stopover:true})),optimizeWaypoints:false,travelMode:'DRIVING'},
   (r,status)=>status==='OK'&&r&&r.routes&&r.routes[0]?ok(r):no(new Error('Google could not build the route: '+status))));
  const meters=(res.routes[0].legs||[]).reduce((n,l)=>n+(l&&l.distance&&+l.distance.value||0),0);
- const out=storageCommand(()=>{
+ const out=shipPersist(()=>{
   /* Пока Google считал, остановки или адреса сменили — ответ про старый маршрут. */
   if(tripKmRoute(deliveryStops(date,truckId))!==route)throw new Error('Stops changed while calculating. Recalculate km.');
   if(!Array.isArray(DB.tripKm))DB.tripKm=[];

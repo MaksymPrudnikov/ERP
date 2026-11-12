@@ -35,14 +35,14 @@ function skidReturnPush(code,x,kind,newCode,by,now){
 /* Скан скида в цеху: если он числится у клиента — вернулся. Иначе null. */
 function skidBack(code,who){
  const x=skidsOut().get(carrierCode(code));if(!x)return null;
- const out=storageCommand(()=>skidReturnPush(x.code,x,'back','',who&&who.name));
+ const out=shipPersist(()=>skidReturnPush(x.code,x,'back','',who&&who.name));
  return out.ok?{code:x.code,customerId:x.customerId,customer:salesCustomerDisplay(x.customerId),days:skidDays(x.since),ps:x.ps}:{error:out.error};
 }
 /* Обмен: клиент отдал свой скид вместо нашего. Чужой заводится новым кодом,
    самый давний наш скид у этого клиента списывается. Цех уже
    зарегистрировал полученный скид (Dollies → Register new) — обмен берёт эту
    запись, второй не заводит (план v1.16, P7-R18): prefix — код такого скида. */
-function skidSwap(customerId,prefix){return storageCommand(()=>{
+function skidSwap(customerId,prefix){return shipPersist(()=>{
  const mine=skidsByCustomer().find(x=>x.customerId===customerId);shippingAssert(mine,'This customer has none of our skids.');
  const own=CARRIER_RE.test(carrierCode(prefix))?carrierCode(prefix):'';
  shippingAssert(own?skidSwapCandidates().includes(own):['SL','SA'].includes(prefix),own?'This skid cannot be used for a swap.':'Choose the skid type.');

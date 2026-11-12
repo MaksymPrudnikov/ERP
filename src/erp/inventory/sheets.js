@@ -60,9 +60,10 @@ function invKey(code,size){return String(code||'').trim().toUpperCase()+'|'+(siz
 function invSizeText(r){return r.w>0?frac16(r.w)+' × '+frac16(r.h):'Size missing';}
 /* COG и стекло клиента (галочка «We cut it» снята) на складе не лежат. */
 function invGlassCut(code){const g=glassProductByCode(code);return !(g&&g.cut===false);}
+/* Запись склада: галочка Inventory и отметка таблиц раздела (erp/sections). */
 function invPersist(fn){
  if(!accessCan('inventory'))return {ok:false,error:'Inventory access is required.'};
- return storageCommand(fn);
+ return sectionPersist('stock',fn);
 }
 
 /* Размеры каталога: точки поставки стекла, без них — размеры цеха, без

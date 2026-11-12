@@ -38,7 +38,6 @@ const FIN_API=new Set([
  'finReceiptOnAccount', // Свободный остаток квитанции на счёте клиента.
  'finLatestReceipts', // Последние квитанции, новые сверху (образец в конструкторе форм).
  /* Чтения: выписка, квитанция, выгрузка QuickBooks — документы и архив. */
- 'finStatementLines', // Строки выписки клиента.
  'finStatementOrderLine', // Строка выписки: заказ.
  'finStatementPaymentLine', // Строка выписки: оплата.
  'finStatementRefundLine', // Строка выписки: возврат.
@@ -51,6 +50,11 @@ const FIN_API=new Set([
  'finExportPending', // Что ещё не выгружено в QuickBooks (архив ждёт выгрузки).
  /* Экраны Finance, которые открывают из других разделов. */
  'finStartOrderPayment', // Take payment: форма оплаты на этот заказ, после Save — назад.
+ 'viewFinance', // Экран Finance.
+ 'viewCommissions', // Экран Agents (комиссии).
+ 'salesPaymentStrip', // Полоса оплаты в заказе Sales.
+ 'salesDepositHint', // Подсказка депозита в заказе Sales.
+ 'salesOrderIsSaved', // Заказ уже сохранён (окно долга в Sales).
  'finDropDrafts', // Выход из входа: забыть недописанную оплату.
  'finApplyModal', // Окно зачёта депозита в заказ (из заказа в Sales).
  'finCustomerStrip', // Полоса денег клиента в карточке Customers.
@@ -70,14 +74,16 @@ const FIN_API=new Set([
  'comOrders', // Заказы агента за период.
  'comWithScope', // Один проход расчёта комиссий на отчёт.
  /* База, облако, архив: служебное. */
+ 'normalizeReceipts', // Привести квитанции при загрузке.
+ 'normalizeFinanceLedger', // Привести журнал денег при загрузке.
+ 'normalizeCommissions', // Привести агентов и выплаты при загрузке.
+ 'FIN_METHODS', // Способы оплаты (Cash, Cheque…) для отчётов.
+ 'FIN_EVENT_LABELS', // Подписи записей журнала денег (журнал заказа).
  'finValidatePayload', // Import: проверка денег в файле базы.
  'finJournalTop', // Последний номер журнала денег (счётчик сервера).
  'finTotalsWarm', // Прогреть итоги заказов после загрузки.
  'finTotalsForget', // Забыть итоги изменившихся заказов.
  'finTotalsKeep', // Держать итоги заказов архива на время отчёта.
- 'finMark', // Архив: строки денег переносятся целиком (отметка для сторожа).
- 'finGuardReset', // База: начало команды записи — сторож денег с нуля.
- 'finGuardCheck', // База, тесты: запись тронула таблицу денег без Finance.
  /* Общие помощники: дата и деньги — ими пользуются все разделы. */
  'finToday', // Сегодня, ГГГГ-ММ-ДД.
  'finLocalDate', // Дата по часам цеха из времени ISO.

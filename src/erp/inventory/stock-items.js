@@ -89,7 +89,7 @@ function sinvPush(e){
    позиция посчитана. */
 function sinvCount(itemId,counted,why){
  if(!accessCan('inventory'))return {ok:false,error:'Inventory access is required.'};
- return storageCommand(()=>{
+ return sectionPersist('stock',()=>{
   const r=sinvBuild().find(x=>x.id===itemId);if(!r)throw new Error('Item not found.');
   const n=sinvInt(counted,'Counted',0);
   /* «Было» сервер сверяет по карточке (C13): реестр CLOUD_CHECK, erp/cloud-sync. */
@@ -99,7 +99,7 @@ function sinvCount(itemId,counted,why){
 /* + приход без PO (Opening stock, Found, Returned) и − списание. */
 function sinvMove(itemId,kind,qty,why){
  if(!accessCan('inventory'))return {ok:false,error:'Inventory access is required.'};
- return storageCommand(()=>{
+ return sectionPersist('stock',()=>{
   if(kind!=='add'&&kind!=='remove')throw new Error('Choose add or remove.');
   if(!(DB.stockItem||[]).some(x=>x&&x.id===itemId))throw new Error('Item not found.');
   const n=sinvInt(qty,'Quantity',1),w=why||{};

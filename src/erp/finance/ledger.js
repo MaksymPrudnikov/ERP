@@ -1,28 +1,24 @@
-/* Finance commands and history. No DOM; balances keep using the order pricing
-   contract. Events are append-only through these commands; local JSON is not
-   an authenticated or tamper-proof accounting ledger. */
+/* =====================================================================
+   erp/finance/ledger  ·  finance-1.3
+   Команды денег и их журнал: оплата, правка, Void, возврат, условия и сроки
+   оплаты, счёт, выписка, выгрузка QuickBooks. Без экрана; балансы берут
+   сумму заказа из его расчёта. Журнал только дописывается этими командами;
+   локальная база — не защищённая бухгалтерская книга.
+   IN : DB.receipt, DB.refund, DB.financeTerms, DB.financeEvent,
+        DB.financeExport*, DB.salesOrder, DB.customer
+   OUT: команды Finance (finSaveReceiptRecord, finCreateRefund, finSaveTerms,
+        finExportMark…), журнал finEvent, сроки finPaymentDue, выписка
+   ===================================================================== */
 DEFAULT.refund=[];DEFAULT.financeEvent=[];DEFAULT.financeTerms=[];DEFAULT.financeExport=[];DEFAULT.financeExportBatch=[];DEFAULT.financeVersion=1;
 const FIN_TABLES=['refund','financeEvent','financeTerms','financeExport','financeExportBatch'];
 for(const k of FIN_TABLES)if(!Array.isArray(DB[k]))DB[k]=[];
-/* Таблицы денег пишет только Finance (план «до 10», этап 5, 12.11.2026).
-   Другие разделы зовут его команды (erp/finance/api: FIN_API). Сторож —
-   test/finance-api.js: по тексту кода никто вне Finance не пишет в эти
-   таблицы, а в тестах (GF_SCOPE_CHECK) каждая командная запись, тронувшая
-   таблицу денег, должна быть отмечена Finance (finMark) — иначе в консоли
-   «Money outside Finance». Отметку ставят: журнал денег (finEvent), условия
-   (finCaptureTerms), выгрузка QuickBooks, запись Finance (finPersist),
-   приведение базы при загрузке; архив переносит строки целиком. */
-const FIN_OWN=['receipt','refund','financeTerms','financeEvent','financeExport','financeExportBatch','referrer','referrerPayout'];
-const finMarked=new Set();
-function finMark(...tables){(tables.length?tables:FIN_OWN).forEach(t=>finMarked.add(t));}
-/* Начало команды записи (storageCommand): прошлые отметки не в счёт. */
-function finGuardReset(){finMarked.clear();}
-/* touch(): checked — запись команды (с областью). Записанные таблицы
-   отметки теряют: следующая запись отмечается заново. */
-function finGuardCheck(changes,checked){
- const hit=new Map();changes.forEach(c=>{if(FIN_OWN.includes(c.tbl)&&!hit.has(c.tbl))hit.set(c.tbl,c.id);});
- hit.forEach((id,t)=>{if(checked&&!finMarked.has(t))console.error('Money outside Finance: '+t+' '+id);finMarked.delete(t);});
-}
+/* Таблицы денег пишет только Finance (план «до 10», этап 5, 12.11.2026):
+   SECTION_OWN.finance (erp/sections). Другие разделы зовут его имена
+   (erp/finance/api: FIN_API). Отметку для сторожа ставят: журнал денег
+   (finEvent), условия (finCaptureTerms), выгрузка QuickBooks, запись
+   Finance (finPersist), приведение базы при загрузке. */
+const FIN_OWN=SECTION_OWN.finance;
+function finMark(...tables){sectionMark('finance',...tables);}
 /* Деньги вносит, исправляет и возвращает только тот, у кого галочка Finance
    (владелец 12.11.2026: Sales кладёт деньги с листом бумаги, водитель отдаёт
    чек — вносит бухгалтер). Переносы по отмене, удалению и Save заказа
@@ -69,7 +65,7 @@ function normalizeFinanceLedger(){
 }
 /* Commit money and its history together. A failed write leaves the UI draft
    available, and restores the previous in-memory balances. */
-function finPersist(fn,scope){return storageCommand(()=>{finMark();return fn();},scope);}
+function finPersist(fn,scope){return sectionPersist('finance',fn,scope);}
 /* Область записи оплаты (storageCommand): оплата, история денег, заказы, на
    которые она легла. */
 function finReceiptScope(d,id){return {receipt:id?[id]:[],financeEvent:[],salesOrder:(d&&d.allocations||[]).map(a=>a.orderId)};}

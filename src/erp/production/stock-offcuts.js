@@ -30,11 +30,12 @@ function stockOffcutClean(r){
   at:typeof r.at==='string'?r.at:'',status:STOCK_STATUSES.includes(r.status)?r.status:'stock'};
 }
 function stockOffcutAdd(rec){
+ sectionMark('stock');
  const r=stockOffcutClean(Object.assign({id:stockIdNext(),at:new Date().toISOString(),status:'stock'},rec));
  if(!Array.isArray(DB.stockOffcut))DB.stockOffcut=[];
  DB.stockOffcut.push(r);return r;
 }
-function stockOffcutCancel(id){const r=stockOffcutFind(id);if(r)r.status='cancelled';return r;}
+function stockOffcutCancel(id){sectionMark('stock','stockOffcut');const r=stockOffcutFind(id);if(r)r.status='cancelled';return r;}
 /* Журнал стока: что лежит на стеллаже, крупное первым; снятое — в конце.
    «Пусть будет учёт тех стёкол, которые попали в сток, не только стикеры»
    (владелец, 20 сентября 2026). */
