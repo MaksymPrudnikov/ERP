@@ -1,5 +1,7 @@
 /* =====================================================================
    view/delivery  ·  Shipping → Delivery: машины, остановки, лист рейса (Shipping PR 3)
+   IN : DB.truck, DB.user, DB.formTemplate; данные рейсов erp/shipping/delivery
+   OUT: deliveryHTML, deliveryPages (лист рейса), viewMdTrucks (Master Data → Trucks)
    Shipping → Delivery: день → машины → остановки (PS) по порядку, у каждой
    время отбытия; PS этого дня без машины; самовывозы отдельным списком.
    Master Data → Trucks. Лист рейса на Letter — один или вместе с PS.

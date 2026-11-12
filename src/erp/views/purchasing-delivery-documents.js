@@ -1,5 +1,7 @@
-/* Delivery requests reuse PO layout, with their own title/number and
-   requested quantities. Gmail remains a compose link plus manual PDF. */
+/* Бланк заявки на доставку: вид PO со своим заголовком, номером и количествами.
+   IN : заявка на доставку, DB.company, DB.purchaseDocumentOptions
+   OUT: purRequestPreviewOpen, purRequestPreviewHTML
+   Gmail — по-прежнему ссылка на окно письма плюс PDF руками. */
 function purRequestPages(d,options){
  const p=purOrderFind(d.poId),supplier=p?p.supplier:null;
  const model=purOrderClean(Object.assign({},d,{supplier,currency:p?p.currency:'USD',note:[p?'For '+p.number:'',d.note].filter(Boolean).join('\n'),lines:d.lines.map(l=>{

@@ -1,8 +1,10 @@
 /* Экран Shipping в офисе: Awaiting, Ready по скану, PS, частичная отгрузка (Shipping PR 1, 5.10.2026).
-   Ready by scan, one customer/address per PS, partial dispatch and receipt.
-   Uses the existing Sales column filters. PR 2, 6 October 2026: customer
-   queue in Ready and the Loaded button (rules: erp/shipping/loading).
-   No truck UI here. */
+   IN : DB.shipment, DB.salesOrder, DB.stationScan, DB.customer; правила erp/shipping/*
+   OUT: экран Shipping (вкладки SHIPPING_TABS, shippingGo, shippingStatus);
+        записи идут командами erp/shipping/commands
+   Ready по скану, один клиент и адрес на PS, частичная отгрузка и приёмка.
+   Фильтры колонок — общие из Sales. PR 2, 6 октября 2026: очередь клиента
+   в Ready и кнопка Loaded (правила: erp/shipping/loading). Экрана машин здесь нет. */
 const SHIPPING_TABS=[['awaiting','Awaiting readiness'],['ready','Ready'],['shipments','Shipments'],['backorders','Backorders'],['done','Done']];
 let shippingTab='ready',shippingNotice=null,shippingDraft=null,shippingOpenId='',shippingPreview=false;
 /* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */

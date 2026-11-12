@@ -32,7 +32,11 @@ module.exports=async function({eq}){
     --write). Владелец, 09.11.2026: карта, документация, мануалы — чёткие; список
     вёлся руками и отстал на 60 модулей из 205. */
  {const mm=require('../tools/module-map.js');
-  eq('КАРТА-ПРОЕКТА: «Все модули» совпадают с manifest и шапками файлов (node tools/module-map.js --write)',mm.current()===mm.table(),true);}
+  eq('КАРТА-ПРОЕКТА: «Все модули» совпадают с manifest и шапками файлов (node tools/module-map.js --write)',mm.current()===mm.table(),true);
+  /* Шапка каждого модуля — «что делает (по-русски) / IN / OUT» (этап 7 плана
+     «до 10», 12.11.2026): код понятен любой ИИ и человеку с первой строки.
+     Исключения и причины — HEADER_SKIP в tools/module-map.js. */
+  eq('шапки модулей: «что делает / IN / OUT» у всех, кроме HEADER_SKIP (node tools/module-map.js)',mm.headerProblems(),[]);}
  const mf=require('../tools/manual-fields.js'),want=mf.appendix();
  /* Сборщик PDF руководства (tools/manual-pdf.js): разделы по README, Markdown → HTML. */
  const mp=require('../tools/manual-pdf.js'),h=mp.md('# A\n\n| x | y |\n|---|---|\n| `1` | **2** |\n\n- one\n- two').html;

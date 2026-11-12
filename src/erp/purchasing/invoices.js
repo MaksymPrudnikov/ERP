@@ -1,9 +1,12 @@
 /* Счета поставщиков и записанные руками оплаты им; Finance клиентов не трогает (Purchasing P4).
-   This ledger never writes DB.receipt or customer Finance / QuickBooks.
-   Currency and supplier on a payment are historical facts. Editing an
-   invoice must not silently turn an old USD payment into CAD, or move it
-   to another supplier. Deleted invoices keep payments as supplier credit.
-   Blank amounts remain unknown; signed amounts allow credits/refunds. */
+   IN : DB.purchaseInvoice, DB.purchasePayment, DB.purchaseOrder, карточки поставщиков
+   OUT: DB.purchaseInvoice, DB.purchasePayment (через purPersist); purInvoiceBalance,
+        purInvoiceStatus, purInvoiceDue, purMoneyFind, PUR_MONEY
+   Этот журнал никогда не пишет DB.receipt и Finance клиентов / QuickBooks.
+   Валюта и поставщик оплаты — исторические факты. Правка счёта не должна
+   молча превратить старую оплату в USD в CAD или перенести её другому
+   поставщику. Удалённый счёт оставляет оплаты кредитом у поставщика.
+   Пустая сумма — неизвестна; знак суммы позволяет кредиты и возвраты. */
 DEFAULT.purchaseInvoice=[];DEFAULT.purchaseInvoiceSeq=0;
 DEFAULT.purchasePayment=[];DEFAULT.purchasePaymentSeq=0;
 const PUR_MONEY={invoice:{key:'purchaseInvoice',seq:'purchaseInvoiceSeq',prefix:'PI',label:'Supplier invoice'},payment:{key:'purchasePayment',seq:'purchasePaymentSeq',prefix:'PP',label:'Supplier payment'}};

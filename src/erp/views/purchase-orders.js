@@ -1,7 +1,9 @@
 /* Экран заказов поставщику (PO): список, черновик формы, письмо через Gmail (Purchasing P2).
-   Owner correction 13.10: glass and suppliers use catalogue identities;
-   the default purchase is glass, extras are a separate Sales-style block.
-   Gmail only opens a compose window. Sending is confirmed manually. */
+   IN : DB.purchaseOrder, DB.purchasingEvent, DB.glassSheet, DB.salesOrder
+   OUT: purView, purNav, purOrderList, purOrderEdit, purOrderSaveForm; запись — erp/purchasing/orders
+   Владелец, 13.10: стекло и поставщики — по личности каталога; покупка по
+   умолчанию — стекло, допы — отдельный блок как в Sales.
+   Gmail только открывает окно письма. Отправку подтверждают руками. */
 let purView='orders',purOrderDraft=null,purOrderOriginal='',purShowDeleted=false,purPicker=null,purDoc=null;
 /* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
 (window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!purOrderDraft&&JSON.stringify(purOrderDraft)!==purOrderOriginal);

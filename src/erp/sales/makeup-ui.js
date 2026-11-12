@@ -1,7 +1,10 @@
 /* =====================================================================
    erp/sales/makeup-ui · sales-0.3b-makeup
-   Compact UX for order-scoped IGU Makeups. Visual reference: IGU Builder;
-   data model remains ERP-native and uses Master Data IDs.
+   Компактный выбор Makeup IGU внутри заказа. Образец вида — IGU Builder;
+   данные — свои ERP и ссылаются на ID Master Data.
+   IN : каталог стекла (erp/masterdata/glass), DB.spandrelColour, открытый заказ
+   OUT: salesMakeupBuilder, salesMakeupTabs, salesGlassLabel, salesGlassVariants,
+        salesPaneProductSummary — разметка окна Makeup
    ===================================================================== */
 
 function salesOption(value,label,selected,rawText){return `<option ${rawText?'data-raw':''} value="${esc(value)}" ${selected===value?'selected':''}>${esc(label)}</option>`;}

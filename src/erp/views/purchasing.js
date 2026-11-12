@@ -1,7 +1,10 @@
-/* Экран Purchasing → Suppliers: карточки поставщиков (Purchasing P1). Column filters use the Sales list engine.
-   Edits stay in a draft until one storageCommand saves the whole card.
-   Additional contacts and custom fields are optional (owner, 12.10.2026).
-   No global search, no stock balances and no purchase in customer Finance. */
+/* Экран Purchasing → Suppliers: карточки поставщиков (Purchasing P1).
+   IN : DB.supplier, DB.glassSheet; правила erp/purchasing/suppliers
+   OUT: viewPurchasing, purSupplierEdit, purListHeader, purHistoryHTML; запись — purSupplierSave
+   Фильтры колонок — движок списка Sales. Правка живёт в черновике, пока
+   один storageCommand не сохранит всю карточку. Дополнительные контакты и
+   свои поля необязательны (владелец, 12.10.2026). Нет общего поиска,
+   остатков склада и закупок в Finance клиентов. */
 let purSupplierDraft=null,purSupplierOriginal='',purNotice='';
 /* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
 (window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!purSupplierDraft&&JSON.stringify(purSupplierDraft)!==purSupplierOriginal);

@@ -1,4 +1,7 @@
-/* User-selectable screen and print columns; stored independently of orders. */
+/* Колонки строк заказа на экране и в печати по выбору человека; хранятся отдельно от заказов.
+   IN : расчёт строки (erp/sales/line-metrics), DB.user (выбор колонок), DB.materialWeightRates
+   OUT: SALES_METRIC_COLUMNS, salesMetricsPanel, salesMetricCell, salesOrderLinesFoot,
+        salesCommercialOrderSummary; правка весов материалов пишет DB.materialWeightRates */
 const SALES_METRIC_COLUMNS=[
  {key:'materials',label:'Materials',unit:'',screen:true,print:false},
  {key:'actual',label:'Actual Area',unit:'ft²',screen:true,print:true},

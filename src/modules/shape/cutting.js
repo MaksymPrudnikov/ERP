@@ -2,6 +2,9 @@
    shape/cutting · schema-v2
    Детерминированная Cutting Geometry. Невалидный offset блокируется.
    Generic DXF — нейтральный обменный файл, не постпроцессор конкретного CNC.
+   IN : готовый контур и кромки фигуры (shape/features), core/poly
+   OUT: shapeCuttingGeometry, shapeInsetVariable / shapeOffsetVariable,
+        shapeMachinePayload, shapeFinishedDxf / shapeGenericDxf, shapeCheckDxf
    ===================================================================== */
 
 /* Рез только растёт, поэтому здесь отрицательные значения гасятся. Внутрь

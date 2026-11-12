@@ -1,7 +1,10 @@
 /* =====================================================================
    erp/views/sales-service-sets-ui · service-set-v1
-   UI for order-scoped Edgework Sets and line Effective Production.
-   Business resolution lives in erp/sales/service-sets.js.
+   Экран наборов кромки заказа (Edgework Sets) и Effective Production строки.
+   Решения по данным — в erp/sales/service-sets.js.
+   IN : открытый заказ (soEdit), наборы и снимки erp/sales/service-sets
+   OUT: salesOrderLines, salesOrderScreenColumns, salesLineAppend — таблица строк
+        заказа с наборами кромки
    ===================================================================== */
 
 let soServiceSetOpen=false,soServiceSetEditingId=null,soServiceSetDraft=null;

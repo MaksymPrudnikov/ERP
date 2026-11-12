@@ -1,8 +1,12 @@
-/* Необязательное удержание позиции. Это не производственный замок:
-   строка редактируется, но не попадает в батч. Сохранённая позиция получает
-   только поля Hold; прочие несохранённые правки карточки не записываются.
-   То же меню задаёт очередь отгрузки строки (erp/shipping/loading) — и у
-   строки в батче: очередь нужна, пока стекло ещё идёт по цеху. */
+/* Необязательное удержание позиции (Hold) и очередь отгрузки строки. Это не
+   производственный замок: строка редактируется, но не попадает в батч.
+   Сохранённая позиция получает только поля Hold; прочие несохранённые правки
+   карточки не записываются. То же меню задаёт очередь отгрузки строки
+   (erp/shipping/loading) — и у строки в батче: очередь нужна, пока стекло ещё
+   идёт по цеху.
+   IN : строка заказа, юниты (erp/sales/unit-cancel)
+   OUT: salesLineHoldMenu, salesLineHoldMenuHTML, salesLineHoldRowAttrs,
+        salesLineUnitsRow; запись Hold и очереди — в DB.salesOrder */
 let salesLineHoldMenu=null,salesLineHoldPress=null;
 function salesLineHoldAllowed(o,l){return !!o&&!!l&&!salesIsQuote(o)&&!salesOrderReadOnly(o)&&!salesLineLocked(l);}
 function salesLineQueueAllowed(o,l){const saved=o&&salesRecord(o.id);return !!l&&!!saved&&shippingQueueAllowed(saved)&&(saved.lines||[]).some(x=>x.id===l.id);}

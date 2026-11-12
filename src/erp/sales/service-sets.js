@@ -1,7 +1,10 @@
 /* =====================================================================
    erp/sales/service-sets · service-set-v1
-   Order-scoped bulk edgework recipes and one Effective Production snapshot.
-   Shape stays independent; prices/orders stay in ERP.
+   Наборы кромки на весь заказ и один снимок Effective Production строки.
+   Shape остаётся независимой; цены и заказы живут в ERP.
+   IN : строки заказа (erp/sales/data), фигуры и рез (modules/shape/*)
+   OUT: salesLineGeometryShape, salesEffectiveCuttingPlan,
+        salesEffectiveProductionSnapshot, salesServiceOps, SALES_SERVICE_SET_OPS
    ===================================================================== */
 
 /* Набор — рецепт на много строк, и makeup он не знает. Лами-полировка в нём

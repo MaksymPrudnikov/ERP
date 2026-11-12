@@ -3,7 +3,9 @@
    Одна форма на основе сохранённого заказа в двух видах: Recut — до выдачи
    (кнопка Recut, блок Recuts над Notes), NCR — после выдачи (кнопка NCR,
    окно просмотра, полоса NCR, строки в Sales). Номера G-… здесь не видны.
-   IN : DB.ncr, DB.ncrReason, сохранённый заказ; OUT: ncrCreate, HTML
+   IN : DB.ncr, DB.ncrReason, сохранённый заказ
+   OUT: окно NCR / Recut (ncrOpenForm, ncrModalHTML, recutOrderSection, ncrView);
+        запись — ncrCreate (erp/quality/ncr) и erp/quality/recut
    ===================================================================== */
 let ncrForm=null,ncrViewId='';
 function ncrCanOpen(o){return soEdit!=='new'&&ncrCanCreate(o);}

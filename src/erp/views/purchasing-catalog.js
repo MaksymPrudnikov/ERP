@@ -1,6 +1,9 @@
-/* Purchasing uses Sales' compact header, blocks, tables and catalogue
-   selects. New supplier names create a reusable card explicitly. A name
-   typed on a document must never become a second supplier account. */
+/* Общие куски экранов Purchasing: шапка, блоки, таблицы и выбор из каталога как в Sales.
+   IN : DB.supplier, DB.glassSheet, каталог стекла
+   OUT: purListFilters, purListPager, purPageRows, purSupplierControl, purGlassSelect,
+        purPOLinesHTML, purNewSupplier
+   Новое имя поставщика создаёт карточку только явно. Имя, набранное в
+   документе, никогда не становится вторым счётом поставщика. */
 let purNewSupplier=null,purGlassFilter={},purActiveGlass='';
 function purSupplierControl(d,target){
  const prefix=target==='po'?'pur_po':target==='money'?'pur_money':'pur_delivery',id=target==='po'?prefix+'_card':prefix+'_supplier',change=target==='po'?'purPickSupplier':target==='money'?'purMoneySetSupplier':'purFulfilSetSupplier';

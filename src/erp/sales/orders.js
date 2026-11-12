@@ -1,7 +1,11 @@
 /* =====================================================================
    erp/sales/orders · sales-0.3b-makeup
-   Draft order behavior, order-scoped makeups, Excel entry and bridges to
-   the existing Shape / Muntin configurators.
+   Работа с открытым заказом: черновик, Makeup внутри заказа, ввод из
+   Excel и мосты к конфигураторам Shape / Muntin.
+   IN : DB.salesOrder, DB.customer, DB.shapeDef, DB.serviceRate, DB.recut;
+        каталог (erp/masterdata/*), прайс (erp/sales/price-lists), фигуры (modules/shape/*)
+   OUT: DB.salesOrder, DB.shapeDef; salesOrderEdit, salesFindCustomer,
+        salesShapeByRef, salesLeaveDraft, salesLineChargeRows, salesBridge
    ===================================================================== */
 
 let soEdit=null,soDraft=null,soMakeupId=null;
