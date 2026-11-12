@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 206 модулей, 27 стиля.
+  Состав сборки: 209 модулей, 27 стиля.
 -->
 <html lang="en">
 <head>
@@ -4337,7 +4337,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='f7f620e24d31';
+var ERP_BUILD='b8b416023e80';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -15632,6 +15632,44 @@ function normalizeDocumentSettings(){
 function docDefaultOptions(kind){return docCleanOptions(kind,DB.documentSettings&&DB.documentSettings[kind]);}
 function normalizeDocuments(){normalizeCompany();normalizeDocumentSettings();}
 
+/* ==== src/erp/sections.js ==== */
+/* =====================================================================
+   erp/sections  ·  sections-1.0
+   Чьи таблицы: деньги пишет только Finance, склад — только склад, PS и
+   рейсы — только Shipping (план «до 10», этап 5, 12.11.2026). Остальные
+   разделы зовут их имена из списков FIN_API (erp/finance/api), STOCK_API
+   (erp/inventory/api), SHIP_API (erp/shipping/api).
+   IN : команды записи разделов (finPersist, stockPersist, shipPersist и
+        отметки sectionMark там, где раздел пишет внутри чужой команды)
+   OUT: SECTION_OWN, sectionMark, sectionPersist; проверка для тестов
+        sectionGuardCheck — зовёт её touch() (erp/storage)
+   Сторож — test/sections-api.js: по тексту кода никто чужой не пишет в эти
+   таблицы и не зовёт имён вне списков; в тестах (GF_SCOPE_CHECK) запись
+   команды, тронувшая таблицу раздела без его отметки, пишет в консоль
+   «Outside section: <раздел> <таблица> <id>».
+   ===================================================================== */
+const SECTION_OWN={
+ finance:['receipt','refund','financeTerms','financeEvent','financeExport','financeExportBatch','referrer','referrerPayout'],
+ stock:['inventoryEvent','inventoryMin','stockItemEvent','consumableEvent','stockReason','stockOffcut','stockOffcutSeq'],
+ shipping:['shipment','shipmentSeq','skidReturn','truck','tripKm']
+};
+const SECTION_OF=new Map(Object.entries(SECTION_OWN).flatMap(([s,ts])=>ts.map(t=>[t,s])));
+const sectionMarked=new Set();
+/* Раздел отмечает таблицы, которые пишет сейчас; без таблиц — все свои. */
+function sectionMark(section,...tables){(tables.length?tables:SECTION_OWN[section]).forEach(t=>sectionMarked.add(t));}
+/* Архив и загрузка базы переносят строки целиком, не меняя их. */
+function sectionMarkAll(){SECTION_OF.forEach((s,t)=>sectionMarked.add(t));}
+/* Команда записи раздела: storageCommand с отметкой его таблиц. */
+function sectionPersist(section,fn,scope){return storageCommand(()=>{sectionMark(section);return fn();},scope);}
+/* Начало команды записи (storageCommand): прошлые отметки не в счёт. */
+function sectionGuardReset(){sectionMarked.clear();}
+/* touch(): checked — запись команды (с областью). Записанные таблицы
+   отметки теряют: следующая запись отмечается заново. */
+function sectionGuardCheck(changes,checked){
+ const hit=new Map();changes.forEach(c=>{if(SECTION_OF.has(c.tbl)&&!hit.has(c.tbl))hit.set(c.tbl,c.id);});
+ hit.forEach((id,t)=>{if(checked&&!sectionMarked.has(t))console.error('Outside section: '+SECTION_OF.get(t)+' '+t+' '+id);sectionMarked.delete(t);});
+}
+
 /* ==== src/erp/finance/data.js ==== */
 /* =====================================================================
    erp/finance/data  ·  finance-1.0
@@ -15939,31 +15977,27 @@ function finCsvCell(v){let s=String(v==null?'':v);if(!/^-?\d+(\.\d+)?$/.test(s)&
 function finOrderNumber(id){const o=(DB.salesOrder||[]).find(x=>x.id===id),a=!o&&typeof archiveKnown==='function'?archiveKnown(id):null;return o?(o.businessNumber||o.id):a?a.number:'deleted order';}
 
 /* ==== src/erp/finance/ledger.js ==== */
-/* Finance commands and history. No DOM; balances keep using the order pricing
-   contract. Events are append-only through these commands; local JSON is not
-   an authenticated or tamper-proof accounting ledger. */
+/* =====================================================================
+   erp/finance/ledger  ·  finance-1.3
+   Команды денег и их журнал: оплата, правка, Void, возврат, условия и сроки
+   оплаты, счёт, выписка, выгрузка QuickBooks. Без экрана; балансы берут
+   сумму заказа из его расчёта. Журнал только дописывается этими командами;
+   локальная база — не защищённая бухгалтерская книга.
+   IN : DB.receipt, DB.refund, DB.financeTerms, DB.financeEvent,
+        DB.financeExport*, DB.salesOrder, DB.customer
+   OUT: команды Finance (finSaveReceiptRecord, finCreateRefund, finSaveTerms,
+        finExportMark…), журнал finEvent, сроки finPaymentDue, выписка
+   ===================================================================== */
 DEFAULT.refund=[];DEFAULT.financeEvent=[];DEFAULT.financeTerms=[];DEFAULT.financeExport=[];DEFAULT.financeExportBatch=[];DEFAULT.financeVersion=1;
 const FIN_TABLES=['refund','financeEvent','financeTerms','financeExport','financeExportBatch'];
 for(const k of FIN_TABLES)if(!Array.isArray(DB[k]))DB[k]=[];
-/* Таблицы денег пишет только Finance (план «до 10», этап 5, 12.11.2026).
-   Другие разделы зовут его команды (erp/finance/api: FIN_API). Сторож —
-   test/finance-api.js: по тексту кода никто вне Finance не пишет в эти
-   таблицы, а в тестах (GF_SCOPE_CHECK) каждая командная запись, тронувшая
-   таблицу денег, должна быть отмечена Finance (finMark) — иначе в консоли
-   «Money outside Finance». Отметку ставят: журнал денег (finEvent), условия
-   (finCaptureTerms), выгрузка QuickBooks, запись Finance (finPersist),
-   приведение базы при загрузке; архив переносит строки целиком. */
-const FIN_OWN=['receipt','refund','financeTerms','financeEvent','financeExport','financeExportBatch','referrer','referrerPayout'];
-const finMarked=new Set();
-function finMark(...tables){(tables.length?tables:FIN_OWN).forEach(t=>finMarked.add(t));}
-/* Начало команды записи (storageCommand): прошлые отметки не в счёт. */
-function finGuardReset(){finMarked.clear();}
-/* touch(): checked — запись команды (с областью). Записанные таблицы
-   отметки теряют: следующая запись отмечается заново. */
-function finGuardCheck(changes,checked){
- const hit=new Map();changes.forEach(c=>{if(FIN_OWN.includes(c.tbl)&&!hit.has(c.tbl))hit.set(c.tbl,c.id);});
- hit.forEach((id,t)=>{if(checked&&!finMarked.has(t))console.error('Money outside Finance: '+t+' '+id);finMarked.delete(t);});
-}
+/* Таблицы денег пишет только Finance (план «до 10», этап 5, 12.11.2026):
+   SECTION_OWN.finance (erp/sections). Другие разделы зовут его имена
+   (erp/finance/api: FIN_API). Отметку для сторожа ставят: журнал денег
+   (finEvent), условия (finCaptureTerms), выгрузка QuickBooks, запись
+   Finance (finPersist), приведение базы при загрузке. */
+const FIN_OWN=SECTION_OWN.finance;
+function finMark(...tables){sectionMark('finance',...tables);}
 /* Деньги вносит, исправляет и возвращает только тот, у кого галочка Finance
    (владелец 12.11.2026: Sales кладёт деньги с листом бумаги, водитель отдаёт
    чек — вносит бухгалтер). Переносы по отмене, удалению и Save заказа
@@ -16010,7 +16044,7 @@ function normalizeFinanceLedger(){
 }
 /* Commit money and its history together. A failed write leaves the UI draft
    available, and restores the previous in-memory balances. */
-function finPersist(fn,scope){return storageCommand(()=>{finMark();return fn();},scope);}
+function finPersist(fn,scope){return sectionPersist('finance',fn,scope);}
 /* Область записи оплаты (storageCommand): оплата, история денег, заказы, на
    которые она легла. */
 function finReceiptScope(d,id){return {receipt:id?[id]:[],financeEvent:[],salesOrder:(d&&d.allocations||[]).map(a=>a.orderId)};}
@@ -16536,7 +16570,6 @@ const FIN_API=new Set([
  'finReceiptOnAccount', // Свободный остаток квитанции на счёте клиента.
  'finLatestReceipts', // Последние квитанции, новые сверху (образец в конструкторе форм).
  /* Чтения: выписка, квитанция, выгрузка QuickBooks — документы и архив. */
- 'finStatementLines', // Строки выписки клиента.
  'finStatementOrderLine', // Строка выписки: заказ.
  'finStatementPaymentLine', // Строка выписки: оплата.
  'finStatementRefundLine', // Строка выписки: возврат.
@@ -16549,6 +16582,11 @@ const FIN_API=new Set([
  'finExportPending', // Что ещё не выгружено в QuickBooks (архив ждёт выгрузки).
  /* Экраны Finance, которые открывают из других разделов. */
  'finStartOrderPayment', // Take payment: форма оплаты на этот заказ, после Save — назад.
+ 'viewFinance', // Экран Finance.
+ 'viewCommissions', // Экран Agents (комиссии).
+ 'salesPaymentStrip', // Полоса оплаты в заказе Sales.
+ 'salesDepositHint', // Подсказка депозита в заказе Sales.
+ 'salesOrderIsSaved', // Заказ уже сохранён (окно долга в Sales).
  'finDropDrafts', // Выход из входа: забыть недописанную оплату.
  'finApplyModal', // Окно зачёта депозита в заказ (из заказа в Sales).
  'finCustomerStrip', // Полоса денег клиента в карточке Customers.
@@ -16568,14 +16606,16 @@ const FIN_API=new Set([
  'comOrders', // Заказы агента за период.
  'comWithScope', // Один проход расчёта комиссий на отчёт.
  /* База, облако, архив: служебное. */
+ 'normalizeReceipts', // Привести квитанции при загрузке.
+ 'normalizeFinanceLedger', // Привести журнал денег при загрузке.
+ 'normalizeCommissions', // Привести агентов и выплаты при загрузке.
+ 'FIN_METHODS', // Способы оплаты (Cash, Cheque…) для отчётов.
+ 'FIN_EVENT_LABELS', // Подписи записей журнала денег (журнал заказа).
  'finValidatePayload', // Import: проверка денег в файле базы.
  'finJournalTop', // Последний номер журнала денег (счётчик сервера).
  'finTotalsWarm', // Прогреть итоги заказов после загрузки.
  'finTotalsForget', // Забыть итоги изменившихся заказов.
  'finTotalsKeep', // Держать итоги заказов архива на время отчёта.
- 'finMark', // Архив: строки денег переносятся целиком (отметка для сторожа).
- 'finGuardReset', // База: начало команды записи — сторож денег с нуля.
- 'finGuardCheck', // База, тесты: запись тронула таблицу денег без Finance.
  /* Общие помощники: дата и деньги — ими пользуются все разделы. */
  'finToday', // Сегодня, ГГГГ-ММ-ДД.
  'finLocalDate', // Дата по часам цеха из времени ISO.
@@ -34977,6 +35017,8 @@ function salesListBalanceCells(o){
    нужен, — в оплате и в карточке клиента (владелец, 28 сентября 2026:
    «минималистично и эффективно»). Команды — в finance/ledger; экран денег
    не придумывает.
+   IN : erp/finance/ledger, erp/finance/data, views/finance-lists
+   OUT: viewFinance — вкладки Accounts, Due dates, Payments, карточка клиента
    ===================================================================== */
 let finCustomerFilter='',finOrderFilter='',finAccountId='',finAccountPaid=false,finDraftBaseline='',finAction=null,finActionBaseline='',finPreview=null,finStatements=null;
 function finHasWork(){return !!(finDraft&&JSON.stringify(finDraft)!==finDraftBaseline||finAction&&JSON.stringify(finAction)!==finActionBaseline);}
@@ -35265,6 +35307,8 @@ function finCustomerStrip(customerId){
    Сама таблица и фильтры — views/finance-lists (движок Sales). Срок ставится
    сам от дня выдачи (finPaymentDue); дни считаются по календарю в UTC —
    переход на летнее время их не сдвигает.
+   IN : finPaymentDue, finOrderFinancial (erp/finance/ledger)
+   OUT: дни до срока, подпись срока, CSV вкладки Due dates
    ===================================================================== */
 function finDueDayDiff(date,today){return Math.round((Date.parse(date+'T00:00:00Z')-Date.parse(today+'T00:00:00Z'))/86400000);}
 function finDueTiming(x){const w=x.f.handover||'pickup';return x.days==null?(x.f.terms.paymentMode==='credit'?'After ':'At ')+w:x.days<0?Math.abs(x.days)+(x.days===-1?' day':' days')+' overdue':x.days===0?'Due today':'In '+x.days+(x.days===1?' day':' days');}
@@ -35279,6 +35323,7 @@ function finDueCSV(rows){return [['Customer','Order','Customer PO','Terms','Bill
    (владелец, 28 сентября 2026: «пусть будет точно так же, как в Sales, по
    колонкам с фильтром и поиском»). Настройки каждой таблицы — свои.
    IN : finance/data, finance/ledger; движок — views/sales-list-ui
+   OUT: finList* — колонки, строки и меню таблиц Finance для движка Sales
    ===================================================================== */
 let finAccountAll=false;
 
@@ -35581,6 +35626,8 @@ function finExportCsv(){
    одной строкой — что будет (вариант D, выбран владельцем 06.11.2026).
    Деньги считают команды finance/data: finAllocate (через finApplyDeposit)
    и finUnallocate; окно ничего не считает само.
+   IN : finAllocate, finUnallocate (erp/finance/data)
+   OUT: окно Allocate payments из карточки клиента
    ===================================================================== */
 let finAlloc=null;
 const FIN_ALLOC_SHOW=[['unpaid','Unpaid'],['part','Part paid'],['paid','Fully paid']];
@@ -35711,6 +35758,7 @@ function finAllocHTML(){
    потом открыть по заказам и по количеству, чтобы этих людей тоже можно было
    оценить: заказов может быть больше, а сумма меньше».
    IN : erp/finance/commissions
+   OUT: viewCommissions — раздел Agents, таблица агентов и выплаты
    ===================================================================== */
 let comOpen='',comDraft=null,comSeen='',comPayDraft=null,comPeriod='year',comHst=false,comNotice='';
 /* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
@@ -42985,11 +43033,12 @@ function stockOffcutClean(r){
   at:typeof r.at==='string'?r.at:'',status:STOCK_STATUSES.includes(r.status)?r.status:'stock'};
 }
 function stockOffcutAdd(rec){
+ sectionMark('stock');
  const r=stockOffcutClean(Object.assign({id:stockIdNext(),at:new Date().toISOString(),status:'stock'},rec));
  if(!Array.isArray(DB.stockOffcut))DB.stockOffcut=[];
  DB.stockOffcut.push(r);return r;
 }
-function stockOffcutCancel(id){const r=stockOffcutFind(id);if(r)r.status='cancelled';return r;}
+function stockOffcutCancel(id){sectionMark('stock','stockOffcut');const r=stockOffcutFind(id);if(r)r.status='cancelled';return r;}
 /* Журнал стока: что лежит на стеллаже, крупное первым; снятое — в конце.
    «Пусть будет учёт тех стёкол, которые попали в сток, не только стикеры»
    (владелец, 20 сентября 2026). */
@@ -43143,9 +43192,10 @@ function invKey(code,size){return String(code||'').trim().toUpperCase()+'|'+(siz
 function invSizeText(r){return r.w>0?frac16(r.w)+' × '+frac16(r.h):'Size missing';}
 /* COG и стекло клиента (галочка «We cut it» снята) на складе не лежат. */
 function invGlassCut(code){const g=glassProductByCode(code);return !(g&&g.cut===false);}
+/* Запись склада: галочка Inventory и отметка таблиц раздела (erp/sections). */
 function invPersist(fn){
  if(!accessCan('inventory'))return {ok:false,error:'Inventory access is required.'};
- return storageCommand(fn);
+ return sectionPersist('stock',fn);
 }
 
 /* Размеры каталога: точки поставки стекла, без них — размеры цеха, без
@@ -43832,7 +43882,7 @@ function sinvPush(e){
    позиция посчитана. */
 function sinvCount(itemId,counted,why){
  if(!accessCan('inventory'))return {ok:false,error:'Inventory access is required.'};
- return storageCommand(()=>{
+ return sectionPersist('stock',()=>{
   const r=sinvBuild().find(x=>x.id===itemId);if(!r)throw new Error('Item not found.');
   const n=sinvInt(counted,'Counted',0);
   /* «Было» сервер сверяет по карточке (C13): реестр CLOUD_CHECK, erp/cloud-sync. */
@@ -43842,7 +43892,7 @@ function sinvCount(itemId,counted,why){
 /* + приход без PO (Opening stock, Found, Returned) и − списание. */
 function sinvMove(itemId,kind,qty,why){
  if(!accessCan('inventory'))return {ok:false,error:'Inventory access is required.'};
- return storageCommand(()=>{
+ return sectionPersist('stock',()=>{
   if(kind!=='add'&&kind!=='remove')throw new Error('Choose add or remove.');
   if(!(DB.stockItem||[]).some(x=>x&&x.id===itemId))throw new Error('Item not found.');
   const n=sinvInt(qty,'Quantity',1),w=why||{};
@@ -43890,7 +43940,7 @@ function stockReasonProblem(name,id){
  const n=stockReasonName(name);if(!n)return 'Enter a reason.';
  return (DB.stockReason||[]).some(r=>r.id!==id&&r.name.toLowerCase()===n.toLowerCase())?'This reason is already there.':'';
 }
-function stockReasonSave(fn){const out=storageCommand(()=>{fn();return true;});return out.ok?'':out.error;}
+function stockReasonSave(fn){const out=sectionPersist('stock',()=>{fn();return true;});return out.ok?'':out.error;}
 function stockReasonAdd(name){const p=stockReasonProblem(name);if(p)return p;return stockReasonSave(()=>DB.stockReason.push({id:salesUid('SR'),name:stockReasonName(name),active:true}));}
 function stockReasonRename(id,name){
  const r=(DB.stockReason||[]).find(x=>x.id===id);if(!r)return 'Reason not found.';
@@ -43899,6 +43949,71 @@ function stockReasonRename(id,name){
 function stockReasonSetActive(id,on){const r=(DB.stockReason||[]).find(x=>x.id===id);if(!r)return 'Reason not found.';return stockReasonSave(()=>{r.active=!!on;});}
 /* Причина и заметка строки пересчёта — как их записывает событие. */
 function stockReasonOf(x){x=x||{};return {reason:stockReasonName(x.reason),note:String(x.note==null?'':x.note).trim().slice(0,200)};}
+
+/* ==== src/erp/inventory/api.js ==== */
+/* =====================================================================
+   erp/inventory/api  ·  stock-api-1.0
+   Что склад даёт другим разделам: набор имён, у каждого комментарий
+   «что делает». Таблицы склада (SECTION_OWN.stock, erp/sections) пишет
+   только склад — erp/inventory/* и куски стока S- (erp/production/
+   stock-offcuts: кусок рождается при раскрое, но это склад). Раскрой,
+   приёмка, станции, Master Data, отчёты, архив и база зовут эти имена
+   (план «до 10», этап 5, 12.11.2026).
+   IN : функции erp/inventory/*, erp/production/stock-offcuts и экранов
+        склада (erp/views/inventory, erp/views/stock-list)
+   OUT: STOCK_API — набор имён; сверяет test/sections-api.js
+   ===================================================================== */
+const STOCK_API=new Set([
+ /* Команды, которые зовут другие разделы. */
+ 'stockOffcutAdd', // Положить кусок в сток (S-): раскрой, отменённое стекло.
+ 'stockOffcutCancel', // Снять кусок со стока (раскрой перестроен).
+ 'invScanSheet', // Скан листа на станции: лист со склада в раскрой.
+ 'invScanSheetClean', // Очистить скан листа.
+ 'stockReasonAdd', // Новая причина списания (общий экран причин).
+ 'stockReasonRename', // Переименовать причину.
+ 'stockReasonSetActive', // Включить или выключить причину.
+ /* Чтения: листы. */
+ 'invSize', // Размер листа: ширина и высота по порядку.
+ 'invSizeText', // Размер листа для экрана.
+ 'invSheetRows', // Листы на складе: строки.
+ 'invCutSheets', // Листы, ушедшие в раскрой.
+ 'invBreaks', // Треснувшие листы.
+ 'invMoves', // Движения листов.
+ 'invBatchSheetHints', // Подсказки листов для батча.
+ 'invOffcutRows', // Куски S-: строки.
+ 'stockOffcutFind', // Кусок S- по номеру.
+ 'INV_SHEETS_MAX', // Предел листов в одной записи.
+ /* Чтения: расходники и Stock items. */
+ 'consRows', // Расходники: строки.
+ 'consKey', // Ключ расходника.
+ 'consUnitOf', // Единица расходника.
+ 'consPerUnitOf', // Расход на юнит.
+ 'consPerUnitSaved', // Записанный расход на юнит.
+ 'consPerFresh', // Расход на юнит заново.
+ 'consAssembled', // Собранные юниты для расхода.
+ 'CONS_TABLES', // Таблицы расходников.
+ 'sinvBuild', // Stock items: остатки.
+ 'sinvRowOf', // Строка Stock item.
+ /* Экраны склада. */
+ 'viewInventory', // Экран Inventory.
+ 'viewStockList', // Список стока в Optimization.
+ 'invGo', // Открыть Inventory на нужном месте.
+ 'invListScope', // Таблица склада в общем движке таблиц: какая.
+ 'invListColumns', // Колонки таблиц склада.
+ 'invListDefaults', // Колонки по умолчанию.
+ 'invListDefaultSort', // Сортировка по умолчанию.
+ 'invListDateColumn', // Колонка даты.
+ 'stockListColumns', // Колонки списка стока.
+ /* База: загрузка и Import. */
+ 'normalizeInventory', // Привести листы при загрузке.
+ 'validateInventoryPayload', // Import: проверка листов.
+ 'normalizeConsumables', // Привести расходники.
+ 'normalizeStockItems', // Привести Stock items.
+ 'validateStockItemPayload', // Import: проверка Stock items.
+ 'normalizeStockReasons', // Привести причины.
+ 'normalizeStockOffcuts', // Привести куски S-.
+ 'validateStockOffcutPayload' // Import: проверка кусков S-.
+]);
 
 /* ==== src/erp/views/glass-batches.js ==== */
 /* Очередь отдельных стёкол и реестр батчей. Одна строка — одно стекло с
@@ -52388,17 +52503,34 @@ function carrierCountScreen(){
 }
 
 /* ==== src/erp/shipping/data.js ==== */
-/* Отгрузки офиса: юниты, Ready по сканам, количества в PS (Shipping, 5.10.2026).
-   IN: actual assemblies/scans, saved orders; OUT: units and PS quantities.
-   Owner: one PS per customer/address, no prices; Net after the last receipt.
-   A unit is an actual assembly, never matching indices of its component Gs.
-   Legacy manual Ready is test data: recalculate it from scans on import.
-   Legacy done/closed without PS remains fulfilled. No invented shipments. */
+/* =====================================================================
+   erp/shipping/data  ·  shipping-1.4
+   Отгрузки офиса: юниты, Ready по сканам, количества в PS (Shipping,
+   5.10.2026). Владелец: один PS на клиента и адрес, без цен; Net — после
+   последней оплаты. Юнит — настоящая сборка, а не индексы его стёкол G-.
+   Старый Ready руками — тестовые данные: при Import пересчитывается по
+   сканам. Старые done/closed без PS остаются выданными. Придуманных
+   отгрузок нет.
+   IN : сборки и сканы станций, сохранённые заказы, DB.shipment
+   OUT: юниты и количества PS, shippingCtx, shippingSyncOrder, запись
+        раздела shipPersist / shipOffice (права: Sales или Shipping)
+   ===================================================================== */
 DEFAULT.shipment=[];DEFAULT.shipmentSeq=0;
 const SHIPPING_STATUSES=['planned','shipped','delivered','cancelled'];
 const SHIPPING_ADDRESS_FIELDS=['label','addressee','address1','address2','address3','city','province','country','postalCode','contact','phone'];
 function shippingClone(x){return JSON.parse(JSON.stringify(x));}
 function shippingFind(id){return (DB.shipment||[]).find(s=>s.id===id||s.number===id)||null;}
+/* Запись Shipping: storageCommand с отметкой таблиц раздела (erp/sections). */
+function shipPersist(fn,scope){return sectionPersist('shipping',fn,scope);}
+/* PS, его печать, Shipped, рейсы и машины — у кого галочка Sales или
+   Shipping (владелец 12.11.2026: Ольга с Sales выдаёт на самовывозе;
+   оптимизатор — нет). Внутри чужой команды (Skip, снятие с батча,
+   удаление заказа) — правила той команды; станция (вход по PIN) — без
+   галочек. */
+function shipOffice(fn,scope){
+ if(!storageDepth&&!(typeof tab!=='undefined'&&tab==='station')&&typeof accessCan==='function'&&!accessCan('sales')&&!accessCan('shipping'))return {ok:false,error:'Sales or Shipping access is required.'};
+ return shipPersist(fn,scope);
+}
 /* takes — заказы, чьё отменённое стекло клиент забирает с этим PS, когда
    юнитов этого заказа на нём нет (аудит Shipping, Д2). */
 function shippingOrderIds(s){return [...new Set((s.items||[]).concat(s.extras||[]).map(i=>i.orderId).concat(s.takes||[]))];}
@@ -52612,11 +52744,17 @@ function validateShipmentPayload(src){
 }
 
 /* ==== src/erp/shipping/commands.js ==== */
-/* Команды PS офиса: создание, печать, Shipped, возврат — одной записью. All writes, scans, order statuses and log entries commit
-   together. Owner, 5 October 2026: after printing a PS, missing/broken goods
-   are NCR, not a recut/backorder. Printing itself is not proof of delivery.
-   SHIP skid loading and queue priority: erp/shipping/loading (PR 2). Truck
-   planning belongs to a later PR. */
+/* =====================================================================
+   erp/shipping/commands  ·  shipping-1.4
+   Команды PS офиса: создание, печать, Shipped, Delivered, возврат — одной
+   записью вместе со сканами, статусами заказов и журналом. Владелец,
+   5.10.2026: после печати PS недостача или бой — NCR, а не Recut или
+   бэкордер; сама печать — не доказательство выдачи. Погрузка скидов на SHIP
+   и очередь — erp/shipping/loading; машины — erp/shipping/delivery.
+   IN : DB.shipment, юниты erp/shipping/data, заказы
+   OUT: shippingCreate, shippingUpdate, shippingMarkShipped,
+        shippingMarkDelivered, shippingRevert, shippingUnbatchItems
+   ===================================================================== */
 function shippingAssert(ok,message){if(!ok)throw new Error(message);}
 function shippingActor(){const a=orderLogActor();return a.by||'Office';}
 function shippingItem(i){return Object.assign({orderId:i.orderId,lineId:i.lineId,unit:i.unit,label:i.label,skid:i.skid||'',pieces:i.pieces.slice()},i.added?{added:i.added}:{});}
@@ -52646,14 +52784,14 @@ function shippingValidateSelection(d,exceptId){
  });
  return Object.assign({items,extras},takes.length?{takes}:{});
 }
-function shippingCreate(d){return storageCommand(()=>{
+function shippingCreate(d){return shipOffice(()=>{
  const picked=readScopeNow(()=>shippingValidateSelection(d)),now=new Date().toISOString();
  DB.shipmentSeq=(Number(DB.shipmentSeq)||0)+1;
  const s={id:salesUid('PS'),number:'PS-'+String(DB.shipmentSeq).padStart(4,'0'),customerId:d.customerId,method:d.method,shipTo:shippingAddress(d.shipTo),date:d.date,status:'planned',...picked,
   createdAt:now,createdBy:shippingActor(),shippedAt:'',shippedBy:'',deliveredAt:'',receivedBy:'',note:String(d.note||'').slice(0,1000),scanIds:[]};
  DB.shipment.push(s);shippingOrderIds(s).forEach(id=>orderLogPush(salesRecord(id),'Packing slip created',s.number));return s;
 },{shipment:[],shipmentSeq:true});}
-function shippingUpdate(id,d){return storageCommand(()=>{
+function shippingUpdate(id,d){return shipOffice(()=>{
  const s=shippingFind(id);shippingAssert(s&&s.status==='planned','Only a planned packing slip can change.');
  shippingAssert(s.customerId===d.customerId,'The packing slip customer cannot change.');
  const loaded=readScopeNow(()=>shippingLoadState(s)).loaded.map(u=>u.label),picked=readScopeNow(()=>shippingValidateSelection(d,s.id)),ids=shippingOrderIds(s);
@@ -52677,7 +52815,7 @@ function shippingUpdate(id,d){return storageCommand(()=>{
    непогруженное офис подтверждает сам ручными SHIP-сканами, как в PR 1
    (самовывоз одним сканом подписанного PS, рейс без сканов на станции). */
 /* at — время выдачи задним числом (Skip, erp/shopfloor/skip: забрали в субботу). */
-function shippingMarkShipped(id,mode,at){return storageCommand(()=>{
+function shippingMarkShipped(id,mode,at){return shipOffice(()=>{
  const s=shippingFind(id);shippingAssert(s&&s.status==='planned','Only a planned packing slip can be shipped.');
  shippingAssert(s.items.length+s.extras.length+(s.takes||[]).length>0,'An empty packing slip cannot be shipped.');
  const now=at||new Date().toISOString(),station=shippingStations().ship,before=shippingOrderIds(s);
@@ -52710,14 +52848,14 @@ function shippingMarkShipped(id,mode,at){return storageCommand(()=>{
  shippingOrderIds(s).forEach(oid=>unitTakesShipped(salesRecord(oid),s.id));
  shippingSyncOrders(before.concat(shippingOrderIds(s)),now);shippingOrderIds(s).forEach(oid=>orderLogPush(salesRecord(oid),'Packing slip shipped',s.number));return s;
 },shippingFind(id)&&{shipment:[id],salesOrder:shippingOrderIds(shippingFind(id)),stationScan:[],stationScanSeq:true,productionRoute:[],carrier:true});}
-function shippingMarkDelivered(id,receivedBy,receivedOn){return storageCommand(()=>{
+function shippingMarkDelivered(id,receivedBy,receivedOn){return shipOffice(()=>{
  const s=shippingFind(id);shippingAssert(s,'Packing slip not found.');if(s.status==='delivered')return s;
  shippingAssert(s.status==='shipped','Mark this packing slip Loaded first.');
  const day=receivedOn||finToday();shippingAssert(shippingDateValid(day)&&day<=finToday()&&day>=finLocalDate(s.shippedAt),'Check the received date.');
  s.status='delivered';s.deliveredAt=day===finToday()?new Date().toISOString():new Date(day+'T12:00:00').toISOString();s.receivedBy=String(receivedBy||'').trim().slice(0,100);
  shippingSyncOrders(shippingOrderIds(s));shippingOrderIds(s).forEach(oid=>orderLogPush(salesRecord(oid),s.method==='pickup'?'Packing slip picked up':'Packing slip delivered',s.number+(s.receivedBy?' · '+s.receivedBy:'')));return s;
 });}
-function shippingRevert(id,action){return storageCommand(()=>{
+function shippingRevert(id,action){return shipOffice(()=>{
  const s=shippingFind(id);shippingAssert(s,'Packing slip not found.');const ids=shippingOrderIds(s);
  if(action==='cancel'){
   shippingAssert(s.status==='planned','Only a planned packing slip can be cancelled.');
@@ -52760,7 +52898,7 @@ function shippingScanSigned(raw,by,date){
  /* В офисе нет сканера (владелец, 02.11.2026): достаточно номера — «212», «ps 212» — PS- и нули подставляются. */
  const typed=String(raw||'').trim().toUpperCase().replace(/^PS[\s-]*/,''),number=/^\d{1,6}$/.test(typed)?'PS-'+typed.padStart(4,'0'):String(raw||'').trim().toUpperCase();if(!/^PS-\d{4,}$/.test(number))return {ok:false,error:'Scan a packing slip number.'};
  const s=shippingFind(number);
- if(s&&s.method==='pickup'&&s.status==='planned')return storageCommand(()=>{
+ if(s&&s.method==='pickup'&&s.status==='planned')return shipOffice(()=>{
   const shipped=shippingMarkShipped(s.id);shippingAssert(shipped.ok,shipped.error);
   const got=shippingMarkDelivered(s.id,by,date);shippingAssert(got.ok,got.error);return got.value;
  });
@@ -52793,6 +52931,23 @@ function shippingWithChecks(ids,method,printing,done){
   salesRunChecks(checks,()=>run(n+1),amount=>salesTakeRecordPayment(o.id,amount),released);
  };run(0);
 }
+/* Снятие стекла с батча (erp/shopfloor/production-unbatch): эти стёкла
+   уходят из PS. s.items is the effective composition. Excluded items retain
+   their whole identity and correction link separately; the frozen PS is not
+   rewritten. Пустой PS отменяется. pieces, scanIds — Set; вернёт снятые
+   юниты. Зовётся внутри команды снятия (её область и права). */
+function shippingUnbatchItems(id,pieces,scanIds,unbatchId){
+ sectionMark('shipping','shipment');
+ const s=shippingFind(id),removed=s.items.filter(i=>i.pieces.some(p=>pieces.has(p)));
+ shippingAssert(removed.every(i=>i.pieces.every(p=>pieces.has(p))),'Return the whole assembled unit.');
+ if(!s.document)s.unbatchOriginalDocument=shippingDocument(s);
+ s.unbatchedItems=(s.unbatchedItems||[]).concat(removed.map(i=>Object.assign(shippingClone(i),{unbatchId})));
+ s.items=s.items.filter(i=>!removed.includes(i));shippingUnprint(s,removed);
+ s.scanIds=(s.scanIds||[]).filter(x=>!scanIds.has(x));
+ if(!s.items.length&&!s.extras.length&&!(s.takes||[]).length){s.status='cancelled';if(!s.document)s.document=s.unbatchOriginalDocument;}
+ if(Array.isArray(s.skidsOut))s.skidsOut=s.skidsOut.filter(code=>s.items.some(i=>i.skid===code));
+ return removed;
+}
 
 /* ==== src/erp/shipping/loading.js ==== */
 /* Очередь клиента и погрузка скидов на станции отгрузки (Shipping PR 2, 6.10.2026).
@@ -52811,7 +52966,7 @@ function shippingWithChecks(ids,method,printing,done){
    же и убирает. */
 function shippingQueueOf(l){const n=l&&l.shipQueue;return Number.isSafeInteger(n)&&n>0&&n<1000?n:0;}
 function shippingQueueAllowed(o){return !!o&&!salesIsQuote(o)&&!['closed','cancelled'].includes(o.status);}
-function shippingQueueSet(orderId,lineIds,value){return storageCommand(()=>{
+function shippingQueueSet(orderId,lineIds,value){return shipPersist(()=>{
  const o=salesRecord(orderId);shippingAssert(shippingQueueAllowed(o),'This order cannot change.');
  const text=String(value==null?'':value).trim(),n=text===''?0:Number(text);
  shippingAssert(Number.isSafeInteger(n)&&n>=0&&n<1000,'Queue is a number from 1 to 999.');
@@ -52909,7 +53064,7 @@ function shippingLoadPlan(code,tripId){
 function shippingLoad(code,tripId,who,opts){
  const plan=shippingWithCtx(()=>shippingLoadPlan(code,tripId));if(plan.kind!=='ok')return plan;
  /* Записывается то, что только что разобрано: разбор здесь же, без паузы. */
- const out=storageCommand(()=>shippingLoadCommand(code,tripId,who,opts,plan),{shipment:[plan.trip.id],salesOrder:[...new Set(plan.units.map(u=>u.orderId))],stationScan:[],stationScanSeq:true,productionRoute:[],carrier:true});
+ const out=shipPersist(()=>shippingLoadCommand(code,tripId,who,opts,plan),{shipment:[plan.trip.id],salesOrder:[...new Set(plan.units.map(u=>u.orderId))],stationScan:[],stationScanSeq:true,productionRoute:[],carrier:true});
  return out.ok?out.value:{kind:'saveError',code,note:out.error};
 }
 function shippingLoadCommand(code,tripId,who,opts,ready){
@@ -52954,11 +53109,11 @@ function shippingLoadUndone(recs){
    вводом. План ничего не блокирует — погрузка и PS живут по своим правилам. */
 DEFAULT.truck=[];
 function truckFind(id){return id?(DB.truck||[]).find(t=>t.id===id)||null:null;}
-function truckAdd(name){return storageCommand(()=>{
+function truckAdd(name){return shipOffice(()=>{
  if(!Array.isArray(DB.truck))DB.truck=[];
  const t={id:salesUid('TRK'),name:String(name||'').trim().slice(0,60)||'Truck '+(DB.truck.length+1),note:'',active:true};DB.truck.push(t);return t;
 });}
-function truckSet(id,field,value){return storageCommand(()=>{
+function truckSet(id,field,value){return shipOffice(()=>{
  const t=truckFind(id);shippingAssert(t,'Truck not found.');
  if(field==='name'){const v=String(value||'').trim().slice(0,60);shippingAssert(v,'Enter a truck name.');t.name=v;}
  else if(field==='note')t.note=String(value==null?'':value).slice(0,120);
@@ -52991,7 +53146,7 @@ function deliveryRenumber(date,truckId){deliveryStops(date,truckId).forEach((s,i
 function deliveryStop(id){const s=shippingFind(id);shippingAssert(s&&shippingActive(s)&&s.method==='delivery','Only a delivery packing slip goes on a truck.');shippingAssert(s.status!=='delivered','This packing slip is already delivered.');return s;}
 /* truckId пустой — снять с машины. Новая остановка встаёт последней и берёт
    водителя, который уже стоит у этой машины в этот день. */
-function deliveryAssign(id,truckId){return storageCommand(()=>{
+function deliveryAssign(id,truckId){return shipOffice(()=>{
  const s=deliveryStop(id),from=s.truckId||'';truckId=truckId||'';
  if(truckId){const t=truckFind(truckId);shippingAssert(t&&t.active,'Choose an active truck.');}
  if(from===truckId)return s;
@@ -53000,16 +53155,16 @@ function deliveryAssign(id,truckId){return storageCommand(()=>{
  if(from)deliveryRenumber(s.date,from);
  return s;
 });}
-function deliveryMove(id,dir){return storageCommand(()=>{
+function deliveryMove(id,dir){return shipOffice(()=>{
  const s=deliveryStop(id);shippingAssert(s.truckId,'Put the packing slip on a truck first.');
  const list=deliveryStops(s.date,s.truckId),i=list.indexOf(s),j=i+(dir<0?-1:1);if(j<0||j>=list.length)return s;
  list[i]=list[j];list[j]=s;list.forEach((x,n)=>{x.stop=n+1;});return s;
 });}
-function deliverySetTime(id,value){return storageCommand(()=>{
+function deliverySetTime(id,value){return shipOffice(()=>{
  const s=deliveryStop(id),v=String(value||'').trim();shippingAssert(!v||/^([01]\d|2[0-3]):[0-5]\d$/.test(v),'Enter the time as HH:MM.');
  if(v)s.departAt=v;else delete s.departAt;return s;
 });}
-function deliverySetDriver(date,truckId,driverId){return storageCommand(()=>{
+function deliverySetDriver(date,truckId,driverId){return shipOffice(()=>{
  shippingAssert(truckFind(truckId),'Truck not found.');shippingAssert(!driverId||(DB.user||[]).some(u=>u.viewProfileId===driverId),'Driver not found.');
  deliveryStops(date,truckId).forEach(s=>{if(driverId)s.driverId=driverId;else delete s.driverId;});return true;
 });}
@@ -53085,7 +53240,7 @@ async function tripKmCalc(date,truckId){
  const res=await new Promise((ok,no)=>new maps.DirectionsService().route({origin,destination:origin,waypoints:addr.map(a=>({location:a,stopover:true})),optimizeWaypoints:false,travelMode:'DRIVING'},
   (r,status)=>status==='OK'&&r&&r.routes&&r.routes[0]?ok(r):no(new Error('Google could not build the route: '+status))));
  const meters=(res.routes[0].legs||[]).reduce((n,l)=>n+(l&&l.distance&&+l.distance.value||0),0);
- const out=storageCommand(()=>{
+ const out=shipPersist(()=>{
   /* Пока Google считал, остановки или адреса сменили — ответ про старый маршрут. */
   if(tripKmRoute(deliveryStops(date,truckId))!==route)throw new Error('Stops changed while calculating. Recalculate km.');
   if(!Array.isArray(DB.tripKm))DB.tripKm=[];
@@ -53134,14 +53289,14 @@ function skidReturnPush(code,x,kind,newCode,by,now){
 /* Скан скида в цеху: если он числится у клиента — вернулся. Иначе null. */
 function skidBack(code,who){
  const x=skidsOut().get(carrierCode(code));if(!x)return null;
- const out=storageCommand(()=>skidReturnPush(x.code,x,'back','',who&&who.name));
+ const out=shipPersist(()=>skidReturnPush(x.code,x,'back','',who&&who.name));
  return out.ok?{code:x.code,customerId:x.customerId,customer:salesCustomerDisplay(x.customerId),days:skidDays(x.since),ps:x.ps}:{error:out.error};
 }
 /* Обмен: клиент отдал свой скид вместо нашего. Чужой заводится новым кодом,
    самый давний наш скид у этого клиента списывается. Цех уже
    зарегистрировал полученный скид (Dollies → Register new) — обмен берёт эту
    запись, второй не заводит (план v1.16, P7-R18): prefix — код такого скида. */
-function skidSwap(customerId,prefix){return storageCommand(()=>{
+function skidSwap(customerId,prefix){return shipPersist(()=>{
  const mine=skidsByCustomer().find(x=>x.customerId===customerId);shippingAssert(mine,'This customer has none of our skids.');
  const own=CARRIER_RE.test(carrierCode(prefix))?carrierCode(prefix):'';
  shippingAssert(own?skidSwapCandidates().includes(own):['SL','SA'].includes(prefix),own?'This skid cannot be used for a swap.':'Choose the skid type.');
@@ -53167,10 +53322,15 @@ function validateSkidReturnPayload(src){
 }
 
 /* ==== src/erp/shipping/print.js ==== */
-/* Packing slip and skid sheets, Letter. Shared docPage primitives keep
-   preview/print/PDF identical. No pricing enters this model.
-   Dispatch freezes the document; subsequent shipments cannot change Before.
-   Printing is recorded as requested, not a claim that a printer succeeded. */
+/* =====================================================================
+   erp/shipping/print  ·  shipping-1.4
+   Бланк packing slip и листы скидов, Letter. Общие примитивы docPage
+   держат просмотр, печать и PDF одинаковыми; цен в модели нет. Отгрузка
+   замораживает документ: следующие отгрузки не меняют «до». Печать
+   записывается как запрошенная, а не как подтверждение принтера.
+   IN : DB.shipment, shippingDocument, конструктор форм (erp/documents)
+   OUT: shippingPages, бланк PS по умолчанию и поля для конструктора форм
+   ===================================================================== */
 /* Отмена на бумаге клиента (владелец, 6.10.2026: «отменённый юнит указывай,
    важно, пусть будет на бумаге»): сколько юнитов строки отменено и что со
    стеклом. Клиент расписывается на PS — и под отменой тоже. */
@@ -53444,13 +53604,124 @@ function shippingPrintRecord(id){
 function shippingPrint(id,checked){
  const s=shippingFind(id);if(!s||s.status==='cancelled'&&!s.unbatchedItems?.length)return;
  (checked?(ids,method,printing,done)=>done():shippingWithChecks)(shippingOrderIds(s),s.method,true,()=>{
-  let pages;const out=storageCommand(()=>{pages=shippingPrintRecord(id);return shippingFind(id);});
+  let pages;const out=shipOffice(()=>{pages=shippingPrintRecord(id);return shippingFind(id);});
   if(!out.ok){shippingNotice={error:true,text:out.error};render();return;}
   render();shippingShowPrint(pages);
  });
 }
 /* Лист одного скида — views/carriers-board (carrierPrintCode): один лист
    скида везде — в окне тары, на станции и здесь (15.10.2026). */
+
+/* ==== src/erp/shipping/api.js ==== */
+/* =====================================================================
+   erp/shipping/api  ·  shipping-api-1.0
+   Что Shipping даёт другим разделам: набор имён, у каждого комментарий
+   «что делает». Таблицы PS и рейсов (SECTION_OWN.shipping, erp/sections)
+   пишет только Shipping; станции, Sales, Production, бланки, отчёты, архив
+   и база зовут эти имена (план «до 10», этап 5, 12.11.2026).
+   IN : функции erp/shipping/* и экранов Shipping (erp/views/shipping*,
+        erp/views/delivery, erp/views/skids)
+   OUT: SHIP_API — набор имён; сверяет test/sections-api.js
+   Нужно новое имя снаружи — сначала строка здесь, иначе сторож красный.
+   ===================================================================== */
+const SHIP_API=new Set([
+ /* Команды: PS и выдача (Skip выдаёт стекло сам, удаление заказа и снятие с батча правят PS). */
+ 'shippingCreate', // Создать PS.
+ 'shippingMarkShipped', // PS отгружен (Shipped).
+ 'shippingMarkDelivered', // PS доставлен (Delivered).
+ 'shippingRevert', // Откатить отгрузку или доставку PS.
+ 'shippingItem', // Строка PS из юнита.
+ 'shippingAssert', // Проверка команды Shipping: ошибка — отказ всей команды.
+ 'shippingDropPlan', // Удаление заказа: что будет с его PS.
+ 'shippingDropOrder', // Удаление заказа: убрать его из PS.
+ 'shippingUnbatchItems', // Снятие с батча: юниты уходят из PS, пустой PS отменяется.
+ 'shippingSyncOrder', // Пересчитать готовность и выдачу заказа по сканам и PS.
+ 'shippingSyncOrders', // То же для нескольких заказов.
+ 'shippingSaveGuard', // Save заказа: нельзя убрать то, что уже на PS.
+ 'shippingQueueSet', // Строку заказа — в очередь отгрузки или из неё.
+ 'shippingQueueOf', // Очередь отгрузки строки.
+ 'shippingQueueAllowed', // Можно ли ставить строку в очередь.
+ /* Станции: погрузка SHIP и возврат скидов. */
+ 'shippingLoad', // Скан погрузки на рейс.
+ 'shippingLoadPart', // Что уже погружено из юнита.
+ 'shippingLoadState', // Состояние погрузки рейса.
+ 'shippingLoadText', // Подпись погрузки для экрана станции.
+ 'shippingLoadUndone', // Undo скана погрузки.
+ 'shippingOpenTrips', // Открытые рейсы для станции SHIP.
+ 'skidBack', // Скид вернулся (скан возврата).
+ 'skidReturnPush', // Запись возврата скида (из пересчёта тары).
+ 'skidsOut', // Какие скиды сейчас у клиентов.
+ 'skidDays', // Сколько дней скид у клиента.
+ /* Чтения: PS и юниты. */
+ 'shippingFind', // PS по id или номеру.
+ 'shippingActive', // PS не отменён.
+ 'shippingSent', // PS отгружен или доставлен.
+ 'shippingHasSent', // У заказа есть отгруженный PS.
+ 'shippingHasCommitment', // У заказа есть PS, который держит стекло.
+ 'shippingForOrder', // PS заказа.
+ 'shippingHistoryOrderIds', // Заказы PS, вместе со снятыми юнитами.
+ 'shippingSummary', // Выдано и осталось по заказу.
+ 'shippingBackCount', // Сколько юнитов осталось выдать.
+ 'shippingAvailable', // Юниты заказа, свободные для PS.
+ 'shippingUnits', // Юниты заказа по сканам.
+ 'shippingLineQty', // Количество строки на PS.
+ 'shippingPrintedPiece', // Стекло на напечатанном PS.
+ 'shippingPrintedQty', // Напечатанное количество строки.
+ 'shippingCtx', // Общий проход по сканам и PS для экрана.
+ 'shippingCtxBuild', // Собрать этот проход.
+ 'shippingCtxNow', // Проход на сейчас из памяти чтения.
+ 'shippingWithCtx', // Выполнить с готовым проходом.
+ 'shippingLegacy', // Старая выдача без PS.
+ 'shippingCarries', // Что везёт PS: юниты и позиции.
+ 'shippingStations', // Коды станций Shipping (SHIPR, SHIP).
+ 'shippingCount', // Подпись количества: «3 units».
+ 'shippingAddress', // Адрес PS.
+ 'shippingDefaultAddress', // Адрес клиента по умолчанию.
+ 'shippingDateValid', // Дата PS правильная.
+ /* Рейсы и машины. */
+ 'truckFind', // Машина по id.
+ 'deliveryStops', // Остановки рейса.
+ 'deliveryDriver', // Водитель рейса.
+ 'deliveryLoad', // Что везёт рейс.
+ 'tripKmFind', // Км рейса.
+ /* Бланки PS и рейса (конструктор форм). */
+ 'shippingDocument', // Снимок PS для бланка.
+ 'shippingPages', // Страницы бланка PS.
+ 'shippingFormDefault', // Бланк PS по умолчанию.
+ 'shippingFormFields', // Поля бланка PS.
+ 'shippingFormContext', // Данные бланка PS.
+ 'shippingFormSample', // Образец PS для конструктора.
+ 'SHIPPING_TABLE_COLUMNS', // Колонки таблицы бланка PS.
+ 'SHIPPING_SKID_COLUMNS', // Колонки листа скида.
+ 'deliveryPages', // Страницы бланка рейса.
+ 'deliveryFormDefault', // Бланк рейса по умолчанию.
+ 'deliveryFormFields', // Поля бланка рейса.
+ 'deliveryFormContext', // Данные бланка рейса.
+ /* Экраны Shipping, которые открывают и встраивают другие разделы. */
+ 'viewShipping', // Экран Shipping.
+ 'viewMdTrucks', // Машины в Master Data.
+ 'shippingSetTab', // Открыть вкладку Shipping.
+ 'shippingTab', // Текущая вкладка Shipping.
+ 'shippingTabs', // Вкладки Shipping.
+ 'shippingTabCount', // Сколько в вкладке (Overview).
+ 'shippingBarRight', // Кнопки справа в шапке.
+ 'shippingOrderStrip', // Полоса выдачи в заказе Sales.
+ 'deliveryDate', // День рейсов.
+ 'shippingListScope', // Таблица Shipping в общем движке таблиц: какая.
+ 'shippingListColumns', // Колонки таблиц Shipping.
+ 'shippingListInfos', // Строки таблиц Shipping.
+ 'shippingBackorderColumns', // Колонки Backorders.
+ 'deliveryListColumns', // Колонки Delivery.
+ 'skidsListColumns', // Колонки Skids.
+ /* База: загрузка и Import. */
+ 'normalizeShipments', // Привести PS при загрузке.
+ 'validateShipmentPayload', // Import: проверка PS.
+ 'normalizeTrucks', // Привести машины.
+ 'validateTruckPayload', // Import: проверка машин.
+ 'normalizeSkidReturns', // Привести возвраты скидов.
+ 'validateSkidReturnPayload', // Import: проверка возвратов скидов.
+ 'normalizeTripKm' // Привести км рейсов.
+]);
 
 /* ==== src/erp/shopfloor/skip.js ==== */
 /* =====================================================================
@@ -53911,17 +54182,9 @@ function productionUnbatchCommand(d,forDelete){
  const plan=forDelete?productionUnbatchPlan(d,true):productionUnbatchPreview(d);shippingAssert(!plan.error,plan.error);shippingAssert(plan.pieces.length,'The selected glass does not need to move back.');
  const o=salesRecord(plan.orderId),now=new Date().toISOString(),who=orderLogActor(),sel=new Set(plan.pieces),scans=new Set(plan.scanIds);
  const record={id:salesUid('PU'),orderId:o.id,at:now,target:plan.target,reason:String(d.reason||'').trim().slice(0,200),by:who.by||'Office',byId:who.byId||'',pieces:plan.pieces,scanIds:plan.scanIds,batchNumbers:plan.batchNumbers,shipments:plan.shipments,skipIds:(DB.skip||[]).filter(k=>!k.undoneAt&&k.pieces.some(p=>sel.has(p))).map(k=>k.id)};
- /* s.items is the effective composition. Excluded items retain their whole
-    identity and correction link separately; the frozen PS is not rewritten. */
+ /* Юниты уходят из PS командой Shipping (shippingUnbatchItems, этап 5). */
  plan.shipments.forEach(p=>{
-  const s=shippingFind(p.id),removed=s.items.filter(i=>i.pieces.some(id=>sel.has(id)));
-  shippingAssert(removed.every(i=>i.pieces.every(id=>sel.has(id))),'Return the whole assembled unit.');
-  if(!s.document)s.unbatchOriginalDocument=shippingDocument(s);
-  s.unbatchedItems=(s.unbatchedItems||[]).concat(removed.map(i=>Object.assign(shippingClone(i),{unbatchId:record.id})));
-  s.items=s.items.filter(i=>!removed.includes(i));shippingUnprint(s,removed);
-  s.scanIds=(s.scanIds||[]).filter(id=>!scans.has(id));
-  if(!s.items.length&&!s.extras.length&&!(s.takes||[]).length){s.status='cancelled';if(!s.document)s.document=s.unbatchOriginalDocument;}
-  if(Array.isArray(s.skidsOut))s.skidsOut=s.skidsOut.filter(code=>s.items.some(i=>i.skid===code));
+  const s=shippingFind(p.id),removed=shippingUnbatchItems(s.id,sel,scans,record.id);
   orderLogPush(o,'Packing slip corrected',s.number+' · '+shippingCount(removed.length,'unit')+' unbatched');
  });
  (DB.stationScan||[]).filter(s=>scans.has(s.id)).sort((a,b)=>+b.id.slice(3)-+a.id.slice(3)).forEach(s=>{s.undoneAt=now;s.undoneBy=('Unbatch · '+record.by).slice(0,80);stationAsmReopen(s);});
@@ -57780,8 +58043,8 @@ function archiveRun(day,opts){
  if(archiveVisit||archiveScope)return {ok:false,error:'Archived orders are open.'};
  const now=new Date().toISOString();
  return storageCommand(()=>{
-  /* Архив переносит строки денег целиком, не меняя их (erp/finance/ledger: FIN_OWN). */
-  finMark();
+  /* Архив переносит строки разделов целиком, не меняя их (erp/sections). */
+  sectionMarkAll();
   let due=[...archiveDue(day)];if(opts.limit)due=due.slice(0,opts.limit);
   /* Последняя пачка дня — день отмечен: следующий уход завтра. */
   if(opts.mark&&due.length<(opts.limit||Infinity))DB.archiveRunDay=day;
@@ -57843,7 +58106,7 @@ async function archiveReturn(orderId){
  const got=await storageColdOf(orderId);if(!got.length)return {ok:true,value:0};
  const owners=new Set();got.forEach(r=>(r.owners||[]).forEach(o=>owners.add(o)));
  return storageCommand(()=>{
-  finMark();
+  sectionMarkAll();
   const before=archiveInvState();
   got.forEach(r=>storageColdPut(r));
   /* Заказ ушёл при прежней версии программы — в работу он встаёт в
@@ -58979,8 +59242,8 @@ function storageCommand(fn,scope){
     удалённые, без JSON каждой фигуры (задание «База», скан подряд). */
  let before;try{before=storageDiff(DB,typeof soDraft!=='undefined'&&soDraft?STORAGE_UNSAVED_TABLES:new Map([...STORAGE_UNSAVED_TABLES].map(k=>[k,new Set()])));}catch(e){before=[];}
  let scopeBefore=null;if(scope&&typeof window!=='undefined'&&window.GF_SCOPE_CHECK)try{scopeBefore=storageScopeSig();}catch(e){}
- /* Таблицы денег: что запишет команда, должен отметить Finance (erp/finance/ledger). */
- if(typeof finGuardReset==='function')finGuardReset();
+ /* Таблицы разделов: что запишет команда, должен отметить свой раздел (erp/sections). */
+ if(typeof sectionGuardReset==='function')sectionGuardReset();
  storageDepth++;
  try{
   const value=fn();if(value===false||value&&value.error)throw new Error(value&&value.error||'The operation could not be completed.');
@@ -59026,8 +59289,8 @@ function touch(){
      пополнился — набор собирается заново, чтобы записи журнала ушли с правкой. */
   let diff=storageDiff(DB,only);if(typeof mdLogCapture==='function'&&mdLogCapture(diff))diff=storageDiff(DB,only);
   const changes=storageColdApply(diff);
-  /* Тесты: запись команды тронула таблицу денег без Finance — ошибка в консоли. */
-  if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK&&typeof finGuardCheck==='function')finGuardCheck(changes,!!only);
+  /* Тесты: запись команды тронула таблицу раздела без его отметки — ошибка в консоли. */
+  if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK&&typeof sectionGuardCheck==='function')sectionGuardCheck(changes,!!only);
   /* Ничего не изменилось (старт без новых граф) — и отмечать нечего. */
   if(!changes.length){storageLastError=storageFailed?storageLastError:'';storageScopeMark();return true;}
   /* Сервер (erp/cloud-sync.js): набор встаёт в очередь отправки той же записью. */
