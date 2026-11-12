@@ -68,6 +68,10 @@ address (9 Nov 2026).
 - **Access** (server administrators) — which sections are needed to read and write each table on the server: Table,
   Read, Write, Edit, ×, **Add rule**, **Save access**, Refresh. “No rule — everyone.” Without the section a person gets
   no rows of that table, even around the screen.
+- **Journal** (server administrators) — who wrote what to the server: **Show journal** lists the last 200 records, newest
+  first: When, Who (name or sign-in email), Computer, Result (**Saved**, **Denied** — no access to the table's section,
+  **Conflict** — changed on another computer), What (tables and row counts, e.g. `orderEvent × 3, salesOrder`). **Older**
+  — the next 200, **Refresh** — again. The server keeps the journal itself; a computer cannot erase it.
 - **Data** — **Export JSON**; while not syncing also **Import JSON**, Restore pre-import backup and **Clear database**.
   With a server they are hidden: replacing the database would hit everyone. Import and Export are for testing; working
   data lives on the server (owner, 19 Oct 2026).

@@ -457,16 +457,44 @@ begin
   return public.erp_rules();
 end $$;
 
+-- Журнал «кто что записал» (Users → Cloud → Journal, план «до 10», этап 3,
+-- 12.11.2026): каждая команда сервера — когда, кто, с какого ПК, сколько строк
+-- каких таблиц записала, или отказ (чужой раздел, конфликт). Берётся из
+-- erp_command — новых таблиц нет. Видит только администратор: в журнале
+-- почты людей и названия таблиц денег. before_at — для «Older».
+create index if not exists erp_command_at on public.erp_command (at desc);
+create or replace function public.erp_journal(before_at timestamptz default null, n int default 200)
+returns jsonb language plpgsql stable security definer set search_path = public, pg_temp as $$
+declare me public.erp_member := public.erp_me();
+begin
+  if not me.admin then raise exception 'Only an administrator can read the journal.' using errcode = '42501'; end if;
+  if n is null or n < 1 or n > 1000 then raise exception 'Rows must be 1–1000.'; end if;
+  return coalesce((select jsonb_agg(q.j order by q.at desc, q.id desc) from (
+    select c.at, c.id, jsonb_build_object('at', c.at, 'email', coalesce(lower(u.email), ''), 'name', coalesce(m.name, ''),
+      'device', c.device, 'build', c.build,
+      'result', case when c.result ? 'denied' then 'denied' when c.result ? 'conflict' then 'conflict'
+                     when c.result ? 'staged' then 'part' else 'ok' end,
+      'denied', coalesce(c.result->'denied', '[]'::jsonb),
+      'tables', coalesce((select jsonb_object_agg(k.t, k.n) from (
+          select split_part(key, '|', 1) t, count(*) n from jsonb_object_keys(
+            case when jsonb_typeof(c.result->'vers') = 'object' then c.result->'vers' else '{}'::jsonb end) key group by 1) k), '{}'::jsonb)) j
+    from public.erp_command c
+      left join public.erp_member m on m.user_id = c.user_id
+      left join auth.users u on u.id = c.user_id
+    where before_at is null or c.at < before_at
+    order by c.at desc, c.id desc limit n) q), '[]'::jsonb);
+end $$;
+
 revoke all on function public.erp_me(), public.erp_apply(text, text, text, jsonb, jsonb, jsonb), public.erp_take(text, int, bigint),
   public.erp_changes(bigint, int), public.erp_cold(jsonb), public.erp_cold_of(jsonb), public.erp_get(jsonb), public.erp_size(), public.erp_whoami(),
-  public.erp_member_set(text, text, boolean, boolean, text[]), public.erp_members(), public.erp_rules(), public.erp_rules_set(jsonb)
+  public.erp_member_set(text, text, boolean, boolean, text[]), public.erp_members(), public.erp_rules(), public.erp_rules_set(jsonb), public.erp_journal(timestamptz, int)
   from public, anon;
 revoke all on function public.erp_me() from authenticated;
 revoke all on function public.erp_can(public.erp_member, text), public.erp_can_read(public.erp_member, text),
   public.erp_can_write(public.erp_member, text), public.erp_can_read_row(public.erp_member, text, text) from public, anon, authenticated;
 grant execute on function public.erp_apply(text, text, text, jsonb, jsonb, jsonb), public.erp_take(text, int, bigint),
   public.erp_changes(bigint, int), public.erp_cold(jsonb), public.erp_cold_of(jsonb), public.erp_get(jsonb), public.erp_size(), public.erp_whoami(),
-  public.erp_member_set(text, text, boolean, boolean, text[]), public.erp_members(), public.erp_rules(), public.erp_rules_set(jsonb)
+  public.erp_member_set(text, text, boolean, boolean, text[]), public.erp_members(), public.erp_rules(), public.erp_rules_set(jsonb), public.erp_journal(timestamptz, int)
   to authenticated;
 
 -- Отчёты: закрытые месяцы архива (владелец, 04.11.2026). Строки отчёта за

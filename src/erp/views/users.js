@@ -93,7 +93,7 @@ function usersCloudHTML(){
   <div class="row">${status}
    <button class="pri" data-cloud-connect ${st.busy?'disabled':''} onclick="usersCloudConnect()">Connect</button>
    ${s?`<button data-cloud-check onclick="cloudCheck()">Check</button><button data-cloud-out onclick="cloudSignOut()">Sign out</button>`:''}</div>
-  ${s?usersCloudSyncHTML():''}${s&&Array.isArray(cloudAccess.members)?usersCloudAccessHTML():''}${usersDataHTML()}</div>`;
+  ${s?usersCloudSyncHTML():''}${s&&Array.isArray(cloudAccess.members)?usersCloudAccessHTML()+usersCloudJournalHTML():''}${usersDataHTML()}</div>`;
 }
 /* Вся база файлом — только здесь, не на каждом экране (владелец, 02.11.2026).
    С сервером замена базы ушла бы всем: Import, Restore и Clear не показаны. */
@@ -132,6 +132,25 @@ function usersCloudAccessHTML(){
   ${a.error?`<div class="hint warn" data-cloud-access-error>${esc(a.error)}</div>`:''}
   ${slFromTable('cloudRules',`<table data-cloud-rules><thead><tr><th>Table</th><th>Read</th><th>Write</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="empty">No rules</td></tr>'}</tbody></table>`)}
   <div class="row">${add}${d?`<button class="pri" data-rule-save ${busy?'disabled':''} onclick="cloudRulesSave(cloudAccess.draft)">Save access</button><button ${busy?'disabled':''} onclick="cloudAccess.draft=null;cloudAccess.open='';render()">Cancel</button>`:`<button class="sm" ${busy?'disabled':''} onclick="cloudAccessLoad()">Refresh</button>`}</div>`;
+}
+/* Journal — кто что записал на сервере (erp_journal): только администратор,
+   по кнопке — журнал не грузится сам при каждом заходе в Users. */
+function usersJournalWhen(at){const d=new Date(at);return isNaN(d)?'':d.toLocaleString([], {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});}
+function usersJournalWhat(r){
+ if(r.result==='denied')return 'No access: '+(r.denied||[]).join(', ');
+ if(r.result==='conflict')return 'Changed on another computer';
+ const t=Object.entries(r.tables||{}).sort((a,b)=>b[1]-a[1]);
+ return r.result==='part'?'Part of a large save':t.map(([k,n])=>k+(n>1?' × '+n:'')).join(', ')||'—';
+}
+function usersCloudJournalHTML(){
+ const j=cloudJournal,busy=j.busy,rows=j.rows||[];
+ const body=rows.map(r=>`<tr data-journal-row><td>${esc(usersJournalWhen(r.at))}</td><td>${esc(r.name||r.email)}</td><td>${esc(r.device)}</td>
+  <td>${r.result==='ok'||r.result==='part'?'<span class="pill ok">Saved</span>':`<span class="pill warn">${r.result==='denied'?'Denied':'Conflict'}</span>`}</td>
+  <td>${esc(usersJournalWhat(r))}</td></tr>`).join('');
+ return `<h3>Journal</h3><div class="hint">Who wrote what on the server.</div>
+  ${j.error?`<div class="hint warn" data-journal-error>${esc(j.error)}</div>`:''}
+  ${j.rows?slFromTable('cloudJournal',`<table data-cloud-journal><thead><tr><th>When</th><th>Who</th><th>Computer</th><th>Result</th><th>What</th></tr></thead><tbody>${body||'<tr><td colspan="5" class="empty">No records</td></tr>'}</tbody></table>`):''}
+  <div class="row"><button class="sm" data-journal-load ${busy?'disabled':''} onclick="cloudJournalLoad()">${j.rows?'Refresh':'Show journal'}</button>${j.more?`<button class="sm" data-journal-older ${busy?'disabled':''} onclick="cloudJournalLoad(true)">Older</button>`:''}</div>`;
 }
 function usersRuleDraft(){if(!cloudAccess.draft)cloudAccess.draft=(cloudAccess.rules||[]).map(r=>({tbl:r.tbl,read:r.read||'',write:r.write||''}));return cloudAccess.draft;}
 function usersRuleOpen(t){usersRuleDraft();cloudAccess.open=cloudAccess.open===t?'':t;render();}
