@@ -35,8 +35,9 @@
 - Данные в ERP пока тестовые, бухгалтерия на ERP ещё не работает (08.11); пилот параллельно со Spiel — этап 8 плана «до 10».
 
 **Как устроено**
-- Один HTML из модулей `src/` в порядке `build/manifest.json`; общее глобальное пространство имён. Разделы денег
-  закрываются API (этап 5): таблицы `FIN_OWN` пишет только Finance — см. Finance.
+- Один HTML из модулей `src/` в порядке `build/manifest.json`; общее глобальное пространство имён. Разделы
+  закрыты API (этап 5): таблицы `SECTION_OWN` (`erp/sections.js`) пишет только свой раздел — Finance, склад,
+  Shipping; другие зовут имена из `FIN_API`, `STOCK_API`, `SHIP_API`. Сторож — `test/sections-api.js`.
 - База — объект `DB` в памяти, хранится в IndexedDB по записям; запись — одна `storageCommand(fn)`: при отказе
   форма не закрывается, набранное остаётся, повтор пишет один раз. Две вкладки и два ПК — см. Users и сервер.
 - Номера `G-0000001` (стекло), `U-0000001` (юнит), `S-0000001` (кусок стока) — 7 цифр минимум, Code 128; высший номер
@@ -220,7 +221,9 @@ NCR — повреждение после выдачи клиенту; Recut —
 Ready по скану, packing slip (PS), погрузка на SHIP, частичная отгрузка и бэкордер, Delivery (машины, км), скиды у
 клиентов, выдача у стойки. Код `src/erp/shipping/`, `views/shipping*.js`, `views/delivery.js`, `views/skids.js`,
 `views/station-shipping.js`; данные `DB.shipment`, `DB.truck`, `DB.tripKm`, `DB.skidReturn`. Решения задания —
-`решения-из-заданий.md` → Shipping (1–32 и «Чего не делать»). Этап 5 «до 10» закрывает раздел API.
+`решения-из-заданий.md` → Shipping (1–32 и «Чего не делать»). Свои таблицы пишет только Shipping, другие зовут
+имена `SHIP_API` (`shipping/api.js`); запись — `shipPersist` / `shipOffice`; снятие с батча правит PS командой
+`shippingUnbatchItems` — «План «до 10», этап 5: склад и Shipping» (2026-11).
 
 **Правила владельца**
 - **Отгрузка = PS**: один клиент и адрес, заказов сколько угодно, разделы по заказам; `PS-0001`, Code 128; **цен
@@ -288,7 +291,8 @@ Ready по скану, packing slip (PS), погрузка на SHIP, части
 **Как устроено**
 - Таблицы `FIN_OWN` (receipt, refund, financeTerms, financeEvent, financeExport, financeExportBatch, referrer,
   referrerPayout) пишет только `erp/finance/*`; остальные разделы зовут имена `FIN_API` (`erp/finance/api.js`);
-  права в командах — `finNeedAccess`. Сторож `test/finance-api.js` («Money outside Finance»).
+  права в командах — `finNeedAccess`. Общий сторож трёх разделов — `erp/sections.js` и `test/sections-api.js`
+  («Outside section: …»).
 - `finance/ledger.js`: `finBillingDate`, `finPaymentDue`, `finAllocate` / `finUnallocate`, журнал
   `finJournalEntries`, `finExportPending`; итоги заказа `finOrderTotals` хранит `finTotalsKeep`; архивный заказ
   сначала возвращается в работу (`finBringBack`). Номера возврата RF- — с сервера.
@@ -344,7 +348,9 @@ PI-, PP- с сервера. Факты — `CLOUD_FACT`. Сторожа: `test/p
 Листы стекла, куски стока `S-`, расходники IGU, Stock items в штуках: остаток, приход, пересчёт, списание.
 Код `src/erp/inventory/`, `views/inventory.js`, `views/stock-list.js`; данные `DB.inventoryEvent`,
 `DB.consumableEvent`, `DB.stockItemEvent`, `DB.inventoryMin`. Решения задания — `решения-из-заданий.md` →
-Инвентаризация. Этап 5 «до 10» закрывает раздел API.
+Инвентаризация. Свои таблицы (и куски `S-` — `production/stock-offcuts.js`) пишет только склад, другие зовут имена
+`STOCK_API` (`inventory/api.js`); запись — `invPersist` (галочка Inventory) и `sectionPersist('stock')` —
+«План «до 10», этап 5: склад и Shipping» (2026-11).
 
 **Правила владельца**
 - **Остаток — из фактов**, ошибку исправляет встречная запись, историю не стирают (14.10). «Каталог = то, что на

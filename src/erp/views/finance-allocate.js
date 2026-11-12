@@ -9,6 +9,8 @@
    одной строкой — что будет (вариант D, выбран владельцем 06.11.2026).
    Деньги считают команды finance/data: finAllocate (через finApplyDeposit)
    и finUnallocate; окно ничего не считает само.
+   IN : finAllocate, finUnallocate (erp/finance/data)
+   OUT: окно Allocate payments из карточки клиента
    ===================================================================== */
 let finAlloc=null;
 const FIN_ALLOC_SHOW=[['unpaid','Unpaid'],['part','Part paid'],['paid','Fully paid']];

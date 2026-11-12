@@ -14,7 +14,7 @@
    же и убирает. */
 function shippingQueueOf(l){const n=l&&l.shipQueue;return Number.isSafeInteger(n)&&n>0&&n<1000?n:0;}
 function shippingQueueAllowed(o){return !!o&&!salesIsQuote(o)&&!['closed','cancelled'].includes(o.status);}
-function shippingQueueSet(orderId,lineIds,value){return storageCommand(()=>{
+function shippingQueueSet(orderId,lineIds,value){return shipPersist(()=>{
  const o=salesRecord(orderId);shippingAssert(shippingQueueAllowed(o),'This order cannot change.');
  const text=String(value==null?'':value).trim(),n=text===''?0:Number(text);
  shippingAssert(Number.isSafeInteger(n)&&n>=0&&n<1000,'Queue is a number from 1 to 999.');
@@ -112,7 +112,7 @@ function shippingLoadPlan(code,tripId){
 function shippingLoad(code,tripId,who,opts){
  const plan=shippingWithCtx(()=>shippingLoadPlan(code,tripId));if(plan.kind!=='ok')return plan;
  /* Записывается то, что только что разобрано: разбор здесь же, без паузы. */
- const out=storageCommand(()=>shippingLoadCommand(code,tripId,who,opts,plan),{shipment:[plan.trip.id],salesOrder:[...new Set(plan.units.map(u=>u.orderId))],stationScan:[],stationScanSeq:true,productionRoute:[],carrier:true});
+ const out=shipPersist(()=>shippingLoadCommand(code,tripId,who,opts,plan),{shipment:[plan.trip.id],salesOrder:[...new Set(plan.units.map(u=>u.orderId))],stationScan:[],stationScanSeq:true,productionRoute:[],carrier:true});
  return out.ok?out.value:{kind:'saveError',code,note:out.error};
 }
 function shippingLoadCommand(code,tripId,who,opts,ready){

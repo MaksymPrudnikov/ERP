@@ -117,17 +117,9 @@ function productionUnbatchCommand(d,forDelete){
  const plan=forDelete?productionUnbatchPlan(d,true):productionUnbatchPreview(d);shippingAssert(!plan.error,plan.error);shippingAssert(plan.pieces.length,'The selected glass does not need to move back.');
  const o=salesRecord(plan.orderId),now=new Date().toISOString(),who=orderLogActor(),sel=new Set(plan.pieces),scans=new Set(plan.scanIds);
  const record={id:salesUid('PU'),orderId:o.id,at:now,target:plan.target,reason:String(d.reason||'').trim().slice(0,200),by:who.by||'Office',byId:who.byId||'',pieces:plan.pieces,scanIds:plan.scanIds,batchNumbers:plan.batchNumbers,shipments:plan.shipments,skipIds:(DB.skip||[]).filter(k=>!k.undoneAt&&k.pieces.some(p=>sel.has(p))).map(k=>k.id)};
- /* s.items is the effective composition. Excluded items retain their whole
-    identity and correction link separately; the frozen PS is not rewritten. */
+ /* Юниты уходят из PS командой Shipping (shippingUnbatchItems, этап 5). */
  plan.shipments.forEach(p=>{
-  const s=shippingFind(p.id),removed=s.items.filter(i=>i.pieces.some(id=>sel.has(id)));
-  shippingAssert(removed.every(i=>i.pieces.every(id=>sel.has(id))),'Return the whole assembled unit.');
-  if(!s.document)s.unbatchOriginalDocument=shippingDocument(s);
-  s.unbatchedItems=(s.unbatchedItems||[]).concat(removed.map(i=>Object.assign(shippingClone(i),{unbatchId:record.id})));
-  s.items=s.items.filter(i=>!removed.includes(i));shippingUnprint(s,removed);
-  s.scanIds=(s.scanIds||[]).filter(id=>!scans.has(id));
-  if(!s.items.length&&!s.extras.length&&!(s.takes||[]).length){s.status='cancelled';if(!s.document)s.document=s.unbatchOriginalDocument;}
-  if(Array.isArray(s.skidsOut))s.skidsOut=s.skidsOut.filter(code=>s.items.some(i=>i.skid===code));
+  const s=shippingFind(p.id),removed=shippingUnbatchItems(s.id,sel,scans,record.id);
   orderLogPush(o,'Packing slip corrected',s.number+' · '+shippingCount(removed.length,'unit')+' unbatched');
  });
  (DB.stationScan||[]).filter(s=>scans.has(s.id)).sort((a,b)=>+b.id.slice(3)-+a.id.slice(3)).forEach(s=>{s.undoneAt=now;s.undoneBy=('Unbatch · '+record.by).slice(0,80);stationAsmReopen(s);});

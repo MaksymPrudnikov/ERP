@@ -290,8 +290,8 @@ function storageCommand(fn,scope){
     удалённые, без JSON каждой фигуры (задание «База», скан подряд). */
  let before;try{before=storageDiff(DB,typeof soDraft!=='undefined'&&soDraft?STORAGE_UNSAVED_TABLES:new Map([...STORAGE_UNSAVED_TABLES].map(k=>[k,new Set()])));}catch(e){before=[];}
  let scopeBefore=null;if(scope&&typeof window!=='undefined'&&window.GF_SCOPE_CHECK)try{scopeBefore=storageScopeSig();}catch(e){}
- /* Таблицы денег: что запишет команда, должен отметить Finance (erp/finance/ledger). */
- if(typeof finGuardReset==='function')finGuardReset();
+ /* Таблицы разделов: что запишет команда, должен отметить свой раздел (erp/sections). */
+ if(typeof sectionGuardReset==='function')sectionGuardReset();
  storageDepth++;
  try{
   const value=fn();if(value===false||value&&value.error)throw new Error(value&&value.error||'The operation could not be completed.');
@@ -337,8 +337,8 @@ function touch(){
      пополнился — набор собирается заново, чтобы записи журнала ушли с правкой. */
   let diff=storageDiff(DB,only);if(typeof mdLogCapture==='function'&&mdLogCapture(diff))diff=storageDiff(DB,only);
   const changes=storageColdApply(diff);
-  /* Тесты: запись команды тронула таблицу денег без Finance — ошибка в консоли. */
-  if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK&&typeof finGuardCheck==='function')finGuardCheck(changes,!!only);
+  /* Тесты: запись команды тронула таблицу раздела без его отметки — ошибка в консоли. */
+  if(typeof window!=='undefined'&&window.GF_SCOPE_CHECK&&typeof sectionGuardCheck==='function')sectionGuardCheck(changes,!!only);
   /* Ничего не изменилось (старт без новых граф) — и отмечать нечего. */
   if(!changes.length){storageLastError=storageFailed?storageLastError:'';storageScopeMark();return true;}
   /* Сервер (erp/cloud-sync.js): набор встаёт в очередь отправки той же записью. */
