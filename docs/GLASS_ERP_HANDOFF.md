@@ -2,6 +2,38 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## План «до 10», этап 5: Finance — единственный писатель денег · 12 ноября 2026
+
+Владелец 12.11.2026: деньги в программу вносит только бухгалтер — Sales при выдаче кладёт недостающие деньги с
+распечатанным листом, водитель отдаёт чек; стекло выдают «несмотря ни на что», подтверждает тот, кто печатает; это
+нажатие — в журнал заказа (без новой колонки и без меток в таблице Sales).
+
+- Таблицы денег `FIN_OWN` (`erp/finance/ledger`): receipt, refund, financeTerms, financeEvent, financeExport,
+  financeExportBatch, referrer, referrerPayout. Прямые записи в них и раньше были только в `erp/finance/*`; теперь
+  это договор со сторожем.
+- `erp/finance/api.js` — `FIN_API`: имена Finance, которые зовут другие разделы (команды переносов, чтения денег
+  заказа и клиента, бланки, экраны Finance, служебное базы, общие помощники даты и денег), у каждого — комментарий.
+  Имена прежние (глобальные функции раздела), ES-модулей нет.
+- Новые чтения вместо сырого `DB.receipt` в других разделах: `finOrderReceiptIds` (Sales: область отмены и Save,
+  запрет смены клиента при оплатах), `finLastPaymentDate` (документы: PAID), `finLatestReceipts` (конструктор форм).
+- Sales больше не заполняет черновик Finance: `finStartOrderPayment` (Take payment) и `finDropDrafts` (выход из
+  входа) — в `erp/views/finance`.
+- Права в самих командах: `finNeedAccess` — оплата, правка, Void, Refund, Void refund, разнесение, Unallocate,
+  переплата на депозит, Terms, выгрузка QuickBooks — галочка Finance; выплаты агентам — Agents (commissions).
+  Переносы системы (`finReleaseOrder`, `finReleaseCurrency`, `finCaptureTerms`) — без проверки.
+- Выдача с долгом: проверка `release` в `salesTransitionChecks` (переход в done с долгом у cash); «… anyway» →
+  `salesReleaseLog` → `orderLogAdd(order,'Released with balance due','$… · <кнопка>')`. Shipping
+  (`shippingWithChecks`, `shippingCashFirst`) копит строки и пишет, когда пройдены окна всех заказов.
+- Сторож `test/finance-api.js`: (а) по тексту — вне Finance никто не пишет в `FIN_OWN` (присваивание, методы массива,
+  `allocations`, `voided`); (б) вне Finance — только имена из `FIN_API`, и каждое имя списка живое; (в) живой: в
+  тестах (`GF_SCOPE_CHECK`) запись команды (`storageCommand`, `touchScope`), тронувшая таблицу денег без отметки
+  Finance (`finMark`: `finEvent`, `finCaptureTerms`, `finExportMark`, `finPersist`, нормализация, архив), пишет
+  «Money outside Finance»; `test/run.js` собирает такие строки со всех тестов. Нарочная поломка (запись в оплату и
+  `finEvent` из Sales) — сторож красный по обоим пунктам.
+- Заготовка `oqPay` (`test/optimization-fixture`) теперь записывает оплату сразу (`touch()`): раньше её подхватывала
+  следующая команда Sales — живой сторож это поймал.
+- Числа те же: тесты денег, `test/order-totals-fixture.js`, `perf-year --compare` на годовой базе (main против ветки).
+
 ## Стекло фигуры — по режущему прямоугольнику · 9 ноября 2026
 
 Руководство цеха (через владельца, 09.11.2026, сверено с квотами Spiel A/B/C): стекло фигуры клиенту — по

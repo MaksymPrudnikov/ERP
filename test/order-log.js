@@ -163,9 +163,11 @@ module.exports=async function({page,eq,ok}){
   return orderLogFor(id).map(r=>r.what+(r.note?' · '+r.note:''));
  }),['Created','Printed · Work order','Emailed · Work order','Printed · Stickers · 6']);
 
- eq('оплата из Finance видна в журнале заказа и записана на вошедшего',await t.p.evaluate(async()=>{
+ /* Деньги вносит только человек с галочкой Finance (этап 5, 12.11.2026). */
+ eq('оплата из Finance видна в журнале заказа и записана на вошедшего (с галочкой Finance)',await t.p.evaluate(async()=>{
   oqReset();DB.orderEvent=[];DB.receipt=[];DB.financeEvent=[];const id=oqOrder(oqCustomer());salesDraftDrop();
-  const o=salesRecord(id);finPersist(()=>finSaveReceiptRecord({customerId:o.customerId,date:'2026-10-02',method:'cash',amount:100,allocations:[{orderId:id,amount:100}]},null,'',false));
+  const me=signinUser(),keep=me.access;me.access=keep.concat('finance');
+  const o=salesRecord(id);try{finPersist(()=>finSaveReceiptRecord({customerId:o.customerId,date:'2026-10-02',method:'cash',amount:100,allocations:[{orderId:id,amount:100}]},null,'',false));}finally{me.access=keep;}
   const r=orderLogFor(id).find(x=>x.what==='Payment received');return r&&{by:r.by,amount:/\$100\.00/.test(r.note)};
  }),{by:'Demo Sales',amount:true});
 
