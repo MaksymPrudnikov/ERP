@@ -79,6 +79,8 @@
 - Минимум каталога в карточке материала (Data → Materials: Min area, Min charge) работает как раньше, пока у
   материала нет своего числа в заказе.
 - Изменения пишутся в журнал заказа (Activity log): «Minimum area · 3CL: — → 1 ft²».
+- Выдали с долгом («… anyway» в окне долга) — строка **Released with balance due** в Activity log: сумма, кнопка,
+  кто нажал ([finance.ru.md](finance.ru.md), «Выдача с долгом»).
 
 ## Окно Services / Processing строки
 

@@ -64,7 +64,7 @@ function signinMarkOwner(){
 }
 function signinFresh(){
  try{if(typeof soDraft!=='undefined'&&soDraft){if(typeof storageWriter!=='undefined'&&storageWriter&&typeof salesDraftDrop==='function')salesDraftDrop(true);else{soDraft=null;soEdit=null;}}}catch(e){}
- try{if(typeof finDraft!=='undefined'){finDraft=null;finAction=null;}}catch(e){}
+ try{if(typeof finDropDrafts==='function')finDropDrafts();}catch(e){}
  location.reload();
 }
 /* Первый пароль ставят только в Users (владелец, 3 октября 2026): самому

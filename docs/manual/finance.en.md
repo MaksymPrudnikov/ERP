@@ -4,6 +4,31 @@ Customer money: who owes what and by which day, payments (receipts), allocating 
 statements for the customer and the file for QuickBooks. The section is visible to people with the Finance box ticked
 in Users.
 
+## Who records money
+
+- Only a person with the **Finance** box can record, correct and void a payment, refund money, allocate and
+  unallocate, change Terms and export to QuickBooks. The command itself checks this, not just the screen: a button
+  elsewhere in the program does not let a person without the box through ("Finance access is required to record
+  money."). Agent payouts need the **Agents** box (commissions).
+- How the shop works (owner, 12.11.2026): at pickup Sales takes the missing money and puts it with a printed sheet —
+  the bookkeeper records the payment when she is in. The driver only collects the cheque and hands it to the
+  bookkeeper. A payment exists in the program only once the bookkeeper has recorded it.
+- Transfers the system makes itself work for everyone who can do the order action: an order cancelled or deleted —
+  its payments go to the customer's deposit; Save with a new customer or currency — terms and deposit as described
+  below.
+
+## Release with a balance due
+
+- A cash customer's order with a balance is shipped, put on a PS, or its PS printed — the window shows Order total,
+  Paid, Balance due. **Take payment** is shown only to people with the Finance box. The **… anyway** button (Pick up
+  anyway, Deliver anyway, Create anyway, Print anyway, Ship anyway) is always there: the glass goes out regardless,
+  the person who presses decides.
+- Pressing "… anyway" writes a line to the order's log (right-click the order → **Activity log**):
+  **Released with balance due** · the balance at that minute · which button, and who pressed it. Back writes nothing.
+  In Shipping the line is written once the windows of all PS orders are passed (Back on the second order creates and
+  writes nothing).
+- Credit (Net) customers get no balance window at release — releasing with a balance is normal for them, no line.
+
 ## How the program counts an order's money
 
 - **Invoice** — one per order, once the customer has received the last unit (the order is picked up or delivered).

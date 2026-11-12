@@ -255,7 +255,7 @@ function salesTransitionChecks(o,next){
  }else if((next==='done'||next==='closed')&&b.balance!=null&&b.balance>0){
   out.push({title:'Order '+num+' has a balance due',sub,rows:[['Order total',finFmt(b.total)],['Paid',finFmt(b.paid)],['Balance due',finFmt(b.balance),true]],
    note:next==='done'?'Take payment first.':'Balance due.',
-   anyway:next==='closed'?'Close anyway':anyway,pay:next==='done'?b.balance:null});
+   anyway:next==='closed'?'Close anyway':anyway,pay:next==='done'?b.balance:null,release:next==='done'?{orderId:o.id,balance:b.balance}:null});
  }
  return out;
 }
@@ -276,11 +276,16 @@ function salesRunChecksMany(list,done,anyway){
  /* В подписи — все выбранные заказы: «anyway» отправляет и те, у кого всё в порядке. */
  const n=list.length;
  salesDialogOpen({title:ids.size+' orders need attention',rows:all.map(x=>[x.o.businessNumber+' · '+salesCustomerDisplay(x.o.customerId),x.c.short||x.c.title,true]),
-  note:'Back changes nothing. '+anyway+' — '+(n===2?'both orders':'all '+n+' orders')+'.',buttons:[{label:'Back'},{label:anyway,kind:'pri',run:done}]});
+  note:'Back changes nothing. '+anyway+' — '+(n===2?'both orders':'all '+n+' orders')+'.',buttons:[{label:'Back'},{label:anyway,kind:'pri',run:()=>{all.filter(x=>x.c.release).forEach(x=>salesReleaseLog(Object.assign({},x.c,{anyway})));done();}}]});
 }
-function salesRunChecks(checks,done,takePayment){
- if(!checks.length){done();return;}
- const c=checks[0],rest=()=>salesRunChecks(checks.slice(1),done,takePayment),buttons=[{label:'Back'}];
+/* Выдача с долгом (release) — строка в журнале заказа, когда человек прошёл
+   все окна (владелец 12.11.2026: «выдать несмотря ни на что подтверждает тот,
+   кто печатает»). keep — собрать строки, а не писать: Shipping пишет их,
+   когда прошли окна всех заказов (Back на втором ничего не создаёт). */
+function salesRunChecks(checks,done,takePayment,keep,taken){
+ taken=taken||[];
+ if(!checks.length){if(keep)keep.push(...taken);else taken.forEach(salesReleaseLog);done();return;}
+ const c=checks[0],rest=()=>salesRunChecks(checks.slice(1),done,takePayment,keep,c.release?taken.concat([c]):taken),buttons=[{label:'Back'}];
  /* Take payment — только с галочкой Finance: без неё кнопка уводила в Sales
     (проход 11.10.2026). Окно всё равно показывает долг, решает человек
     (владелец: «решит это на его ответственность… ничего не блокируем»). */
@@ -344,7 +349,7 @@ function salesSyncRecordLifecycle(o){
    квитанции тоже в области записи (аудит 29.10.2026, А5). */
 function salesSetRecordStatus(orderId,next,opts){
  if(storageDepth||opts&&opts.deferTouch)return salesSetRecordStatusCommand(orderId,next,opts);
- const paid=next==='cancelled'?(DB.receipt||[]).filter(r=>r.allocations.some(a=>a.orderId===orderId)).map(r=>r.id):[];
+ const paid=next==='cancelled'?finOrderReceiptIds(orderId):[];
  const out=storageCommand(()=>salesSetRecordStatusCommand(orderId,next,opts),Object.assign(salesOrderScope(orderId),{glassBatch:glassBatchEntries(orderId).map(x=>x.batch.number).concat(glassBatchScope([{orderId}],opts).glassBatch),receipt:paid}));return out.ok&&out.value;
 }
 function salesSetRecordStatusCommand(orderId,next,opts){
@@ -404,16 +409,11 @@ function salesRestoreOrder(orderId){
  if(!o||o.status!=='cancelled'||!confirm('Restore order '+o.businessNumber+' as New? Batched lines stay locked.'))return;
  salesSetRecordStatus(id,'new',{restore:true});render();
 }
-/* Оплата из очереди не сохраняет посторонний открытый черновик. */
-function salesTakeRecordPayment(orderId,amount){
- const o=salesRecord(orderId);if(!o)return;
- const b=finOrderBalance(o),from=tab,fromSub=subtab;
- if(finNewReceipt(o.customerId)===false)return;
- /* После Save — назад туда, откуда пришли; в Payments — этот заказ. */
- finBack=from!=='finance'?{tab:from,subtab:fromSub}:null;finOrderFilter=o.id;finCustomerFilter='';finPaymentsClearFilters();tab='finance';subtab=null;
- if(b.balance>0){const v=Math.min(salesMoney(+amount||b.balance),b.balance).toFixed(2);finDraft.amount=v;finDraft.apply[o.id]=v;}
- finDraft.note='Order '+o.businessNumber;render();
-}
+/* Оплата из очереди не сохраняет посторонний открытый черновик: форму
+   открывает Finance (finStartOrderPayment, erp/views/finance). */
+function salesTakeRecordPayment(orderId,amount){finStartOrderPayment(orderId,amount);}
+/* Строка журнала заказа: выдали с долгом — сколько и какой кнопкой. */
+function salesReleaseLog(c){if(c&&c.release)orderLogAdd(c.release.orderId,'Released with balance due',finFmt(c.release.balance)+' · '+c.anyway);}
 function salesTakePayment(amount){if(soDraft)salesTakeRecordPayment(soDraft.id,amount);}
 function salesNewOrderForCustomer(customerId){
  salesLeaveDraft(()=>{salesOrderNew('order');if(customerId){salesApplyCustomerDefaults(customerId);render();}});

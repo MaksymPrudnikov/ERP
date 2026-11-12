@@ -4,6 +4,30 @@
 DEFAULT.refund=[];DEFAULT.financeEvent=[];DEFAULT.financeTerms=[];DEFAULT.financeExport=[];DEFAULT.financeExportBatch=[];DEFAULT.financeVersion=1;
 const FIN_TABLES=['refund','financeEvent','financeTerms','financeExport','financeExportBatch'];
 for(const k of FIN_TABLES)if(!Array.isArray(DB[k]))DB[k]=[];
+/* Таблицы денег пишет только Finance (план «до 10», этап 5, 12.11.2026).
+   Другие разделы зовут его команды (erp/finance/api: FIN_API). Сторож —
+   test/finance-api.js: по тексту кода никто вне Finance не пишет в эти
+   таблицы, а в тестах (GF_SCOPE_CHECK) каждая командная запись, тронувшая
+   таблицу денег, должна быть отмечена Finance (finMark) — иначе в консоли
+   «Money outside Finance». Отметку ставят: журнал денег (finEvent), условия
+   (finCaptureTerms), выгрузка QuickBooks, запись Finance (finPersist),
+   приведение базы при загрузке; архив переносит строки целиком. */
+const FIN_OWN=['receipt','refund','financeTerms','financeEvent','financeExport','financeExportBatch','referrer','referrerPayout'];
+const finMarked=new Set();
+function finMark(...tables){(tables.length?tables:FIN_OWN).forEach(t=>finMarked.add(t));}
+/* Начало команды записи (storageCommand): прошлые отметки не в счёт. */
+function finGuardReset(){finMarked.clear();}
+/* touch(): checked — запись команды (с областью). Записанные таблицы
+   отметки теряют: следующая запись отмечается заново. */
+function finGuardCheck(changes,checked){
+ const hit=new Map();changes.forEach(c=>{if(FIN_OWN.includes(c.tbl)&&!hit.has(c.tbl))hit.set(c.tbl,c.id);});
+ hit.forEach((id,t)=>{if(checked&&!finMarked.has(t))console.error('Money outside Finance: '+t+' '+id);finMarked.delete(t);});
+}
+/* Деньги вносит, исправляет и возвращает только тот, у кого галочка Finance
+   (владелец 12.11.2026: Sales кладёт деньги с листом бумаги, водитель отдаёт
+   чек — вносит бухгалтер). Переносы по отмене, удалению и Save заказа
+   (finReleaseOrder, finReleaseCurrency, finCaptureTerms) — у всех. */
+function finNeedAccess(key){finAssert(typeof accessCan!=='function'||accessCan(key||'finance'),key==='commissions'?'Commissions access is required.':'Finance access is required to record money.');}
 const FIN_EVENT_LABELS={opening:'Opening record',received:'Payment received',corrected:'Payment corrected',allocated:'Deposit allocated',released:'Allocation released',voided:'Payment voided',refunded:'Money refunded',refund_voided:'Refund voided',terms:'Payment terms changed'};
 /* Who recorded an entry. Stays empty until the app has sign-in: a name picked
    by hand is not evidence, so the screen no longer asks for it. */
@@ -17,6 +41,7 @@ function finRefunded(id){return finMoney((DB.refund||[]).filter(r=>r.receiptId==
 function finHistoryFor(id){return (DB.financeEvent||[]).filter(e=>e.entityId===id);}
 function finJournalTop(){return (DB.financeEvent||[]).reduce((n,e)=>Math.max(n,e.seq||0),typeof archiveFloor==='function'?archiveFloor('financeEvent'):0);}
 function finEvent(kind,before,after,reason,entity){
+ finMark('financeEvent',{refund:'refund',terms:'financeTerms'}[entity]||'receipt');
  const r=after||before,customer=(DB.customer||[]).find(c=>c.id===r.customerId);
  const number=r.number||finOrderNumber(r.orderId),snapshot=x=>x?finCopy(x):null;
  /* С сервером номер — из блока: у двух компьютеров «последний + 1» совпадал,
@@ -30,6 +55,7 @@ function finEvent(kind,before,after,reason,entity){
 }
 function finEnsureHistory(r){if(!finHistoryFor(r.id).length)finEvent('opening',null,r,'Existing record; earlier changes are not available.');}
 function normalizeFinanceLedger(){
+ finMark();
  for(const k of FIN_TABLES)if(!Array.isArray(DB[k]))DB[k]=[];
  /* Invoice хранится на заказе: его отметка тоже переживает загрузку базы. */
  const alive=new Set((DB.receipt||[]).concat(DB.refund||[],DB.salesOrder||[]).map(x=>x&&x.id));
@@ -43,7 +69,7 @@ function normalizeFinanceLedger(){
 }
 /* Commit money and its history together. A failed write leaves the UI draft
    available, and restores the previous in-memory balances. */
-function finPersist(fn,scope){return storageCommand(fn,scope);}
+function finPersist(fn,scope){return storageCommand(()=>{finMark();return fn();},scope);}
 /* Область записи оплаты (storageCommand): оплата, история денег, заказы, на
    которые она легла. */
 function finReceiptScope(d,id){return {receipt:id?[id]:[],financeEvent:[],salesOrder:(d&&d.allocations||[]).map(a=>a.orderId)};}
@@ -52,6 +78,7 @@ function finReceiptDuplicates(d,id){
  return (DB.receipt||[]).filter(r=>!r.voided&&r.id!==id&&r.customerId===d.customerId&&r.method===d.method&&r.reference.trim().toLowerCase()===ref);
 }
 function finSaveReceiptRecord(d,id,reason,allowDuplicate){
+ finNeedAccess();
  const old=id?(DB.receipt||[]).find(r=>r.id===id):null;
  finAssert(!id||!!old,'Payment not found.');finAssert(!old||!old.voided,'A void payment cannot be edited.');
  finAssert(!!salesFindCustomer(d.customerId),'Select a customer');
@@ -84,6 +111,7 @@ function finSaveReceiptRecord(d,id,reason,allowDuplicate){
  DB.receipt.push(next);finEvent('received',null,next,'');return next;
 }
 function finCreateRefund(d){
+ finNeedAccess();
  const r=DB.receipt.find(r=>r.id===d.receiptId);
  finAssert(r&&!r.voided,'Select an active payment.');finAssert(finCurrency(r)==='CAD','Refunds currently support CAD only.');
  const cents=finCents(d.amount);finAssert(cents!=null&&cents>0,'Enter a positive refund amount.');
@@ -100,6 +128,7 @@ function finCreateRefund(d){
  DB.refund.push(out);finEvent('refunded',null,out,out.reason,'refund');return out;
 }
 function finVoidRefund(id,reason){
+ finNeedAccess();
  const r=DB.refund.find(r=>r.id===id);finAssert(r&&!r.voided,'Refund not found or already void.');finAssert(String(reason||'').trim(),'Enter a reason.');
  const before=finCopy(r);r.voided=true;r.voidReason=String(reason).trim().slice(0,300);r.voidedAt=new Date().toISOString();finEvent('refund_voided',before,r,r.voidReason,'refund');return r;
 }
@@ -115,10 +144,12 @@ function finCaptureTerms(o){
  if(!o||o.kind==='quote')return;
  const at=DB.financeTerms.findIndex(t=>t.orderId===o.id),old=DB.financeTerms[at];
  if(old&&old.customerId===o.customerId)return;
+ finMark('financeTerms');
  const next=Object.assign({},finTermsFor(o),{capturedAt:new Date().toISOString()});
  if(old){DB.financeTerms[at]=next;finEvent('terms',old,next,'Order customer changed.','terms');}else DB.financeTerms.push(next);
 }
 function finSaveTerms(orderId,d,reason){
+ finNeedAccess();
  const o=(DB.salesOrder||[]).find(o=>o.id===orderId);finAssert(o&&finOrderCounts(o),'Select an active order.');
  finAssert(['cash','credit'].includes(d.paymentMode),'Select payment terms.');
  const pct=Number(d.depositPercent),days=d.creditDays===''||d.creditDays==null?null:Number(d.creditDays);
@@ -316,7 +347,7 @@ function finExportPending(){
 }
 function finExportLastBatch(){return (DB.financeExport||[]).concat(DB.financeExportBatch||[]).reduce((n,e)=>Math.max(n,e.batch||0),0);}
 function finExportMark(list){
- finAssert(list.length,'Nothing new to export.');
+ finNeedAccess();finAssert(list.length,'Nothing new to export.');finMark('financeExport','financeExportBatch');
  const batch=finExportLastBatch()+1,at=new Date().toISOString();
  const states=new Map(list.map(x=>[x.x.id,x.state]));
  DB.financeExportBatch.push({batch,at,name:'quickbooks_'+finToday()+'_'+String(batch).padStart(3,'0')+'.csv',csv:finMovementsCSV(list.filter(x=>x.kind==='receipt').map(x=>x.x),list.filter(x=>x.kind==='refund').map(x=>x.x),states,list.filter(x=>x.kind==='invoice').map(x=>x.x))});

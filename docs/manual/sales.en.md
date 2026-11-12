@@ -80,6 +80,8 @@ How it is calculated:
 - The catalog minimum on the material card (Data → Materials: Min area, Min charge) works as before while the
   material has no number of its own in the order.
 - Changes go to the order Activity log: "Minimum area · 3CL: — → 1 ft²".
+- Released with a balance ("… anyway" in the balance window) — a **Released with balance due** line in the Activity
+  log: amount, button, who pressed ([finance.en.md](finance.en.md), "Release with a balance due").
 
 ## Line Services / Processing window
 

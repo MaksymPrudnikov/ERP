@@ -37,7 +37,7 @@ module.exports=async function({page,eq,ok}){
  }),{status:'delivered',by:'John Brown',field:'',input:'',card:true});
 
  eq('Payments: итог внизу без аннулированных — число и сумма только живых, «1 void not counted»',await t.p.evaluate(()=>{
-  const id=swSeed({paymentMode:'cash'});oqPay(id);DB.receipt.push(normalizeReceipt({number:'R-0099',customerId:salesRecord(id).customerId,date:finToday(),method:'cash',amount:50,allocations:[]}));
+  const id=swSeed({paymentMode:'cash'});oqPay(id);DB.receipt.push(normalizeReceipt({number:'R-0099',customerId:salesRecord(id).customerId,date:finToday(),method:'cash',amount:50,allocations:[]}));touch();
   const r=DB.receipt[0];r.voided=true;r.voidReason='Entered twice';tab='finance';finTab='receipts';subtab=null;render();
   const out={count:document.querySelector('[data-foot-count] b').textContent,voids:(document.querySelector('[data-foot-void]')||{}).textContent||'',sum:(document.querySelector('[data-sum="amount"]')||{}).textContent};
   tab='dashboard';render();return out;

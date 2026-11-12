@@ -78,6 +78,7 @@
   "src/erp/finance/data.js",
   "src/erp/finance/ledger.js",
   "src/erp/finance/commissions.js",
+  "src/erp/finance/api.js",
   "src/erp/purchasing/suppliers.js",
   "src/erp/purchasing/orders.js",
   "src/erp/purchasing/catalog.js",

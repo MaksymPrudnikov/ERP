@@ -32,6 +32,10 @@ by dragging the header, and the total at the bottom — like Sales.
 The dolly / skid window: **#1** (put on first) is on top; widths and order of its columns drag in the header; Columns
 adds or removes them.
 
+A cash customer's order with a balance: before a PS, its print and Shipped — the balance window. **Take payment** —
+only with the Finance box, **… anyway** — always; pressing it writes a **Released with balance due** line to the order's
+Activity log ([finance.en.md](finance.en.md), "Release with a balance due").
+
 ## The packing slip form
 
 The sheet is built from a template in parts: the top of every page (company, PACKING SLIP, the number with its barcode,

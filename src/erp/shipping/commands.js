@@ -161,10 +161,11 @@ function shippingCheckStamp(){return JSON.stringify(DB);}
    заказы»). Долг cash-заказа спрашивается по каждому заказу: оплату
    принимают в заказ. */
 function shippingWithChecks(ids,method,printing,done){
- ids=[...new Set(ids)];const stamp=shippingCheckStamp(),told=new Set();
+ ids=[...new Set(ids)];const stamp=shippingCheckStamp(),told=new Set(),released=[];
  const run=n=>{
   if(shippingCheckStamp()!==stamp){shippingNotice={error:true,text:'Data changed. Review and try again.'};render();return;}
-  if(n===ids.length){done();return;}
+  /* Выдача с долгом — в журнал заказа, когда прошли окна всех заказов. */
+  if(n===ids.length){released.forEach(salesReleaseLog);done();return;}
   /* Заказ в архиве — закрыт и оплачен, проверять нечего; старый лист печатается. */
   const o=salesRecord(ids[n]);if(!o&&typeof archiveKnown==='function'&&archiveKnown(ids[n])){run(n+1);return;}
   if(!o){shippingNotice={error:true,text:'Order not found.'};render();return;}
@@ -175,6 +176,6 @@ function shippingWithChecks(ids,method,printing,done){
    out.rows=c.rows.concat([[mine.length>1?'These '+mine.length+' orders':'Order '+o.businessNumber,finFmt(finMoney(mine.reduce((s,x)=>s+Math.max(0,finOrderBalance(x).balance||0),0)))]]);
    return out;
   });
-  salesRunChecks(checks,()=>run(n+1),amount=>salesTakeRecordPayment(o.id,amount));
+  salesRunChecks(checks,()=>run(n+1),amount=>salesTakeRecordPayment(o.id,amount),released);
  };run(0);
 }
