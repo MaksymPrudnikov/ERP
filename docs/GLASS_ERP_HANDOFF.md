@@ -2,6 +2,30 @@
 
 Версия 5.309 · 30 октября 2026 — склад Stock items (двери и другое в штуках): On hand / Reserved / Available, Count и + / − прямо в строке, «сегодня» под таблицей; вид позиции и измерения в карточке; поиск каталога в разделе и All catalog.
 
+## План «до 10», этап 5: склад и Shipping — свои таблицы пишет только свой раздел · 12 ноября 2026
+
+Владелец 12.11.2026 (вариант а): PS, его печать, Shipped — у кого галочка Sales или Shipping; оптимизатор — нет.
+
+- `erp/sections.js` — общий сторож трёх разделов: `SECTION_OWN` (finance, stock, shipping), отметка `sectionMark` /
+  `sectionMarkAll` (архив), запись раздела `sectionPersist`, проверка `sectionGuardCheck` в `touch()` при
+  `GF_SCOPE_CHECK` — «Outside section: <раздел> <таблица> <id>» (раньше «Money outside Finance»). Finance переведён
+  на него (`finMark`, `finPersist`), поведение то же.
+- Склад: `SECTION_OWN.stock` — inventoryEvent, inventoryMin, stockItemEvent, consumableEvent, stockReason,
+  stockOffcut, stockOffcutSeq. Владельцы — `erp/inventory/*` и `erp/production/stock-offcuts` (кусок рождается при
+  раскрое, но это склад; файл не переносили). `invPersist` (галочка Inventory, была) и Stock items, причины —
+  через `sectionPersist('stock')`; `stockOffcutAdd` / `stockOffcutCancel` отмечают склад внутри команды раскроя.
+  Список имён — `erp/inventory/api.js` (`STOCK_API`).
+- Shipping: `SECTION_OWN.shipping` — shipment, shipmentSeq, skidReturn, truck, tripKm. `shipPersist` (станции,
+  очередь, км, скиды) и `shipOffice` (PS, правка, Shipped, Delivered, Revert, печать, машины и рейсы — галочка Sales
+  или Shipping; на станции и внутри чужой команды — без проверки). Список — `erp/shipping/api.js` (`SHIP_API`).
+- Снятие стекла с батча (`shopfloor/production-unbatch`) больше не правит PS само: команда Shipping
+  `shippingUnbatchItems` (юниты уходят из PS, пустой PS отменяется — как было).
+- Сторож `test/sections-api.js` (был `test/finance-api.js`): по каждому разделу (а) чужой файл не пишет в его
+  таблицы (`DB.<таблица>` и поля строк: разнесение и Void у оплат, состав PS), (б) снаружи — только имена из списка,
+  каждое имя списка живое; имена — все объявленные в файлах раздела, комментарии не считаются; (в) живая проверка.
+  Полный прогон: ни одной записи мимо раздела.
+- Числа те же: тесты, `perf-year --compare` на годовой базе.
+
 ## План «до 10», этап 5: Finance — единственный писатель денег · 12 ноября 2026
 
 Владелец 12.11.2026: деньги в программу вносит только бухгалтер — Sales при выдаче кладёт недостающие деньги с
