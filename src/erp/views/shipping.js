@@ -116,11 +116,12 @@ function shippingQueueChange(orderId,lineId,value){const out=shippingQueueSet(or
    PS с долгом: Back · Ship anyway · Take payment (после оплаты — обратно
    сюда). Кредитных не спрашиваем. */
 function shippingCashFirst(s,done){
- const ids=shippingOrderIds(s).filter(oid=>{const o=salesRecord(oid);return o&&shippingBalanceDue(o);});
+ const ids=shippingOrderIds(s).filter(oid=>{const o=salesRecord(oid);return o&&shippingBalanceDue(o);}),released=[];
  const run=n=>{
-  if(n===ids.length){done();return;}
+  /* Выдача с долгом — в журнал заказа, когда прошли окна всех заказов PS. */
+  if(n===ids.length){released.forEach(salesReleaseLog);done();return;}
   const o=salesRecord(ids[n]),checks=salesTransitionChecks(Object.assign({},o,{delivery:s.method}),'done').filter(c=>c.pay!=null).map(c=>Object.assign({},c,{anyway:'Ship anyway'}));
-  salesRunChecks(checks,()=>run(n+1),amount=>salesTakeRecordPayment(o.id,amount));
+  salesRunChecks(checks,()=>run(n+1),amount=>salesTakeRecordPayment(o.id,amount),released);
  };run(0);
 }
 /* Заказ на Hold в накладной. Его стекло уже погрузили на SHIP — только

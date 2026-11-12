@@ -31,6 +31,20 @@ function finNewReceipt(customerId){
  finDraft={customerId:customerId&&salesFindCustomer(customerId)?customerId:'',date:finToday(),method:'cash',reference:'',amount:'',note:'',apply:{},currency:'CAD',reason:'',duplicate:false};
  finDraftBaseline=JSON.stringify(finDraft);render();return true;
 }
+/* Оплата заказа из другого раздела (окно долга в Sales и Shipping, Take
+   payment): форма новой оплаты на этот заказ; после Save — назад туда,
+   откуда пришли, в Payments — этот заказ. Раньше это делал Sales сам,
+   заполняя черновик Finance (этап 5, 12.11.2026). */
+function finStartOrderPayment(orderId,amount){
+ const o=salesRecord(orderId);if(!o)return;
+ const b=finOrderBalance(o),from=tab,fromSub=subtab;
+ if(finNewReceipt(o.customerId)===false)return;
+ finBack=from!=='finance'?{tab:from,subtab:fromSub}:null;finOrderFilter=o.id;finCustomerFilter='';finPaymentsClearFilters();tab='finance';subtab=null;
+ if(b.balance>0){const v=Math.min(salesMoney(+amount||b.balance),b.balance).toFixed(2);finDraft.amount=v;finDraft.apply[o.id]=v;}
+ finDraft.note='Order '+o.businessNumber;render();
+}
+/* Выход из входа (erp/signin): недописанная оплата не переживает смену человека. */
+function finDropDrafts(){finDraft=null;finAction=null;}
 /* Список открыт по заказу (кнопка Payments в заказе) или по клиенту — новая
    квитанция сразу на них: клиент выбран, долг заказа разнесён (проход
    7.10.2026: клиент не подставлялся, сумма шла «на счёт», заказ оставался

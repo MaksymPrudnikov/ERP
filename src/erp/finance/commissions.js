@@ -38,6 +38,7 @@ function comPayoutClean(p){
  return {id:comStr(p.id,60),referrerId:comStr(p.referrerId,60),date:/^\d{4}-\d{2}-\d{2}$/.test(p.date||'')?p.date:'',amount:finMoney(orders.reduce((n,x)=>n+x.amount,0)),note:comStr(p.note,300),createdAt:comStr(p.createdAt,40),orders};
 }
 function normalizeCommissions(){
+ finMark('referrer','referrerPayout');
  const ids=new Set(),owner=new Set();
  DB.referrer=(Array.isArray(DB.referrer)?DB.referrer:[]).filter(r=>r&&typeof r==='object'&&comStr(r.id)&&!ids.has(r.id)&&(ids.add(r.id),true)).map(comClean).filter(r=>r.name);
  DB.referrer.forEach(r=>{r.customers=r.customers.filter(c=>!owner.has(c.customerId)&&(owner.add(c.customerId),true));});
@@ -61,6 +62,7 @@ function comSave(d){
  if(r.customers.some(c=>!salesFindCustomer(c.customerId)))return {error:'Pick a customer.'};
  if(r.customers.some(c=>!c.pct))return {error:'Enter a percent from 0.01 to 100.'};
  return finPersist(()=>{
+  finNeedAccess('commissions');
   if(!Array.isArray(DB.referrer))DB.referrer=[];
   const mine=new Set(r.customers.map(c=>c.customerId));
   DB.referrer.forEach(x=>{if(x.id!==r.id)x.customers=x.customers.filter(c=>!mine.has(c.customerId));});
@@ -68,7 +70,7 @@ function comSave(d){
   return r;
  });
 }
-function comDelete(id){return finPersist(()=>{DB.referrer=(DB.referrer||[]).filter(r=>r.id!==id);DB.referrerPayout=(DB.referrerPayout||[]).filter(p=>p.referrerId!==id);return true;});}
+function comDelete(id){return finPersist(()=>{finNeedAccess('commissions');DB.referrer=(DB.referrer||[]).filter(r=>r.id!==id);DB.referrerPayout=(DB.referrerPayout||[]).filter(p=>p.referrerId!==id);return true;});}
 /* Выплата по выбранным заказам: каждый — на свой долг сейчас. Заказ без
    долга в выплату не входит — дважды за один заказ не заплатить. Переплата
    по другим заказам (оплату клиента перенесли на другой заказ, заказ
@@ -91,9 +93,9 @@ function comPayoutAdd(d){
  /* Долг считан по этой копии — строку агента сервер сверяет: второй
     компьютер, плативший тот же долг, получает конфликт (аудит Codex
     09.11.2026, F06). */
- return finPersist(()=>{if(!Array.isArray(DB.referrerPayout))DB.referrerPayout=[];DB.referrerPayout.push(p);return p;});
+ return finPersist(()=>{finNeedAccess('commissions');if(!Array.isArray(DB.referrerPayout))DB.referrerPayout=[];DB.referrerPayout.push(p);return p;});
 }
-function comPayoutDelete(id){return finPersist(()=>{DB.referrerPayout=(DB.referrerPayout||[]).filter(p=>p.id!==id);return true;});}
+function comPayoutDelete(id){return finPersist(()=>{finNeedAccess('commissions');DB.referrerPayout=(DB.referrerPayout||[]).filter(p=>p.id!==id);return true;});}
 
 /* Итоги заказа считаются один раз за экран (ревью 12.10.2026: каждый
    показ считал их ~10 раз на заказ — секунды на сотнях заказов). comScope —

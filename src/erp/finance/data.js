@@ -53,6 +53,7 @@ function finNextReceiptNumber(){
  return 'R-'+String(max+1).padStart(4,'0');
 }
 function normalizeReceipts(){
+ finMark('receipt');
  if(!Array.isArray(DB.receipt))DB.receipt=[];
  const orders=new Map((DB.salesOrder||[]).map(o=>[o.id,o])),ids=new Set(),numbers=new Set(),known=id=>orders.get(id)||(typeof archiveKnown==='function'?archiveKnown(id):null);
  DB.receipt=DB.receipt.filter(x=>x&&typeof x==='object'&&!Array.isArray(x)).map(x=>{
@@ -182,6 +183,7 @@ function finCustomerAccount(c){
    которых есть незачтённый остаток; в заказ ложится не больше его долга.
    receiptIds — только из этих квитанций (окно Allocate payments). */
 function finApplyDeposit(customerId,orderId,amount,receiptIds){
+ finNeedAccess();
  const order=(DB.salesOrder||[]).find(o=>o.id===orderId);
  if(!order||order.customerId!==customerId||!finOrderCounts(order)||finCurrency(order)!=='CAD')return 0;
  const b=finOrderBalance(order);if(b.status!=='due')return 0;
@@ -201,6 +203,7 @@ function finApplyDeposit(customerId,orderId,amount,receiptIds){
    заказы по порядку orderIds, каждому не больше его долга. amount — потолок
    (Ask amount); без него разносится сколько хватает. */
 function finAllocate(customerId,orderIds,receiptIds,amount){
+ finNeedAccess();
  let left=amount==null?Infinity:finMoney(amount),done=0;
  (orderIds||[]).forEach(id=>{
   const o=(DB.salesOrder||[]).find(x=>x.id===id);if(!o||!(left>0))return;
@@ -224,6 +227,7 @@ async function finBringBack(ids){
 /* Снять разнесение: деньги квитанции из заказа возвращаются на счёт клиента.
    pairs — [{receiptId, orderId}], каждая пара снимается целиком. */
 function finUnallocate(customerId,pairs){
+ finNeedAccess();
  let moved=0;const now=new Date().toISOString();
  (pairs||[]).forEach(p=>{
   const r=(DB.receipt||[]).find(x=>x.id===p.receiptId),a=r&&r.allocations.find(x=>x.orderId===p.orderId);
@@ -238,6 +242,7 @@ function finUnallocate(customerId,pairs){
 /* Заказ подешевел после оплаты — лишнее уходит обратно на депозит, начиная с
    последних квитанций. */
 function finReleaseOverpayment(order){
+ finNeedAccess();
  const b=finOrderBalance(order);if(b.status!=='overpaid')return 0;
  let extra=finMoney(-b.balance),moved=0;const now=new Date().toISOString();
  finActiveReceipts().slice().sort((x,y)=>finDocOrder(y,x)).forEach(r=>{
@@ -274,9 +279,17 @@ function finReleaseCurrency(order){
   finEvent('released',before,r,'Order currency changed to '+finCurrency(order)+'; allocation returned to deposit.');
  });
 }
+/* Оплаты заказа для других разделов: Sales берёт их в область записи
+   отмены и Save, не открывая таблицу оплат сам (этап 5, 12.11.2026). */
+function finOrderReceiptIds(orderId){return (DB.receipt||[]).filter(r=>r.allocations.some(a=>a.orderId===orderId)).map(r=>r.id);}
+/* Дата последней оплаты заказа — под отметкой PAID документов. */
+function finLastPaymentDate(orderId){return (DB.receipt||[]).filter(r=>!r.voided&&(r.allocations||[]).some(a=>a.orderId===orderId&&+a.amount>0)).map(r=>r.date).sort().pop()||'';}
+/* Последние квитанции, новые сверху (образец квитанции в конструкторе форм). */
+function finLatestReceipts(limit){return (DB.receipt||[]).slice().sort((a,b)=>String(b.number).localeCompare(String(a.number),undefined,{numeric:true})).slice(0,limit);}
 /* Ошибочная квитанция не удаляется, а аннулируется с причиной: остаётся в
    списке для сверки с QuickBooks и перестаёт считаться в балансах. */
 function finVoidReceipt(id,reason){
+ finNeedAccess();
  const r=(DB.receipt||[]).find(x=>x.id===id);if(!r||r.voided||!String(reason||'').trim()||finRefunded(id)>0)return false;
  finArchivedGuard(r.allocations.map(a=>a.orderId));
  finEnsureHistory(r);const before=finCopy(r);

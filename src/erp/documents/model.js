@@ -145,7 +145,7 @@ function docInvoiceShipTo(order){
 }
 /* Дата последней оплаты заказа — под отметкой PAID. */
 function docLastPaidOn(order){
- return (DB.receipt||[]).filter(r=>!r.voided&&(r.allocations||[]).some(a=>a.orderId===order.id&&+a.amount>0)).map(r=>r.date).sort().pop()||'';
+ return finLastPaymentDate(order.id);
 }
 function docCompanyBlock(src){
  const c=src||DB.company||{};

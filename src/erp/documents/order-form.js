@@ -220,7 +220,7 @@ function docFormSample(kind,id){
 /* Конструктор: квитанция и выписка — живой лист на последних квитанциях и
    клиентах (выписка — за этот месяц); без данных — пустой образец. */
 function docFormFinSamples(kind){
- if(kind==='receipt')return (DB.receipt||[]).slice().sort((a,b)=>String(b.number).localeCompare(String(a.number),undefined,{numeric:true})).slice(0,100).map(r=>({id:r.id,label:r.number+' · '+salesCustomerDisplay(r.customerId)}));
+ if(kind==='receipt')return finLatestReceipts(100).map(r=>({id:r.id,label:r.number+' · '+salesCustomerDisplay(r.customerId)}));
  return (DB.customer||[]).filter(c=>c&&!c.deletedAt).slice(0,100).map(c=>({id:c.id,label:(c.code?c.code+' · ':'')+(c.legalName||c.displayName||'')}));
 }
 function docFormFinSample(kind,id){

@@ -10,7 +10,7 @@ module.exports=async function(p){
    [[37,71,2,'Kitchen'],[30,40,1,'Bedroom']].forEach(x=>{const l=normalizeSalesOrderLine({makeupId:m.id,width16:x[0]*16,height16:x[1]*16,qty:x[2],mark:x[3]});soDraft.lines.push(l);salesEnsureLineShape(l);salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;});});
    salesApplyCustomerDefaults(c.id);if(!salesIsQuote(soDraft))soDraft.customerPo='PO-QA';Object.assign(soDraft,extra||{});if(!salesOrderSave())throw new Error('Fixture order did not save');return soDraft.id;
   };
-  window.oqPay=function(id){const o=salesRecord(id);DB.receipt.push(normalizeReceipt({number:'R-'+(DB.receipt.length+1),customerId:o.customerId,amount:finOrderBalance(o).total,allocations:[{orderId:id,amount:finOrderBalance(o).total}]}));};
+  window.oqPay=function(id){const o=salesRecord(id);DB.receipt.push(normalizeReceipt({number:'R-'+(DB.receipt.length+1),customerId:o.customerId,amount:finOrderBalance(o).total,allocations:[{orderId:id,amount:finOrderBalance(o).total}]}));touch();};
   window.oqQueue=function(key){tab=['awaiting','ready','shipments','backorders','done'].includes(key)?'shipping':'optimization';optimizationSetTab(key||'new');};
   window.oqChoose=function(label){const i=salesDialog?salesDialog.buttons.findIndex(b=>b.label===label):-1;if(i<0)throw new Error('Missing dialog button: '+label);salesDialogChoose(i);};
   window.oqAdvance=function(id,next,delivery){
