@@ -32,14 +32,14 @@ function shippingValidateSelection(d,exceptId){
  });
  return Object.assign({items,extras},takes.length?{takes}:{});
 }
-function shippingCreate(d){return storageCommand(()=>{
+function shippingCreate(d){return shipOffice(()=>{
  const picked=readScopeNow(()=>shippingValidateSelection(d)),now=new Date().toISOString();
  DB.shipmentSeq=(Number(DB.shipmentSeq)||0)+1;
  const s={id:salesUid('PS'),number:'PS-'+String(DB.shipmentSeq).padStart(4,'0'),customerId:d.customerId,method:d.method,shipTo:shippingAddress(d.shipTo),date:d.date,status:'planned',...picked,
   createdAt:now,createdBy:shippingActor(),shippedAt:'',shippedBy:'',deliveredAt:'',receivedBy:'',note:String(d.note||'').slice(0,1000),scanIds:[]};
  DB.shipment.push(s);shippingOrderIds(s).forEach(id=>orderLogPush(salesRecord(id),'Packing slip created',s.number));return s;
 },{shipment:[],shipmentSeq:true});}
-function shippingUpdate(id,d){return storageCommand(()=>{
+function shippingUpdate(id,d){return shipOffice(()=>{
  const s=shippingFind(id);shippingAssert(s&&s.status==='planned','Only a planned packing slip can change.');
  shippingAssert(s.customerId===d.customerId,'The packing slip customer cannot change.');
  const loaded=readScopeNow(()=>shippingLoadState(s)).loaded.map(u=>u.label),picked=readScopeNow(()=>shippingValidateSelection(d,s.id)),ids=shippingOrderIds(s);
@@ -63,7 +63,7 @@ function shippingUpdate(id,d){return storageCommand(()=>{
    непогруженное офис подтверждает сам ручными SHIP-сканами, как в PR 1
    (самовывоз одним сканом подписанного PS, рейс без сканов на станции). */
 /* at — время выдачи задним числом (Skip, erp/shopfloor/skip: забрали в субботу). */
-function shippingMarkShipped(id,mode,at){return storageCommand(()=>{
+function shippingMarkShipped(id,mode,at){return shipOffice(()=>{
  const s=shippingFind(id);shippingAssert(s&&s.status==='planned','Only a planned packing slip can be shipped.');
  shippingAssert(s.items.length+s.extras.length+(s.takes||[]).length>0,'An empty packing slip cannot be shipped.');
  const now=at||new Date().toISOString(),station=shippingStations().ship,before=shippingOrderIds(s);
@@ -96,14 +96,14 @@ function shippingMarkShipped(id,mode,at){return storageCommand(()=>{
  shippingOrderIds(s).forEach(oid=>unitTakesShipped(salesRecord(oid),s.id));
  shippingSyncOrders(before.concat(shippingOrderIds(s)),now);shippingOrderIds(s).forEach(oid=>orderLogPush(salesRecord(oid),'Packing slip shipped',s.number));return s;
 },shippingFind(id)&&{shipment:[id],salesOrder:shippingOrderIds(shippingFind(id)),stationScan:[],stationScanSeq:true,productionRoute:[],carrier:true});}
-function shippingMarkDelivered(id,receivedBy,receivedOn){return storageCommand(()=>{
+function shippingMarkDelivered(id,receivedBy,receivedOn){return shipOffice(()=>{
  const s=shippingFind(id);shippingAssert(s,'Packing slip not found.');if(s.status==='delivered')return s;
  shippingAssert(s.status==='shipped','Mark this packing slip Loaded first.');
  const day=receivedOn||finToday();shippingAssert(shippingDateValid(day)&&day<=finToday()&&day>=finLocalDate(s.shippedAt),'Check the received date.');
  s.status='delivered';s.deliveredAt=day===finToday()?new Date().toISOString():new Date(day+'T12:00:00').toISOString();s.receivedBy=String(receivedBy||'').trim().slice(0,100);
  shippingSyncOrders(shippingOrderIds(s));shippingOrderIds(s).forEach(oid=>orderLogPush(salesRecord(oid),s.method==='pickup'?'Packing slip picked up':'Packing slip delivered',s.number+(s.receivedBy?' · '+s.receivedBy:'')));return s;
 });}
-function shippingRevert(id,action){return storageCommand(()=>{
+function shippingRevert(id,action){return shipOffice(()=>{
  const s=shippingFind(id);shippingAssert(s,'Packing slip not found.');const ids=shippingOrderIds(s);
  if(action==='cancel'){
   shippingAssert(s.status==='planned','Only a planned packing slip can be cancelled.');
@@ -146,7 +146,7 @@ function shippingScanSigned(raw,by,date){
  /* В офисе нет сканера (владелец, 02.11.2026): достаточно номера — «212», «ps 212» — PS- и нули подставляются. */
  const typed=String(raw||'').trim().toUpperCase().replace(/^PS[\s-]*/,''),number=/^\d{1,6}$/.test(typed)?'PS-'+typed.padStart(4,'0'):String(raw||'').trim().toUpperCase();if(!/^PS-\d{4,}$/.test(number))return {ok:false,error:'Scan a packing slip number.'};
  const s=shippingFind(number);
- if(s&&s.method==='pickup'&&s.status==='planned')return storageCommand(()=>{
+ if(s&&s.method==='pickup'&&s.status==='planned')return shipOffice(()=>{
   const shipped=shippingMarkShipped(s.id);shippingAssert(shipped.ok,shipped.error);
   const got=shippingMarkDelivered(s.id,by,date);shippingAssert(got.ok,got.error);return got.value;
  });
@@ -178,4 +178,21 @@ function shippingWithChecks(ids,method,printing,done){
   });
   salesRunChecks(checks,()=>run(n+1),amount=>salesTakeRecordPayment(o.id,amount),released);
  };run(0);
+}
+/* Снятие стекла с батча (erp/shopfloor/production-unbatch): эти стёкла
+   уходят из PS. s.items is the effective composition. Excluded items retain
+   their whole identity and correction link separately; the frozen PS is not
+   rewritten. Пустой PS отменяется. pieces, scanIds — Set; вернёт снятые
+   юниты. Зовётся внутри команды снятия (её область и права). */
+function shippingUnbatchItems(id,pieces,scanIds,unbatchId){
+ sectionMark('shipping','shipment');
+ const s=shippingFind(id),removed=s.items.filter(i=>i.pieces.some(p=>pieces.has(p)));
+ shippingAssert(removed.every(i=>i.pieces.every(p=>pieces.has(p))),'Return the whole assembled unit.');
+ if(!s.document)s.unbatchOriginalDocument=shippingDocument(s);
+ s.unbatchedItems=(s.unbatchedItems||[]).concat(removed.map(i=>Object.assign(shippingClone(i),{unbatchId})));
+ s.items=s.items.filter(i=>!removed.includes(i));shippingUnprint(s,removed);
+ s.scanIds=(s.scanIds||[]).filter(x=>!scanIds.has(x));
+ if(!s.items.length&&!s.extras.length&&!(s.takes||[]).length){s.status='cancelled';if(!s.document)s.document=s.unbatchOriginalDocument;}
+ if(Array.isArray(s.skidsOut))s.skidsOut=s.skidsOut.filter(code=>s.items.some(i=>i.skid===code));
+ return removed;
 }

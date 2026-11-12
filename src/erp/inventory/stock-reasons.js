@@ -25,7 +25,7 @@ function stockReasonProblem(name,id){
  const n=stockReasonName(name);if(!n)return 'Enter a reason.';
  return (DB.stockReason||[]).some(r=>r.id!==id&&r.name.toLowerCase()===n.toLowerCase())?'This reason is already there.':'';
 }
-function stockReasonSave(fn){const out=storageCommand(()=>{fn();return true;});return out.ok?'':out.error;}
+function stockReasonSave(fn){const out=sectionPersist('stock',()=>{fn();return true;});return out.ok?'':out.error;}
 function stockReasonAdd(name){const p=stockReasonProblem(name);if(p)return p;return stockReasonSave(()=>DB.stockReason.push({id:salesUid('SR'),name:stockReasonName(name),active:true}));}
 function stockReasonRename(id,name){
  const r=(DB.stockReason||[]).find(x=>x.id===id);if(!r)return 'Reason not found.';

@@ -7,7 +7,7 @@
   Правишь код модуля — достаточно F5, пересобирать не нужно. Пересборка нужна
   только при смене состава модулей (build/manifest.json) или правке шапки
   (src/shell.html). Работает и с сервера, и при открытии с диска (file://).
-  Состав: 206 модулей, 27 стиля.
+  Состав: 209 модулей, 27 стиля.
 -->
 <html lang="en">
 <head>
@@ -66,7 +66,7 @@
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='aee01edcacc6';
+var ERP_BUILD='c23174597ceb';
 </script>
 <script src="core/dim.js"></script>
 <script src="core/poly.js"></script>
@@ -113,6 +113,7 @@ var ERP_BUILD='aee01edcacc6';
 <script src="erp/sales/order-log.js"></script>
 <script src="erp/masterdata/md-log.js"></script>
 <script src="erp/documents/company.js"></script>
+<script src="erp/sections.js"></script>
 <script src="erp/finance/data.js"></script>
 <script src="erp/finance/ledger.js"></script>
 <script src="erp/finance/commissions.js"></script>
@@ -209,6 +210,7 @@ var ERP_BUILD='aee01edcacc6';
 <script src="erp/inventory/consumables.js"></script>
 <script src="erp/inventory/stock-items.js"></script>
 <script src="erp/inventory/stock-reasons.js"></script>
+<script src="erp/inventory/api.js"></script>
 <script src="erp/views/glass-batches.js"></script>
 <script src="erp/quality/reasons.js"></script>
 <script src="erp/views/ncr-reasons-ui.js"></script>
@@ -249,6 +251,7 @@ var ERP_BUILD='aee01edcacc6';
 <script src="erp/shipping/trip-km.js"></script>
 <script src="erp/shipping/skids.js"></script>
 <script src="erp/shipping/print.js"></script>
+<script src="erp/shipping/api.js"></script>
 <script src="erp/shopfloor/skip.js"></script>
 <script src="erp/views/skip-ui.js"></script>
 <script src="erp/shopfloor/production-unbatch.js"></script>

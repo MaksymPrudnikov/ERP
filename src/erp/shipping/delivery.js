@@ -9,11 +9,11 @@
    вводом. План ничего не блокирует — погрузка и PS живут по своим правилам. */
 DEFAULT.truck=[];
 function truckFind(id){return id?(DB.truck||[]).find(t=>t.id===id)||null:null;}
-function truckAdd(name){return storageCommand(()=>{
+function truckAdd(name){return shipOffice(()=>{
  if(!Array.isArray(DB.truck))DB.truck=[];
  const t={id:salesUid('TRK'),name:String(name||'').trim().slice(0,60)||'Truck '+(DB.truck.length+1),note:'',active:true};DB.truck.push(t);return t;
 });}
-function truckSet(id,field,value){return storageCommand(()=>{
+function truckSet(id,field,value){return shipOffice(()=>{
  const t=truckFind(id);shippingAssert(t,'Truck not found.');
  if(field==='name'){const v=String(value||'').trim().slice(0,60);shippingAssert(v,'Enter a truck name.');t.name=v;}
  else if(field==='note')t.note=String(value==null?'':value).slice(0,120);
@@ -46,7 +46,7 @@ function deliveryRenumber(date,truckId){deliveryStops(date,truckId).forEach((s,i
 function deliveryStop(id){const s=shippingFind(id);shippingAssert(s&&shippingActive(s)&&s.method==='delivery','Only a delivery packing slip goes on a truck.');shippingAssert(s.status!=='delivered','This packing slip is already delivered.');return s;}
 /* truckId пустой — снять с машины. Новая остановка встаёт последней и берёт
    водителя, который уже стоит у этой машины в этот день. */
-function deliveryAssign(id,truckId){return storageCommand(()=>{
+function deliveryAssign(id,truckId){return shipOffice(()=>{
  const s=deliveryStop(id),from=s.truckId||'';truckId=truckId||'';
  if(truckId){const t=truckFind(truckId);shippingAssert(t&&t.active,'Choose an active truck.');}
  if(from===truckId)return s;
@@ -55,16 +55,16 @@ function deliveryAssign(id,truckId){return storageCommand(()=>{
  if(from)deliveryRenumber(s.date,from);
  return s;
 });}
-function deliveryMove(id,dir){return storageCommand(()=>{
+function deliveryMove(id,dir){return shipOffice(()=>{
  const s=deliveryStop(id);shippingAssert(s.truckId,'Put the packing slip on a truck first.');
  const list=deliveryStops(s.date,s.truckId),i=list.indexOf(s),j=i+(dir<0?-1:1);if(j<0||j>=list.length)return s;
  list[i]=list[j];list[j]=s;list.forEach((x,n)=>{x.stop=n+1;});return s;
 });}
-function deliverySetTime(id,value){return storageCommand(()=>{
+function deliverySetTime(id,value){return shipOffice(()=>{
  const s=deliveryStop(id),v=String(value||'').trim();shippingAssert(!v||/^([01]\d|2[0-3]):[0-5]\d$/.test(v),'Enter the time as HH:MM.');
  if(v)s.departAt=v;else delete s.departAt;return s;
 });}
-function deliverySetDriver(date,truckId,driverId){return storageCommand(()=>{
+function deliverySetDriver(date,truckId,driverId){return shipOffice(()=>{
  shippingAssert(truckFind(truckId),'Truck not found.');shippingAssert(!driverId||(DB.user||[]).some(u=>u.viewProfileId===driverId),'Driver not found.');
  deliveryStops(date,truckId).forEach(s=>{if(driverId)s.driverId=driverId;else delete s.driverId;});return true;
 });}

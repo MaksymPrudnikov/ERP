@@ -9,6 +9,17 @@ const SHIPPING_STATUSES=['planned','shipped','delivered','cancelled'];
 const SHIPPING_ADDRESS_FIELDS=['label','addressee','address1','address2','address3','city','province','country','postalCode','contact','phone'];
 function shippingClone(x){return JSON.parse(JSON.stringify(x));}
 function shippingFind(id){return (DB.shipment||[]).find(s=>s.id===id||s.number===id)||null;}
+/* Запись Shipping: storageCommand с отметкой таблиц раздела (erp/sections). */
+function shipPersist(fn,scope){return sectionPersist('shipping',fn,scope);}
+/* PS, его печать, Shipped, рейсы и машины — у кого галочка Sales или
+   Shipping (владелец 12.11.2026: Ольга с Sales выдаёт на самовывозе;
+   оптимизатор — нет). Внутри чужой команды (Skip, снятие с батча,
+   удаление заказа) — правила той команды; станция (вход по PIN) — без
+   галочек. */
+function shipOffice(fn,scope){
+ if(!storageDepth&&!(typeof tab!=='undefined'&&tab==='station')&&typeof accessCan==='function'&&!accessCan('sales')&&!accessCan('shipping'))return {ok:false,error:'Sales or Shipping access is required.'};
+ return shipPersist(fn,scope);
+}
 /* takes — заказы, чьё отменённое стекло клиент забирает с этим PS, когда
    юнитов этого заказа на нём нет (аудит Shipping, Д2). */
 function shippingOrderIds(s){return [...new Set((s.items||[]).concat(s.extras||[]).map(i=>i.orderId).concat(s.takes||[]))];}

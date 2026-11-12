@@ -275,7 +275,7 @@ function shippingPrintRecord(id){
 function shippingPrint(id,checked){
  const s=shippingFind(id);if(!s||s.status==='cancelled'&&!s.unbatchedItems?.length)return;
  (checked?(ids,method,printing,done)=>done():shippingWithChecks)(shippingOrderIds(s),s.method,true,()=>{
-  let pages;const out=storageCommand(()=>{pages=shippingPrintRecord(id);return shippingFind(id);});
+  let pages;const out=shipOffice(()=>{pages=shippingPrintRecord(id);return shippingFind(id);});
   if(!out.ok){shippingNotice={error:true,text:out.error};render();return;}
   render();shippingShowPrint(pages);
  });

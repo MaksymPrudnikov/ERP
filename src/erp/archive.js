@@ -367,8 +367,8 @@ function archiveRun(day,opts){
  if(archiveVisit||archiveScope)return {ok:false,error:'Archived orders are open.'};
  const now=new Date().toISOString();
  return storageCommand(()=>{
-  /* Архив переносит строки денег целиком, не меняя их (erp/finance/ledger: FIN_OWN). */
-  finMark();
+  /* Архив переносит строки разделов целиком, не меняя их (erp/sections). */
+  sectionMarkAll();
   let due=[...archiveDue(day)];if(opts.limit)due=due.slice(0,opts.limit);
   /* Последняя пачка дня — день отмечен: следующий уход завтра. */
   if(opts.mark&&due.length<(opts.limit||Infinity))DB.archiveRunDay=day;
@@ -430,7 +430,7 @@ async function archiveReturn(orderId){
  const got=await storageColdOf(orderId);if(!got.length)return {ok:true,value:0};
  const owners=new Set();got.forEach(r=>(r.owners||[]).forEach(o=>owners.add(o)));
  return storageCommand(()=>{
-  finMark();
+  sectionMarkAll();
   const before=archiveInvState();
   got.forEach(r=>storageColdPut(r));
   /* Заказ ушёл при прежней версии программы — в работу он встаёт в
