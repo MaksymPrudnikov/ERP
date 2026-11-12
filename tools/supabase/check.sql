@@ -198,12 +198,24 @@ do $$ begin
   assert pg_temp.fails('select public.erp_members()', 'Only an administrator%'), 'офис видит людей сервера';
   assert pg_temp.fails('select public.erp_rules_set(''[]'')', 'Only an administrator%'), 'офис меняет правила';
   assert exists (select 1 from jsonb_array_elements(public.erp_rules()) x where x->>'tbl' = 'receipt' and x->>'read' = 'finance,sales,commissions'), 'правила не видны';
+  assert pg_temp.fails('select public.erp_journal()', 'Only an administrator%'), 'офис читает журнал';
 end $$;
 reset role;
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
 do $$
-declare m jsonb := public.erp_members(); r jsonb;
+declare m jsonb := public.erp_members(); r jsonb; j jsonb;
 begin
+  -- Журнал «кто что записал»: запись офиса — кто, таблицы и число строк;
+  -- отказ по оплате — с таблицей; новые сверху; Older — до момента.
+  j := public.erp_journal();
+  assert exists (select 1 from jsonb_array_elements(j) x where x->>'email' = 'office@glass-erp.test' and x->>'result' = 'ok'
+    and (x->'tables'->>'salesOrder')::int >= 1), 'журнал: запись офиса: ' || j;
+  assert exists (select 1 from jsonb_array_elements(j) x where x->>'email' = 'office@glass-erp.test' and x->>'result' = 'denied'
+    and x->'denied' = '["receipt"]' and x->'tables' = '{}'), 'журнал: отказ по оплате: ' || j;
+  assert (j->0->>'at')::timestamptz >= (j->(jsonb_array_length(j) - 1)->>'at')::timestamptz, 'журнал: новые сверху';
+  assert jsonb_array_length(public.erp_journal(null, 1)) = 1, 'журнал: n';
+  assert jsonb_array_length(public.erp_journal((j->(jsonb_array_length(j) - 1)->>'at')::timestamptz)) = 0, 'журнал: Older';
+  assert pg_temp.fails('select public.erp_journal(null, 0)', 'Rows must be%'), 'журнал: 0 строк';
   assert jsonb_array_length(m) = 2 and m->1->>'email' = 'office@glass-erp.test' and m->1->'sections' = '["production"]' and m->0->>'admin' = 'true', 'люди сервера: ' || m;
   assert pg_temp.fails($q$select public.erp_rules_set('[{"tbl":"receipt","read":"Finance!"}]')$q$, 'Bad sections%'), 'раздел с ошибкой';
   assert pg_temp.fails($q$select public.erp_rules_set('[{"tbl":"a b"}]')$q$, 'Bad table%'), 'таблица с ошибкой';

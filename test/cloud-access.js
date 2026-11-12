@@ -5,7 +5,10 @@ module.exports=async function({page,eq}){
  console.log('cloud-access');
  const t=await page();
  const srv={admin:true,logins:['admin@glass-erp.test','office@glass-erp.test'],members:[{email:'admin@glass-erp.test',name:'Admin',admin:true,active:true,sections:[]}],
-  rules:[{tbl:'receipt',read:'finance,sales',write:'finance'},{tbl:'refund',read:'finance,sales',write:'finance'}],calls:[]};
+  rules:[{tbl:'receipt',read:'finance,sales',write:'finance'},{tbl:'refund',read:'finance,sales',write:'finance'}],calls:[],
+  /* Журнал сервера: 201 команда — страница 200 и одна в Older. */
+  journal:Array.from({length:201},(_,i)=>({at:new Date(Date.UTC(2026,10,12,12,0,0)-i*60000).toISOString(),email:'office@glass-erp.test',name:i?'Office':'',device:'pc'+(i%2+1),build:'b1',
+   result:i===1?'denied':i===2?'conflict':'ok',denied:i===1?['receipt']:[],tables:i===0?{salesOrder:1,orderEvent:3}:i<3?{}:{stationScan:1}}))};
  await t.c.route('https://testref.supabase.co/**',async route=>{
   const req=route.request(),u=new URL(req.url()),body=JSON.parse(req.postData()||'{}'),fn=u.pathname.replace('/rest/v1/rpc/','');
   const json=(status,o)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(o)});
@@ -14,6 +17,7 @@ module.exports=async function({page,eq}){
   const admin=()=>srv.admin?null:json(400,{message:'Only an administrator can see people.'});
   if(fn==='erp_whoami')return json(200,{user_id:'u1',name:'Admin',admin:srv.admin,sections:[]});
   if(fn==='erp_rules')return json(200,srv.rules);
+  if(fn==='erp_journal'){const all=srv.journal.filter(r=>!body.before_at||r.at<body.before_at);return json(200,all.slice(0,body.n));}
   if(fn==='erp_members')return admin()||json(200,srv.members);
   if(fn==='erp_rules_set'){srv.rules=body.rules.map(r=>({tbl:r.tbl,read:r.read||null,write:r.write||null}));return json(200,srv.rules);}
   if(fn==='erp_member_set'){
@@ -81,11 +85,23 @@ module.exports=async function({page,eq}){
  })(),{sent:[[{tbl:'receipt',read:'sales,production,finance',write:''},{tbl:'customer',read:'',write:'customers'}]],
   shown:[['receipt','Sales Production Finance','Everyone'],['customer','Everyone','Customers']]});
 
+ eq('Cloud → Journal: по кнопке, новые сверху — кто, ПК, итог, что записано; Older догружает',await (async()=>{
+  await t.p.evaluate(()=>{tab='users';subtab='cloud';render();});
+  const before=await t.p.evaluate(()=>!!document.querySelector('[data-cloud-journal]'));
+  await t.p.click('[data-journal-load]');await t.p.waitForFunction(()=>document.querySelectorAll('[data-journal-row]').length===200);
+  const first=await t.p.evaluate(()=>{const tr=[...document.querySelectorAll('[data-journal-row]')].slice(0,3);
+   return tr.map(r=>[...r.cells].slice(1).map(c=>c.textContent.trim()));});
+  await t.p.click('[data-journal-older]');await t.p.waitForFunction(()=>document.querySelectorAll('[data-journal-row]').length===201);
+  const older=await t.p.evaluate(()=>({more:!!document.querySelector('[data-journal-older]'),last:[...document.querySelectorAll('[data-journal-row]')].pop().cells[2].textContent}));
+  return {before,first,older,asked:srv.calls.filter(c=>c[0]==='erp_journal').map(c=>[!!c[1].before_at,c[1].n])};
+ })(),{before:false,first:[['office@glass-erp.test','pc1','Saved','orderEvent × 3, salesOrder'],['Office','pc2','Denied','No access: receipt'],['Office','pc1','Conflict','Changed on another computer']],
+  older:{more:false,last:'pc1'},asked:[[false,200],[true,200]]});
+
  eq('не администратор сервера: ни колонки Server, ни Access',await (async()=>{
   srv.admin=false;await t.p.evaluate(()=>cloudAccessLoad());
   return t.p.evaluate(()=>{tab='users';subtab='office';render();const col=!!document.querySelector('[data-user-server]');
-   subtab='cloud';render();return {col,access:!!document.querySelector('[data-cloud-rules]')};});
- })(),{col:false,access:false});
+   subtab='cloud';render();return {col,access:!!document.querySelector('[data-cloud-rules]'),journal:!!document.querySelector('[data-journal-load]')};});
+ })(),{col:false,access:false,journal:false});
  eq('Users ↔ сервер без ошибок страницы',t.errs,[]);
  await t.c.close();
 };
