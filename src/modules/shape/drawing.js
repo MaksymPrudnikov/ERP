@@ -1,6 +1,10 @@
 /* =====================================================================
    shape/drawing · schema-v2
    Production Drawing и Cutting Shape из одного Component/Shape revision.
+   IN : фигура (shape/schema, shape/features), размеры (shape/metric),
+        контур реза (shape/cutting), пометки (shape/annotate)
+   OUT: SVG чертежа — shapeProductionSvg, shapeProductionDrawingFrame,
+        shapeLiteSheetSvg, shapeStampDrawingSpec, shapeSandblastDrawingSpec
    ===================================================================== */
 
 function shapeXml(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}

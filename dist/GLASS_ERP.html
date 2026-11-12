@@ -4337,7 +4337,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='aee01edcacc6';
+var ERP_BUILD='f7f620e24d31';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -4519,6 +4519,8 @@ function fabPolygonsOverlap(A,B){
    открывается с диска, crypto.subtle там бывает недоступен и асинхронен.
    Нужен паролю офиса (erp/signin): в базе лежит отпечаток с солью, а не
    сам пароль.
+   IN : строка
+   OUT: sha256Hex(text) — для erp/signin, erp/users, erp/purchasing (отпечатки)
    ===================================================================== */
 const SHA256_K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
 function sha256Hex(text){
@@ -4899,7 +4901,9 @@ function ssContour(S){
 /* =====================================================================
    shape/presets · schema-v2
    Каталог параметрических фигур и стабильная topology-модель.
-   OUT: вершины, физические рёбра и sampled contour для расчётов.
+   IN : тип фигуры и её параметры (core/dim — дюймы)
+   OUT: SHAPE_PRESETS, shapePresetInfo, shapeDefaultParams, shapeType,
+        вершины, физические рёбра и sampled contour для расчётов
    ===================================================================== */
 
 var SHAPE_PRESETS=[
@@ -5242,6 +5246,10 @@ function shapePresetTopology(S){
 /* =====================================================================
    shape/schema · schema-v2
    Нормализация определения Shape. Старый Smart-Shape остаётся совместимым.
+   IN : сырое определение фигуры (из заказа, DXF, старого Smart-Shape);
+        shape/model, shape/presets, shape/features
+   OUT: normalizeShapeDef, shapeNormalizeSource, shapeIsDxfSource,
+        SHAPE_EDGE_OPS, shapeHoleCount, метки поверхности — для всех shape/* и Sales
    ===================================================================== */
 
 /* Лами-операции стоят в КОНЦЕ: индекс операции уходит в обработчик чекбокса и
@@ -5729,6 +5737,9 @@ function shapeParamSpecsFor(type){
 /* =====================================================================
    shape/features · schema-v2
    Радиусы, отверстия, cutout, hardware prep и производные требования.
+   IN : нормализованная фигура (shape/schema), геометрия core/poly
+   OUT: shapeEdgeOps, shapeThicknessMm, shapeEdgeAllowance,
+        shapeSafetyBorderPlan, shapeBorderFootprint, shapeFeatureGeometry
    ===================================================================== */
 
 function shapeRadiusMap(def){var out={};(def.features||[]).forEach(function(f){if(f.type==='radius'&&f.vertexId)out[f.vertexId]=Math.max(0,inch(f.radius));});return out;}
@@ -6429,6 +6440,9 @@ function shapeMetricAnnotations(result,opts){
    shape/cutting · schema-v2
    Детерминированная Cutting Geometry. Невалидный offset блокируется.
    Generic DXF — нейтральный обменный файл, не постпроцессор конкретного CNC.
+   IN : готовый контур и кромки фигуры (shape/features), core/poly
+   OUT: shapeCuttingGeometry, shapeInsetVariable / shapeOffsetVariable,
+        shapeMachinePayload, shapeFinishedDxf / shapeGenericDxf, shapeCheckDxf
    ===================================================================== */
 
 /* Рез только растёт, поэтому здесь отрицательные значения гасятся. Внутрь
@@ -7407,6 +7421,10 @@ function shapeAnnotationLayer(result,F,active,opts){
 /* =====================================================================
    shape/drawing · schema-v2
    Production Drawing и Cutting Shape из одного Component/Shape revision.
+   IN : фигура (shape/schema, shape/features), размеры (shape/metric),
+        контур реза (shape/cutting), пометки (shape/annotate)
+   OUT: SVG чертежа — shapeProductionSvg, shapeProductionDrawingFrame,
+        shapeLiteSheetSvg, shapeStampDrawingSpec, shapeSandblastDrawingSpec
    ===================================================================== */
 
 function shapeXml(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -8259,6 +8277,9 @@ const ShapeModule={
    shape/dxf-production · schema-v2 extension
    Производственная логика внешнего DXF. Файл не знает про Sales, цены,
    клиентов или заказы: только finished contour -> edgework -> cutting.
+   IN : контур из DXF (shape/dxf-import), кромки и припуски (shape/features)
+   OUT: SHAPE_PRIMARY_FINISHES, shapeTogglePrimaryFinish, shapeFinishConflict,
+        shapeProductionAllowanceRule, SHAPE_ALLOWANCE_MAX_IN
    ===================================================================== */
 
 /* Лами-полировка — АЛЬТЕРНАТИВА арису и обычной полировке на той же кромке,
@@ -8713,6 +8734,9 @@ ShapeModule.dxfManufacturingPoint=shapeDxfManufacturingPoint;
 /* ==== src/modules/shape/dxf-import.js ==== */
 /* =====================================================================
    shape/dxf-import · DXF-файл → готовый контур Production Shape
+   IN : текст DXF-файла (из окна Shape в Sales)
+   OUT: shapeParseFusionDxf(text) → контур стекла и отверстия либо отказ
+        с причиной и местом
    Владелец, 16.10.2026: загрузка должна принимать то, что даёт нормальный
    CAD, а не один LWPOLYLINE из прямых. Файл «U2 OF 2.dxf» из Fusion — дуги
    bulge в LWPOLYLINE — раньше отклонялся целиком.
@@ -10750,6 +10774,8 @@ function hardwareItemIsCustomModel(item){
    СБОРКА — не редактировать руками.
    Заводской засев каталога стекла: 511 позиций, дословная копия
    templates/GLASS_PRODUCTS.csv.
+   IN : templates/GLASS_PRODUCTS.csv (через tools/catalog-to-js.py)
+   OUT: GLASS_PRODUCTS_CSV — строка CSV для erp/masterdata/glass
 
    Пересобрать после правки каталога:
        python3 tools/catalog-to-js.py
@@ -13131,12 +13157,13 @@ function cutParamsFor(mm){
 /* ==== src/erp/customers/data.js ==== */
 /* =====================================================================
    erp/customers/data  ·  customers-1.0
-   Customer master: schema, normalization, export CSV / JSON. Импорт одних
-   клиентов убран (владелец, аудит F07 / F10): клиенты приходят полным
+   Карточки клиентов: схема, приведение к норме, выгрузка CSV / JSON. Импорт
+   одних клиентов убран (владелец, аудит F07 / F10): клиенты приходят полным
    импортом базы или заводятся в Customers.
    IN : DB.customer
-   OUT: normalized Customer entities
-   Rule: no Sales Order / Work Order behavior here.
+   OUT: normalizeCustomers (нормальные карточки в DB.customer),
+        customerPrimaryContact, customerAddressByType, customerDownload
+   Правило: никакой логики Sales Order / Work Order здесь нет.
    ===================================================================== */
 
 DEFAULT.customer=[];
@@ -13359,8 +13386,12 @@ function orderSetupFrit(){const s=orderSetup();return {dotMm:s.fritDotMm,margin1
 /* ==== src/erp/sales/data.js ==== */
 /* =====================================================================
    erp/sales/data · sales-0.3b-makeup
-   Draft Sales Order domain with order-scoped Makeups.
-   No global Configuration Library. Shape/Muntin stay external configurators.
+   Данные заказа Sales: схема заказа, Makeup внутри заказа, приведение к норме.
+   Общей библиотеки конфигураций нет; Shape и Muntin — внешние конфигураторы.
+   IN : DB.salesOrder, DB.customer, DB.shapeDef, DB.spacerVariant, DB.recut;
+        каталог стекла (erp/masterdata/glass), прайс-листы (erp/sales/price-lists)
+   OUT: normalizeSalesOrder (DB.salesOrder), salesUid, salesCustomerDisplay,
+        salesMakeupById, salesMakeupSummary, salesRefId — для всех разделов
    ===================================================================== */
 
 DEFAULT.salesOrder=[];
@@ -16557,13 +16588,16 @@ const FIN_API=new Set([
 /* ==== src/erp/purchasing/suppliers.js ==== */
 /* =====================================================================
    Поставщики Purchasing: карточки, контакты, старые свободные имена остаются историей (12.10.2026).
-   Owner correction 13 October: new glass purchases select supplier cards.
-   Legacy free names stay historical; new cards start in CAD.
-   The old glassSheet.supplier is a supply-point name used by cutting:
-   migration and card edits must NEVER rewrite it, sizes, prices or stock.
-   One company can have several supply points, each with its own currency.
-   The owner wants editable document fields: this catalogue is also the
-   source of supplier fields for the PO document constructor.
+   IN : DB.supplier, DB.glassSheet (точки поставки раскроя — только читаем)
+   OUT: DB.supplier, DB.purchasingEvent (журнал); purSupplierFind,
+        purSupplierSave, purRecordEvent, purPersist, normalizePurchasing
+   Владелец, 13 октября: новое стекло закупают только по карточке
+   поставщика. Старые свободные имена остаются историей; новая карточка
+   начинается в CAD. Старое glassSheet.supplier — имя точки поставки для
+   раскроя: миграция и правка карточек НИКОГДА не переписывают его, размеры,
+   цены и остаток. У одной компании может быть несколько точек поставки,
+   у каждой своя валюта. Владелец хочет править поля документов: этот
+   справочник — ещё и источник полей поставщика для конструктора бланка PO.
    ===================================================================== */
 const PUR_SUPPLIER_FIELDS=[
  {k:'name',label:'Supplier name',group:'Company'},
@@ -16691,13 +16725,17 @@ function purSupplierSave(d){
 
 /* ==== src/erp/purchasing/orders.js ==== */
 /* Заказы поставщику (PO): стекло из каталога, допы, номера, правки на любом этапе с журналом (Purchasing P2, 13.10.2026).
-   Owner correction 13 October: new glass lines require catalogue glass
-   and a supplier card. Extras and legacy free lines remain editable.
-   Price or delivery date may remain unknown.
-   Saved numbers are allocated inside storageCommand. Edits at any stage
-   are allowed and logged. Delete keeps the document and its history.
-   Quantities use the chosen purchasing unit; blocks have no fixed size.
-   No customer Finance writes, stock movements or production route changes. */
+   IN : DB.purchaseOrder, DB.glassSheet, карточки поставщиков (erp/purchasing/suppliers),
+        каталог стекла (erp/purchasing/catalog), единицы (erp/masterdata/units)
+   OUT: DB.purchaseOrder, DB.purchaseOrderSeq, DB.purchaseDocumentOptions;
+        purOrderFind, purOrderStatus, purOrderTotals, purLineTotal, PUR_ORDER_STATES
+   Владелец, 13 октября: новая строка стекла — только стекло из каталога и
+   карточка поставщика. Допы и старые свободные строки правятся как раньше.
+   Цена или дата поставки могут быть неизвестны.
+   Номер выдаётся внутри storageCommand. Правка на любом этапе разрешена и
+   пишется в журнал. Delete оставляет документ и его историю.
+   Количество — в выбранной единице закупки; у блоков нет фиксированного
+   размера. Никаких записей в Finance клиентов, движений склада и маршрута цеха. */
 DEFAULT.purchaseOrder=[];DEFAULT.purchaseOrderSeq=0;
 const PUR_ORDER_STATES={draft:'Draft',sent:'Sent',closed:'Closed',cancelled:'Cancelled'};
 function purOrderFind(id){return (DB.purchaseOrder||[]).find(p=>p.id===id)||null;}
@@ -16820,9 +16858,12 @@ function purSheetLine(id){
 }
 
 /* ==== src/erp/purchasing/catalog.js ==== */
-/* Owner correction, 13 October 2026: glass is catalogue data, like Sales.
-   Labels are snapshots; supplier/product IDs are identity. Stock and other
-   purchases remain separate. CAD is the default, never an FX conversion. */
+/* Стекло в Purchasing — данные каталога, как в Sales (владелец, 13 октября 2026).
+   IN : DB.glassSheet, каталог стекла (erp/masterdata/glass), карточки поставщиков
+   OUT: purGlassProduct, purGlassIdentity, purResolveSupplier, purSupplierDisplay,
+        purValidateGlassLines, purMaterialGroups, PUR_MATERIAL_TABLES
+   Подписи — снимок на момент строки; личность — ID поставщика и продукта.
+   Склад и прочие закупки — отдельно. CAD — по умолчанию, никогда не пересчёт курса. */
 function purSupplierDisplay(d){const s=purSupplierFind(d.supplierId);return s?s.name:d.supplierName||'';}
 function purResolveSupplier(d){const s=purSupplierFind(d.supplierId);if(s)d.supplierName=s.name;}
 function purIsGlass(l){return ['glass','sheet','order'].includes(l.kind);}
@@ -16870,14 +16911,17 @@ function purReceiptSupplierMatches(a,b){return !a.supplierId||!b.supplierId||a.s
 
 /* ==== src/erp/purchasing/receiving.js ==== */
 /* Приёмка по PO и стекло, ждущее у поставщика: что пришло, излишки, бой, другой размер листа (Purchasing P3).
-   Record what arrived, including excess, damage and a different sheet size.
-   Blocks, actual sheets and sheet dimensions belong to each delivery line;
-   never infer a fixed pack size and never write inventory or customer Finance.
-   Receipt quantities include damaged goods. Undo keeps the audit trail.
-   A delivery request reserves nothing; only receipts reduce the held balance.
-   Audit 14.10.2026 (owner): broken glass is usually credited, not brought
-   again; resolution Replacement means the supplier must bring it, so it
-   waits as a backorder until a receipt row marked replacement arrives. */
+   IN : DB.purchaseOrder, DB.purchaseReceipt; заявки на доставку и строки PO
+   OUT: DB.purchaseReceipt и заявки на доставку (через purPersist); purReceived,
+        purWaitingRows, purFulfilFind, purFulfilLine, purRequestMarkSent, PUR_FULFIL
+   Записать, что пришло, включая излишек, бой и другой размер листа. Блоки,
+   фактические листы и размеры листа — у каждой строки доставки; размер пачки
+   никогда не угадывать и никогда не писать в склад и в Finance клиентов.
+   Количество приёмки включает бой. Undo сохраняет журнал. Заявка на
+   доставку ничего не резервирует; ждущий остаток уменьшает только приёмка.
+   Аудит 14.10.2026 (владелец): бой обычно засчитывают кредитом, а не
+   привозят снова; решение Replacement значит, что поставщик обязан привезти,
+   поэтому это ждёт как backorder, пока не придёт строка приёмки с пометкой replacement. */
 DEFAULT.purchaseReceipt=[];DEFAULT.purchaseReceiptSeq=0;
 DEFAULT.purchaseDeliveryRequest=[];DEFAULT.purchaseDeliveryRequestSeq=0;
 const PUR_FULFIL={receipt:{key:'purchaseReceipt',seq:'purchaseReceiptSeq',prefix:'GR',label:'Receipt'},request:{key:'purchaseDeliveryRequest',seq:'purchaseDeliveryRequestSeq',prefix:'DR',label:'Delivery request'}};
@@ -17037,11 +17081,14 @@ function purHeldGroups(today){
 
 /* ==== src/erp/purchasing/invoices.js ==== */
 /* Счета поставщиков и записанные руками оплаты им; Finance клиентов не трогает (Purchasing P4).
-   This ledger never writes DB.receipt or customer Finance / QuickBooks.
-   Currency and supplier on a payment are historical facts. Editing an
-   invoice must not silently turn an old USD payment into CAD, or move it
-   to another supplier. Deleted invoices keep payments as supplier credit.
-   Blank amounts remain unknown; signed amounts allow credits/refunds. */
+   IN : DB.purchaseInvoice, DB.purchasePayment, DB.purchaseOrder, карточки поставщиков
+   OUT: DB.purchaseInvoice, DB.purchasePayment (через purPersist); purInvoiceBalance,
+        purInvoiceStatus, purInvoiceDue, purMoneyFind, PUR_MONEY
+   Этот журнал никогда не пишет DB.receipt и Finance клиентов / QuickBooks.
+   Валюта и поставщик оплаты — исторические факты. Правка счёта не должна
+   молча превратить старую оплату в USD в CAD или перенести её другому
+   поставщику. Удалённый счёт оставляет оплаты кредитом у поставщика.
+   Пустая сумма — неизвестна; знак суммы позволяет кредиты и возвраты. */
 DEFAULT.purchaseInvoice=[];DEFAULT.purchaseInvoiceSeq=0;
 DEFAULT.purchasePayment=[];DEFAULT.purchasePaymentSeq=0;
 const PUR_MONEY={invoice:{key:'purchaseInvoice',seq:'purchaseInvoiceSeq',prefix:'PI',label:'Supplier invoice'},payment:{key:'purchasePayment',seq:'purchasePaymentSeq',prefix:'PP',label:'Supplier payment'}};
@@ -17123,10 +17170,13 @@ function purInvoicePrintLines(id){return purInvoicesForPO(id).map(d=>{const b=pu
 function purPaymentPrintLines(id){return purInvoicesForPO(id).flatMap(d=>purInvoicePayments(d.id).map(p=>p.number+' · '+docDate(p.date)+' · '+(p.amount==null?'Amount needed':docNum(p.amount,2))+' '+p.currency+' · '+p.method));}
 
 /* ==== src/erp/purchasing/specification.js ==== */
-/* PO specification snapshots use the same glass/geometry/service readers
-   as stickers and work orders. Selecting an order never verifies, batches
-   or changes it. A missing catalogue glass can still be bought by text.
-   The office uses existing Skip after receiving external glass. */
+/* Спецификация стекла заказа клиента для PO: те же чтения стекла, геометрии и работ, что у стикеров и Work order.
+   IN : заказ Sales (DB.salesOrder через erp/sales/*), батчи (erp/production/glass-batches),
+        стикеры (erp/production/stickers), DB.purchaseOrder
+   OUT: purSpecTexts, purOrderComponentLine, purComponentLabel, purLinkedPurchases
+   Выбор заказа никогда не проверяет (Verify), не ставит в батч и не меняет его.
+   Стекло, которого нет в каталоге, всё равно можно купить текстом. Внешнее
+   стекло после приёмки офис проводит обычным Skip. */
 function purComponentLabel(c){return 'Lite '+c.lite+(c.ply?' · '+c.ply+' ply':'');}
 /* Поставщику — Name, без нашего кода (владелец, 29.10.2026: «поставщики
    пусть будет имя тоже»). */
@@ -17164,10 +17214,13 @@ function purLinkedPurchases(orderId,lineId){
 }
 
 /* ==== src/erp/purchasing/documents.js ==== */
-/* PO preview, print and PDF share docPage / docPdfBytes.
-   Customize matches Sales: predefined fields, preview-only choices and
-   explicit Save as default. No user-defined PO fields or Gmail API (owner,
-   13 October 2026). Gmail compose is preparation, not evidence of sending. */
+/* Бланк PO: просмотр, печать и PDF через общие docPage / docPdfBytes.
+   IN : PO и заявки (erp/purchasing/orders, receiving, invoices), DB.company,
+        DB.formTemplate, движок бланков (erp/documents/*)
+   OUT: purDocPages, purDocOptions, purDocFile (имя PDF), purDocGmailURL, PUR_PO_FIELDS
+   Customize как в Sales: готовые поля, выбор только для просмотра и явное
+   Save as default. Своих полей PO и Gmail API нет (владелец, 13 октября
+   2026). Gmail compose — подготовка письма, а не доказательство отправки. */
 DEFAULT.purchaseDocumentOptions={};
 const PUR_PO_FIELDS=[
  ['company','Header','Company logo and details',true],
@@ -17460,11 +17513,13 @@ function readMemoReset(lines){
 }
 
 /* ==== src/erp/motion.js ==== */
-/* ERP module: erp/motion — движение экрана (владелец, 2.11.2026: «понимаешь, что
+/* Движение экрана ERP: лёгкий подъём разделов и лист для заказа и окна (владелец, 2.11.2026: «понимаешь, что
    что-то происходит, а не резкие неприятные скачки»). Вариант F + H: разделы и
    вкладки лежат рядом — лёгкий подъём; заказ и окно открываются глубже — лист.
    Только от настоящего клика человека: действия из кода и тестов идут синхронно,
-   как раньше. Станциям всё мгновенно. */
+   как раньше. Станциям всё мгновенно.
+   IN : клик человека, отрисовка экрана (render)
+   OUT: motionSheet, motionHasWindow, motionAfterRender — классы анимации на экране */
 const MOTION_WINDOW='.sales-service-modal-back,.doc-back';
 let motionTab=false;
 function motionOk(){
@@ -19132,6 +19187,9 @@ function authLastSeen(u){
    view/customers  ·  customers-2.0
    Клиенты: таблица на общем движке Sales, карточка из пяти вкладок,
    заказы клиента, экспорт в меню «⋯», предупреждение о дубле.
+   IN : DB.customer, DB.salesOrder, DB.company; прайс-группы (erp/sales/price-lists),
+        балансы (erp/finance/ledger)
+   OUT: экран Customers (viewCustomers); правка карточки пишет DB.customer
    ===================================================================== */
 
 let cEdit=null,cDraft=null,cSeen='',cTab='general',cMenu=null,cDup=null;
@@ -19336,8 +19394,12 @@ function saveCustomer(force){
 /* ==== src/erp/sales/orders.js ==== */
 /* =====================================================================
    erp/sales/orders · sales-0.3b-makeup
-   Draft order behavior, order-scoped makeups, Excel entry and bridges to
-   the existing Shape / Muntin configurators.
+   Работа с открытым заказом: черновик, Makeup внутри заказа, ввод из
+   Excel и мосты к конфигураторам Shape / Muntin.
+   IN : DB.salesOrder, DB.customer, DB.shapeDef, DB.serviceRate, DB.recut;
+        каталог (erp/masterdata/*), прайс (erp/sales/price-lists), фигуры (modules/shape/*)
+   OUT: DB.salesOrder, DB.shapeDef; salesOrderEdit, salesFindCustomer,
+        salesShapeByRef, salesLeaveDraft, salesLineChargeRows, salesBridge
    ===================================================================== */
 
 let soEdit=null,soDraft=null,soMakeupId=null;
@@ -21240,8 +21302,11 @@ function salesBridgeCancel(kind){if(!salesBridge||salesBridge.kind!==kind)return
 /* ==== src/erp/sales/service-sets.js ==== */
 /* =====================================================================
    erp/sales/service-sets · service-set-v1
-   Order-scoped bulk edgework recipes and one Effective Production snapshot.
-   Shape stays independent; prices/orders stay in ERP.
+   Наборы кромки на весь заказ и один снимок Effective Production строки.
+   Shape остаётся независимой; цены и заказы живут в ERP.
+   IN : строки заказа (erp/sales/data), фигуры и рез (modules/shape/*)
+   OUT: salesLineGeometryShape, salesEffectiveCuttingPlan,
+        salesEffectiveProductionSnapshot, salesServiceOps, SALES_SERVICE_SET_OPS
    ===================================================================== */
 
 /* Набор — рецепт на много строк, и makeup он не знает. Лами-полировка в нём
@@ -22251,8 +22316,13 @@ function salesExtraBarHTML(target){
 }
 
 /* ==== src/erp/sales/line-metrics.js ==== */
-/* Площадь, периметр и цена строки заказа до энергии, налога и доставки. Geometry stays in Shape; visibility never changes
-   the calculation. Monetary amounts here are before energy, tax and delivery. */
+/* Площадь, периметр, вес и цена строки заказа до энергии, налога и доставки.
+   IN : строка заказа и Makeup (erp/sales/data), DB.serviceRate, DB.materialWeightRates,
+        прайс (erp/sales/price-lists), количества работ (erp/sales/line-measure)
+   OUT: salesMoney, salesLineAreas, salesLineWeight, salesLineCommercialPrice,
+        salesOrderCommercialTotals, salesOrderWeight, salesMinAreaParts
+   Геометрия остаётся в Shape; видимость колонок никогда не меняет расчёт.
+   Суммы здесь — до энергии, налога и доставки. */
 /* Нормы веса, которых ещё нет в карточках (плёнка, фрит, спандрел,
    шпросы), — строки Weight norms; обвязка — в карточках и рецепте
    (erp/masterdata/surround). */
@@ -22860,6 +22930,8 @@ normalizeSalesOrderLine=function(line){
 /* ==== src/erp/sales/save-job.js ==== */
 /* =====================================================================
    erp/sales/save-job · Save большого заказа в фоне
+   IN : открытый заказ (soEdit, erp/sales/orders), DB, очередь сервера (erp/cloud-sync)
+   OUT: salesSaveJob, salesOrderSaveBg, salesSaveQueue — запись заказа тем же Save
    Владелец, 28–29.10.2026: квота на здание — 500 строк, и Save на слабом ПК
    идёт 10–30 с. «Главное, чтобы система не висла, а показывала, что заказ
    сохраняется»; процент настоящий; работать дальше можно («сразу фоновое»).
@@ -23968,8 +24040,10 @@ function salesSheetFitDrawing(host){
 }
 
 /* ==== src/erp/sales/frit-drawing.js ==== */
-/* Frit drawing annotations only. Pitch comes from the original silkscreen
-   form (handoff 9л); nothing here changes Shape or cutting geometry. */
+/* Пометки frit на чертеже — и только они. Шаг берётся из исходного бланка
+   silkscreen (хендофф 9л); здесь ничего не меняет Shape и геометрию реза.
+   IN : SVG чертежа строки, стекло с frit (erp/masterdata/glass)
+   OUT: salesFritDecorateSvg — чертёж с пометками frit для печати (erp/sales/print-*) */
 const SALES_FRIT_PATTERNS={
  '2 x 2 square':{dx:2,dy:2,stag:false},
  '4 x 4 square':{dx:4,dy:4,stag:false},
@@ -24128,8 +24202,11 @@ function salesFritDecorateSvg(svg,shape,result,T){
 /* ==== src/erp/sales/makeup-ui.js ==== */
 /* =====================================================================
    erp/sales/makeup-ui · sales-0.3b-makeup
-   Compact UX for order-scoped IGU Makeups. Visual reference: IGU Builder;
-   data model remains ERP-native and uses Master Data IDs.
+   Компактный выбор Makeup IGU внутри заказа. Образец вида — IGU Builder;
+   данные — свои ERP и ссылаются на ID Master Data.
+   IN : каталог стекла (erp/masterdata/glass), DB.spandrelColour, открытый заказ
+   OUT: salesMakeupBuilder, salesMakeupTabs, salesGlassLabel, salesGlassVariants,
+        salesPaneProductSummary — разметка окна Makeup
    ===================================================================== */
 
 function salesOption(value,label,selected,rawText){return `<option ${rawText?'data-raw':''} value="${esc(value)}" ${selected===value?'selected':''}>${esc(label)}</option>`;}
@@ -26874,7 +26951,10 @@ function finBalancesDoc(list,selection){
 /* =====================================================================
    views/col-widths  ·  col-widths-1.0
    Ширина и порядок колонок прямо в заголовке — один механизм для списка
-   Sales и Order Lines (пункт 11 плана v1.16). Владелец, 30.10.2026: вид —
+   Sales и Order Lines (пункт 11 плана v1.16).
+   IN : адаптер таблицы (cwRegister): ключи колонок и её настройки в браузере
+   OUT: cwColgroup, cwGrip, cwTableAttrs, cwTableClass — ширины и перенос колонок
+   Владелец, 30.10.2026: вид —
    вариант 1 («черта как в Excel»: тонкая черта между заголовками, при
    наведении и перетаскивании зелёная, через таблицу — линия); «чтобы колонки
    можно было ренжовать как в экселе: беру колонку за голову и переношу».
@@ -27038,8 +27118,10 @@ document.addEventListener('mouseover',e=>{
 /* ==== src/erp/views/sales.js ==== */
 /* =====================================================================
    view/sales · sales-0.3b-makeup
-   Draft Sales Orders with order-scoped IGU Makeups.
-   Shape and Muntin remain external engineering configurators.
+   Экран Sales: заказы и квоты, Makeup IGU внутри заказа.
+   Shape и Muntin остаются внешними инженерными конфигураторами.
+   IN : DB.salesOrder, DB.customer; данные и работа заказа (erp/sales/*)
+   OUT: viewSales — экран заказа; salesServicesModal, salesLineShapeCell
    ===================================================================== */
 
 function viewSales(){
@@ -27306,7 +27388,10 @@ function salesExcelModal(){
 }
 
 /* ==== src/erp/views/sales-line-metrics-ui.js ==== */
-/* User-selectable screen and print columns; stored independently of orders. */
+/* Колонки строк заказа на экране и в печати по выбору человека; хранятся отдельно от заказов.
+   IN : расчёт строки (erp/sales/line-metrics), DB.user (выбор колонок), DB.materialWeightRates
+   OUT: SALES_METRIC_COLUMNS, salesMetricsPanel, salesMetricCell, salesOrderLinesFoot,
+        salesCommercialOrderSummary; правка весов материалов пишет DB.materialWeightRates */
 const SALES_METRIC_COLUMNS=[
  {key:'materials',label:'Materials',unit:'',screen:true,print:false},
  {key:'actual',label:'Actual Area',unit:'ft²',screen:true,print:true},
@@ -27714,6 +27799,8 @@ function salesRefreshLineLive(line){
    view/sales/shape-ui · schema-v2
    Полный редактор finished geometry, features, edgework и cutting output.
    Геометрия и экспорт принадлежат modules/shape/*; экран только редактирует.
+   IN : фигура строки (DB.shapeDef), модули modules/shape/*
+   OUT: окно Shape (viewShapeSkill, sEdit); сохранённая фигура — DB.shapeDef
    ===================================================================== */
 
 let sEdit=null,sDraft=null,sView='setup',sWorkspaceTab='designer',sEdgeworkOpen=false,sFeaturesOpen=false,sFeatureExpandedId=null,sSourceOpen=false,sManufacturingOpen=false,sManufacturingPlace=null,sManufacturingSelected=null;
@@ -30262,8 +30349,11 @@ function delShape(i){var s=DB.shapeDef[i];if(typeof salesShapeHasReferences==='f
 /* ==== src/erp/views/shape-production-ui.js ==== */
 /* =====================================================================
    erp/views/shape-production-ui · production workflow extension
-   Экран Shape остаётся отдельным от Sales/Service Set. Здесь только UX
-   finished geometry -> edge processing -> manufacturing -> cutting.
+   Производственная часть окна Shape: готовая геометрия → обработка кромки →
+   изготовление → рез. Экран Shape остаётся отдельным от Sales / Service Set.
+   IN : фигура в редакторе (view/sales/shape-ui), правила modules/shape/dxf-production
+   OUT: shapeProdAllowanceField, shapeProdBorderField, shapeProdToggleOps — поля
+        припуска, бордера и операций в окне Shape
    ===================================================================== */
 
 let shapeProdExceptionsOpen=false,shapeProdSelectedEdgeId=null;
@@ -30823,6 +30913,8 @@ shapeForm=function(){
    view/configurators  ·  erp-1.0
    Отдельная оболочка инженерных конфигураторов Shape.
    Внутренняя логика существующих модулей не меняется.
+   IN : modules/shape/* через экран Shape
+   OUT: viewConfigurators — экран-оболочка
    ===================================================================== */
 
 function viewConfigurators(){
@@ -30840,8 +30932,11 @@ function viewConfigurators(){
 /* ==== src/erp/views/sales-service-sets-ui.js ==== */
 /* =====================================================================
    erp/views/sales-service-sets-ui · service-set-v1
-   UI for order-scoped Edgework Sets and line Effective Production.
-   Business resolution lives in erp/sales/service-sets.js.
+   Экран наборов кромки заказа (Edgework Sets) и Effective Production строки.
+   Решения по данным — в erp/sales/service-sets.js.
+   IN : открытый заказ (soEdit), наборы и снимки erp/sales/service-sets
+   OUT: salesOrderLines, salesOrderScreenColumns, salesLineAppend — таблица строк
+        заказа с наборами кромки
    ===================================================================== */
 
 let soServiceSetOpen=false,soServiceSetEditingId=null,soServiceSetDraft=null;
@@ -31462,10 +31557,12 @@ function viewOrderQueue(shipping){
 
 /* ==== src/erp/views/shipping.js ==== */
 /* Экран Shipping в офисе: Awaiting, Ready по скану, PS, частичная отгрузка (Shipping PR 1, 5.10.2026).
-   Ready by scan, one customer/address per PS, partial dispatch and receipt.
-   Uses the existing Sales column filters. PR 2, 6 October 2026: customer
-   queue in Ready and the Loaded button (rules: erp/shipping/loading).
-   No truck UI here. */
+   IN : DB.shipment, DB.salesOrder, DB.stationScan, DB.customer; правила erp/shipping/*
+   OUT: экран Shipping (вкладки SHIPPING_TABS, shippingGo, shippingStatus);
+        записи идут командами erp/shipping/commands
+   Ready по скану, один клиент и адрес на PS, частичная отгрузка и приёмка.
+   Фильтры колонок — общие из Sales. PR 2, 6 октября 2026: очередь клиента
+   в Ready и кнопка Loaded (правила: erp/shipping/loading). Экрана машин здесь нет. */
 const SHIPPING_TABS=[['awaiting','Awaiting readiness'],['ready','Ready'],['shipments','Shipments'],['backorders','Backorders'],['done','Done']];
 let shippingTab='ready',shippingNotice=null,shippingDraft=null,shippingOpenId='',shippingPreview=false;
 /* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
@@ -34039,6 +34136,8 @@ function mdSpacerSystemDelete(id){
    группы айтемов, одна цена сразу нескольким клиентам; вкладка Prices в
    карточке клиента — его личный прайс. Правка прайса пишется сразу, как в
    Works: журнал Master Data видит каждую цену «было → стало».
+   IN : DB.priceList, DB.itemGroup, DB.customer
+   OUT: viewMdPrices, customerPricesTab, salesPriceListStrip; правка — DB.priceList, DB.itemGroup
    ===================================================================== */
 let plView='groups',plGroupId='',plItemGroupId='',plAddKind='',plBulk=null,plFile=null;
 
@@ -35699,10 +35798,13 @@ function comPaySave(){const out=comPayoutAdd(comPayDraft);if(out.error){comNotic
 function comPayDelete(id){if(!confirm('Delete this payout? Its orders are due again.'))return;const out=comPayoutDelete(id);comNotice=out.error||'';render();}
 
 /* ==== src/erp/views/purchasing.js ==== */
-/* Экран Purchasing → Suppliers: карточки поставщиков (Purchasing P1). Column filters use the Sales list engine.
-   Edits stay in a draft until one storageCommand saves the whole card.
-   Additional contacts and custom fields are optional (owner, 12.10.2026).
-   No global search, no stock balances and no purchase in customer Finance. */
+/* Экран Purchasing → Suppliers: карточки поставщиков (Purchasing P1).
+   IN : DB.supplier, DB.glassSheet; правила erp/purchasing/suppliers
+   OUT: viewPurchasing, purSupplierEdit, purListHeader, purHistoryHTML; запись — purSupplierSave
+   Фильтры колонок — движок списка Sales. Правка живёт в черновике, пока
+   один storageCommand не сохранит всю карточку. Дополнительные контакты и
+   свои поля необязательны (владелец, 12.10.2026). Нет общего поиска,
+   остатков склада и закупок в Finance клиентов. */
 let purSupplierDraft=null,purSupplierOriginal='',purNotice='';
 /* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
 (window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!purSupplierDraft&&JSON.stringify(purSupplierDraft)!==purSupplierOriginal);
@@ -35807,9 +35909,11 @@ function purSupplierCancel(){
 
 /* ==== src/erp/views/purchase-orders.js ==== */
 /* Экран заказов поставщику (PO): список, черновик формы, письмо через Gmail (Purchasing P2).
-   Owner correction 13.10: glass and suppliers use catalogue identities;
-   the default purchase is glass, extras are a separate Sales-style block.
-   Gmail only opens a compose window. Sending is confirmed manually. */
+   IN : DB.purchaseOrder, DB.purchasingEvent, DB.glassSheet, DB.salesOrder
+   OUT: purView, purNav, purOrderList, purOrderEdit, purOrderSaveForm; запись — erp/purchasing/orders
+   Владелец, 13.10: стекло и поставщики — по личности каталога; покупка по
+   умолчанию — стекло, допы — отдельный блок как в Sales.
+   Gmail только открывает окно письма. Отправку подтверждают руками. */
 let purView='orders',purOrderDraft=null,purOrderOriginal='',purShowDeleted=false,purPicker=null,purDoc=null;
 /* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
 (window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!purOrderDraft&&JSON.stringify(purOrderDraft)!==purOrderOriginal);
@@ -35954,9 +36058,12 @@ function purOpenLinked(id){
 }
 
 /* ==== src/erp/views/purchasing-catalog.js ==== */
-/* Purchasing uses Sales' compact header, blocks, tables and catalogue
-   selects. New supplier names create a reusable card explicitly. A name
-   typed on a document must never become a second supplier account. */
+/* Общие куски экранов Purchasing: шапка, блоки, таблицы и выбор из каталога как в Sales.
+   IN : DB.supplier, DB.glassSheet, каталог стекла
+   OUT: purListFilters, purListPager, purPageRows, purSupplierControl, purGlassSelect,
+        purPOLinesHTML, purNewSupplier
+   Новое имя поставщика создаёт карточку только явно. Имя, набранное в
+   документе, никогда не становится вторым счётом поставщика. */
 let purNewSupplier=null,purGlassFilter={},purActiveGlass='';
 function purSupplierControl(d,target){
  const prefix=target==='po'?'pur_po':target==='money'?'pur_money':'pur_delivery',id=target==='po'?prefix+'_card':prefix+'_supplier',change=target==='po'?'purPickSupplier':target==='money'?'purMoneySetSupplier':'purFulfilSetSupplier';
@@ -36081,8 +36188,10 @@ function purGlassFilterChanged(i,target,field,value){
 function purClearGlass(l){Object.assign(l,{kind:'glass',productId:'',productCode:'',description:'',sheetId:'',sourceCurrency:'',price:null});}
 
 /* ==== src/erp/views/purchase-documents.js ==== */
-/* Purchase document actions: PDF download and Gmail compose only.
-   Prepared messages are logged separately from the user's Mark sent. */
+/* Действия с документом закупки: скачать PDF и открыть письмо Gmail — и только.
+   IN : документ PO (erp/purchasing/documents)
+   OUT: purDocOpen, purDocHTML; DB.purchaseDocumentOptions — выбор полей
+   Подготовленные письма пишутся в журнал отдельно от Mark sent человека. */
 function purDocOpen(){
  if(!purOrderSaveForm(true))return;
  purDoc={opts:purDocOptions(DB.purchaseDocumentOptions),panel:false,status:''};render();
@@ -36119,9 +36228,12 @@ function purDocAction(action){
 }
 
 /* ==== src/erp/views/purchasing-receiving.js ==== */
-/* Receiving is entered by office / optimization staff from the shop's
-   count sheet. All values remain editable; warnings never prevent Save.
-   Each receipt line may carry its own size and actual sheet count. */
+/* Экран приёмки: офис или оптимизатор вводит по листу пересчёта цеха.
+   IN : DB.purchaseOrder, DB.purchaseReceipt, DB.purchaseDeliveryRequest
+   OUT: purReceivingList, purFulfilEdit, purFulfilForm, purPOReceivingHTML;
+        запись — erp/purchasing/receiving
+   Все значения правятся; предупреждения никогда не мешают Save.
+   У каждой строки приёмки может быть свой размер и фактическое число листов. */
 let purFulfilDraft=null,purFulfilOriginal='',purFulfilPreview=false,purShowUndone=false;
 /* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
 (window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!purFulfilDraft&&JSON.stringify(purFulfilDraft)!==purFulfilOriginal);
@@ -36271,8 +36383,10 @@ function purPOReceivingHTML(p){
 (window.NAV_GUARDS=window.NAV_GUARDS||[]).push(to=>tab==='purchasing'&&to!=='purchasing'&&!purFulfilLeave());
 
 /* ==== src/erp/views/purchasing-delivery-documents.js ==== */
-/* Delivery requests reuse PO layout, with their own title/number and
-   requested quantities. Gmail remains a compose link plus manual PDF. */
+/* Бланк заявки на доставку: вид PO со своим заголовком, номером и количествами.
+   IN : заявка на доставку, DB.company, DB.purchaseDocumentOptions
+   OUT: purRequestPreviewOpen, purRequestPreviewHTML
+   Gmail — по-прежнему ссылка на окно письма плюс PDF руками. */
 function purRequestPages(d,options){
  const p=purOrderFind(d.poId),supplier=p?p.supplier:null;
  const model=purOrderClean(Object.assign({},d,{supplier,currency:p?p.currency:'USD',note:[p?'For '+p.number:'',d.note].filter(Boolean).join('\n'),lines:d.lines.map(l=>{
@@ -36308,8 +36422,11 @@ function purRequestGmailURL(d){
 }
 
 /* ==== src/erp/views/purchasing-invoices.js ==== */
-/* Экраны счетов и оплат поставщикам и «We owe» (Purchasing P4). Payments record bank/card/check facts; this screen
-   does not initiate transfers. Every list uses the existing Sales filters. */
+/* Экраны счетов и оплат поставщикам и «We owe» (Purchasing P4).
+   IN : DB.purchaseInvoice, DB.purchasePayment, DB.purchaseOrder
+   OUT: purMoneyList, purMoneyEdit, purMoneyForm, purPOInvoicesHTML; запись — erp/purchasing/invoices
+   Оплаты записывают факт банка, карты или чека; этот экран не делает
+   переводов. Каждый список — на общих фильтрах Sales. */
 let purMoneyDraft=null,purMoneyOriginal='',purMoneyShowUndone=false,purAccountKey='';
 /* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
 (window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!purMoneyDraft&&JSON.stringify(purMoneyDraft)!==purMoneyOriginal);
@@ -37373,8 +37490,12 @@ function salesHoldBlocked(orderId){
 }
 
 /* ==== src/erp/views/sales-list-controls.js ==== */
-/* Компактные средства списка Sales. Период использует тот же фильтр created,
-   что и меню колонки: второго, невидимого ограничения здесь нет. */
+/* Компактные средства списка Sales: период, Show, статусы, быстрый выбор. Период
+   использует тот же фильтр created, что и меню колонки: второго, невидимого
+   ограничения здесь нет.
+   IN : DB.salesOrder, DB.ncr; настройки списка (erp/views/sales-list*)
+   OUT: salesListDateButton, salesListStatusControlHTML, salesListShowMenuHTML,
+        salesListFit, salesQuickPick — кнопки и поля над таблицей */
 function salesListShowButton(){
  const label=[['orders','Orders'],['quotes','Quotes'],['ncr','NCR']].filter(x=>salesShow[x[0]]).map(x=>x[1]).join(' + ')||'Orders';
  return `<button type="button" class="sl-quiet" data-show-menu aria-label="Show orders or quotes" aria-expanded="${!!salesListMenu&&salesListMenu.kind==='show'}" onclick="salesListOpenShow(event)">${label}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`;
@@ -37804,6 +37925,8 @@ function salesProdHTML(){
 /* ==== src/erp/views/sl-quick-filter.js ==== */
 /* =====================================================================
    views/sl-quick-filter  ·  быстрый фильтр в заголовке колонки
+   IN : таблица на движке Sales после отрисовки (data-filter-col)
+   OUT: salesListQuickDecorate — поле фильтра в заголовке колонки
    Владелец 07.11.2026: «засунуть быстрый поиск в саму ячейку заголовка: там
    текст, пока в неё не нажмёшь, тогда вводишь; всё меню остаётся в
    стрелочке; стрелочка — слева перед текстом». Нажали на название колонки —
@@ -37893,11 +38016,15 @@ function salesListQuickDecorate(){
 }
 
 /* ==== src/erp/sales/line-hold.js ==== */
-/* Необязательное удержание позиции. Это не производственный замок:
-   строка редактируется, но не попадает в батч. Сохранённая позиция получает
-   только поля Hold; прочие несохранённые правки карточки не записываются.
-   То же меню задаёт очередь отгрузки строки (erp/shipping/loading) — и у
-   строки в батче: очередь нужна, пока стекло ещё идёт по цеху. */
+/* Необязательное удержание позиции (Hold) и очередь отгрузки строки. Это не
+   производственный замок: строка редактируется, но не попадает в батч.
+   Сохранённая позиция получает только поля Hold; прочие несохранённые правки
+   карточки не записываются. То же меню задаёт очередь отгрузки строки
+   (erp/shipping/loading) — и у строки в батче: очередь нужна, пока стекло ещё
+   идёт по цеху.
+   IN : строка заказа, юниты (erp/sales/unit-cancel)
+   OUT: salesLineHoldMenu, salesLineHoldMenuHTML, salesLineHoldRowAttrs,
+        salesLineUnitsRow; запись Hold и очереди — в DB.salesOrder */
 let salesLineHoldMenu=null,salesLineHoldPress=null;
 function salesLineHoldAllowed(o,l){return !!o&&!!l&&!salesIsQuote(o)&&!salesOrderReadOnly(o)&&!salesLineLocked(l);}
 function salesLineQueueAllowed(o,l){const saved=o&&salesRecord(o.id);return !!l&&!!saved&&shippingQueueAllowed(saved)&&(saved.lines||[]).some(x=>x.id===l.id);}
@@ -38254,6 +38381,11 @@ function normalizeCancellations(list,lines){
 
 /* ==== src/erp/production/glass-batches.js ==== */
 /* Номера стёкол и реестр резки.
+   IN : DB.salesOrder, DB.shapeDef, DB.glassProduct, DB.serviceRate, DB.recut,
+        DB.stationScan, DB.customer, DB.receipt
+   OUT: DB.glassPiece, DB.glassPieceSeq, DB.glassBatch, DB.glassUnitId, DB.glassUnitIdSeq;
+        glassBatchComponents, glassBatchFind, glassPieceMap, glassPieceEnsure,
+        glassComponentCut, glassBatchActive, unitIdAt
    Каждое стекло — отдельный объект. Glass ID G-0000001 выдаётся при сохранении
    заказа, не меняется и не используется повторно (счётчик DB.glassPieceSeq).
    Владелец, 17 сентября 2026: стикер печатают сразу — стекло из стока режут
@@ -43769,10 +43901,14 @@ function stockReasonSetActive(id,on){const r=(DB.stockReason||[]).find(x=>x.id==
 function stockReasonOf(x){x=x||{};return {reason:stockReasonName(x.reason),note:String(x.note==null?'':x.note).trim().slice(0,200)};}
 
 /* ==== src/erp/views/glass-batches.js ==== */
-/* Очередь отдельных стёкол и реестр. Одна строка — одно стекло с Glass ID
-   и местом «Unit 7 of 50». Общие фильтры колонок — из Sales; настройки трёх
-   таблиц независимы. По умолчанию нет ограничения по стеклу или дате: малые
-   остатки видны до решения оператора. Shift выбирает диапазон строк. */
+/* Очередь отдельных стёкол и реестр батчей. Одна строка — одно стекло с
+   Glass ID и местом «Unit 7 of 50». Общие фильтры колонок — из Sales;
+   настройки трёх таблиц независимы. По умолчанию нет ограничения по стеклу
+   или дате: малые остатки видны до решения оператора. Shift выбирает
+   диапазон строк.
+   IN : DB.glassBatch, DB.salesOrder, стёкла erp/production/glass-batches
+   OUT: viewGlassBatches, glassBatchOpen, glassBatchStatus, glassBatchActiveItems,
+        glassBatchTabs — экран Optimization → очередь и батчи */
 let glassBatchSelection=new Set(),glassBatchOpenNumber='',glassBatchDetailTab='contents',glassBatchAnchor='';
 let glassBatchPage=1;
 const GLASS_BATCH_PAGE_SIZE=20;
@@ -45484,7 +45620,9 @@ function normalizeCarrierCounts(){
    Одна форма на основе сохранённого заказа в двух видах: Recut — до выдачи
    (кнопка Recut, блок Recuts над Notes), NCR — после выдачи (кнопка NCR,
    окно просмотра, полоса NCR, строки в Sales). Номера G-… здесь не видны.
-   IN : DB.ncr, DB.ncrReason, сохранённый заказ; OUT: ncrCreate, HTML
+   IN : DB.ncr, DB.ncrReason, сохранённый заказ
+   OUT: окно NCR / Recut (ncrOpenForm, ncrModalHTML, recutOrderSection, ncrView);
+        запись — ncrCreate (erp/quality/ncr) и erp/quality/recut
    ===================================================================== */
 let ncrForm=null,ncrViewId='';
 function ncrCanOpen(o){return soEdit!=='new'&&ncrCanCreate(o);}
@@ -50345,6 +50483,9 @@ function stationPrintHTML(){
 /* =====================================================================
    erp/views/station-shipping  ·  станции SHIPR и SHIP на экране станции (Shipping PR 2, 6.10.2026)
    Две последние станции маршрута на экране станции.
+   IN : DB.stationScan, DB.shipment, правила erp/shipping/loading, shippingStations()
+   OUT: stationIsShip, stationIsReady, stationSkidSummary, stationQueueBar,
+        stationForeignBar, stationTakeOff — части экрана станций SHIPR и SHIP
    Станция готовности (SHIPR): на карточке стекла — очередь клиента и
    сколько юнитов заказа уже готово; чужое стекло на скиде — цвет и звук,
    скан пишется (владелец: «работа не стоит»); карточка скида — клиент и
@@ -50578,6 +50719,9 @@ function stationTripsCard(){
 /* ==== src/erp/views/station-from-igu.js ==== */
 /* =====================================================================
    erp/views/station-from-igu  ·  лист «собрал IGU / отсканировал Shipping ready» (7.10.2026)
+   IN : DB.stationScan (сканы IGU и Shipping ready), тара (erp/shopfloor/carriers)
+   OUT: stationIguCard, stationSkidHTML, stationSkidOpen, stationSkidMove — лист
+        и перенос заказа на другой скид
    Shipping ready у IGU: лист всего, что собрал IGU, и что из этого
    отсканировал Shipping ready. Владелец, 7.10.2026:
    - спейсер (Андрей) и силикон со скидами (Олег) — в 50 метрах; Андрей
@@ -50901,6 +51045,8 @@ function stationDolliesView(){
 
 /* ==== src/erp/views/shipping-lookup.js ==== */
 /* Shipping · заказ по номеру у стойки (6 октября 2026).
+   IN : DB.salesOrder, DB.station, готовность и тара (erp/shipping/*), долг (Finance)
+   OUT: shippingLookupHTML — карточка заказа; PS самовывоза — командой erp/shipping
    Владелец: клиент приходит — «заказ 8000, я забрать»; пара стёкол, сразу
    везёт ставить. Номер набирают руками, штрихкода у клиента нет. PS — на
    один этот заказ: «можем выдать отдельную бумажку на каждый заказ, парни
@@ -50992,6 +51138,8 @@ function shippingLookupHTML(){
 /* ==== src/erp/views/delivery.js ==== */
 /* =====================================================================
    view/delivery  ·  Shipping → Delivery: машины, остановки, лист рейса (Shipping PR 3)
+   IN : DB.truck, DB.user, DB.formTemplate; данные рейсов erp/shipping/delivery
+   OUT: deliveryHTML, deliveryPages (лист рейса), viewMdTrucks (Master Data → Trucks)
    Shipping → Delivery: день → машины → остановки (PS) по порядку, у каждой
    время отбытия; PS этого дня без машины; самовывозы отдельным списком.
    Master Data → Trucks. Лист рейса на Letter — один или вместе с PS.
@@ -51144,6 +51292,8 @@ function mdTruckSet(id,field,value){const out=truckSet(id,field,value);if(!out.o
 /* ==== src/erp/views/skids.js ==== */
 /* =====================================================================
    view/skids  ·  Shipping → Skids: наши скиды у клиентов, обмен, возврат (Shipping PR 4)
+   IN : скиды у клиентов (erp/shipping/skids), тара (carrierFind)
+   OUT: skidsHTML, skidsListColumns — экран Skids; обмен — skidSwap (erp/shipping/skids)
    Shipping → Skids: у какого клиента наши скиды, с какого дня, сколько
    дней, с каким PS уехали. Обмен — «Skid from ABC»: чужой скид получает
    новый код и этикетку, наш самый давний у этого клиента списывается.
@@ -53565,7 +53715,8 @@ function validateSkipPayload(src){
    (Picked up, Delivered или любая станция), день, кто получил, причина.
    Delivery использует адрес клиента или введённый адрес. Undo — в Activity log.
    Видят только Users и Finance (erp/shopfloor/skip, skipAllowed).
-   IN : skipRun, skipLineLeft; OUT: окно
+   IN : skipRun, skipLineLeft (erp/shopfloor/skip), DB.station
+   OUT: окно Skip (skipOpen, skipUndoClick)
    ===================================================================== */
 let skipDialog=null;
 function skipOpen(orderId){
@@ -53834,9 +53985,13 @@ function validateProductionUnbatchPayload(src){
 }
 
 /* ==== src/erp/views/production-unbatch-ui.js ==== */
-/* Окно Sales → Unbatch order: выбор стёкол и станции, предпросмотр, подтверждение. Same selection vocabulary as Skip, reverse targets.
-   The preview is read-only. Confirmation submits the captured database stamp;
-   a stale window or failed save keeps the selection open. No Undo button. */
+/* Окно Sales → Unbatch order: выбор стёкол и станции, предпросмотр, подтверждение.
+   IN : правила erp/shopfloor/production-unbatch (productionUnbatchUnits, Targets, Pick)
+   OUT: productionUnbatchOpen — окно; запись — команда erp/shopfloor/production-unbatch
+   Тот же словарь выбора, что у Skip, только цели обратные. Предпросмотр
+   только для чтения. Подтверждение отправляет отпечаток базы, снятый при
+   открытии; устаревшее окно или неудачная запись оставляют выбор открытым.
+   Кнопки Undo нет. */
 let productionUnbatchDialog=null;
 function productionUnbatchOpen(orderId){
  const o=salesRecord(orderId);salesListMenu=null;

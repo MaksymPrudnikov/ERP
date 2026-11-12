@@ -1,6 +1,10 @@
 /* =====================================================================
    shape/schema · schema-v2
    Нормализация определения Shape. Старый Smart-Shape остаётся совместимым.
+   IN : сырое определение фигуры (из заказа, DXF, старого Smart-Shape);
+        shape/model, shape/presets, shape/features
+   OUT: normalizeShapeDef, shapeNormalizeSource, shapeIsDxfSource,
+        SHAPE_EDGE_OPS, shapeHoleCount, метки поверхности — для всех shape/* и Sales
    ===================================================================== */
 
 /* Лами-операции стоят в КОНЦЕ: индекс операции уходит в обработчик чекбокса и

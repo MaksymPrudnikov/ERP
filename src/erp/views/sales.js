@@ -1,7 +1,9 @@
 /* =====================================================================
    view/sales · sales-0.3b-makeup
-   Draft Sales Orders with order-scoped IGU Makeups.
-   Shape and Muntin remain external engineering configurators.
+   Экран Sales: заказы и квоты, Makeup IGU внутри заказа.
+   Shape и Muntin остаются внешними инженерными конфигураторами.
+   IN : DB.salesOrder, DB.customer; данные и работа заказа (erp/sales/*)
+   OUT: viewSales — экран заказа; salesServicesModal, salesLineShapeCell
    ===================================================================== */
 
 function viewSales(){

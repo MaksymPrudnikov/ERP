@@ -1,6 +1,9 @@
-/* Owner correction, 13 October 2026: glass is catalogue data, like Sales.
-   Labels are snapshots; supplier/product IDs are identity. Stock and other
-   purchases remain separate. CAD is the default, never an FX conversion. */
+/* Стекло в Purchasing — данные каталога, как в Sales (владелец, 13 октября 2026).
+   IN : DB.glassSheet, каталог стекла (erp/masterdata/glass), карточки поставщиков
+   OUT: purGlassProduct, purGlassIdentity, purResolveSupplier, purSupplierDisplay,
+        purValidateGlassLines, purMaterialGroups, PUR_MATERIAL_TABLES
+   Подписи — снимок на момент строки; личность — ID поставщика и продукта.
+   Склад и прочие закупки — отдельно. CAD — по умолчанию, никогда не пересчёт курса. */
 function purSupplierDisplay(d){const s=purSupplierFind(d.supplierId);return s?s.name:d.supplierName||'';}
 function purResolveSupplier(d){const s=purSupplierFind(d.supplierId);if(s)d.supplierName=s.name;}
 function purIsGlass(l){return ['glass','sheet','order'].includes(l.kind);}

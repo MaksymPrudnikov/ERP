@@ -1,7 +1,10 @@
 /* =====================================================================
    erp/views/shape-production-ui · production workflow extension
-   Экран Shape остаётся отдельным от Sales/Service Set. Здесь только UX
-   finished geometry -> edge processing -> manufacturing -> cutting.
+   Производственная часть окна Shape: готовая геометрия → обработка кромки →
+   изготовление → рез. Экран Shape остаётся отдельным от Sales / Service Set.
+   IN : фигура в редакторе (view/sales/shape-ui), правила modules/shape/dxf-production
+   OUT: shapeProdAllowanceField, shapeProdBorderField, shapeProdToggleOps — поля
+        припуска, бордера и операций в окне Shape
    ===================================================================== */
 
 let shapeProdExceptionsOpen=false,shapeProdSelectedEdgeId=null;

@@ -1,6 +1,9 @@
-/* Receiving is entered by office / optimization staff from the shop's
-   count sheet. All values remain editable; warnings never prevent Save.
-   Each receipt line may carry its own size and actual sheet count. */
+/* Экран приёмки: офис или оптимизатор вводит по листу пересчёта цеха.
+   IN : DB.purchaseOrder, DB.purchaseReceipt, DB.purchaseDeliveryRequest
+   OUT: purReceivingList, purFulfilEdit, purFulfilForm, purPOReceivingHTML;
+        запись — erp/purchasing/receiving
+   Все значения правятся; предупреждения никогда не мешают Save.
+   У каждой строки приёмки может быть свой размер и фактическое число листов. */
 let purFulfilDraft=null,purFulfilOriginal='',purFulfilPreview=false,purShowUndone=false;
 /* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
 (window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!purFulfilDraft&&JSON.stringify(purFulfilDraft)!==purFulfilOriginal);

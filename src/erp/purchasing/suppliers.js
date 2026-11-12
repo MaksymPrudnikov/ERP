@@ -1,12 +1,15 @@
 /* =====================================================================
    Поставщики Purchasing: карточки, контакты, старые свободные имена остаются историей (12.10.2026).
-   Owner correction 13 October: new glass purchases select supplier cards.
-   Legacy free names stay historical; new cards start in CAD.
-   The old glassSheet.supplier is a supply-point name used by cutting:
-   migration and card edits must NEVER rewrite it, sizes, prices or stock.
-   One company can have several supply points, each with its own currency.
-   The owner wants editable document fields: this catalogue is also the
-   source of supplier fields for the PO document constructor.
+   IN : DB.supplier, DB.glassSheet (точки поставки раскроя — только читаем)
+   OUT: DB.supplier, DB.purchasingEvent (журнал); purSupplierFind,
+        purSupplierSave, purRecordEvent, purPersist, normalizePurchasing
+   Владелец, 13 октября: новое стекло закупают только по карточке
+   поставщика. Старые свободные имена остаются историей; новая карточка
+   начинается в CAD. Старое glassSheet.supplier — имя точки поставки для
+   раскроя: миграция и правка карточек НИКОГДА не переписывают его, размеры,
+   цены и остаток. У одной компании может быть несколько точек поставки,
+   у каждой своя валюта. Владелец хочет править поля документов: этот
+   справочник — ещё и источник полей поставщика для конструктора бланка PO.
    ===================================================================== */
 const PUR_SUPPLIER_FIELDS=[
  {k:'name',label:'Supplier name',group:'Company'},

@@ -1,7 +1,10 @@
-/* PO preview, print and PDF share docPage / docPdfBytes.
-   Customize matches Sales: predefined fields, preview-only choices and
-   explicit Save as default. No user-defined PO fields or Gmail API (owner,
-   13 October 2026). Gmail compose is preparation, not evidence of sending. */
+/* Бланк PO: просмотр, печать и PDF через общие docPage / docPdfBytes.
+   IN : PO и заявки (erp/purchasing/orders, receiving, invoices), DB.company,
+        DB.formTemplate, движок бланков (erp/documents/*)
+   OUT: purDocPages, purDocOptions, purDocFile (имя PDF), purDocGmailURL, PUR_PO_FIELDS
+   Customize как в Sales: готовые поля, выбор только для просмотра и явное
+   Save as default. Своих полей PO и Gmail API нет (владелец, 13 октября
+   2026). Gmail compose — подготовка письма, а не доказательство отправки. */
 DEFAULT.purchaseDocumentOptions={};
 const PUR_PO_FIELDS=[
  ['company','Header','Company logo and details',true],

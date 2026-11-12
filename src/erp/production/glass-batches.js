@@ -1,4 +1,9 @@
 /* Номера стёкол и реестр резки.
+   IN : DB.salesOrder, DB.shapeDef, DB.glassProduct, DB.serviceRate, DB.recut,
+        DB.stationScan, DB.customer, DB.receipt
+   OUT: DB.glassPiece, DB.glassPieceSeq, DB.glassBatch, DB.glassUnitId, DB.glassUnitIdSeq;
+        glassBatchComponents, glassBatchFind, glassPieceMap, glassPieceEnsure,
+        glassComponentCut, glassBatchActive, unitIdAt
    Каждое стекло — отдельный объект. Glass ID G-0000001 выдаётся при сохранении
    заказа, не меняется и не используется повторно (счётчик DB.glassPieceSeq).
    Владелец, 17 сентября 2026: стикер печатают сразу — стекло из стока режут

@@ -82,6 +82,8 @@ def main():
    СБОРКА — не редактировать руками.
    Заводской засев каталога стекла: %d позиций, дословная копия
    templates/GLASS_PRODUCTS.csv.
+   IN : templates/GLASS_PRODUCTS.csv (через tools/catalog-to-js.py)
+   OUT: GLASS_PRODUCTS_CSV — строка CSV для erp/masterdata/glass
 
    Пересобрать после правки каталога:
        python3 tools/catalog-to-js.py

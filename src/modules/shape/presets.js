@@ -1,7 +1,9 @@
 /* =====================================================================
    shape/presets · schema-v2
    Каталог параметрических фигур и стабильная topology-модель.
-   OUT: вершины, физические рёбра и sampled contour для расчётов.
+   IN : тип фигуры и её параметры (core/dim — дюймы)
+   OUT: SHAPE_PRESETS, shapePresetInfo, shapeDefaultParams, shapeType,
+        вершины, физические рёбра и sampled contour для расчётов
    ===================================================================== */
 
 var SHAPE_PRESETS=[

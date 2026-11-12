@@ -1,5 +1,7 @@
 /* =====================================================================
    view/skids  ·  Shipping → Skids: наши скиды у клиентов, обмен, возврат (Shipping PR 4)
+   IN : скиды у клиентов (erp/shipping/skids), тара (carrierFind)
+   OUT: skidsHTML, skidsListColumns — экран Skids; обмен — skidSwap (erp/shipping/skids)
    Shipping → Skids: у какого клиента наши скиды, с какого дня, сколько
    дней, с каким PS уехали. Обмен — «Skid from ABC»: чужой скид получает
    новый код и этикетку, наш самый давний у этого клиента списывается.

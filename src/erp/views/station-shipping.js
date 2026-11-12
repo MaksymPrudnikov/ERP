@@ -1,6 +1,9 @@
 /* =====================================================================
    erp/views/station-shipping  ·  станции SHIPR и SHIP на экране станции (Shipping PR 2, 6.10.2026)
    Две последние станции маршрута на экране станции.
+   IN : DB.stationScan, DB.shipment, правила erp/shipping/loading, shippingStations()
+   OUT: stationIsShip, stationIsReady, stationSkidSummary, stationQueueBar,
+        stationForeignBar, stationTakeOff — части экрана станций SHIPR и SHIP
    Станция готовности (SHIPR): на карточке стекла — очередь клиента и
    сколько юнитов заказа уже готово; чужое стекло на скиде — цвет и звук,
    скан пишется (владелец: «работа не стоит»); карточка скида — клиент и

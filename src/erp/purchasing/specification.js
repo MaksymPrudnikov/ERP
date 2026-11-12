@@ -1,7 +1,10 @@
-/* PO specification snapshots use the same glass/geometry/service readers
-   as stickers and work orders. Selecting an order never verifies, batches
-   or changes it. A missing catalogue glass can still be bought by text.
-   The office uses existing Skip after receiving external glass. */
+/* Спецификация стекла заказа клиента для PO: те же чтения стекла, геометрии и работ, что у стикеров и Work order.
+   IN : заказ Sales (DB.salesOrder через erp/sales/*), батчи (erp/production/glass-batches),
+        стикеры (erp/production/stickers), DB.purchaseOrder
+   OUT: purSpecTexts, purOrderComponentLine, purComponentLabel, purLinkedPurchases
+   Выбор заказа никогда не проверяет (Verify), не ставит в батч и не меняет его.
+   Стекло, которого нет в каталоге, всё равно можно купить текстом. Внешнее
+   стекло после приёмки офис проводит обычным Skip. */
 function purComponentLabel(c){return 'Lite '+c.lite+(c.ply?' · '+c.ply+' ply':'');}
 /* Поставщику — Name, без нашего кода (владелец, 29.10.2026: «поставщики
    пусть будет имя тоже»). */

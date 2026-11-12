@@ -1,12 +1,15 @@
 /* Приёмка по PO и стекло, ждущее у поставщика: что пришло, излишки, бой, другой размер листа (Purchasing P3).
-   Record what arrived, including excess, damage and a different sheet size.
-   Blocks, actual sheets and sheet dimensions belong to each delivery line;
-   never infer a fixed pack size and never write inventory or customer Finance.
-   Receipt quantities include damaged goods. Undo keeps the audit trail.
-   A delivery request reserves nothing; only receipts reduce the held balance.
-   Audit 14.10.2026 (owner): broken glass is usually credited, not brought
-   again; resolution Replacement means the supplier must bring it, so it
-   waits as a backorder until a receipt row marked replacement arrives. */
+   IN : DB.purchaseOrder, DB.purchaseReceipt; заявки на доставку и строки PO
+   OUT: DB.purchaseReceipt и заявки на доставку (через purPersist); purReceived,
+        purWaitingRows, purFulfilFind, purFulfilLine, purRequestMarkSent, PUR_FULFIL
+   Записать, что пришло, включая излишек, бой и другой размер листа. Блоки,
+   фактические листы и размеры листа — у каждой строки доставки; размер пачки
+   никогда не угадывать и никогда не писать в склад и в Finance клиентов.
+   Количество приёмки включает бой. Undo сохраняет журнал. Заявка на
+   доставку ничего не резервирует; ждущий остаток уменьшает только приёмка.
+   Аудит 14.10.2026 (владелец): бой обычно засчитывают кредитом, а не
+   привозят снова; решение Replacement значит, что поставщик обязан привезти,
+   поэтому это ждёт как backorder, пока не придёт строка приёмки с пометкой replacement. */
 DEFAULT.purchaseReceipt=[];DEFAULT.purchaseReceiptSeq=0;
 DEFAULT.purchaseDeliveryRequest=[];DEFAULT.purchaseDeliveryRequestSeq=0;
 const PUR_FULFIL={receipt:{key:'purchaseReceipt',seq:'purchaseReceiptSeq',prefix:'GR',label:'Receipt'},request:{key:'purchaseDeliveryRequest',seq:'purchaseDeliveryRequestSeq',prefix:'DR',label:'Delivery request'}};
