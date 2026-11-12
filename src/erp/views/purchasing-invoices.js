@@ -1,5 +1,8 @@
-/* Экраны счетов и оплат поставщикам и «We owe» (Purchasing P4). Payments record bank/card/check facts; this screen
-   does not initiate transfers. Every list uses the existing Sales filters. */
+/* Экраны счетов и оплат поставщикам и «We owe» (Purchasing P4).
+   IN : DB.purchaseInvoice, DB.purchasePayment, DB.purchaseOrder
+   OUT: purMoneyList, purMoneyEdit, purMoneyForm, purPOInvoicesHTML; запись — erp/purchasing/invoices
+   Оплаты записывают факт банка, карты или чека; этот экран не делает
+   переводов. Каждый список — на общих фильтрах Sales. */
 let purMoneyDraft=null,purMoneyOriginal='',purMoneyShowUndone=false,purAccountKey='';
 /* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
 (window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!purMoneyDraft&&JSON.stringify(purMoneyDraft)!==purMoneyOriginal);

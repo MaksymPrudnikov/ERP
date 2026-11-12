@@ -5,7 +5,8 @@
    (Picked up, Delivered или любая станция), день, кто получил, причина.
    Delivery использует адрес клиента или введённый адрес. Undo — в Activity log.
    Видят только Users и Finance (erp/shopfloor/skip, skipAllowed).
-   IN : skipRun, skipLineLeft; OUT: окно
+   IN : skipRun, skipLineLeft (erp/shopfloor/skip), DB.station
+   OUT: окно Skip (skipOpen, skipUndoClick)
    ===================================================================== */
 let skipDialog=null;
 function skipOpen(orderId){

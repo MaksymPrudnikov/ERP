@@ -1,6 +1,9 @@
 /* =====================================================================
    shape/features · schema-v2
    Радиусы, отверстия, cutout, hardware prep и производные требования.
+   IN : нормализованная фигура (shape/schema), геометрия core/poly
+   OUT: shapeEdgeOps, shapeThicknessMm, shapeEdgeAllowance,
+        shapeSafetyBorderPlan, shapeBorderFootprint, shapeFeatureGeometry
    ===================================================================== */
 
 function shapeRadiusMap(def){var out={};(def.features||[]).forEach(function(f){if(f.type==='radius'&&f.vertexId)out[f.vertexId]=Math.max(0,inch(f.radius));});return out;}

@@ -1,5 +1,10 @@
-/* Площадь, периметр и цена строки заказа до энергии, налога и доставки. Geometry stays in Shape; visibility never changes
-   the calculation. Monetary amounts here are before energy, tax and delivery. */
+/* Площадь, периметр, вес и цена строки заказа до энергии, налога и доставки.
+   IN : строка заказа и Makeup (erp/sales/data), DB.serviceRate, DB.materialWeightRates,
+        прайс (erp/sales/price-lists), количества работ (erp/sales/line-measure)
+   OUT: salesMoney, salesLineAreas, salesLineWeight, salesLineCommercialPrice,
+        salesOrderCommercialTotals, salesOrderWeight, salesMinAreaParts
+   Геометрия остаётся в Shape; видимость колонок никогда не меняет расчёт.
+   Суммы здесь — до энергии, налога и доставки. */
 /* Нормы веса, которых ещё нет в карточках (плёнка, фрит, спандрел,
    шпросы), — строки Weight norms; обвязка — в карточках и рецепте
    (erp/masterdata/surround). */

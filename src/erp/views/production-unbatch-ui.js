@@ -1,6 +1,10 @@
-/* Окно Sales → Unbatch order: выбор стёкол и станции, предпросмотр, подтверждение. Same selection vocabulary as Skip, reverse targets.
-   The preview is read-only. Confirmation submits the captured database stamp;
-   a stale window or failed save keeps the selection open. No Undo button. */
+/* Окно Sales → Unbatch order: выбор стёкол и станции, предпросмотр, подтверждение.
+   IN : правила erp/shopfloor/production-unbatch (productionUnbatchUnits, Targets, Pick)
+   OUT: productionUnbatchOpen — окно; запись — команда erp/shopfloor/production-unbatch
+   Тот же словарь выбора, что у Skip, только цели обратные. Предпросмотр
+   только для чтения. Подтверждение отправляет отпечаток базы, снятый при
+   открытии; устаревшее окно или неудачная запись оставляют выбор открытым.
+   Кнопки Undo нет. */
 let productionUnbatchDialog=null;
 function productionUnbatchOpen(orderId){
  const o=salesRecord(orderId);salesListMenu=null;

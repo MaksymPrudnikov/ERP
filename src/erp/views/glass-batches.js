@@ -1,7 +1,11 @@
-/* Очередь отдельных стёкол и реестр. Одна строка — одно стекло с Glass ID
-   и местом «Unit 7 of 50». Общие фильтры колонок — из Sales; настройки трёх
-   таблиц независимы. По умолчанию нет ограничения по стеклу или дате: малые
-   остатки видны до решения оператора. Shift выбирает диапазон строк. */
+/* Очередь отдельных стёкол и реестр батчей. Одна строка — одно стекло с
+   Glass ID и местом «Unit 7 of 50». Общие фильтры колонок — из Sales;
+   настройки трёх таблиц независимы. По умолчанию нет ограничения по стеклу
+   или дате: малые остатки видны до решения оператора. Shift выбирает
+   диапазон строк.
+   IN : DB.glassBatch, DB.salesOrder, стёкла erp/production/glass-batches
+   OUT: viewGlassBatches, glassBatchOpen, glassBatchStatus, glassBatchActiveItems,
+        glassBatchTabs — экран Optimization → очередь и батчи */
 let glassBatchSelection=new Set(),glassBatchOpenNumber='',glassBatchDetailTab='contents',glassBatchAnchor='';
 let glassBatchPage=1;
 const GLASS_BATCH_PAGE_SIZE=20;

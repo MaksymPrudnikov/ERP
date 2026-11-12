@@ -1,5 +1,7 @@
-/* Frit drawing annotations only. Pitch comes from the original silkscreen
-   form (handoff 9л); nothing here changes Shape or cutting geometry. */
+/* Пометки frit на чертеже — и только они. Шаг берётся из исходного бланка
+   silkscreen (хендофф 9л); здесь ничего не меняет Shape и геометрию реза.
+   IN : SVG чертежа строки, стекло с frit (erp/masterdata/glass)
+   OUT: salesFritDecorateSvg — чертёж с пометками frit для печати (erp/sales/print-*) */
 const SALES_FRIT_PATTERNS={
  '2 x 2 square':{dx:2,dy:2,stag:false},
  '4 x 4 square':{dx:4,dy:4,stag:false},

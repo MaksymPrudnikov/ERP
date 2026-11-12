@@ -1,11 +1,15 @@
 /* Заказы поставщику (PO): стекло из каталога, допы, номера, правки на любом этапе с журналом (Purchasing P2, 13.10.2026).
-   Owner correction 13 October: new glass lines require catalogue glass
-   and a supplier card. Extras and legacy free lines remain editable.
-   Price or delivery date may remain unknown.
-   Saved numbers are allocated inside storageCommand. Edits at any stage
-   are allowed and logged. Delete keeps the document and its history.
-   Quantities use the chosen purchasing unit; blocks have no fixed size.
-   No customer Finance writes, stock movements or production route changes. */
+   IN : DB.purchaseOrder, DB.glassSheet, карточки поставщиков (erp/purchasing/suppliers),
+        каталог стекла (erp/purchasing/catalog), единицы (erp/masterdata/units)
+   OUT: DB.purchaseOrder, DB.purchaseOrderSeq, DB.purchaseDocumentOptions;
+        purOrderFind, purOrderStatus, purOrderTotals, purLineTotal, PUR_ORDER_STATES
+   Владелец, 13 октября: новая строка стекла — только стекло из каталога и
+   карточка поставщика. Допы и старые свободные строки правятся как раньше.
+   Цена или дата поставки могут быть неизвестны.
+   Номер выдаётся внутри storageCommand. Правка на любом этапе разрешена и
+   пишется в журнал. Delete оставляет документ и его историю.
+   Количество — в выбранной единице закупки; у блоков нет фиксированного
+   размера. Никаких записей в Finance клиентов, движений склада и маршрута цеха. */
 DEFAULT.purchaseOrder=[];DEFAULT.purchaseOrderSeq=0;
 const PUR_ORDER_STATES={draft:'Draft',sent:'Sent',closed:'Closed',cancelled:'Cancelled'};
 function purOrderFind(id){return (DB.purchaseOrder||[]).find(p=>p.id===id)||null;}

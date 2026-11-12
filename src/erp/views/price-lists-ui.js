@@ -4,6 +4,8 @@
    группы айтемов, одна цена сразу нескольким клиентам; вкладка Prices в
    карточке клиента — его личный прайс. Правка прайса пишется сразу, как в
    Works: журнал Master Data видит каждую цену «было → стало».
+   IN : DB.priceList, DB.itemGroup, DB.customer
+   OUT: viewMdPrices, customerPricesTab, salesPriceListStrip; правка — DB.priceList, DB.itemGroup
    ===================================================================== */
 let plView='groups',plGroupId='',plItemGroupId='',plAddKind='',plBulk=null,plFile=null;
 

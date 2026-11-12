@@ -1,5 +1,9 @@
-/* Компактные средства списка Sales. Период использует тот же фильтр created,
-   что и меню колонки: второго, невидимого ограничения здесь нет. */
+/* Компактные средства списка Sales: период, Show, статусы, быстрый выбор. Период
+   использует тот же фильтр created, что и меню колонки: второго, невидимого
+   ограничения здесь нет.
+   IN : DB.salesOrder, DB.ncr; настройки списка (erp/views/sales-list*)
+   OUT: salesListDateButton, salesListStatusControlHTML, salesListShowMenuHTML,
+        salesListFit, salesQuickPick — кнопки и поля над таблицей */
 function salesListShowButton(){
  const label=[['orders','Orders'],['quotes','Quotes'],['ncr','NCR']].filter(x=>salesShow[x[0]]).map(x=>x[1]).join(' + ')||'Orders';
  return `<button type="button" class="sl-quiet" data-show-menu aria-label="Show orders or quotes" aria-expanded="${!!salesListMenu&&salesListMenu.kind==='show'}" onclick="salesListOpenShow(event)">${label}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`;

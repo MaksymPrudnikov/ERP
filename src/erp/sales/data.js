@@ -1,7 +1,11 @@
 /* =====================================================================
    erp/sales/data · sales-0.3b-makeup
-   Draft Sales Order domain with order-scoped Makeups.
-   No global Configuration Library. Shape/Muntin stay external configurators.
+   Данные заказа Sales: схема заказа, Makeup внутри заказа, приведение к норме.
+   Общей библиотеки конфигураций нет; Shape и Muntin — внешние конфигураторы.
+   IN : DB.salesOrder, DB.customer, DB.shapeDef, DB.spacerVariant, DB.recut;
+        каталог стекла (erp/masterdata/glass), прайс-листы (erp/sales/price-lists)
+   OUT: normalizeSalesOrder (DB.salesOrder), salesUid, salesCustomerDisplay,
+        salesMakeupById, salesMakeupSummary, salesRefId — для всех разделов
    ===================================================================== */
 
 DEFAULT.salesOrder=[];

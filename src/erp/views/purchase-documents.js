@@ -1,5 +1,7 @@
-/* Purchase document actions: PDF download and Gmail compose only.
-   Prepared messages are logged separately from the user's Mark sent. */
+/* Действия с документом закупки: скачать PDF и открыть письмо Gmail — и только.
+   IN : документ PO (erp/purchasing/documents)
+   OUT: purDocOpen, purDocHTML; DB.purchaseDocumentOptions — выбор полей
+   Подготовленные письма пишутся в журнал отдельно от Mark sent человека. */
 function purDocOpen(){
  if(!purOrderSaveForm(true))return;
  purDoc={opts:purDocOptions(DB.purchaseDocumentOptions),panel:false,status:''};render();

@@ -22,9 +22,19 @@ module.exports=async function({eq}){
  live.forEach(f=>{const s=read(f);
   (s.match(/`(docs\/[^`\s]+\.md|docs\/[a-z-]+\/)`/g)||[]).forEach(m=>{
    const p=m.replace(/`/g,'').replace(/\/$/,'');
-   /* Шаблон вида docs/ЗАДАЧА_*.md — это не ссылка, а описание группы. */
-   if(p.indexOf('*')<0&&!fs.existsSync(path.join(root,p)))dead.push(f+' → '+p);});});
+   /* Шаблон вида docs/ЗАДАЧА_*.md или docs/journal/<ГГГГ-ММ>.md — не ссылка, а описание группы. */
+   if(!/[*<]/.test(p)&&!fs.existsSync(path.join(root,p)))dead.push(f+' → '+p);});});
  eq('документы: живые документы не ссылаются на удалённые файлы',dead,[]);
+ /* Хендофф — «как устроено сейчас», журнал по датам — docs/journal/ (этап 7
+    плана «до 10», 12.11.2026). Хендофф читают первым: он короткий и на
+    каждый раздел из таблицы «Разделы» карты есть свой раздел. Вырос — значит
+    в него снова пишут историю; её место — журнал месяца. */
+ {const rows=((map.split('## Разделы: как устроено сейчас')[1]||'').split('\n## ')[0].match(/^\| [^|\-][^|]*\|/gm)||[])
+   .map(r=>r.slice(1,-1).trim()).filter(n=>n!=='Раздел');
+  const heads=(hand.match(/^## .+$/gm)||[]).map(h=>h.slice(3).trim());
+  eq('хендофф: раздел на каждую строку «Разделы» карты, не больше 100 КБ (история — в docs/journal/)',
+   {missing:rows.filter(n=>!heads.includes(n)),rows:rows.length>10,small:Buffer.byteLength(hand)<=100*1024},
+   {missing:[],rows:true,small:true});}
  /* Руководство Reports: приложение «все поля и показатели» — то же, что в
     коде (tools/manual-fields.js --write). Владелец, 03.11.2026: «руководство с
     объяснениями — тогда сам сможешь проверять, если что-то дублируется». */
@@ -32,7 +42,11 @@ module.exports=async function({eq}){
     --write). Владелец, 09.11.2026: карта, документация, мануалы — чёткие; список
     вёлся руками и отстал на 60 модулей из 205. */
  {const mm=require('../tools/module-map.js');
-  eq('КАРТА-ПРОЕКТА: «Все модули» совпадают с manifest и шапками файлов (node tools/module-map.js --write)',mm.current()===mm.table(),true);}
+  eq('КАРТА-ПРОЕКТА: «Все модули» совпадают с manifest и шапками файлов (node tools/module-map.js --write)',mm.current()===mm.table(),true);
+  /* Шапка каждого модуля — «что делает (по-русски) / IN / OUT» (этап 7 плана
+     «до 10», 12.11.2026): код понятен любой ИИ и человеку с первой строки.
+     Исключения и причины — HEADER_SKIP в tools/module-map.js. */
+  eq('шапки модулей: «что делает / IN / OUT» у всех, кроме HEADER_SKIP (node tools/module-map.js)',mm.headerProblems(),[]);}
  const mf=require('../tools/manual-fields.js'),want=mf.appendix();
  /* Сборщик PDF руководства (tools/manual-pdf.js): разделы по README, Markdown → HTML. */
  const mp=require('../tools/manual-pdf.js'),h=mp.md('# A\n\n| x | y |\n|---|---|\n| `1` | **2** |\n\n- one\n- two').html;

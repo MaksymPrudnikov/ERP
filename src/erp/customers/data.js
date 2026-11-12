@@ -1,11 +1,12 @@
 /* =====================================================================
    erp/customers/data  ·  customers-1.0
-   Customer master: schema, normalization, export CSV / JSON. Импорт одних
-   клиентов убран (владелец, аудит F07 / F10): клиенты приходят полным
+   Карточки клиентов: схема, приведение к норме, выгрузка CSV / JSON. Импорт
+   одних клиентов убран (владелец, аудит F07 / F10): клиенты приходят полным
    импортом базы или заводятся в Customers.
    IN : DB.customer
-   OUT: normalized Customer entities
-   Rule: no Sales Order / Work Order behavior here.
+   OUT: normalizeCustomers (нормальные карточки в DB.customer),
+        customerPrimaryContact, customerAddressByType, customerDownload
+   Правило: никакой логики Sales Order / Work Order здесь нет.
    ===================================================================== */
 
 DEFAULT.customer=[];

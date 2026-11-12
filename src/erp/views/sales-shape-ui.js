@@ -2,6 +2,8 @@
    view/sales/shape-ui · schema-v2
    Полный редактор finished geometry, features, edgework и cutting output.
    Геометрия и экспорт принадлежат modules/shape/*; экран только редактирует.
+   IN : фигура строки (DB.shapeDef), модули modules/shape/*
+   OUT: окно Shape (viewShapeSkill, sEdit); сохранённая фигура — DB.shapeDef
    ===================================================================== */
 
 let sEdit=null,sDraft=null,sView='setup',sWorkspaceTab='designer',sEdgeworkOpen=false,sFeaturesOpen=false,sFeatureExpandedId=null,sSourceOpen=false,sManufacturingOpen=false,sManufacturingPlace=null,sManufacturingSelected=null;

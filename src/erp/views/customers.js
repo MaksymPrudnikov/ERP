@@ -2,6 +2,9 @@
    view/customers  ·  customers-2.0
    Клиенты: таблица на общем движке Sales, карточка из пяти вкладок,
    заказы клиента, экспорт в меню «⋯», предупреждение о дубле.
+   IN : DB.customer, DB.salesOrder, DB.company; прайс-группы (erp/sales/price-lists),
+        балансы (erp/finance/ledger)
+   OUT: экран Customers (viewCustomers); правка карточки пишет DB.customer
    ===================================================================== */
 
 let cEdit=null,cDraft=null,cSeen='',cTab='general',cMenu=null,cDup=null;

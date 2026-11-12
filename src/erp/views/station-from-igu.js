@@ -1,5 +1,8 @@
 /* =====================================================================
    erp/views/station-from-igu  ·  лист «собрал IGU / отсканировал Shipping ready» (7.10.2026)
+   IN : DB.stationScan (сканы IGU и Shipping ready), тара (erp/shopfloor/carriers)
+   OUT: stationIguCard, stationSkidHTML, stationSkidOpen, stationSkidMove — лист
+        и перенос заказа на другой скид
    Shipping ready у IGU: лист всего, что собрал IGU, и что из этого
    отсканировал Shipping ready. Владелец, 7.10.2026:
    - спейсер (Андрей) и силикон со скидами (Олег) — в 50 метрах; Андрей

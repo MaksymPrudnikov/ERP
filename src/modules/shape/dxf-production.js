@@ -2,6 +2,9 @@
    shape/dxf-production · schema-v2 extension
    Производственная логика внешнего DXF. Файл не знает про Sales, цены,
    клиентов или заказы: только finished contour -> edgework -> cutting.
+   IN : контур из DXF (shape/dxf-import), кромки и припуски (shape/features)
+   OUT: SHAPE_PRIMARY_FINISHES, shapeTogglePrimaryFinish, shapeFinishConflict,
+        shapeProductionAllowanceRule, SHAPE_ALLOWANCE_MAX_IN
    ===================================================================== */
 
 /* Лами-полировка — АЛЬТЕРНАТИВА арису и обычной полировке на той же кромке,
