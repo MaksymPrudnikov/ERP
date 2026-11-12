@@ -64,15 +64,6 @@ function current() {
 /* Модули, чьи шапки пока не в формате, — и почему. Список только
    сокращается: файл с правильной шапкой в нём — тоже красный тест. */
 const HEADER_SKIP = {
-  'src/erp/finance/ledger.js': 'этап 5 «до 10»: API Finance',
-  'src/erp/views/finance-workspace.js': 'этап 5 «до 10»: API Finance',
-  'src/erp/views/finance-schedule.js': 'этап 5 «до 10»: API Finance',
-  'src/erp/views/finance-lists.js': 'этап 5 «до 10»: API Finance',
-  'src/erp/views/finance-allocate.js': 'этап 5 «до 10»: API Finance',
-  'src/erp/views/commissions.js': 'этап 5 «до 10»: API Finance',
-  'src/erp/shipping/data.js': 'этап 5 «до 10»: API Shipping',
-  'src/erp/shipping/commands.js': 'этап 5 «до 10»: API Shipping',
-  'src/erp/shipping/print.js': 'этап 5 «до 10»: API Shipping',
   /* Владелец, 12.11.2026: «менять название в файлах нельзя, особенно на
      Disai» — файлы станочного экспорта не трогаем совсем. */
   'src/erp/production/cut-machine-export.js': 'станочный экспорт Disai / Maver — не трогать',

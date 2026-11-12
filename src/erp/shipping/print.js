@@ -1,7 +1,12 @@
-/* Packing slip and skid sheets, Letter. Shared docPage primitives keep
-   preview/print/PDF identical. No pricing enters this model.
-   Dispatch freezes the document; subsequent shipments cannot change Before.
-   Printing is recorded as requested, not a claim that a printer succeeded. */
+/* =====================================================================
+   erp/shipping/print  ·  shipping-1.4
+   Бланк packing slip и листы скидов, Letter. Общие примитивы docPage
+   держат просмотр, печать и PDF одинаковыми; цен в модели нет. Отгрузка
+   замораживает документ: следующие отгрузки не меняют «до». Печать
+   записывается как запрошенная, а не как подтверждение принтера.
+   IN : DB.shipment, shippingDocument, конструктор форм (erp/documents)
+   OUT: shippingPages, бланк PS по умолчанию и поля для конструктора форм
+   ===================================================================== */
 /* Отмена на бумаге клиента (владелец, 6.10.2026: «отменённый юнит указывай,
    важно, пусть будет на бумаге»): сколько юнитов строки отменено и что со
    стеклом. Клиент расписывается на PS — и под отменой тоже. */

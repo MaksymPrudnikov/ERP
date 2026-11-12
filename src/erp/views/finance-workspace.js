@@ -6,6 +6,8 @@
    нужен, — в оплате и в карточке клиента (владелец, 28 сентября 2026:
    «минималистично и эффективно»). Команды — в finance/ledger; экран денег
    не придумывает.
+   IN : erp/finance/ledger, erp/finance/data, views/finance-lists
+   OUT: viewFinance — вкладки Accounts, Due dates, Payments, карточка клиента
    ===================================================================== */
 let finCustomerFilter='',finOrderFilter='',finAccountId='',finAccountPaid=false,finDraftBaseline='',finAction=null,finActionBaseline='',finPreview=null,finStatements=null;
 function finHasWork(){return !!(finDraft&&JSON.stringify(finDraft)!==finDraftBaseline||finAction&&JSON.stringify(finAction)!==finActionBaseline);}

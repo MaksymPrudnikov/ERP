@@ -7,6 +7,7 @@
    потом открыть по заказам и по количеству, чтобы этих людей тоже можно было
    оценить: заказов может быть больше, а сумма меньше».
    IN : erp/finance/commissions
+   OUT: viewCommissions — раздел Agents, таблица агентов и выплаты
    ===================================================================== */
 let comOpen='',comDraft=null,comSeen='',comPayDraft=null,comPeriod='year',comHst=false,comNotice='';
 /* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */

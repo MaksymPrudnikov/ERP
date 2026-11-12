@@ -1,9 +1,15 @@
-/* Отгрузки офиса: юниты, Ready по сканам, количества в PS (Shipping, 5.10.2026).
-   IN: actual assemblies/scans, saved orders; OUT: units and PS quantities.
-   Owner: one PS per customer/address, no prices; Net after the last receipt.
-   A unit is an actual assembly, never matching indices of its component Gs.
-   Legacy manual Ready is test data: recalculate it from scans on import.
-   Legacy done/closed without PS remains fulfilled. No invented shipments. */
+/* =====================================================================
+   erp/shipping/data  ·  shipping-1.4
+   Отгрузки офиса: юниты, Ready по сканам, количества в PS (Shipping,
+   5.10.2026). Владелец: один PS на клиента и адрес, без цен; Net — после
+   последней оплаты. Юнит — настоящая сборка, а не индексы его стёкол G-.
+   Старый Ready руками — тестовые данные: при Import пересчитывается по
+   сканам. Старые done/closed без PS остаются выданными. Придуманных
+   отгрузок нет.
+   IN : сборки и сканы станций, сохранённые заказы, DB.shipment
+   OUT: юниты и количества PS, shippingCtx, shippingSyncOrder, запись
+        раздела shipPersist / shipOffice (права: Sales или Shipping)
+   ===================================================================== */
 DEFAULT.shipment=[];DEFAULT.shipmentSeq=0;
 const SHIPPING_STATUSES=['planned','shipped','delivered','cancelled'];
 const SHIPPING_ADDRESS_FIELDS=['label','addressee','address1','address2','address3','city','province','country','postalCode','contact','phone'];

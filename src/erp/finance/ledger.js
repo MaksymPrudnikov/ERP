@@ -1,6 +1,14 @@
-/* Finance commands and history. No DOM; balances keep using the order pricing
-   contract. Events are append-only through these commands; local JSON is not
-   an authenticated or tamper-proof accounting ledger. */
+/* =====================================================================
+   erp/finance/ledger  ·  finance-1.3
+   Команды денег и их журнал: оплата, правка, Void, возврат, условия и сроки
+   оплаты, счёт, выписка, выгрузка QuickBooks. Без экрана; балансы берут
+   сумму заказа из его расчёта. Журнал только дописывается этими командами;
+   локальная база — не защищённая бухгалтерская книга.
+   IN : DB.receipt, DB.refund, DB.financeTerms, DB.financeEvent,
+        DB.financeExport*, DB.salesOrder, DB.customer
+   OUT: команды Finance (finSaveReceiptRecord, finCreateRefund, finSaveTerms,
+        finExportMark…), журнал finEvent, сроки finPaymentDue, выписка
+   ===================================================================== */
 DEFAULT.refund=[];DEFAULT.financeEvent=[];DEFAULT.financeTerms=[];DEFAULT.financeExport=[];DEFAULT.financeExportBatch=[];DEFAULT.financeVersion=1;
 const FIN_TABLES=['refund','financeEvent','financeTerms','financeExport','financeExportBatch'];
 for(const k of FIN_TABLES)if(!Array.isArray(DB[k]))DB[k]=[];

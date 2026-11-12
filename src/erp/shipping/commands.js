@@ -1,8 +1,14 @@
-/* Команды PS офиса: создание, печать, Shipped, возврат — одной записью. All writes, scans, order statuses and log entries commit
-   together. Owner, 5 October 2026: after printing a PS, missing/broken goods
-   are NCR, not a recut/backorder. Printing itself is not proof of delivery.
-   SHIP skid loading and queue priority: erp/shipping/loading (PR 2). Truck
-   planning belongs to a later PR. */
+/* =====================================================================
+   erp/shipping/commands  ·  shipping-1.4
+   Команды PS офиса: создание, печать, Shipped, Delivered, возврат — одной
+   записью вместе со сканами, статусами заказов и журналом. Владелец,
+   5.10.2026: после печати PS недостача или бой — NCR, а не Recut или
+   бэкордер; сама печать — не доказательство выдачи. Погрузка скидов на SHIP
+   и очередь — erp/shipping/loading; машины — erp/shipping/delivery.
+   IN : DB.shipment, юниты erp/shipping/data, заказы
+   OUT: shippingCreate, shippingUpdate, shippingMarkShipped,
+        shippingMarkDelivered, shippingRevert, shippingUnbatchItems
+   ===================================================================== */
 function shippingAssert(ok,message){if(!ok)throw new Error(message);}
 function shippingActor(){const a=orderLogActor();return a.by||'Office';}
 function shippingItem(i){return Object.assign({orderId:i.orderId,lineId:i.lineId,unit:i.unit,label:i.label,skid:i.skid||'',pieces:i.pieces.slice()},i.added?{added:i.added}:{});}

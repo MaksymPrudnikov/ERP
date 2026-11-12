@@ -4,6 +4,8 @@
    Сама таблица и фильтры — views/finance-lists (движок Sales). Срок ставится
    сам от дня выдачи (finPaymentDue); дни считаются по календарю в UTC —
    переход на летнее время их не сдвигает.
+   IN : finPaymentDue, finOrderFinancial (erp/finance/ledger)
+   OUT: дни до срока, подпись срока, CSV вкладки Due dates
    ===================================================================== */
 function finDueDayDiff(date,today){return Math.round((Date.parse(date+'T00:00:00Z')-Date.parse(today+'T00:00:00Z'))/86400000);}
 function finDueTiming(x){const w=x.f.handover||'pickup';return x.days==null?(x.f.terms.paymentMode==='credit'?'After ':'At ')+w:x.days<0?Math.abs(x.days)+(x.days===-1?' day':' days')+' overdue':x.days===0?'Due today':'In '+x.days+(x.days===1?' day':' days');}
