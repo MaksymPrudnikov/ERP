@@ -68,8 +68,9 @@ function onAct(type,fn,...args){
   return a;});
  return 'data-on-'+type+'="'+fn.name+'"'+(list.length?' data-args-'+type+'="'+actEsc(JSON.stringify(list))+'"':'');
 }
-function onActStop(type,fn,...args){return onAct(type,fn,...args)+' data-stop-'+type;}
-function onActSelf(type,fn,...args){return onAct(type,fn,...args)+' data-self-'+type;}
+/* Атрибут всегда со значением: чертёж фигуры — SVG, его разбирают и как XML. */
+function onActStop(type,fn,...args){return onAct(type,fn,...args)+' data-stop-'+type+'=""';}
+function onActSelf(type,fn,...args){return onAct(type,fn,...args)+' data-self-'+type+'=""';}
 function actStop(ev){ev.stopPropagation();}
 function actPrevent(ev){ev.preventDefault();}
 function actArgs(raw,el,ev){
