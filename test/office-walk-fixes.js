@@ -29,10 +29,10 @@ module.exports=async function({page,eq,ok}){
  await t.p.evaluate(n=>{soDraft.lines.length=n;render();},owLines);
 
  eq('курсор переживает перерисовку: поле PO снова в фокусе с той же кареткой; закрытое окно фокус не крадёт',await t.p.evaluate(()=>{
-  const po=[...document.querySelectorAll('#app input')].find(i=>/customerPo/.test(i.getAttribute('oninput')||i.getAttribute('onchange')||''));
+  const po=[...document.querySelectorAll('#app input')].find(i=>/customerPo/.test(i.getAttribute('data-args-input')||''));
   if(!po)return 'no PO field';
   po.focus();po.value='NS-77';po.dispatchEvent(new Event('input',{bubbles:true}));po.setSelectionRange(2,2);render();
-  const a=document.activeElement,same=a&&/customerPo/.test(a.getAttribute('oninput')||a.getAttribute('onchange')||''),caret=a&&a.selectionStart;
+  const a=document.activeElement,same=a&&/customerPo/.test(a.getAttribute('data-args-input')||''),caret=a&&a.selectionStart;
   document.activeElement.blur();soDraft=null;soEdit=null;tab='dashboard';render();
   return {same,caret};
  }),{same:true,caret:2});

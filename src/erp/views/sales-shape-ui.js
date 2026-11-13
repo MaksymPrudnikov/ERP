@@ -302,6 +302,8 @@ function setShapeExtraOut(id,k,v){
   var original=typeof window!=='undefined'?window[name]:null;
   if(typeof original!=='function')return;
   window[name]=function(){var args=arguments;return shapeGeometryEdit(function(){return original.apply(null,args);});};
+  /* Обёртка носит имя своей функции: по нему её находит действие экрана (core/actions, onAct). */
+  Object.defineProperty(window[name],'name',{value:name});
 });
 function setShapeView(v){if(shapeIsDxfSource(sDraft)){if(v!=='production'&&v!=='cutting')return;sView=v;refreshShapeEditor();return;}sView=v;refreshShapeEditor();}
 function setShapeWorkspaceTab(v){sWorkspaceTab=v==='cutout'?'cutout':'designer';sDimEdit=null;render();}

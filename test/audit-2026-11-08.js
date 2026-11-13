@@ -98,7 +98,7 @@ module.exports=async function({page,eq}){
    oqReset();const c=oqCustomer();const id=oqOrder(c);salesDraftDrop();window.a8Id=id;a8Pay(c.id,finToday(),100,[{orderId:id,amount:100}]);
    salesOrderEdit(id);return {before:a8Backup()};
   });
-  await cur.p.locator('select[onchange^="soDraft.currency="]').selectOption('USD');
+  await cur.p.locator('select[data-on-change="salesDraftSetRender"][data-args-change*="currency"]').selectOption('USD');
   return Object.assign(now,await cur.p.evaluate(async()=>{
    const saved=salesOrderSave();await storageFlush();const o=salesRecord(a8Id);
    const r=DB.receipt.find(x=>x.customerId===o.customerId);
