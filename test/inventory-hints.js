@@ -13,7 +13,7 @@ module.exports=async function({page,eq}){
    if(!window.ihSup)window.ihSup=purSupplierSave({name:'Hint Glass Co'}).value;
    purFulfilDraft=null;salesQueuePrefs['purchasing-receipts']=null;localStorage.removeItem('glass_erp_purchasing-receipts_list_v1');
   };
-  window.ihRec=(lines)=>purFulfilSave('receipt',{supplierId:ihSup.id,date:'2026-10-14',lines:lines.map((l,i)=>Object.assign({id:'L'+i,kind:'glass',productId:glassProductByCode('6CLEAR').id},l))}).value;
+  window.ihRec=(lines)=>purFulfilSave('receipt',{supplierId:ihSup.id,date:finToday()/* сегодня: список Receipts показывает последние 30 дней */,lines:lines.map((l,i)=>Object.assign({id:'L'+i,kind:'glass',productId:glassProductByCode('6CLEAR').id},l))}).value;
   window.ihBatch=function(){
    const id=oqOrder(oqCustomer({legalName:'Northside Windows'}),{dueDate:'2026-10-20'});
    salesOrderEdit(id);const m=soDraft.makeups[0];m.unitType='single';m.panes=[m.panes[0]];m.cavities=[];
