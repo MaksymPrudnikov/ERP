@@ -85,9 +85,9 @@ function purListFilters(infos){
  let status='';
  if(has('status')){
   const statuses=purView==='orders'?['Draft','Sent','Partially received','Received','Closed','Cancelled']:purView==='suppliers'?['Active','Archived']:[...new Set(base.map(i=>salesListValue(i,'status')).filter(Boolean))],f=prefs.filters.status,selected=f&&f.values&&f.values.length===1?f.values[0]:'';
-  status=salesListStatusControlHTML(statuses.map(n=>({key:n,label:n,n:base.filter(i=>salesListValue(i,'status')===n).length})),selected,base.length,'purListStatus');
+  status=salesListStatusControlHTML(statuses.map(n=>({key:n,label:n,n:base.filter(i=>salesListValue(i,'status')===n).length})),selected,base.length,purListStatus);
  }
- const quick=purView==='orders'?salesQuickHTML(salesListRows(infos),salesListRows(infos,['date']),{test:purQuickTest,set:'purQuickSet'}):'',date=purListDateColumn();
+ const quick=purView==='orders'?salesQuickHTML(salesListRows(infos),salesListRows(infos,['date']),{test:purQuickTest,set:purQuickSet}):'',date=purListDateColumn();
  /* Один ряд, как в Sales: быстрые виды, статусы, дата справа (владелец, 04.11.2026:
     Purchasing был крупнее остальных экранов). */
  return '<div class="sl-filter-row">'+quick+(quick&&status?'<span class="sl-filter-sep" aria-hidden="true"></span>':'')+status+(date?'<span class="sales-toolbar-sp"></span>'+salesListDateButton(date):'')+'</div>'+salesListFilterChips();

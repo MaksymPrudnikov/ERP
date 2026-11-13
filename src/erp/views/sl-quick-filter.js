@@ -77,7 +77,7 @@ function salesListQuickDecorate(){
   const k=btn.dataset.filterCol,wrap=salesListQuickScopeOf(th),q=salesListQuick;
   if(q&&q.k===k&&q.wrap===wrap&&q.scope===(wrap||salesListScope())){
    lab.dataset.label=lab.dataset.label||lab.textContent;
-   lab.innerHTML=`<input class="sl-qf" data-sl-quick="${esc(k)}" aria-label="Filter ${esc(lab.dataset.label)}" value="${esc(q.v)}" oninput="salesListQuickInput(this)" onkeydown="salesListQuickKey(event,this)" onblur="salesListQuickBlur()">`;
+   lab.innerHTML=`<input class="sl-qf" data-sl-quick="${esc(k)}" aria-label="Filter ${esc(lab.dataset.label)}" value="${esc(q.v)}" ${onAct('input',salesListQuickInput,EL)} ${onAct('keydown',salesListQuickKey,EVENT,EL)} ${onAct('blur',salesListQuickBlur)}>`;
    const i=lab.firstChild;i.focus();try{i.setSelectionRange(i.value.length,i.value.length);}catch(x){}
    return;
   }

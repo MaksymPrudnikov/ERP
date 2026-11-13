@@ -10,6 +10,8 @@
         её пишет onAct, руками эти атрибуты не набирают
    OUT: onAct(type, fn, ...args) — атрибуты действия для разметки;
         onActStop(type, fn, ...args) — то же и остановить подъём события;
+        onActSelf(type, fn, ...args) — то же, но только когда событие началось
+        на самом элементе, а не внутри него (клик по фону окна закрывает окно);
         EL, EVENT, EL_VALUE, EL_CHECKED, elData(key) — метки аргументов:
         сам элемент, событие, его value, checked, dataset[key];
         actStop, actPrevent — готовые действия «дальше не идти» и «отменить
@@ -24,6 +26,7 @@
      oninput="salesListValueSearch(this)"       → ${onAct('input',salesListValueSearch,EL)}
      onclick="event.stopPropagation();f('a')"   → ${onActStop('click',f,'a')}
      onclick="event.stopPropagation()"          → ${onAct('click',actStop,EVENT)}
+     onclick="if(event.target===this)xClose()"  → ${onActSelf('click',xClose)}
      ondragover="event.preventDefault()"        → ${onAct('dragover',actPrevent,EVENT)}
    В строке, склеенной через '+': '<b onclick="f()">' → '<b '+onAct('click',f)+'>'.
    Правила:
@@ -66,6 +69,7 @@ function onAct(type,fn,...args){
  return 'data-on-'+type+'="'+fn.name+'"'+(list.length?' data-args-'+type+'="'+actEsc(JSON.stringify(list))+'"':'');
 }
 function onActStop(type,fn,...args){return onAct(type,fn,...args)+' data-stop-'+type;}
+function onActSelf(type,fn,...args){return onAct(type,fn,...args)+' data-self-'+type;}
 function actStop(ev){ev.stopPropagation();}
 function actPrevent(ev){ev.preventDefault();}
 function actArgs(raw,el,ev){
@@ -93,6 +97,7 @@ function actRun(ev,direct){
  try{
   for(const [node,name,raw] of chain){
    if(stopped)break;
+   if(node!==ev.target&&node.hasAttribute('data-self-'+type))continue;
    const fn=ACT_FN[name];
    if(!fn){console.error('Action is not allowed: '+name);continue;}
    Object.defineProperty(ev,'currentTarget',{configurable:true,value:node});

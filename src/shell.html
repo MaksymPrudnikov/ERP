@@ -14,7 +14,7 @@
   <div id="storageStatus" aria-live="polite"></div>
   <span id="dirty" data-admin title="Data is saved in this browser. Export JSON to keep a copy outside it.">● not exported to JSON</span>
   <span class="sp"></span>
-  <input type="file" id="imp" accept=".json,.ndjson" style="display:none" onchange="doImport(this)">
+  <input type="file" id="imp" accept=".json,.ndjson" style="display:none" data-on-change="doImport" data-args-change='[{"$":"el"}]'>
 </footer>
 </div>
 </div>

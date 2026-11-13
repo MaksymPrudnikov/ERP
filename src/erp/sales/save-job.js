@@ -130,7 +130,7 @@ function salesSaveDom(){
  const pct=job?Math.min(99,Math.round(job.pct*100)):note.kind==='done'?100:0;
  const head=job?'Saving '+job.title:note.kind==='done'?'Saved '+note.title:'Not saved: '+note.title;
  const sub=job?job.step:note.kind==='done'?'Saved':note.text;
- const tail=job?`<div class="busy-note">${esc(job.next&&job.next.text||'You can keep working. This order is read-only until it’s saved.')}</div>`:note.kind==='error'?`<div class="busy-acts"><button type="button" onclick="salesSaveClose()">Close</button></div>`:'';
+ const tail=job?`<div class="busy-note">${esc(job.next&&job.next.text||'You can keep working. This order is read-only until it’s saved.')}</div>`:note.kind==='error'?`<div class="busy-acts"><button type="button" ${onAct('click',salesSaveClose)}>Close</button></div>`:'';
  g.className='busy-dock'+(note&&note.kind==='error'?' busy-error':'');
  g.innerHTML=`<div class="busy-pane"><h3>${esc(head)}${note&&note.kind==='error'?'':`<span class="busy-pct">${pct}%</span>`}</h3><div class="busy-sub">${esc(sub)}</div>${note&&note.kind==='error'?'':`<div class="busy-tube"><i style="width:${pct}%"></i></div>`}${tail}</div>`;
  const ed=job&&document.querySelector('.sales-order-editor');if(!ed)return;

@@ -50,7 +50,7 @@ try{themeApply(localStorage.getItem(THEME_KEY)==='dark');}catch(e){themeApply(fa
 
 function navItemHTML(n,i){
  const on=tab===n.k||(n.k==='sales'&&tab==='configurators');
- return `<button type="button" class="nav-item${on?' on':''}${i>=NAV_TABBAR?' nav-extra':''}" aria-current="${on?'page':'false'}" title="${n.title||n.label}" onclick="navGo('${n.k}')">${ico(n.icon)}<span>${n.label}</span></button>`;
+ return `<button type="button" class="nav-item${on?' on':''}${i>=NAV_TABBAR?' nav-extra':''}" aria-current="${on?'page':'false'}" title="${n.title||n.label}" ${onAct('click',navGo,String(n.k))}>${ico(n.icon)}<span>${n.label}</span></button>`;
 }
 function navToggleMore(){navMoreOpen=!navMoreOpen;renderNav();}
 /* Доступ — галочки разделов в Users (владелец, 3 октября 2026: «видит / не
@@ -59,12 +59,12 @@ function navToggleMore(){navMoreOpen=!navMoreOpen;renderNav();}
 function renderNav(){
  const main=NAV.filter(n=>!n.bottom&&accessCan(n.k)),low=NAV.filter(n=>n.bottom&&accessCan(n.k));
  document.getElementById('side').innerHTML =
-  `<button type="button" class="brand-mark" title="Glass Farm · light / dark" aria-label="Switch light or dark theme" onclick="toggleTheme()">GF</button>` +
+  `<button type="button" class="brand-mark" title="Glass Farm · light / dark" aria-label="Switch light or dark theme" ${onAct('click',toggleTheme)}>GF</button>` +
   main.map((n,i)=>navItemHTML(n,i)).join('') +
   `<span class="nav-sp"></span>` +
   low.map((n,i)=>navItemHTML(n,main.length+i)).join('') +
   (typeof signinNavHTML==='function'?signinNavHTML():'') +
-  `<button type="button" class="nav-item nav-more${navMoreOpen?' open':''}" aria-expanded="${navMoreOpen}" onclick="navToggleMore()">${ico('more')}<span>More</span></button>`;
+  `<button type="button" class="nav-item nav-more${navMoreOpen?' open':''}" aria-expanded="${navMoreOpen}" ${onAct('click',navToggleMore)}>${ico('more')}<span>More</span></button>`;
 }
 
 /* Переход по меню. Модуль может придержать уход (заказ с несохранёнными
@@ -166,13 +166,14 @@ function renderScreen(){
 }
 /* Курсор переживает перерисовку: поле, где он стоял (или куда только что
    кликнули), ищется в новом #app по тому же виду и порядковому номеру и
-   получает фокус обратно с той же кареткой. Не нашлось или поле было в
+   получает фокус обратно с той же кареткой. Атрибуты действий (data-on-…,
+   core/actions) в «вид» не входят: встроенные обработчики в него не входили. Не нашлось или поле было в
    окне, а окно закрылось, — фокус не трогаем. Проход 7.10.2026: после
    выбора клиента Tab из PO не попадал в дату. */
 function renderFocusKey(){
  const a=document.activeElement,app=document.getElementById('app');
  if(!a||!app||!app.contains(a)||!/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName))return null;
- const tag=a.tagName.toLowerCase(),data=[...a.attributes].map(x=>x.name).filter(n=>/^data-/.test(n)).map(n=>'['+n+']').join('');
+ const tag=a.tagName.toLowerCase(),data=[...a.attributes].map(x=>x.name).filter(n=>/^data-/.test(n)&&!/^data-(on|args|stop|self)-/.test(n)).map(n=>'['+n+']').join('');
  const css=el=>el.tagName.toLowerCase()+(el.id?'#'+CSS.escape(el.id):'')+[...el.classList].map(c=>'.'+CSS.escape(c)).join('');
  let sel=css(a)+(a.name?'[name="'+CSS.escape(a.name)+'"]':'')+data;
  /* Поле без класса и имени (Customer, PO) — по ближайшему блоку с классом. */

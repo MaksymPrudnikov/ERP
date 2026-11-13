@@ -14,6 +14,7 @@
      fn(…)                              → onAct('click',fn,…)
      event.stopPropagation();fn(…)      → onActStop('click',fn,…)
      event.stopPropagation()            → onAct('click',actStop,EVENT)
+     if(event.target===this)fn(…)       → onActSelf('click',fn,…)
      event.preventDefault()             → onAct('dragover',actPrevent,EVENT)
    Аргументы: 'текст', числа, true/false/null, '${выражение}', ${выражение},
    this → EL, this.value → EL_VALUE, this.checked → EL_CHECKED, event → EVENT,
@@ -41,6 +42,58 @@ const ROOT = path.resolve(__dirname, '..');
 /* Файл → сколько встроенных обработчиков осталось. Только уменьшать.
    PR 1 (13.11.2026): Sales, фигуры, списки, общее — переведены (их тут нет). */
 const INLINE_LEFT = {
+  'src/core/actions.js': 11,
+  'src/erp/views/dashboard.js': 3,
+  'src/erp/views/users.js': 43,
+  'src/erp/signin.js': 10,
+  'src/erp/views/customers.js': 80,
+  'src/erp/documents/drawing-form.js': 17,
+  'src/erp/documents/carrier-form.js': 8,
+  'src/erp/views/optimization.js': 10,
+  'src/erp/views/shipping.js': 30,
+  'src/erp/views/production.js': 24,
+  'src/erp/views/md-card.js': 1,
+  'src/erp/views/md-catalog.js': 10,
+  'src/erp/views/masterdata.js': 100,
+  'src/erp/views/surround-ui.js': 15,
+  'src/erp/views/price-lists-ui.js': 31,
+  'src/erp/views/documents-ui.js': 27,
+  'src/erp/views/finance.js': 23,
+  'src/erp/views/finance-workspace.js': 49,
+  'src/erp/views/finance-lists.js': 27,
+  'src/erp/views/finance-allocate.js': 16,
+  'src/erp/views/commissions.js': 28,
+  'src/erp/views/purchasing.js': 16,
+  'src/erp/views/purchase-orders.js': 26,
+  'src/erp/views/purchasing-catalog.js': 22,
+  'src/erp/views/purchase-documents.js': 9,
+  'src/erp/views/purchasing-receiving.js': 28,
+  'src/erp/views/purchasing-delivery-documents.js': 7,
+  'src/erp/views/purchasing-invoices.js': 20,
+  'src/erp/views/glass-batches.js': 18,
+  'src/erp/views/ncr-reasons-ui.js': 11,
+  'src/erp/views/stickers-ui.js': 77,
+  'src/erp/views/forms-ui.js': 91,
+  'src/erp/views/cut-layout-ui.js': 93,
+  'src/erp/views/stock-list.js': 5,
+  'src/erp/views/sheet-usage.js': 3,
+  'src/erp/views/inventory.js': 52,
+  'src/erp/views/station.js': 64,
+  'src/erp/views/station-drawings.js': 11,
+  'src/erp/views/station-print.js': 4,
+  'src/erp/views/station-shipping.js': 7,
+  'src/erp/views/station-from-igu.js': 17,
+  'src/erp/views/station-dollies.js': 15,
+  'src/erp/views/shipping-lookup.js': 9,
+  'src/erp/views/delivery.js': 18,
+  'src/erp/views/skids.js': 10,
+  'src/erp/views/production-board.js': 7,
+  'src/erp/views/carriers-ui.js': 10,
+  'src/erp/views/carriers-board.js': 43,
+  'src/erp/views/carrier-count.js': 12,
+  'src/erp/views/skip-ui.js': 13,
+  'src/erp/views/production-unbatch-ui.js': 9,
+  'src/erp/views/reports.js': 156,
 };
 
 /* Функции, которыми аргумент экранировали под разметку: onAct экранирует сам,
@@ -204,6 +257,7 @@ function translate(h, html) {
   if (sk === 'event.preventDefault()') return { code: `onAct('${h.ev}',actPrevent,EVENT)` };
   let body = sk, helper = 'onAct';
   if (body.startsWith('event.stopPropagation();')) { body = body.slice(24).trim(); helper = 'onActStop'; }
+  else if (body.startsWith('if(event.target===this)')) { body = body.slice(23).trim(); helper = 'onActSelf'; }
   const m = /^([A-Za-z_$][\w$]*)\((.*)\)$/s.exec(body);
   if (!m) return { why: 'не один вызов функции' };
   if (!declared().has(m[1])) return { why: 'нет функции модуля ' + m[1] };
@@ -225,7 +279,7 @@ function translate(h, html) {
       else args.push(e);
     } else if (str) {
       const inner = str[2], sole = new RegExp('^' + P0 + '(\\d+)' + P1 + '$').exec(inner);
-      if (sole) { const e = exprs[+sole[1]], bare = unwrap(e, ESCAPES); args.push(bare ? `String(${bare}??'')` : `String(${e})`); }
+      if (sole) { const e = exprs[+sole[1]], bare = unwrap(e, ESCAPES); args.push(bare ? `String(${/^[\w$.\[\]]+$/.test(bare) ? bare : '(' + bare + ')'}??'')` : `String(${e})`); }
       else if (inner.includes(P0)) return { why: 'строка из текста и выражения: ' + a.replace(/[\u0001\u0002]/g, '#') };
       else if (/[&\\\n]/.test(inner) || inner.includes(str[1])) return { why: 'строка со спецсимволами' };
       else args.push("'" + inner.replace(/'/g, "\\'") + "'");

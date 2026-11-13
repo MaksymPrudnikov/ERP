@@ -27,7 +27,7 @@ function salesProdHTML(){
  if(!salesProdWin)return '';
  const o=(DB.salesOrder||[]).find(x=>x.id===salesProdWin.id);if(!o){salesProdWin=null;return '';}
  const bd=typeof prodBoard==='function'?prodBoard().find(x=>x.o.id===o.id):null,customer=salesCustomerDisplay(o.customerId);
- const head=`<div class="sales-service-modal-head"><div><span><span>Order</span> ${esc(o.businessNumber||'')}${o.customerPo?' · PO '+esc(o.customerPo):''}</span><h3>Production</h3><small>${esc(customer)}</small></div><button type="button" onclick="salesProdClose()" aria-label="Close">×</button></div>`;
+ const head=`<div class="sales-service-modal-head"><div><span><span>Order</span> ${esc(o.businessNumber||'')}${o.customerPo?' · PO '+esc(o.customerPo):''}</span><h3>Production</h3><small>${esc(customer)}</small></div><button type="button" ${onAct('click',salesProdClose)} aria-label="Close">×</button></div>`;
  let body;
  if(!bd)body=`<p class="mut sales-prod-empty" data-prod-empty>Not in production yet · ${esc(typeof salesStatusLabel==='function'?salesStatusLabel(o):o.status||'')}</p>`;
  else{
@@ -44,6 +44,6 @@ function salesProdHTML(){
      return `<tr class="sales-prod-glass"><td><span class="mono">${esc(glassCodeLabel(t.glass))}</span> <span class="mut">· Lite ${esc(lite)}</span></td><td class="${diff?'sales-prod-own':'mut'}" data-lite-size>${esc(diff?own:l.size)}</td><td class="n mut">${t.total}</td>${cells(t.route||{},t.onAt||{})}</tr>`;}).join('');}).join('');
   body=`<div class="sales-table-wrap"><table class="sl-table sales-prod-table" data-prod-table><thead><tr><th>Line · glass</th><th>Size</th><th class="n">Qty</th>${R.map(c=>`<th class="pb-st">${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
  }
- return `<div class="sales-service-modal-back" onclick="if(event.target===this)salesProdClose()"><div class="sales-service-modal sales-prod-modal" role="dialog" aria-label="Production" data-sales-prod>${head}${body}</div></div>`;
+ return `<div class="sales-service-modal-back" ${onActSelf('click',salesProdClose)}><div class="sales-service-modal sales-prod-modal" role="dialog" aria-label="Production" data-sales-prod>${head}${body}</div></div>`;
 }
 (window.APP_OVERLAYS=window.APP_OVERLAYS||[]).push(salesProdHTML);

@@ -205,12 +205,15 @@ function salesDialogChoose(i){const d=salesDialog,b=d&&d.buttons[i];if(b&&b.requ
 function salesDialogToggleLine(id,on){const d=salesDialog;if(!d||!d.lineChoices||!d.lineChoices.some(l=>l.id===id&&!l.disabled))return;d.checkedLines=on?[...new Set(d.checkedLines.concat(id))]:d.checkedLines.filter(x=>x!==id);d.confirmed=false;render();}
 function salesDialogConfirm(on){if(!salesDialog)return;salesDialog.confirmed=!!on;render();}
 function salesDialogPick(id){if(!salesDialog)return;salesDialog.choice=id;render();}
+function salesDialogInput(v){salesDialog.input.value=v;}
+/* Enter в поле окна — последняя кнопка (i — её номер). */
+function salesDialogInputKey(ev,i){if(ev.key==='Enter'){ev.preventDefault();salesDialogChoose(i);}}
 function salesDialogHTML(){
  const d=salesDialog;if(!d)return '';
- return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)salesDialogChoose(0)"><div class="sales-service-modal sales-dialog" role="dialog" aria-modal="true" aria-label="${esc(d.title)}">
-  <div class="sales-service-modal-head"><h3>${esc(d.title)}</h3><button type="button" aria-label="Close" onclick="salesDialogChoose(0)">×</button></div>
-  ${(body=>body?`<div class="sales-dialog-body">${body}</div>`:'')(`${d.sub?`<p class="mut">${esc(d.sub)}</p>`:''}${d.rows&&d.rows.length?`<div class="sales-dialog-rows">${d.rows.map(r=>`<span>${esc(r[0])}</span><b class="${r[2]?'sales-dialog-red':''}">${esc(r[1])}</b>`).join('')}</div>`:''}${d.choices&&d.choices.length?`<div class="sales-dialog-choices">${d.choices.map(c=>`<label class="sales-dialog-choice${d.choice===c.id?' on':''}"><input type="radio" name="salesDialogChoice" data-dialog-choice="${esc(c.id)}" ${d.choice===c.id?'checked':''} onchange="salesDialogPick('${esc(c.id)}')"><span><b>${esc(c.label)}</b> · ${esc(c.detail)}</span><b>${esc(c.value)}</b></label>`).join('')}</div>`:''}${d.lineChoices?`<div class="sales-dialog-lines">${d.lineChoices.map(l=>`<label><input type="checkbox" data-unbatch-line="${esc(l.id)}" ${d.checkedLines.includes(l.id)?'checked':''} ${l.disabled?'disabled':''} onchange="salesDialogToggleLine('${esc(l.id)}',this.checked)"><span><b>${esc(l.label)}</b><small>${esc(l.detail)}${l.disabled?' · Cutting started — locked':''}</small></span></label>`).join('')}</div><label class="sales-unbatch-confirm"><input type="checkbox" data-unbatch-confirm ${d.confirmed?'checked':''} onchange="salesDialogConfirm(this.checked)"> ${esc(d.confirmLabel||'Cutting not started')}</label>`:''}${d.input?`<label class="sales-dialog-input"><span>${esc(d.input.label)}</span><input type="text" data-dialog-input maxlength="80" value="${esc(d.input.value||'')}" oninput="salesDialog.input.value=this.value" onkeydown="if(event.key==='Enter'){event.preventDefault();salesDialogChoose(${d.buttons.length-1})}"></label>`:''}${d.note?`<div class="sales-dialog-note">${esc(d.note)}</div>`:''}`)}
-  <div class="sales-dialog-actions">${d.buttons.map((b,i)=>`<button type="button" class="${b.kind||''}" data-dialog-button="${i}" ${b.requiresConfirmation&&(!d.confirmed||!d.checkedLines.length)?'disabled':''} onclick="salesDialogChoose(${i})">${esc(b.label)}</button>`).join('')}</div></div></div>`;
+ return `<div class="sales-service-modal-back sales-dialog-back" ${onActSelf('click',salesDialogChoose,0)}><div class="sales-service-modal sales-dialog" role="dialog" aria-modal="true" aria-label="${esc(d.title)}">
+  <div class="sales-service-modal-head"><h3>${esc(d.title)}</h3><button type="button" aria-label="Close" ${onAct('click',salesDialogChoose,0)}>×</button></div>
+  ${(body=>body?`<div class="sales-dialog-body">${body}</div>`:'')(`${d.sub?`<p class="mut">${esc(d.sub)}</p>`:''}${d.rows&&d.rows.length?`<div class="sales-dialog-rows">${d.rows.map(r=>`<span>${esc(r[0])}</span><b class="${r[2]?'sales-dialog-red':''}">${esc(r[1])}</b>`).join('')}</div>`:''}${d.choices&&d.choices.length?`<div class="sales-dialog-choices">${d.choices.map(c=>`<label class="sales-dialog-choice${d.choice===c.id?' on':''}"><input type="radio" name="salesDialogChoice" data-dialog-choice="${esc(c.id)}" ${d.choice===c.id?'checked':''} ${onAct('change',salesDialogPick,String(c.id??''))}><span><b>${esc(c.label)}</b> · ${esc(c.detail)}</span><b>${esc(c.value)}</b></label>`).join('')}</div>`:''}${d.lineChoices?`<div class="sales-dialog-lines">${d.lineChoices.map(l=>`<label><input type="checkbox" data-unbatch-line="${esc(l.id)}" ${d.checkedLines.includes(l.id)?'checked':''} ${l.disabled?'disabled':''} ${onAct('change',salesDialogToggleLine,String(l.id??''),EL_CHECKED)}><span><b>${esc(l.label)}</b><small>${esc(l.detail)}${l.disabled?' · Cutting started — locked':''}</small></span></label>`).join('')}</div><label class="sales-unbatch-confirm"><input type="checkbox" data-unbatch-confirm ${d.confirmed?'checked':''} ${onAct('change',salesDialogConfirm,EL_CHECKED)}> ${esc(d.confirmLabel||'Cutting not started')}</label>`:''}${d.input?`<label class="sales-dialog-input"><span>${esc(d.input.label)}</span><input type="text" data-dialog-input maxlength="80" value="${esc(d.input.value||'')}" ${onAct('input',salesDialogInput,EL_VALUE)} ${onAct('keydown',salesDialogInputKey,EVENT,d.buttons.length-1)}></label>`:''}${d.note?`<div class="sales-dialog-note">${esc(d.note)}</div>`:''}`)}
+  <div class="sales-dialog-actions">${d.buttons.map((b,i)=>`<button type="button" class="${b.kind||''}" data-dialog-button="${i}" ${b.requiresConfirmation&&(!d.confirmed||!d.checkedLines.length)?'disabled':''} ${onAct('click',salesDialogChoose,i)}>${esc(b.label)}</button>`).join('')}</div></div></div>`;
 }
 
 /* ---------------------------- Переходы -------------------------------- */
@@ -483,16 +486,16 @@ function salesHeaderActions(o){
  /* Заказ из архива — только просмотр, печать, Copy и NCR (erp/archive). */
  if(typeof archiveViewing==='function'&&archiveViewing(o))return archiveHeaderActions(o);
  const st=salesSaveState(o);
- const parts=[`<span class="sales-save-state${st.dirty?' dirty':''}" data-order-state>${esc(st.text)}</span>`,'<button onclick="salesCloseClick()">Close</button>'];
- if(!salesOrderReadOnly(o))parts.push(`<button class="pri" data-order-save ${st.dirty?'':'disabled'} onclick="salesOrderSave({bg:true})">${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'||salesIsDraft(o)?'Save':'Update'}</button>`);
- parts.push('<button onclick="docOpen()">Documents</button>');
+ const parts=[`<span class="sales-save-state${st.dirty?' dirty':''}" data-order-state>${esc(st.text)}</span>`,'<button '+onAct('click',salesCloseClick)+'>Close</button>'];
+ if(!salesOrderReadOnly(o))parts.push(`<button class="pri" data-order-save ${st.dirty?'':'disabled'} ${onAct('click',salesOrderSave,{bg:true})}>${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'||salesIsDraft(o)?'Save':'Update'}</button>`);
+ parts.push('<button '+onAct('click',docOpen)+'>Documents</button>');
  /* Copy (пункт 8, Copy order) — у записанного заказа, черновика и квоты
     (у отправленной ревизии на экране — её рабочая копия). */
  const copyId=soQuoteCopyOf||(soEdit!=='new'?soEdit:null);
- if(copyId)parts.push(`<button data-copy-order onclick="salesCopyOrder('${esc(copyId)}')">Copy</button>`);
- if(typeof recutCanOpenHere==='function'&&recutCanOpenHere(o))parts.push('<button class="recut-btn" data-recut-open onclick="ncrOpenForm(\'recut\')">Recut</button>');
- if(typeof ncrCanOpen==='function'&&ncrCanOpen(o))parts.push('<button class="ncr-btn" data-ncr-open onclick="ncrOpenForm(\'ncr\')">NCR</button>');
- if(salesIsQuote(o)){if(!salesQuoteWonMember(o))parts.push('<button class="go" data-convert-quote onclick="salesConvertQuote()">Convert to order</button>');}
+ if(copyId)parts.push(`<button data-copy-order ${onAct('click',salesCopyOrder,String(copyId??''))}>Copy</button>`);
+ if(typeof recutCanOpenHere==='function'&&recutCanOpenHere(o))parts.push('<button class="recut-btn" data-recut-open '+onAct('click',ncrOpenForm,'recut')+'>Recut</button>');
+ if(typeof ncrCanOpen==='function'&&ncrCanOpen(o))parts.push('<button class="ncr-btn" data-ncr-open '+onAct('click',ncrOpenForm,'ncr')+'>NCR</button>');
+ if(salesIsQuote(o)){if(!salesQuoteWonMember(o))parts.push('<button class="go" data-convert-quote '+onAct('click',salesConvertQuote)+'>Convert to order</button>');}
  return parts.join('');
 }
 function salesStatusStepper(o){
@@ -500,7 +503,7 @@ function salesStatusStepper(o){
   const shown=salesQuoteShown(o),w=salesQuoteWonMember(shown),bar=salesQuoteRevisionBar(shown);
   if(!w)return bar+salesQuoteSentBanner();
   const won=(DB.salesOrder||[]).find(x=>x.id===w.wonOrderId);
-  return bar+`<div class="sales-quote-note">${raw(w.businessNumber)} became order ${won?`<button class="sm" onclick="salesOrderEdit('${esc(won.id)}')">${raw(won.businessNumber)}</button>`:''} on ${esc(salesShortDate(w.statusDates.won))}. The quote is kept read-only for the win history.</div>`;
+  return bar+`<div class="sales-quote-note">${raw(w.businessNumber)} became order ${won?`<button class="sm" ${onAct('click',salesOrderEdit,String(won.id??''))}>${raw(won.businessNumber)}</button>`:''} on ${esc(salesShortDate(w.statusDates.won))}. The quote is kept read-only for the win history.</div>`;
  }
  if(o.status==='cancelled')return `<div class="sales-status-row"><span class="pill st-cancelled">Cancelled ${esc(salesShortDate(o.statusDates.cancelled))}</span><span class="mut">Status history · read only</span></div>`;
  const flow=salesOrderFlow(o),at=flow.indexOf(o.status);
@@ -517,7 +520,7 @@ function salesLockBar(o){
  const locked=o.lines.filter(salesLineLocked),active=['batched','ready','shipping','done'].includes(o.status);
  if(!locked.length&&!active)return history;
  const first=locked.map(l=>l.batchedAt).sort()[0],numbers=salesOrderBatchNumbers(o),readonly=salesOrderReadOnly(o);
- return history+`<div class="sales-lockbar">${locked.length?`<span>🔒 <b>Batched ${esc(salesShortDate(first))}${numbers.length?' · '+esc(numbers.join(', ')):''}</b> · lines locked</span>`:''}<span class="sp"></span>${readonly?'':`<button class="sm" onclick="salesOrderAddLine(null,true)">+ Line (charged)</button><button class="sm" onclick="salesNewOrderForCustomer('${esc(o.customerId)}')">New order for this customer</button>`}</div>`;
+ return history+`<div class="sales-lockbar">${locked.length?`<span>🔒 <b>Batched ${esc(salesShortDate(first))}${numbers.length?' · '+esc(numbers.join(', ')):''}</b> · lines locked</span>`:''}<span class="sp"></span>${readonly?'':`<button class="sm" ${onAct('click',salesOrderAddLine,null,true)}>+ Line (charged)</button><button class="sm" ${onAct('click',salesNewOrderForCustomer,String(o.customerId??''))}>New order for this customer</button>`}</div>`;
 }
 
 /* --------------------------- Список Sales ------------------------------ */

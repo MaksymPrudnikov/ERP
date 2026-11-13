@@ -86,6 +86,7 @@ function salesExtraTargetLines(target){
 }
 function salesExtraFormOpen(target){soExtraForm={target:target,lines:salesExtraTargetLines(target),rateId:'',name:'',unit:'pc',qty:'',rate:'',error:''};render();}
 function salesExtraFormClose(){soExtraForm=null;render();}
+function salesExtraFormUnit(u){salesExtraFormSet('unit',u);render();}
 function salesExtraFormSet(k,v){if(!soExtraForm)return;soExtraForm[k]=v;if(k==='rateId'){var r=salesServiceRateRow(v);if(r)soExtraForm.unit=r.unit||'pc';render();}}
 /* Добавляет сервис во все строки формы, кроме тех, где такой уже есть.
    Возвращает число строк, куда добавлен. */
@@ -127,11 +128,11 @@ function salesExtraFormHTML(){
   var cat=salesExtraServiceCatalog(),r=f.rateId?salesServiceRateRow(f.rateId):null,unit=r?(r.unit||'pc'):f.unit;
   var many=f.lines.length>1;
   return `<div class="sales-extra-form" data-extra-form>`+
-    `<label><span>Service</span><select data-extra-pick onchange="salesExtraFormSet('rateId',this.value)"><option value="" ${f.rateId?'':'selected'}>Custom (this order only)</option>${cat.map(function(c){return `<option value="${esc(c.id)}" ${f.rateId===c.id?'selected':''}>${esc(c.name)} · ${esc(c.unit||'pc')}${c.station?' · '+esc(c.station):''}</option>`;}).join('')}</select></label>`+
-    (f.rateId?'':`<label><span>Name</span><input data-extra-name value="${esc(f.name)}" maxlength="80" oninput="soExtraForm.name=this.value"></label><span class="sales-extra-units"><span>Charged per</span><span>${SALES_EXTRA_UNITS.map(function(u){return `<button type="button" class="sm${f.unit===u?' on':''}" data-extra-unit="${u}" onclick="salesExtraFormSet('unit','${u}');render()">${u}</button>`;}).join('')}</span></span>`)+
-    `<label><span>Qty / unit</span><input data-extra-qty type="number" min="0" step="any" value="${esc(f.qty)}" placeholder="${unit==='ft²'?'area':unit==='in'?'perimeter':'1'}" oninput="soExtraForm.qty=this.value"></label>`+
-    `<label><span>Rate / ${esc(unit)}</span><input data-extra-rate type="number" min="0" step="0.01" value="${esc(f.rate)}" placeholder="${r?'catalog':'required'}" oninput="soExtraForm.rate=this.value"></label>`+
-    `<button class="sm pri" data-extra-add onclick="salesExtraAdd()">Add${many?' to '+f.lines.length+' lines':''}</button><button class="sm" onclick="salesExtraFormClose()">Cancel</button>`+
+    `<label><span>Service</span><select data-extra-pick ${onAct('change',salesExtraFormSet,'rateId',EL_VALUE)}><option value="" ${f.rateId?'':'selected'}>Custom (this order only)</option>${cat.map(function(c){return `<option value="${esc(c.id)}" ${f.rateId===c.id?'selected':''}>${esc(c.name)} · ${esc(c.unit||'pc')}${c.station?' · '+esc(c.station):''}</option>`;}).join('')}</select></label>`+
+    (f.rateId?'':`<label><span>Name</span><input data-extra-name value="${esc(f.name)}" maxlength="80" ${onAct('input',salesExtraFormSet,'name',EL_VALUE)}></label><span class="sales-extra-units"><span>Charged per</span><span>${SALES_EXTRA_UNITS.map(function(u){return `<button type="button" class="sm${f.unit===u?' on':''}" data-extra-unit="${u}" ${onAct('click',salesExtraFormUnit,String(u))}>${u}</button>`;}).join('')}</span></span>`)+
+    `<label><span>Qty / unit</span><input data-extra-qty type="number" min="0" step="any" value="${esc(f.qty)}" placeholder="${unit==='ft²'?'area':unit==='in'?'perimeter':'1'}" ${onAct('input',salesExtraFormSet,'qty',EL_VALUE)}></label>`+
+    `<label><span>Rate / ${esc(unit)}</span><input data-extra-rate type="number" min="0" step="0.01" value="${esc(f.rate)}" placeholder="${r?'catalog':'required'}" ${onAct('input',salesExtraFormSet,'rate',EL_VALUE)}></label>`+
+    `<button class="sm pri" data-extra-add ${onAct('click',salesExtraAdd)}>Add${many?' to '+f.lines.length+' lines':''}</button><button class="sm" ${onAct('click',salesExtraFormClose)}>Cancel</button>`+
     (f.error?`<b class="sales-extra-error">${esc(f.error)}</b>`:'')+
     (salesExtraAutoDup(f)?`<b class="sales-extra-error" data-extra-dup>Already charged automatically</b>`:'')+`</div>`;
 }
@@ -140,5 +141,5 @@ function salesExtraBarHTML(target){
   if(soExtraForm&&soExtraForm.target===target)return salesExtraFormHTML();
   var n=salesExtraTargetLines(target).length;if(!n)return '';
   var picked=target==='order'&&soSelectedLines&&soSelectedLines.size;
-  return `<div class="sales-extra-bar"><button class="sm" data-extra-open onclick="salesExtraFormOpen('${esc(target)}')">+ Add service${target==='order'?(picked?' to '+n+' selected':' to all '+n+' lines'):''}</button></div>`;
+  return `<div class="sales-extra-bar"><button class="sm" data-extra-open ${onAct('click',salesExtraFormOpen,String(target??''))}>+ Add service${target==='order'?(picked?' to '+n+' selected':' to all '+n+' lines'):''}</button></div>`;
 }
