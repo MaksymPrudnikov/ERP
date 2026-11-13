@@ -42,7 +42,6 @@ const ROOT = path.resolve(__dirname, '..');
 /* Файл → сколько встроенных обработчиков осталось. Только уменьшать.
    PR 1 (13.11.2026): Sales, фигуры, списки, общее — переведены (их тут нет). */
 const INLINE_LEFT = {
-  'src/core/actions.js': 11,
   'src/erp/views/dashboard.js': 3,
   'src/erp/views/users.js': 43,
   'src/erp/signin.js': 10,
@@ -300,10 +299,14 @@ function rewrite(src, html) {
   return { src: out + src.slice(at), done, left };
 }
 
-/* Сколько встроенных обработчиков в каждом файле (файлы без них пропущены). */
+/* Сколько встроенных обработчиков в каждом файле (файлы без них пропущены).
+   Примеры «было → стало» в комментариях не считаются. */
 function count() {
   const out = {};
-  files().forEach(f => { const n = (fs.readFileSync(path.join(ROOT, f), 'utf8').match(ATTR) || []).length; if (n) out[f] = n; });
+  files().forEach(f => {
+    const n = handlers(fs.readFileSync(path.join(ROOT, f), 'utf8'), f.endsWith('.html')).filter(h => h.kind !== 'comment').length;
+    if (n) out[f] = n;
+  });
   return out;
 }
 /* Расхождения списка INLINE_LEFT с кодом: [] — совпадает. */
