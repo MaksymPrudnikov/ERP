@@ -148,7 +148,8 @@ module.exports=async function({page,eq,ok}){
   const dlg=!!salesHoldDialog&&salesHoldDialog.ids.length===1&&salesHoldDialog.ids[0]===id;
   salesHoldClose();salesListSel=new Set();render();
   /* Drawings — сразу окно документов на вкладке чертежей этого заказа. */
-  tr.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:200,clientY:200}));
+  /* Строку берём заново: после render прежняя убрана с экрана, а действия слушает document (core/actions). */
+  document.querySelector(`[data-order-row="${id}"]`).dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:200,clientY:200}));
   document.querySelector('.sl-ctx [data-menu="drawings"]').click();
   const drawings=!!docState&&docState.kind==='drawings'&&!!soDraft&&soDraft.id===id&&document.querySelectorAll('[data-doc-drawing]').length===1;
   docClose();soEdit=null;soDraft=null;tab='sales';subtab='orders';salesListSel=new Set();render();
