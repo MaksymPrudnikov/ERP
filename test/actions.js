@@ -25,7 +25,7 @@ module.exports = async function ({ page, eq }) {
     click('i'); const afterStop = late;
     click('p'); const afterPlain = late;
     click('sc'); click('s');
-    box.querySelector('#f').dispatchEvent(new Event('input', { bubbles: true }));
+    box.querySelector('#f').dispatchEvent(new Event('input')); /* из кода, без bubbles — как у встроенного: только цель */
     box.querySelector('#f').focus(); box.querySelector('#f2').focus();
     click('bad');
     document.removeEventListener('click', lateFn); delete window.actNotAllowedProbe;

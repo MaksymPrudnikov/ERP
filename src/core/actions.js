@@ -44,12 +44,16 @@
      event.currentTarget — элемент с действием, как у встроенного обработчика.
    - Действие на элементе внутри отключённой кнопки не сработает: браузер
      такой клик до document не доводит. Таких мест в ERP нет.
+   - Событие на элементе, которого уже нет на экране (убран перерисовкой), до
+     document не доходит: в тестах элемент после render берут заново.
    ===================================================================== */
-/* События с подъёмом: действие ищем от цели вверх, как шёл встроенный обработчик. */
-const ACT_BUBBLE=['click','dblclick','contextmenu','mousedown','mouseover','change','input','keydown','submit','paste',
- 'pointerdown','pointermove','pointerup','pointercancel','pointerover','dragstart','dragend','dragover','dragleave','drop'];
-/* События без подъёма: слушаем в фазе capture, действие — только у самой цели. */
-const ACT_DIRECT=['focus','blur','scroll','toggle','mouseenter','mouseleave','pointerleave'];
+/* События, которые слушает document. Событие с подъёмом (клик, ввод): действие
+   ищем от цели вверх, как шёл встроенный обработчик. Без подъёма (focus, blur,
+   scroll, toggle, mouseenter / leave и событие из кода без bubbles): ловим в
+   фазе capture, действие — только у самой цели. */
+const ACT_EVENTS=['click','dblclick','contextmenu','mousedown','mouseover','change','input','keydown','submit','paste',
+ 'pointerdown','pointermove','pointerup','pointercancel','pointerover','dragstart','dragend','dragover','dragleave','drop',
+ 'focus','blur','scroll','toggle','mouseenter','mouseleave','pointerleave'];
 /* Реестр разрешённых действий: имя → функция. Пополняют onAct и actAllow. */
 const ACT_FN=Object.create(null);
 function ActArg(kind,key){this.$=kind;if(key!==undefined)this.k=key;}
@@ -60,7 +64,7 @@ function actAllow(...fns){
  fns.forEach(fn=>{if(typeof fn!=='function'||!fn.name)throw new Error('Action must be a named function.');ACT_FN[fn.name]=fn;});
 }
 function onAct(type,fn,...args){
- if(!ACT_BUBBLE.includes(type)&&!ACT_DIRECT.includes(type))throw new Error('Unknown action event: '+type);
+ if(!ACT_EVENTS.includes(type))throw new Error('Unknown action event: '+type);
  actAllow(fn);
  const list=args.map(a=>{
   if(a===undefined)return ACT_UNDEF;
@@ -111,6 +115,8 @@ function actRun(ev,direct){
    встроенные обработчики тоже шли раньше слушателей document. Не passive —
    dragover, drop и keydown отменяют действие браузера сразу. */
 if(typeof document!=='undefined'&&document.addEventListener){
- ACT_BUBBLE.forEach(t=>document.addEventListener(t,ev=>actRun(ev,false),{passive:false}));
- ACT_DIRECT.forEach(t=>document.addEventListener(t,ev=>actRun(ev,true),{capture:true,passive:false}));
+ ACT_EVENTS.forEach(t=>{
+  document.addEventListener(t,ev=>{if(ev.bubbles)actRun(ev,false);},{passive:false});
+  document.addEventListener(t,ev=>{if(!ev.bubbles)actRun(ev,true);},{capture:true,passive:false});
+ });
 }
