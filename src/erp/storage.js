@@ -448,10 +448,9 @@ function afterRender(){
    a broken database or in an older version, persisting controls are off. */
 function storageLockButtons(){
  if(storageRecovery||!navigator.locks||storageStale){
-  /* Кнопку записи узнаём по имени действия (data-on-click, core/actions);
-     onclick — пока не все экраны переведены на действия (задание «CSP без inline»). */
-  document.querySelectorAll('#app button[onclick],#app button[data-on-click],#app [data-station-scan]').forEach(el=>{
-   const code=el.getAttribute('onclick')||(el.getAttribute('data-on-click')||'')+'(';
+  /* Кнопку записи узнаём по имени действия (data-on-click, core/actions). */
+  document.querySelectorAll('#app button[data-on-click],#app [data-station-scan]').forEach(el=>{
+   const code=el.getAttribute('data-on-click')+'(';
    if(el.hasAttribute('data-station-scan')||/\b(?:save\w*|\w*Save|\w*Create|stationSubmit|stationMark|stationUndoClick|finConfirmApply|finExportQuickBooks|del\w*|carrierSet)\s*\(/.test(code)){
     el.disabled=true;el.title=storageStale?'Reload this tab to edit.':'Activate editing in this tab to change the database.';
    }

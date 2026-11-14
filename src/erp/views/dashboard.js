@@ -31,8 +31,9 @@ function dashStation(code){
   salesListSavePrefs();render();
  });
 }
+/* Плитка: go — [функция, …аргументы] (было кодом строкой, задание «CSP без inline»). */
 function dashTile(label,n,sub,go,attr,warn){
- return `<button type="button" class="ch-stat ch-go${warn&&n?' warn':''}" data-dash-tile="${attr}" onclick="${go}">${'<span>'+esc(label)+'</span><b>'+chNum(n)+'</b>'}${sub?`<small>${esc(sub)}</small>`:''}</button>`;
+ return `<button type="button" class="ch-stat ch-go${warn&&n?' warn':''}" data-dash-tile="${attr}" ${onAct.apply(null,['click'].concat(go))}>${'<span>'+esc(label)+'</span><b>'+chNum(n)+'</b>'}${sub?`<small>${esc(sub)}</small>`:''}</button>`;
 }
 
 /* 1. Заказы: быстрые виды Sales и очередь Optimization — число заказов. */
@@ -40,16 +41,17 @@ function dashOrders(){
  const tiles=[];
  if(accessCan('sales')){
   const orders=(DB.salesOrder||[]).filter(o=>o&&!salesIsQuote(o)).map(o=>({o})),n=k=>orders.filter(x=>salesQuickTest(k,x)).length;
-  tiles.push(dashTile('Due today',n('today'),'orders',"dashSalesQuick('today')",'today'),
-   dashTile('Due this week',n('week'),'orders',"dashSalesQuick('week')",'week'),
-   dashTile('Needs attention',n('attention'),'on hold · overdue',"dashSalesQuick('attention')",'attention',true));
+  tiles.push(dashTile('Due today',n('today'),'orders',[dashSalesQuick,'today'],'today'),
+   dashTile('Due this week',n('week'),'orders',[dashSalesQuick,'week'],'week'),
+   dashTile('Needs attention',n('attention'),'on hold · overdue',[dashSalesQuick,'attention'],'attention',true));
  }
- if(accessCan('optimization'))tiles.push(dashTile('To verify',optimizationTabCount('new'),'orders',"dashQueue('new')",'verify'),dashTile('To batch',optimizationTabCount('batch'),'orders',"dashQueue('batch')",'batch'));
+ if(accessCan('optimization'))tiles.push(dashTile('To verify',optimizationTabCount('new'),'orders',[dashQueue,'new'],'verify'),dashTile('To batch',optimizationTabCount('batch'),'orders',[dashQueue,'batch'],'batch'));
  return tiles.length?`<div class="card dash-card" data-dash-orders><div class="section-title"><h3>Orders</h3></div><div class="ch-stats">${tiles.join('')}</div></div>`:'';
 }
 /* 2. Цех: ждёт сейчас и прошло сегодня по каждой станции — две полосы со
    своим масштабом. Все станции вместе — только здесь, у офиса и менеджера:
    на Board станция видит только себя (владелец, 9 октября 2026). */
+function dashStationKey(ev,code){if(ev.key==='Enter')dashStation(code);}
 function dashShopRows(d){
  const waiting={},tare={},done={},cut=stationCutCode();
  d.orders.forEach(x=>{
@@ -58,8 +60,8 @@ function dashShopRows(d){
  });
  d.facts.forEach(f=>{done[f.station]=(done[f.station]||0)+1;});
  return [{label:'To batch',cells:{w:prodQueueAll(),d:null},notes:{w:'in queue'}}].concat((DB.station||[]).map(s=>{
-  const t=tare[s.code],n=t?t.size:0,word=t&&[...t].every(c=>/^S/.test(c))?(n===1?'skid':'skids'):(n===1?'dolly':'dollies'),go=`dashStation('${esc(s.code)}')`;
-  return {label:s.code,labelHTML:`<b>${esc(s.code)}</b>`,attrs:` data-board-station="${esc(s.code)}" role="button" tabindex="0" onclick="${go}" onkeydown="if(event.key==='Enter')${go}"`,
+  const t=tare[s.code],n=t?t.size:0,word=t&&[...t].every(c=>/^S/.test(c))?(n===1?'skid':'skids'):(n===1?'dolly':'dollies'),go=[dashStation,String(s.code??'')];
+  return {label:s.code,labelHTML:`<b>${esc(s.code)}</b>`,attrs:` data-board-station="${esc(s.code)}" role="button" tabindex="0" ${onAct.apply(null,['click'].concat(go))} ${onAct('keydown',dashStationKey,EVENT,go[1])}`,
    cells:{w:waiting[s.code]||0,d:done[s.code]||0},notes:{w:s.code===cut&&waiting[s.code]?'in batches':n?n+' '+word:''}};
  }));
 }
@@ -68,10 +70,10 @@ function dashShop(d){
 }
 /* 3. Отгрузки: те же счётчики, что на вкладках Shipping, и PS на сегодня. */
 function dashShip(d){
- const tiles=[dashTile('Ready',shippingTabCount('ready'),'orders to ship',"dashShipping('ready')",'ready'),
-  dashTile('Deliveries today',shippingTabCount('delivery'),'packing slips',"dashShipping('delivery')",'delivery'),
-  dashTile('Open packing slips',shippingTabCount('shipments'),'planned · shipped',"dashShipping('shipments')",'shipments'),
-  dashTile('Backorders',shippingTabCount('backorders'),'orders',"dashShipping('backorders')",'backorders')];
+ const tiles=[dashTile('Ready',shippingTabCount('ready'),'orders to ship',[dashShipping,'ready'],'ready'),
+  dashTile('Deliveries today',shippingTabCount('delivery'),'packing slips',[dashShipping,'delivery'],'delivery'),
+  dashTile('Open packing slips',shippingTabCount('shipments'),'planned · shipped',[dashShipping,'shipments'],'shipments'),
+  dashTile('Backorders',shippingTabCount('backorders'),'orders',[dashShipping,'backorders'],'backorders')];
  const rows=stationBoardShipRows(d);
  return `<div class="card dash-card" data-dash-ship><div class="section-title"><h3>Shipping</h3></div><div class="ch-stats">${tiles.join('')}</div><div class="dash-sub">Today</div>${rows||'<div class="mut">No packing slips today.</div>'}</div>`;
 }
@@ -89,7 +91,7 @@ let dashShow='';
 function dashShowSet(id){dashShow=id||'';render();}
 function dashReports(){const u=typeof signinUser==='function'?signinUser():null;return u&&typeof repScreensFor==='function'?{u,reps:repScreensFor('people',u.viewProfileId)}:{u,reps:[]};}
 function viewDashboard(){
- const {u,reps}=dashReports(),cur=reps.some(r=>r.id===dashShow)?dashShow:'',tabs=reps.length?repScreenTabs(reps,cur,'dashShowSet'):'';
+ const {u,reps}=dashReports(),cur=reps.some(r=>r.id===dashShow)?dashShow:'',tabs=reps.length?repScreenTabs(reps,cur,dashShowSet):'';
  if(cur)return tabs+repScreenHTML(reps.find(r=>r.id===cur),{person:u.name,station:''});
  return tabs+viewDashboardNow();
 }
