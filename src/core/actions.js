@@ -59,7 +59,9 @@ const ACT_FN=Object.create(null);
 function ActArg(kind,key){this.$=kind;if(key!==undefined)this.k=key;}
 const EL=new ActArg('el'),EVENT=new ActArg('event'),EL_VALUE=new ActArg('value'),EL_CHECKED=new ActArg('checked'),ACT_UNDEF=new ActArg('undef');
 function elData(key){return new ActArg('data',String(key));}
-function actEsc(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+/* «$» тоже кодом: разметку порой вставляют через String.replace(что, чем), а в «чем»
+   пара «$&» значит «найденный текст» — метка {"$":"event"} превращалась в мусор. */
+function actEsc(s){return s.replace(/[&<>"'$]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','$':'&#36;'}[c]));}
 function actAllow(...fns){
  fns.forEach(fn=>{if(typeof fn!=='function'||!fn.name)throw new Error('Action must be a named function.');ACT_FN[fn.name]=fn;});
 }

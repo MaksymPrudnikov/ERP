@@ -34,14 +34,14 @@ module.exports = async function ({ page, eq }) {
     try { onAct('wheel', tSelf); } catch (e) { unknown = e.message; }
     try { onAct('click', (function () { return function () { }; })()); } catch (e) { anon = e.message; }
     box.remove();
-    return { log, afterStop, afterPlain, markers: args, unknown, anon };
+    return { log, afterStop, afterPlain, markers: args, unknown, anon, dollar: onAct('click', tSelf, EVENT, 'a$&b').includes('$') };
   });
   eq('действия: от цели вверх, stop не пускает дальше и к слушателям document, цепочка переживает перерисовку, «только сам элемент»', {
     log: got.log.slice(0, 5), afterStop: got.afterStop, afterPlain: got.afterPlain
   }, { log: ['inner:1:i:true:click:7', 'plain:undefined', 'outer:O\'Brien "x" <b> & \\', 'self', 'field:v1:false'], afterStop: 0, afterPlain: 1 });
-  eq('действия: событие без подъёма (focus) — только у самой цели; имя не из реестра не вызывается; метки аргументов — данные', {
-    rest: got.log.slice(5), markers: got.markers
-  }, { rest: ['focus:f'], markers: [{ $: 'value' }, { $: 'checked' }] });
+  eq('действия: событие без подъёма (focus) — только у самой цели; имя не из реестра не вызывается; метки аргументов — данные, в разметке нет «$»', {
+    rest: got.log.slice(5), markers: got.markers, dollar: got.dollar
+  }, { rest: ['focus:f'], markers: [{ $: 'value' }, { $: 'checked' }], dollar: false });
   eq('действия: неизвестное событие и безымянная функция — отказ при отрисовке', { unknown: got.unknown, anon: got.anon },
     { unknown: 'Unknown action event: wheel', anon: 'Action must be a named function.' });
   await t.c.close();
