@@ -450,10 +450,11 @@ function salesQuickTest(key,info){
  return !!o.onHold||(o.lines||[]).some(l=>l.onHold)||(!!due&&due<today);
 }
 function salesQuickSet(key){const p=salesListLoadPrefs();p.quick=SALES_QUICK_ALL.some(q=>q[0]===key)?key:'all';salesListSel=new Set();salesListSavePrefs();render();}
+/* options.set — действие клика по таблетке (функция, core/actions), по умолчанию salesQuickSet. */
 function salesQuickHTML(rows,anyDate,options){
- const cur=options&&options.cur||salesListLoadPrefs().quick||'all',test=options&&options.test||salesQuickTest,set=options&&options.set||'salesQuickSet',name=options&&options.name||(x=>x);
+ const cur=options&&options.cur||salesListLoadPrefs().quick||'all',test=options&&options.test||salesQuickTest,set=options&&options.set||salesQuickSet,name=options&&options.name||(x=>x);
  return `<div class="sl-quick" role="tablist" aria-label="Quick views">${(options&&options.invoice?SALES_QUICK_ALL:SALES_QUICK).map(([k,label])=>{const n=(k==='all'?rows:anyDate).filter(r=>test(k,r)).length;if(k==='invoice'&&!n&&cur!=='invoice')return '';
-  return `<button type="button" role="tab" class="sl-quick-pill${k===cur?' on':''}${k==='attention'&&n?' warn':''}" aria-selected="${k===cur}" data-quick="${k}" onclick="${set}('${k}')">${name(label)}${k==='all'||n?`<b>${n}</b>`:''}</button>`;}).join('')}</div>`;
+  return `<button type="button" role="tab" class="sl-quick-pill${k===cur?' on':''}${k==='attention'&&n?' warn':''}" aria-selected="${k===cur}" data-quick="${k}" ${onAct('click',set,String(k))}>${name(label)}${k==='all'||n?`<b>${n}</b>`:''}</button>`;}).join('')}</div>`;
 }
 /* В очереди флажок Glass — конкретное стекло из каталога, даже если оно
    встречается вместе с другими стёклами в Double/Triple или нескольких Makeup. */
@@ -497,7 +498,7 @@ function salesListFilterSummary(col,f){
 function salesListFilterChips(){
  const p=salesListLoadPrefs(),dateCol=salesListDateColumn(),keys=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k])&&k!==dateCol);
  if(!keys.length)return '';
- return `<div class="sl-chips"><span class="sl-chips-label">Filters</span>${keys.map(k=>`<span class="sl-chip" data-filter-chip="${k}">${esc(salesListFilterSummary(salesListColumn(k),p.filters[k]))}<button type="button" aria-label="Remove filter" onclick="salesListClearFilter('${k}')">×</button></span>`).join('')}<button type="button" class="sl-clear" data-clear-filters onclick="salesListClearAll()">Clear filters</button></div>`;
+ return `<div class="sl-chips"><span class="sl-chips-label">Filters</span>${keys.map(k=>`<span class="sl-chip" data-filter-chip="${k}">${esc(salesListFilterSummary(salesListColumn(k),p.filters[k]))}<button type="button" aria-label="Remove filter" ${onAct('click',salesListClearFilter,String(k))}>×</button></span>`).join('')}<button type="button" class="sl-clear" data-clear-filters ${onAct('click',salesListClearAll)}>Clear filters</button></div>`;
 }
 
 /* ------------------------------ Экран ---------------------------------- */
@@ -571,7 +572,7 @@ function salesListCalcCell(c,rows){
  return cell(c.money?finFmt(finMoney(x)):c.k==='weight'?esc(salesKgText(x)):x.toLocaleString('en-US',{minimumFractionDigits:digits,maximumFractionDigits:digits}));
 }
 /* Галочка строки без заказа в базе: NCR и архив открываются той же кнопкой Open. */
-function salesListSideCheck(id,label){return `<td class="sl-check"><input type="checkbox" data-row-check ${salesListSel.has(id)?'checked':''} aria-label="Select ${esc(label)}" onclick="salesListToggleRow(event,'${esc(id)}')"></td>`;}
+function salesListSideCheck(id,label){return `<td class="sl-check"><input type="checkbox" data-row-check ${salesListSel.has(id)?'checked':''} aria-label="Select ${esc(label)}" ${onAct('click',salesListToggleRow,EVENT,String(id??''))}></td>`;}
 let salesListRowsNow=[];
 function salesListOpenSelected(){
  const id=[...salesListSel][0],r=salesListRowsNow.find(x=>x.o.id===id);if(!r||salesListSel.size!==1)return;
@@ -583,38 +584,40 @@ function salesListView(){
  const p=salesListLoadPrefs(),{all,infos,pool}=salesListBase(),own=salesListScope()==='sales',source=own?pool:infos,filtered=salesListRows(source),quick=own?p.quick||'all':'all',anyDate=quick==='all'&&!own?filtered:salesListRows(source,['created']),shown=quick==='all'?filtered:anyDate.filter(r=>salesQuickTest(quick,r)),rows=own&&salesStatusFilter?shown.filter(r=>salesListStatusKey(r)===salesStatusFilter):shown,cols=salesListColumns();
  salesListSel=new Set([...salesListSel].filter(id=>rows.some(r=>r.o.id===id)));
  const selOrders=salesListSelectedOrders(),allHeld=selOrders.length>0&&selOrders.every(id=>(DB.salesOrder.find(o=>o.id===id)||{}).onHold);
- const holdBtn=`<button type="button" class="sl-quiet sl-hold-quiet" data-hold-button ${selOrders.length?'':'disabled'} onclick="salesListHoldSelected()">${allHeld?'Release':'On Hold'}${selOrders.length?' ('+selOrders.length+')':''}</button>`;
+ const holdBtn=`<button type="button" class="sl-quiet sl-hold-quiet" data-hold-button ${selOrders.length?'':'disabled'} ${onAct('click',salesListHoldSelected)}>${allHeld?'Release':'On Hold'}${selOrders.length?' ('+selOrders.length+')':''}</button>`;
  /* Open и Delete над таблицей, у отмеченной строки (владелец, 2.11.2026). */
  const only=salesListSel.size===1?[...salesListSel][0]:'',onlyRow=only?rows.find(r=>r.o.id===only):null;
- const openBtn=`<button type="button" class="sl-quiet" data-open-button ${onlyRow?'':'disabled'} onclick="salesListOpenSelected()">Open</button>`;
- const deleteBtn=`<button type="button" class="sl-quiet sl-delete-quiet" data-delete-button ${onlyRow&&!onlyRow.n&&!onlyRow.a?'':'disabled'} onclick="salesOrderDelete('${esc(only)}')">Delete</button>`;
+ const openBtn=`<button type="button" class="sl-quiet" data-open-button ${onlyRow?'':'disabled'} ${onAct('click',salesListOpenSelected)}>Open</button>`;
+ const deleteBtn=`<button type="button" class="sl-quiet sl-delete-quiet" data-delete-button ${onlyRow&&!onlyRow.n&&!onlyRow.a?'':'disabled'} ${onAct('click',salesOrderDelete,String(only??''))}>Delete</button>`;
  const stickerOrder=selOrders.length===1&&typeof stkCanPrintOrder==='function'&&stkCanPrintOrder(salesRecord(selOrders[0]))?selOrders[0]:'';
- const stickersBtn=`<button type="button" class="sl-quiet" data-stickers-button ${stickerOrder?'':'disabled'} onclick="stkOpenForOrder('${esc(stickerOrder)}')">Stickers</button>`;
+ const stickersBtn=`<button type="button" class="sl-quiet" data-stickers-button ${stickerOrder?'':'disabled'} ${onAct('click',stkOpenForOrder,String(stickerOrder??''))}>Stickers</button>`;
  /* Cut preview: раскрой отмеченных заказов и квот вместе — только просмотр
     (views/sales-cut-estimate). */
  const estN=typeof salesCutEstimateIds==='function'?salesCutEstimateIds().length:0;
- const estBtn=typeof salesCutEstimateOpen==='function'?`<button type="button" class="sl-quiet sl-est-btn" data-cut-est-open title="Cut preview${estN?' · '+estN+' selected':': select orders or quotes'}" aria-label="Cut preview" ${estN?'':'disabled'} onclick="salesCutEstimateOpen(salesCutEstimateIds())">${ico('cut')}${estN?`<b>${estN}</b>`:''}</button>`:'';
+ const estBtn=typeof salesCutEstimateOpen==='function'?`<button type="button" class="sl-quiet sl-est-btn" data-cut-est-open title="Cut preview${estN?' · '+estN+' selected':': select orders or quotes'}" aria-label="Cut preview" ${estN?'':'disabled'} ${onAct('click',salesCutEstimateOpenSelected)}>${ico('cut')}${estN?`<b>${estN}</b>`:''}</button>`:'';
  /* Где продукт сейчас (views/sales-production): один отмеченный заказ. */
  const prodOrder=selOrders.length===1&&!salesIsQuote(salesRecord(selOrders[0])||{})?selOrders[0]:'';
- const prodBtn=typeof salesProdOpen==='function'?`<button type="button" class="sl-quiet sl-est-btn" data-prod-open title="Production" aria-label="Production" ${prodOrder?'':'disabled'} onclick="salesProdOpen('${esc(prodOrder)}')">${ico('factory')}</button>`:'';
+ const prodBtn=typeof salesProdOpen==='function'?`<button type="button" class="sl-quiet sl-est-btn" data-prod-open title="Production" aria-label="Production" ${prodOrder?'':'disabled'} ${onAct('click',salesProdOpen,String(prodOrder??''))}>${ico('factory')}</button>`:'';
  const rowIds=rows.filter(r=>!r.n&&!r.a).map(r=>r.o.id),allSel=rowIds.length>0&&rowIds.every(id=>salesListSel.has(id));
  /* Ширина и порядок за заголовок — только у списка Sales (views/col-widths). */
  const cw=salesListScope()==='sales',keys=cols.map(c=>c.k);
- const th=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}"${cw?` data-cw-key="${c.k}"`:''}><span class="sl-th"><span data-cw-label>${c.label}</span><button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span>${cw?cwGrip():''}</th>`;};
+ const th=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}"${cw?` data-cw-key="${c.k}"`:''}><span class="sl-th"><span data-cw-label>${c.label}</span><button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" ${onAct('click',salesListOpenFilter,EVENT,String(c.k))}></button></span>${cw?cwGrip():''}</th>`;};
  salesListIds=rowIds;salesListRowsNow=rows;
  const body=listWindowBody(rows,r=>{
   if(r.n)return ncrListRow(r,cols);
   if(r.a)return archiveListRow(r,cols);
   const o=r.o,sel=salesListSel.has(o.id),cls=[salesIsDraft(o)?'sl-row-draft':'',!r.q&&o.onHold?'sl-row-hold':'',!r.q&&o.status==='batched'?'sl-row-work':'',!r.q&&o.status==='done'?'sl-row-done':'',!r.q&&o.status==='closed'?'sl-row-closed':'',sel?'sl-row-sel':''].filter(Boolean).join(' ');
-  return `<tr data-order-row="${esc(o.id)}"${cls?` class="${cls}"`:''} oncontextmenu="salesListContext(event,'${esc(o.id)}')"><td class="sl-check"><input type="checkbox" data-row-check ${sel?'checked':''} aria-label="Select ${esc(salesListValue(r,'number'))}" onclick="salesListToggleRow(event,'${esc(o.id)}')"></td>${cols.map(c=>salesListCell(r,c)).join('')}<td></td></tr>`;
+  return `<tr data-order-row="${esc(o.id)}"${cls?` class="${cls}"`:''} ${onAct('contextmenu',salesListContext,EVENT,String(o.id??''))}><td class="sl-check"><input type="checkbox" data-row-check ${sel?'checked':''} aria-label="Select ${esc(salesListValue(r,'number'))}" ${onAct('click',salesListToggleRow,EVENT,String(o.id??''))}></td>${cols.map(c=>salesListCell(r,c)).join('')}<td></td></tr>`;
  },cols.length+2);
  const empty=`<tr><td colspan="${cols.length+2}" class="empty">${all.length?'Nothing matches the filters.':'No Sales Orders yet'}</td></tr>`;
  const wide=window.innerWidth>=1600,dateBtn=salesListDateButton(),chips=salesStatusChips(shown);salesListChipsNow=chips;
- return `<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">${salesListShowButton()}${openBtn}${deleteBtn}${holdBtn}${stickersBtn}${estBtn}${prodBtn}<span class="sales-toolbar-sp"></span>${wide?'':dateBtn}<button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div><div class="sl-filter-row">${salesQuickHTML(filtered,anyDate,{cur:salesStatusFilter?'-':quick,set:'salesQuickPick',name:salesListShortLabel,invoice:true})}${salesListStatusPills(chips)}${wide?`<span class="sales-toolbar-sp"></span>${dateBtn}`:''}</div>${salesListStatusRow(chips)}${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${cw?cwTableClass('sales'):''}"${cw?cwTableAttrs('sales',keys):''}>${cw?cwColgroup('sales',keys):''}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
+ return `<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">${salesListShowButton()}${openBtn}${deleteBtn}${holdBtn}${stickersBtn}${estBtn}${prodBtn}<span class="sales-toolbar-sp"></span>${wide?'':dateBtn}<button ${onAct('click',salesOrderNew,'quote')}>+ New Quote</button><button class="pri" ${onAct('click',salesOrderNew,'order')}>+ New Sales Order</button></div><div class="sl-filter-row">${salesQuickHTML(filtered,anyDate,{cur:salesStatusFilter?'-':quick,set:salesQuickPick,name:salesListShortLabel,invoice:true})}${salesListStatusPills(chips)}${wide?`<span class="sales-toolbar-sp"></span>${dateBtn}`:''}</div>${salesListStatusRow(chips)}${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${cw?cwTableClass('sales'):''}"${cw?cwTableAttrs('sales',keys):''}>${cw?cwColgroup('sales',keys):''}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" ${onAct('click',salesListToggleAll,EL_CHECKED)}><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" ${onAct('click',salesListOpenColumns,EVENT)}>${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
 }
 
 /* ------------------------------ Меню ----------------------------------- */
 function salesListCloseMenu(){salesListMenu=null;render();}
+/* Правый клик по фону меню закрывает его без меню браузера. */
+function salesListBackContext(ev){ev.preventDefault();salesListCloseMenu();}
 function salesListAt(e,w){const r=e&&e.currentTarget&&e.currentTarget.getBoundingClientRect?e.currentTarget.getBoundingClientRect():null;return {x:r?r.left:(e&&e.clientX)||40,y:r?r.bottom+6:(e&&e.clientY)||40,w};}
 function salesListOpenFilter(e,k){
  if(e)e.stopPropagation();
@@ -634,7 +637,7 @@ function salesListContext(e,id){
 function salesListMenuHTML(infos){
  const m=salesListMenu;if(!m||(m.scope&&m.scope!==salesListScope()))return '';
  const top=Math.max(8,Math.min(m.y,window.innerHeight-80)),style=`left:${Math.max(8,Math.min(m.x,window.innerWidth-(m.w||300)-8))}px;top:${top}px;max-height:${Math.max(180,window.innerHeight-top-12)}px`;
- const back='<div class="sl-backdrop" onclick="salesListCloseMenu()" oncontextmenu="event.preventDefault();salesListCloseMenu()"></div>';
+ const back='<div class="sl-backdrop" '+onAct('click',salesListCloseMenu)+' '+onAct('contextmenu',salesListBackContext,EVENT)+'></div>';
  if(m.kind==='pur-sections')return back+purSectionsMenuHTML(style);
  if(m.kind==='show')return back+salesListShowMenuHTML(style);
  if(m.kind==='status')return back+salesListStatusMenuHTML(style);
@@ -650,25 +653,25 @@ function salesListFilterHTML(m,infos,style){
  const col=salesListColumn(m.col);if(!col)return '';
  const d=m.draft,p=salesListLoadPrefs(),sort=p.sort||salesListDefaultSort();
  const labels=col.type==='number'?['↑ Smallest first','↓ Largest first']:col.type==='date'?['↑ Oldest first','↓ Newest first']:['↑ A → Z','↓ Z → A'];
- let html=`<div class="sl-menu" style="${style}" role="dialog" aria-label="Filter ${esc(col.label)}" data-filter-menu="${col.k}"><h5>Sort</h5><div class="sl-row"><button type="button" class="sl-btn${sort.k===col.k&&sort.dir==='asc'?' on':''}" data-sort="asc" onclick="salesListSort('${col.k}','asc')">${labels[0]}</button><button type="button" class="sl-btn${sort.k===col.k&&sort.dir==='desc'?' on':''}" data-sort="desc" onclick="salesListSort('${col.k}','desc')">${labels[1]}</button><button type="button" class="sl-btn sl-freeze${p.frozen.includes(col.k)?' on':''}" data-freeze="${col.k}" aria-pressed="${p.frozen.includes(col.k)}" title="${p.frozen.includes(col.k)?'Unfreeze':'Freeze'}" aria-label="${p.frozen.includes(col.k)?'Unfreeze':'Freeze'} ${esc(col.label)}" onclick="salesListFreeze('${col.k}')">${ico('freeze')}</button></div>`;
- if(salesListCalcHere()){const on=salesListCalc(col);html+=`<h5>Show at bottom</h5><div class="sl-calc-pick">${salesListCalcOptions(col).map(x=>`<button type="button" class="sl-btn${on===x[0]?' on':''}" data-calc="${x[0]}" onclick="salesListSetCalc('${col.k}','${x[0]}')">${x[1]}</button>`).join('')}</div>`;}
- if(col.type==='date')html+=`<h5>Date</h5><div class="sl-presets">${(col.presets||SALES_LIST_PRESETS).map(x=>`<button type="button" class="sl-btn${d.preset===x[0]?' on':''}" data-preset="${x[0]}" onclick="salesListDraft('preset','${x[0]}')">${x[1]}</button>`).join('')}</div>`;
+ let html=`<div class="sl-menu" style="${style}" role="dialog" aria-label="Filter ${esc(col.label)}" data-filter-menu="${col.k}"><h5>Sort</h5><div class="sl-row"><button type="button" class="sl-btn${sort.k===col.k&&sort.dir==='asc'?' on':''}" data-sort="asc" ${onAct('click',salesListSort,String(col.k),'asc')}>${labels[0]}</button><button type="button" class="sl-btn${sort.k===col.k&&sort.dir==='desc'?' on':''}" data-sort="desc" ${onAct('click',salesListSort,String(col.k),'desc')}>${labels[1]}</button><button type="button" class="sl-btn sl-freeze${p.frozen.includes(col.k)?' on':''}" data-freeze="${col.k}" aria-pressed="${p.frozen.includes(col.k)}" title="${p.frozen.includes(col.k)?'Unfreeze':'Freeze'}" aria-label="${p.frozen.includes(col.k)?'Unfreeze':'Freeze'} ${esc(col.label)}" ${onAct('click',salesListFreeze,String(col.k))}>${ico('freeze')}</button></div>`;
+ if(salesListCalcHere()){const on=salesListCalc(col);html+=`<h5>Show at bottom</h5><div class="sl-calc-pick">${salesListCalcOptions(col).map(x=>`<button type="button" class="sl-btn${on===x[0]?' on':''}" data-calc="${x[0]}" ${onAct('click',salesListSetCalc,String(col.k),String(x[0]))}>${x[1]}</button>`).join('')}</div>`;}
+ if(col.type==='date')html+=`<h5>Date</h5><div class="sl-presets">${(col.presets||SALES_LIST_PRESETS).map(x=>`<button type="button" class="sl-btn${d.preset===x[0]?' on':''}" data-preset="${x[0]}" ${onAct('click',salesListDraft,'preset',String(x[0]))}>${x[1]}</button>`).join('')}</div>`;
  if(col.type!=='list'){
   const ops=SALES_LIST_OPS[col.type],input=col.type==='number'?'number':col.type==='date'?'date':'text',step=input==='number'?' step="any"':'';
-  html+=`<h5>Condition</h5><div class="sl-row"><button type="button" class="sl-btn${d.mode!=='exclude'?' on':''}" data-mode="include" onclick="salesListDraft('mode','include')">Include</button><button type="button" class="sl-btn${d.mode==='exclude'?' on':''}" data-mode="exclude" onclick="salesListDraft('mode','exclude')">Exclude</button></div>`;
+  html+=`<h5>Condition</h5><div class="sl-row"><button type="button" class="sl-btn${d.mode!=='exclude'?' on':''}" data-mode="include" ${onAct('click',salesListDraft,'mode','include')}>Include</button><button type="button" class="sl-btn${d.mode==='exclude'?' on':''}" data-mode="exclude" ${onAct('click',salesListDraft,'mode','exclude')}>Exclude</button></div>`;
   d.conds.forEach((c,i)=>{
    const needs=c.op!=='empty'&&c.op!=='notEmpty';
-   if(i)html+=`<div class="sl-join"><button type="button" class="${c.join!=='or'?'on':''}" onclick="salesListDraftCond(${i},'join','and')">AND</button><button type="button" class="${c.join==='or'?'on':''}" onclick="salesListDraftCond(${i},'join','or')">OR</button></div>`;
-   html+=`<div class="sl-row sl-cond"><select data-cond-op="${i}" onchange="salesListDraftCond(${i},'op',this.value)">${ops.map(o=>`<option value="${o[0]}" ${c.op===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select>${needs?`<input type="${input}"${step} data-cond-v="${i}" value="${esc(c.v)}" oninput="salesListDraftInput(${i},'v',this.value)">`:''}${c.op==='between'?`<input type="${input}"${step} data-cond-v2="${i}" value="${esc(c.v2)}" oninput="salesListDraftInput(${i},'v2',this.value)">`:''}${d.conds.length>1?`<button type="button" class="sl-x" aria-label="Remove condition" onclick="salesListDraftRemoveCond(${i})">×</button>`:''}</div>`;
+   if(i)html+=`<div class="sl-join"><button type="button" class="${c.join!=='or'?'on':''}" ${onAct('click',salesListDraftCond,i,'join','and')}>AND</button><button type="button" class="${c.join==='or'?'on':''}" ${onAct('click',salesListDraftCond,i,'join','or')}>OR</button></div>`;
+   html+=`<div class="sl-row sl-cond"><select data-cond-op="${i}" ${onAct('change',salesListDraftCond,i,'op',EL_VALUE)}>${ops.map(o=>`<option value="${o[0]}" ${c.op===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select>${needs?`<input type="${input}"${step} data-cond-v="${i}" value="${esc(c.v)}" ${onAct('input',salesListDraftInput,i,'v',EL_VALUE)}>`:''}${c.op==='between'?`<input type="${input}"${step} data-cond-v2="${i}" value="${esc(c.v2)}" ${onAct('input',salesListDraftInput,i,'v2',EL_VALUE)}>`:''}${d.conds.length>1?`<button type="button" class="sl-x" aria-label="Remove condition" ${onAct('click',salesListDraftRemoveCond,i)}>×</button>`:''}</div>`;
   });
-  html+=`<div class="sl-row"><button type="button" class="sl-btn" data-add-cond="and" onclick="salesListDraftAddCond('and')">+ And</button><button type="button" class="sl-btn" data-add-cond="or" onclick="salesListDraftAddCond('or')">+ Or</button></div>`;
+  html+=`<div class="sl-row"><button type="button" class="sl-btn" data-add-cond="and" ${onAct('click',salesListDraftAddCond,'and')}>+ And</button><button type="button" class="sl-btn" data-add-cond="or" ${onAct('click',salesListDraftAddCond,'or')}>+ Or</button></div>`;
  }
  if(col.type==='list'||col.type==='text'){
   const opts=salesListValueOptions(col.k,infos),q=String(m.search||'').toLowerCase(),shown=opts.filter(x=>!q||x.text.toLowerCase().includes(q)||col.k==='glass'&&((glassNameOwner(x.text,'')||{}).code||'').toLowerCase().includes(q));
   const checked=t=>!Array.isArray(d.values)||d.values.includes(t);
-  html+=`<h5>Values</h5><input type="text" id="salesListValueSearch" class="sl-search" placeholder="Search values…" value="${esc(m.search||'')}" oninput="salesListValueSearch(this)"><div class="sl-vals"><label><input type="checkbox" data-val-all ${!Array.isArray(d.values)?'checked':''} onchange="salesListDraftAllValues(this.checked)"> (Select all)</label>${shown.map(x=>`<label><input type="checkbox" data-val="${esc(x.text)}" ${checked(x.text)?'checked':''} onchange="salesListDraftValue(this.dataset.val,this.checked)"> <span>${esc(x.text)}</span><b>${x.n}</b></label>`).join('')}</div>`;
+  html+=`<h5>Values</h5><input type="text" id="salesListValueSearch" class="sl-search" placeholder="Search values…" value="${esc(m.search||'')}" ${onAct('input',salesListValueSearch,EL)}><div class="sl-vals"><label><input type="checkbox" data-val-all ${!Array.isArray(d.values)?'checked':''} ${onAct('change',salesListDraftAllValues,EL_CHECKED)}> (Select all)</label>${shown.map(x=>`<label><input type="checkbox" data-val="${esc(x.text)}" ${checked(x.text)?'checked':''} ${onAct('change',salesListDraftValue,elData('val'),EL_CHECKED)}> <span>${esc(x.text)}</span><b>${x.n}</b></label>`).join('')}</div>`;
  }
- return html+`<div class="sl-actions"><button type="button" class="sl-btn" data-filter-clear onclick="salesListClearFilter('${col.k}')">Clear</button><button type="button" class="pri" data-filter-apply onclick="salesListApplyFilter()">Apply</button></div></div>`;
+ return html+`<div class="sl-actions"><button type="button" class="sl-btn" data-filter-clear ${onAct('click',salesListClearFilter,String(col.k))}>Clear</button><button type="button" class="pri" data-filter-apply ${onAct('click',salesListApplyFilter)}>Apply</button></div></div>`;
 }
 function salesListDraft(key,val){
  const m=salesListMenu;if(!m||!m.draft)return;
@@ -701,8 +704,8 @@ function salesListApplyFilter(){const m=salesListMenu;if(!m||m.kind!=='filter')r
 /* ------------------------------ Колонки -------------------------------- */
 function salesListColumnsHTML(style){
  const p=salesListLoadPrefs();
- const rows=p.cols.map((c,i)=>{const col=salesListColumn(c.k);return `<div class="sl-cols-row" draggable="true" data-col-row="${c.k}" ondragstart="salesListDragKey='${c.k}'" ondragover="event.preventDefault()" ondrop="event.preventDefault();salesListDropColumn('${c.k}')"><span class="h" aria-hidden="true">⋮⋮</span><label><input type="checkbox" data-col-toggle="${c.k}" ${c.on&&!salesListAutoHidden(c.k)?'checked':''} onchange="salesListSetColumn('${c.k}',this.checked)"> ${esc(col.label)}</label><button type="button" class="sm" aria-label="Move ${esc(col.label)} up" ${i===0?'disabled':''} onclick="salesListMoveColumn('${c.k}',-1)">↑</button><button type="button" class="sm" aria-label="Move ${esc(col.label)} down" ${i===p.cols.length-1?'disabled':''} onclick="salesListMoveColumn('${c.k}',1)">↓</button></div>`;}).join('');
- return `<div class="sl-menu sl-cols" style="${style}" role="dialog" aria-label="Columns"><button type="button" class="sl-btn sl-excel" data-excel onclick="salesListExcel()" title="This table to Excel">${ico('download')}Excel</button><h5>Columns · drag to reorder</h5>${rows}<div class="sl-actions"><button type="button" class="sl-btn" data-standard-view onclick="salesListStandardView()">Standard view</button>${salesListCwId()?`<button type="button" class="sl-btn" data-reset-widths ${cwFixed(salesListCwId())?'':'disabled'} onclick="salesListResetWidths()">Reset widths</button>`:''}</div></div>`;
+ const rows=p.cols.map((c,i)=>{const col=salesListColumn(c.k);return `<div class="sl-cols-row" draggable="true" data-col-row="${c.k}" ${onAct('dragstart',salesListDragStart,String(c.k))} ${onAct('dragover',actPrevent,EVENT)} ${onAct('drop',salesListDrop,EVENT,String(c.k))}><span class="h" aria-hidden="true">⋮⋮</span><label><input type="checkbox" data-col-toggle="${c.k}" ${c.on&&!salesListAutoHidden(c.k)?'checked':''} ${onAct('change',salesListSetColumn,String(c.k),EL_CHECKED)}> ${esc(col.label)}</label><button type="button" class="sm" aria-label="Move ${esc(col.label)} up" ${i===0?'disabled':''} ${onAct('click',salesListMoveColumn,String(c.k),-1)}>↑</button><button type="button" class="sm" aria-label="Move ${esc(col.label)} down" ${i===p.cols.length-1?'disabled':''} ${onAct('click',salesListMoveColumn,String(c.k),1)}>↓</button></div>`;}).join('');
+ return `<div class="sl-menu sl-cols" style="${style}" role="dialog" aria-label="Columns"><button type="button" class="sl-btn sl-excel" data-excel ${onAct('click',salesListExcel)} title="This table to Excel">${ico('download')}Excel</button><h5>Columns · drag to reorder</h5>${rows}<div class="sl-actions"><button type="button" class="sl-btn" data-standard-view ${onAct('click',salesListStandardView)}>Standard view</button>${salesListCwId()?`<button type="button" class="sl-btn" data-reset-widths ${cwFixed(salesListCwId())?'':'disabled'} ${onAct('click',salesListResetWidths)}>Reset widths</button>`:''}</div></div>`;
 }
 /* Шестерёнка на узком экране: включённая колонка видна всегда (прокрутка вбок),
    снятая снова прячется только здесь, а на широком экране остаётся. */
@@ -717,6 +720,9 @@ function salesListMoveColumn(k,delta){
  if(at<0||to<0||to>=cols.length)return;
  const [c]=cols.splice(at,1);cols.splice(to,0,c);salesListSavePrefs();render();
 }
+/* Перетаскивание строки в окне Columns: взяли колонку — бросили на другую. */
+function salesListDragStart(k){salesListDragKey=k;}
+function salesListDrop(ev,k){ev.preventDefault();salesListDropColumn(k);}
 function salesListDropColumn(k){
  const from=salesListDragKey;salesListDragKey=null;if(!from||from===k)return;
  const cols=salesListLoadPrefs().cols,at=cols.findIndex(c=>c.k===from);if(at<0)return;
@@ -759,7 +765,7 @@ cwRegister('shipments',{
 }));
 
 /* Заголовок колонки любого списка: фильтр и сортировка, ширина и перенос. */
-function salesListHead(c){const f=salesListLoadPrefs().filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th"><span data-cw-label>${esc(c.label)}</span><button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span>${cwGrip()}</th>`;}
+function salesListHead(c){const f=salesListLoadPrefs().filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th"><span data-cw-label>${esc(c.label)}</span><button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" ${onAct('click',salesListOpenFilter,EVENT,String(c.k))}></button></span>${cwGrip()}</th>`;}
 /* Ширина и порядок за заголовок для списка этого экрана: адаптер по scope
    регистрируется при первом показе (lead — служебные колонки слева, trail —
    кнопки справа, px). Возвращает класс, атрибуты и <colgroup> таблицы. */
@@ -779,10 +785,10 @@ function salesListCwTable(keys,lead,trail,defs){
    row(info,i) — атрибуты и первая клетка строки, noun, empty}. */
 function salesListTableHTML(o){
  const p=salesListLoadPrefs(),cols=salesListColumns(),keys=cols.map(c=>c.k),cwId=salesListCwId(),rows=o.rows;
- const th=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th"><span data-cw-label>${c.label}</span><button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span>${cwGrip()}</th>`;};
+ const th=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th"><span data-cw-label>${c.label}</span><button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" ${onAct('click',salesListOpenFilter,EVENT,String(c.k))}></button></span>${cwGrip()}</th>`;};
  const body=rows.map((i,k)=>{const r=o.row(i,k);return `<tr${r.attrs||''}>${r.first||'<td class="sl-check"></td>'}${cols.map(c=>o.cell(i,c,rows[k-1])).join('')}${r.last!=null?`<td class="sl-row-acts">${r.last}</td>`:'<td></td>'}</tr>${r.after?r.after(cols.length+2):''}`;}).join('');
  const lead=Math.max(0,cols.findIndex(c=>salesListCalc(c)!=='none')),foot=rows.length?`<tfoot><tr class="sl-foot"><td colspan="${lead+1}" class="sl-foot-head"><b>${o.noun(rows)}</b></td>${cols.slice(lead).map(c=>salesListCalcCell(c,rows)).join('')}<td></td></tr></tfoot>`:'';
- return `${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${o.cls?' '+o.cls:''}${cwTableClass(cwId)}"${cwTableAttrs(cwId,keys)}>${cwColgroup(cwId,keys)}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button>${o.firstTh||''}</span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">${o.empty}</td></tr>`}${o.tail?o.tail(cols):''}</tbody>${foot}</table></div>${salesListMenuHTML(o.infos)}`;
+ return `${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${o.cls?' '+o.cls:''}${cwTableClass(cwId)}"${cwTableAttrs(cwId,keys)}>${cwColgroup(cwId,keys)}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" ${onAct('click',salesListOpenColumns,EVENT)}>${ico('settings')}</button>${o.firstTh||''}</span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">${o.empty}</td></tr>`}${o.tail?o.tail(cols):''}</tbody>${foot}</table></div>${salesListMenuHTML(o.infos)}`;
 }
 
 /* ------------------------------ Выбор строк ---------------------------- */
@@ -803,7 +809,7 @@ function salesListToggleAll(on){
 function salesListContextHTML(m,style){
  const o=(DB.salesOrder||[]).find(x=>x.id===m.id);if(!o)return '';
  const q=salesIsQuote(o),ids=salesListSelectedOrders(),many=ids.length>1&&ids.includes(o.id);
- const item=(act,label,cls)=>`<button type="button" role="menuitem" class="${cls||''}" data-menu="${act}" onclick="salesListMenuRun('${act}')">${label}</button>`;
+ const item=(act,label,cls)=>`<button type="button" role="menuitem" class="${cls||''}" data-menu="${act}" ${onAct('click',salesListMenuRun,String(act))}>${label}</button>`;
  const hold=q?'':o.onHold?item('release',many?'Release · '+ids.length+' orders':'Release'):item('hold',many?'⛔ On Hold… · '+ids.length+' orders':'⛔ On Hold…');
  return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${item('copy','Copy')}${!q&&typeof salesProdOpen==='function'?item('production','Production'):''}${typeof orderLogOpen==='function'?item('log','Activity log'):''}${typeof skipAllowed==='function'&&!many&&skipAllowed()&&skipCanOpen(o)?item('skip','Skip…'):''}${hold}<hr>${item('documents','Documents')}${item('drawings','Drawings')}${typeof salesCutEstimateOpen==='function'&&cutEstUsable(o)?item('cutpreview',salesCutEstimateIds().length>1?'Cut preview · '+salesCutEstimateIds().length+' selected':'Cut preview'):''}${!q&&o.status!=='cancelled'?item('stickers','Print stickers…'):''}${!q&&typeof productionUnbatchAllowed==='function'&&productionUnbatchAllowed()&&productionUnbatchCanOpen(o)?item('unbatch','Unbatch order…'):''}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
 }
@@ -857,13 +863,13 @@ function salesHoldDialogHTML(){
  const d=salesHoldDialog;if(!d)return '';
  const orders=d.ids.map(id=>(DB.salesOrder||[]).find(o=>o.id===id)).filter(Boolean),other=SALES_HOLD_REASONS.length;
  const names=orders.slice(0,4).map(o=>(o.businessNumber||'')+' · '+(salesCustomerDisplay(o.customerId)||'—')).join(', ')+(orders.length>4?' +'+(orders.length-4):'');
- const choice=(i,label)=>`<label class="sl-hold-choice${d.choice===i?' on':''}"><input type="radio" name="salesHoldChoice" data-hold-choice="${i}" ${d.choice===i?'checked':''} onchange="salesHoldPick(${i})"> ${label}</label>`;
- return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)salesHoldClose()"><div class="sales-service-modal sales-dialog sl-hold-dialog" role="dialog" aria-modal="true" aria-label="On Hold">
-  <div class="sales-service-modal-head"><h3>Put ${orders.length} order${orders.length===1?'':'s'} on hold</h3><button type="button" aria-label="Close" onclick="salesHoldClose()">×</button></div>
+ const choice=(i,label)=>`<label class="sl-hold-choice${d.choice===i?' on':''}"><input type="radio" name="salesHoldChoice" data-hold-choice="${i}" ${d.choice===i?'checked':''} ${onAct('change',salesHoldPick,i)}> ${label}</label>`;
+ return `<div class="sales-service-modal-back sales-dialog-back" ${onActSelf('click',salesHoldClose)}><div class="sales-service-modal sales-dialog sl-hold-dialog" role="dialog" aria-modal="true" aria-label="On Hold">
+  <div class="sales-service-modal-head"><h3>Put ${orders.length} order${orders.length===1?'':'s'} on hold</h3><button type="button" aria-label="Close" ${onAct('click',salesHoldClose)}>×</button></div>
   <div class="sales-dialog-body"><p class="mut">${raw(names)}</p>${SALES_HOLD_REASONS.map((r,i)=>choice(i,esc(r))).join('')}
-   <label class="sl-hold-choice${d.choice===other?' on':''}"><input type="radio" name="salesHoldChoice" data-hold-choice="${other}" ${d.choice===other?'checked':''} onchange="salesHoldPick(${other})"> Other <input type="text" id="salesHoldOther" value="${esc(d.other)}" placeholder="reason…" oninput="salesHoldOtherInput(this.value)"></label>
+   <label class="sl-hold-choice${d.choice===other?' on':''}"><input type="radio" name="salesHoldChoice" data-hold-choice="${other}" ${d.choice===other?'checked':''} ${onAct('change',salesHoldPick,other)}> Other <input type="text" id="salesHoldOther" value="${esc(d.other)}" placeholder="reason…" ${onAct('input',salesHoldOtherInput,EL_VALUE)}></label>
    <div class="sales-dialog-note">On hold orders are not verified and do not go to batch until released.</div></div>
-  <div class="sales-dialog-actions"><button type="button" onclick="salesHoldClose()">Back</button><button type="button" class="pri" data-hold-confirm onclick="salesHoldConfirm()">Put on hold</button></div></div></div>`;
+  <div class="sales-dialog-actions"><button type="button" ${onAct('click',salesHoldClose)}>Back</button><button type="button" class="pri" data-hold-confirm ${onAct('click',salesHoldConfirm)}>Put on hold</button></div></div></div>`;
 }
 function salesHoldConfirm(){
  const d=salesHoldDialog;if(!d)return;
@@ -893,7 +899,7 @@ function salesReleaseHold(ids){
 }
 function salesHoldBar(o){
  if(!o||salesIsQuote(o)||!o.onHold)return '';
- return `<div class="sales-holdbar" data-hold-bar>⛔ <b>On Hold since ${esc(salesShortDate(o.holdAt))}</b>${o.holdReason?' · '+raw(o.holdReason):''}<span class="sp"></span><button type="button" class="sm" onclick="salesReleaseHold(['${esc(o.id)}'])">Release</button></div>`;
+ return `<div class="sales-holdbar" data-hold-bar>⛔ <b>On Hold since ${esc(salesShortDate(o.holdAt))}</b>${o.holdReason?' · '+raw(o.holdReason):''}<span class="sp"></span><button type="button" class="sm" ${onAct('click',salesReleaseHold,[String(o.id??'')])}>Release</button></div>`;
 }
 function salesHoldBlocked(orderId){
  const o=orderId?salesRecord(orderId):soDraft;if(!o)return;

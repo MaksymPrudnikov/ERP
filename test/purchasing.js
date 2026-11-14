@@ -155,9 +155,9 @@ module.exports=async function({page,eq}){
  await auth.p.waitForFunction(()=>storageWriter&&!storageStarting&&!signinChecking);
  eq('Purchasing is its own access checkbox: hiding the menu also prevents direct writes; allowed writes identify the user',await auth.p.evaluate(()=>{
   const u=DB.user.find(x=>x.name==='Demo Owner');userPasswordSet(u,'test-owner-123');u.access=['users','dashboard'];signinAs(u.viewProfileId);
-  render();const before=JSON.stringify(DB),hidden=!document.querySelector('[onclick="navGo(\'purchasing\')"]'),denied=purSupplierSave({name:'Hidden supplier'});
+  render();const before=JSON.stringify(DB),hidden=!document.querySelector('[data-on-click="navGo"][data-args-click*="purchasing"]'),denied=purSupplierSave({name:'Hidden supplier'});
   const unchanged=before===JSON.stringify(DB);
-  u.access.push('purchasing');touch();render();const visible=!!document.querySelector('[onclick="navGo(\'purchasing\')"]'),r=purSupplierSave({name:'Allowed supplier'});
+  u.access.push('purchasing');touch();render();const visible=!!document.querySelector('[data-on-click="navGo"][data-args-click*="purchasing"]'),r=purSupplierSave({name:'Allowed supplier'});
   const event=purHistory('supplier',r.value.id)[0];
   return {hidden,denied:!denied.ok,unchanged,visible,saved:r.ok,actor:r.value&&r.value.createdBy,actorId:r.value&&r.value.createdById===u.viewProfileId,history:event.by==='Demo Owner'&&event.byId===u.viewProfileId&&!!event.at};
  }),{hidden:true,denied:true,unchanged:true,visible:true,saved:true,actor:'Demo Owner',actorId:true,history:true});

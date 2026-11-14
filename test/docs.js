@@ -47,6 +47,12 @@ module.exports=async function({eq}){
      «до 10», 12.11.2026): код понятен любой ИИ и человеку с первой строки.
      Исключения и причины — HEADER_SKIP в tools/module-map.js. */
   eq('шапки модулей: «что делает / IN / OUT» у всех, кроме HEADER_SKIP (node tools/module-map.js)',mm.headerProblems(),[]);}
+ /* Встроенные обработчики (onclick="…" в разметке) переводятся на действия
+    core/actions по разделам (задание «CSP без inline», 13.11.2026): пока они
+    есть, из script-src нельзя убрать 'unsafe-inline'. Список «файл → сколько
+    осталось» — INLINE_LEFT в tools/csp-handlers.js; число только уменьшается,
+    новый обработчик в любом файле — красный. */
+ eq('встроенные обработчики: INLINE_LEFT совпадает с кодом — новые писать через onAct (node tools/csp-handlers.js)',require('../tools/csp-handlers.js').leftProblems(),[]);
  const mf=require('../tools/manual-fields.js'),want=mf.appendix();
  /* Сборщик PDF руководства (tools/manual-pdf.js): разделы по README, Markdown → HTML. */
  const mp=require('../tools/manual-pdf.js'),h=mp.md('# A\n\n| x | y |\n|---|---|\n| `1` | **2** |\n\n- one\n- two').html;

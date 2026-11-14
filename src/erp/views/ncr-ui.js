@@ -58,62 +58,65 @@ function ncrFormHTML(){
  const glassCodes=l=>{const m=salesMakeupById(o,l.makeupId);return m?(m.panes||[]).map(ncrPaneCode).join(' / '):'—';};
  const rows=o.lines.map((l,i)=>{
   const x=f.lines[l.id]||{on:false,qty:'',which:'unit'},opts=ncrLiteOptions(o,l);
-  return `<tr data-ncr-line="${esc(l.id)}" class="${x.on?'on':''}"><td><input type="checkbox" data-ncr-line-on ${x.on?'checked':''} aria-label="Line ${i+1} affected" onchange="ncrFormLine('${esc(l.id)}','on',this.checked,true)"></td>
+  return `<tr data-ncr-line="${esc(l.id)}" class="${x.on?'on':''}"><td><input type="checkbox" data-ncr-line-on ${x.on?'checked':''} aria-label="Line ${i+1} affected" ${onAct('change',ncrFormLine,String(l.id??''),'on',EL_CHECKED,true)}></td>
    <td>Line ${i+1}${l.mark?' · '+esc(l.mark):''}</td><td class="nowrap">${esc(dimIn16(l.width16/16))} × ${esc(dimIn16(l.height16/16))}</td><td>${esc(glassCodes(l))}</td><td class="n">${l.qty}</td>
-   <td><input type="number" min="1" max="${l.qty}" step="1" inputmode="numeric" data-ncr-line-qty value="${esc(x.qty)}" ${x.on?'':'disabled'} aria-label="Affected on line ${i+1}" oninput="ncrFormLine('${esc(l.id)}','qty',this.value)"></td>
-   <td><select data-ncr-line-which ${x.on&&!remake&&opts.length>1?'':'disabled'} aria-label="Which glass on line ${i+1}" onchange="ncrFormLine('${esc(l.id)}','which',this.value,true)">${(remake?[opts[0]]:opts).map(v=>`<option value="${esc(v.value)}" ${String(x.which)===v.value?'selected':''}>${esc(v.label)}</option>`).join('')}</select></td></tr>`;
+   <td><input type="number" min="1" max="${l.qty}" step="1" inputmode="numeric" data-ncr-line-qty value="${esc(x.qty)}" ${x.on?'':'disabled'} aria-label="Affected on line ${i+1}" ${onAct('input',ncrFormLine,String(l.id??''),'qty',EL_VALUE)}></td>
+   <td><select data-ncr-line-which ${x.on&&!remake&&opts.length>1?'':'disabled'} aria-label="Which glass on line ${i+1}" ${onAct('change',ncrFormLine,String(l.id??''),'which',EL_VALUE,true)}>${(remake?[opts[0]]:opts).map(v=>`<option value="${esc(v.value)}" ${String(x.which)===v.value?'selected':''}>${esc(v.label)}</option>`).join('')}</select></td></tr>`;
  }).join('');
- return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)ncrFormClose()"><div class="sales-service-modal sales-dialog ncr-modal" role="dialog" aria-modal="true" aria-label="${recut?'Recut':'New NCR'}">
-  <div class="sales-service-modal-head"><h3>${recut?'Recut':'New NCR'} · Order ${esc(o.businessNumber)}</h3><button type="button" aria-label="Close" onclick="ncrFormClose()">×</button></div>
+ return `<div class="sales-service-modal-back sales-dialog-back" ${onActSelf('click',ncrFormClose)}><div class="sales-service-modal sales-dialog ncr-modal" role="dialog" aria-modal="true" aria-label="${recut?'Recut':'New NCR'}">
+  <div class="sales-service-modal-head"><h3>${recut?'Recut':'New NCR'} · Order ${esc(o.businessNumber)}</h3><button type="button" aria-label="Close" ${onAct('click',ncrFormClose)}>×</button></div>
   <div class="sales-dialog-body ncr-form">
    <p class="mut">${esc([salesCustomerDisplay(o.customerId),o.customerPo,salesStatusLabel(o)].filter(Boolean).join(' · '))}</p>
    <div><div class="ncr-label">AFFECTED GLASS</div><div class="ncr-lines-wrap">${slFromTable('ncrLines',`<table class="ncr-lines"><thead><tr><th></th><th>Line</th><th>Size</th><th>Glass</th><th class="n">Qty</th><th>Affected</th><th>Which glass</th></tr></thead><tbody>${rows}</tbody></table>`)}</div></div>
    <div class="ncr-pick${recut?' ncr-pick-two':''}">
-    <label><span class="ncr-label">WHERE</span><select data-ncr-where-select onchange="ncrFormSet('where',this.value)"><option value="">Choose…</option>${places.map(w=>`<option value="${esc(w.code)}" ${f.where===w.code?'selected':''}>${esc(w.code===NCR_OFFICE?'Office':w.code+' · '+w.name)}</option>`).join('')}</select></label>
-    <label><span class="ncr-label">WHAT HAPPENED</span><select data-ncr-reason-select ${f.where?'':'disabled'} onchange="ncrFormSet('reasonId',this.value)"><option value="">${f.where?'Choose…':'Choose where first'}</option>${reasons.map(r=>`<option value="${esc(r.id)}" ${f.reasonId===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}</select></label>
-    ${recut?'':`<label><span class="ncr-label">ACTION</span><select data-ncr-action-select onchange="ncrFormSet('action',this.value)">${NCR_ACTIONS.map(a=>`<option value="${esc(a)}" ${f.action===a?'selected':''}>${esc(a)}</option>`).join('')}</select></label>`}
+    <label><span class="ncr-label">WHERE</span><select data-ncr-where-select ${onAct('change',ncrFormSet,'where',EL_VALUE)}><option value="">Choose…</option>${places.map(w=>`<option value="${esc(w.code)}" ${f.where===w.code?'selected':''}>${esc(w.code===NCR_OFFICE?'Office':w.code+' · '+w.name)}</option>`).join('')}</select></label>
+    <label><span class="ncr-label">WHAT HAPPENED</span><select data-ncr-reason-select ${f.where?'':'disabled'} ${onAct('change',ncrFormSet,'reasonId',EL_VALUE)}><option value="">${f.where?'Choose…':'Choose where first'}</option>${reasons.map(r=>`<option value="${esc(r.id)}" ${f.reasonId===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}</select></label>
+    ${recut?'':`<label><span class="ncr-label">ACTION</span><select data-ncr-action-select ${onAct('change',ncrFormSet,'action',EL_VALUE)}>${NCR_ACTIONS.map(a=>`<option value="${esc(a)}" ${f.action===a?'selected':''}>${esc(a)}</option>`).join('')}</select></label>`}
    </div>
-   <label><span class="ncr-label">NOTE</span><textarea rows="2" data-ncr-note maxlength="500" oninput="ncrForm.note=this.value">${esc(f.note)}</textarea></label>
+   <label><span class="ncr-label">NOTE</span><textarea rows="2" data-ncr-note maxlength="500" ${onAct('input',ncrFormNote,EL_VALUE)}>${esc(f.note)}</textarea></label>
    ${ncrEffectText(f,o)?`<div class="sales-quote-note ncr-effect" data-ncr-effect>${esc(ncrEffectText(f,o))}</div>`:''}
    ${f.warning?`<div class="ncr-warning" role="alert" data-ncr-warning>⚠ ${esc(f.warning)}</div>`:''}
    ${f.error?`<div class="ncr-error" role="alert" data-ncr-error>${esc(f.error)}</div>`:''}
   </div>
-  <div class="sales-dialog-actions"><button type="button" onclick="ncrFormClose()">Cancel</button><button type="button" class="pri" data-ncr-create onclick="ncrFormCreate()">${recut?'Create recut':f.warning?'Create anyway':'Create NCR'}</button></div></div></div>`;
+  <div class="sales-dialog-actions"><button type="button" ${onAct('click',ncrFormClose)}>Cancel</button><button type="button" class="pri" data-ncr-create ${onAct('click',ncrFormCreate)}>${recut?'Create recut':f.warning?'Create anyway':'Create NCR'}</button></div></div></div>`;
 }
 function ncrViewHTML(){
  const n=ncrFind(ncrViewId);if(!n){ncrViewId='';return '';}
  const o=salesRecord(n.orderId),r=salesRecord(n.remakeOrderId),status=ncrStatus(n);
  const row=(k,v)=>`<span>${esc(k)}</span><b>${esc(v)}</b>`;
- return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)ncrViewClose()"><div class="sales-service-modal sales-dialog ncr-modal" role="dialog" aria-modal="true" aria-label="${esc(n.number)}">
-  <div class="sales-service-modal-head"><h3>${esc(n.number)}${o?' · Order '+esc(o.businessNumber):''} <span class="pill ${status==='Open'?'ncr-st-open':'ncr-st-done'}" data-ncr-status>${esc(status)}</span></h3><button type="button" aria-label="Close" onclick="ncrViewClose()">×</button></div>
+ return `<div class="sales-service-modal-back sales-dialog-back" ${onActSelf('click',ncrViewClose)}><div class="sales-service-modal sales-dialog ncr-modal" role="dialog" aria-modal="true" aria-label="${esc(n.number)}">
+  <div class="sales-service-modal-head"><h3>${esc(n.number)}${o?' · Order '+esc(o.businessNumber):''} <span class="pill ${status==='Open'?'ncr-st-open':'ncr-st-done'}" data-ncr-status>${esc(status)}</span></h3><button type="button" aria-label="Close" ${onAct('click',ncrViewClose)}>×</button></div>
   <div class="sales-dialog-body ncr-form">
    <div class="sales-dialog-rows">${row('Created',salesShortDate(n.createdAt))}${row('Customer',o?salesCustomerDisplay(o.customerId):'—')}${row('Source',n.source)}${row('Where',n.where===NCR_OFFICE?'Office':n.where+' · '+ncrWhereName(n.where))}${row('What happened',n.reason)}${row('Action',n.action)}</div>
    <div class="ncr-lines-wrap">${slFromTable('ncrAffected',`<table class="ncr-lines"><thead><tr><th>Line</th><th>Which glass</th><th class="n">Affected</th></tr></thead><tbody>${n.glass.map(g=>`<tr><td>Line ${g.line}${g.mark?' · '+esc(g.mark):''}</td><td>${esc(g.lite)}</td><td class="n">${g.qty}</td></tr>`).join('')}</tbody></table>`)}</div>
    ${n.note?`<p class="ncr-note">${esc(n.note)}</p>`:''}
    ${n.action===NCR_REMAKE?`<div class="sales-quote-note">${r?'Remake order '+esc(r.businessNumber)+' · '+esc(salesStatusLabel(r)):'Remake order deleted'}</div>`:''}
   </div>
-  <div class="sales-dialog-actions"><button type="button" onclick="ncrViewClose()">Close</button>${r?`<button type="button" data-ncr-open-remake onclick="ncrOpenOrder('${esc(r.id)}')">Open order ${esc(r.businessNumber)}</button>`:''}${o&&(!soDraft||soDraft.id!==o.id)?`<button type="button" class="pri" data-ncr-open-order onclick="ncrOpenOrder('${esc(o.id)}')">Open order ${esc(o.businessNumber)}</button>`:''}</div></div></div>`;
+  <div class="sales-dialog-actions"><button type="button" ${onAct('click',ncrViewClose)}>Close</button>${r?`<button type="button" data-ncr-open-remake ${onAct('click',ncrOpenOrder,String(r.id??''))}>Open order ${esc(r.businessNumber)}</button>`:''}${o&&(!soDraft||soDraft.id!==o.id)?`<button type="button" class="pri" data-ncr-open-order ${onAct('click',ncrOpenOrder,String(o.id??''))}>Open order ${esc(o.businessNumber)}</button>`:''}</div></div></div>`;
 }
 function ncrModalHTML(){return ncrForm?ncrFormHTML():ncrViewId?ncrViewHTML():'';}
 /* Полоса в заказе: его NCR и отметка «Remake for …» с No charge. */
 function ncrOrderStrip(o){
  if(!o||salesIsQuote(o)||soEdit==='new')return '';
  const list=ncrForOrder(o.id),src=o.remakeNcrId?ncrFind(o.remakeNcrId):null,parent=src&&salesRecord(src.orderId);
- const items=list.map(n=>{const s=ncrStatus(n);return `<div class="ncr-strip-row" data-ncr-strip="${esc(n.id)}"><b class="mono">${esc(n.number)}</b><span>${esc(ncrWhereLabel(n))} · ${esc(n.reason)} · ${esc(n.action)} · ${ncrPieces(n)} ${n.action===NCR_REMAKE?'unit':'pc'}${ncrPieces(n)===1?'':'s'}</span><span class="pill ${s==='Open'?'ncr-st-open':'ncr-st-done'}">${esc(s)}</span><button type="button" class="sm" onclick="ncrView('${esc(n.id)}')">View</button></div>`;}).join('');
- const remake=src?`<div class="ncr-strip-row ncr-remake" data-ncr-remake><b>Remake for ${esc(src.number)}</b><span>${parent?'order '+esc(parent.businessNumber):''}</span><label class="chk"><input type="checkbox" data-no-charge ${o.noCharge?'checked':''} onchange="soDraft.noCharge=this.checked;render()"> No charge</label><button type="button" class="sm" onclick="ncrView('${esc(src.id)}')">View NCR</button></div>`:'';
+ const items=list.map(n=>{const s=ncrStatus(n);return `<div class="ncr-strip-row" data-ncr-strip="${esc(n.id)}"><b class="mono">${esc(n.number)}</b><span>${esc(ncrWhereLabel(n))} · ${esc(n.reason)} · ${esc(n.action)} · ${ncrPieces(n)} ${n.action===NCR_REMAKE?'unit':'pc'}${ncrPieces(n)===1?'':'s'}</span><span class="pill ${s==='Open'?'ncr-st-open':'ncr-st-done'}">${esc(s)}</span><button type="button" class="sm" ${onAct('click',ncrView,String(n.id??''))}>View</button></div>`;}).join('');
+ const remake=src?`<div class="ncr-strip-row ncr-remake" data-ncr-remake><b>Remake for ${esc(src.number)}</b><span>${parent?'order '+esc(parent.businessNumber):''}</span><label class="chk"><input type="checkbox" data-no-charge ${o.noCharge?'checked':''} ${onAct('change',salesDraftSetRender,'noCharge',EL_CHECKED)}> No charge</label><button type="button" class="sm" ${onAct('click',ncrView,String(src.id??''))}>View NCR</button></div>`:'';
  return list.length||remake?`<div class="ncr-strip">${remake}${items}</div>`:'';
 }
 /* Блок Recuts над Notes: стёкла перереза этого заказа по позициям. Размер
    и кнопка Shape — чертёж этого Recut (erp/quality/recut): у Recut со своим
    чертежом они подсвечены. */
+/* Shape у Recut с выбором чертежа: какой Lite — из списка слева от кнопки. */
+function recutShapeOpenPicked(id,el){const v=el.previousElementSibling.value;salesOpenRecutShape(id,v===''?null:+v);}
+function ncrFormNote(v){ncrForm.note=v;}
 function recutOrderSection(o){
  if(!o||salesIsQuote(o)||soEdit==='new')return '';
  const list=recutForOrder(o.id);if(!list.length)return '';
  return `<div class="recut-section" data-recut-section><div class="recut-head">RECUTS</div>${list.map(r=>{const st=recutStatus(r),l=(o.lines||[]).find(x=>x.id===r.lineId),g=l&&recutLine(r,l),own=recutHasShape(r),lock=l?recutDrawingLock(r):'';
-  const dim=k=>`<input class="line-dim recut-dim" data-recut-${k} value="${esc(salesDimFrom16(g[k==='w'?'width16':'height16']))}" aria-label="Recut ${r.no} ${k==='w'?'width':'height'}" onchange="recutSizeChange('${esc(r.id)}','${k}',this)">`;
+  const dim=k=>`<input class="line-dim recut-dim" data-recut-${k} value="${esc(salesDimFrom16(g[k==='w'?'width16':'height16']))}" aria-label="Recut ${r.no} ${k==='w'?'width':'height'}" ${onAct('change',recutSizeChange,String(r.id??''),String(k),EL)}>`;
   const lites=g?[...new Set(glassBatchComponents(o,l).filter(c=>(r.keys||[]).includes(c.key)).map(c=>c.index))].filter(i=>salesLineLiteShape(g,i)):[],selected=g?recutDrawingLite(r,g):null;
   const choice=lites.length?`<select class="sm" data-recut-drawing aria-label="Recut ${r.no} drawing" ${lock?'disabled':''}><option value="">Shared Shape</option>${lites.map(i=>`<option value="${i}" ${i===selected?'selected':''}>Lite ${i+1} · Own shape</option>`).join('')}</select>`:'';
-  const size=g?`<span class="recut-size${own?' own':''}" data-recut-size>${!lock&&recutSizeEditable(r,l)?dim('w')+' × '+dim('h'):esc(dimIn16(g.width16/16))+' × '+esc(dimIn16(g.height16/16))}</span>${choice}<button type="button" class="sm recut-shape${own?' own':''}" data-recut-shape ${lock?`disabled title="${esc(lock)}"`:`title="${own?'Recut drawing':'Fix the drawing for this recut'}"`} onclick="salesOpenRecutShape('${esc(r.id)}'${choice?',this.previousElementSibling.value===\'\'?null:+this.previousElementSibling.value':''})">Shape</button>`:'';
+  const size=g?`<span class="recut-size${own?' own':''}" data-recut-size>${!lock&&recutSizeEditable(r,l)?dim('w')+' × '+dim('h'):esc(dimIn16(g.width16/16))+' × '+esc(dimIn16(g.height16/16))}</span>${choice}<button type="button" class="sm recut-shape${own?' own':''}" data-recut-shape ${lock?`disabled title="${esc(lock)}"`:`title="${own?'Recut drawing':'Fix the drawing for this recut'}"`} ${choice?onAct('click',recutShapeOpenPicked,String(r.id??''),EL):onAct('click',salesOpenRecutShape,String(r.id??''))}>Shape</button>`:'';
   return `<div class="recut-row" data-recut-row="${esc(r.id)}"><b>Recut ${r.no}</b><span>Line ${r.line}${r.mark?' · '+esc(r.mark):''}</span>${size}<span>${esc(r.lite)}</span><span>${r.qty} pc${r.qty===1?'':'s'}</span><span>${esc(ncrWhereLabel(r))} · ${esc(r.reason)}</span><span class="pill ${st==='In queue'?'ncr-st-open':'ncr-st-done'}">${esc(st)}</span>${r.note?`<span class="mut" title="${esc(r.note)}">${esc(r.note)}</span>`:''}</div>`;}).join('')}</div>`;
 }
 /* Черновик заказа должен быть сохранён: запись чертежа Recut может снять его

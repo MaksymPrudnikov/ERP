@@ -6,14 +6,14 @@
         salesListFit, salesQuickPick — кнопки и поля над таблицей */
 function salesListShowButton(){
  const label=[['orders','Orders'],['quotes','Quotes'],['ncr','NCR']].filter(x=>salesShow[x[0]]).map(x=>x[1]).join(' + ')||'Orders';
- return `<button type="button" class="sl-quiet" data-show-menu aria-label="Show orders or quotes" aria-expanded="${!!salesListMenu&&salesListMenu.kind==='show'}" onclick="salesListOpenShow(event)">${label}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`;
+ return `<button type="button" class="sl-quiet" data-show-menu aria-label="Show orders or quotes" aria-expanded="${!!salesListMenu&&salesListMenu.kind==='show'}" ${onAct('click',salesListOpenShow,EVENT)}>${label}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`;
 }
 function salesListOpenShow(e){salesListMenu=Object.assign({kind:'show',scope:'sales'},salesListAt(e,220));render();}
 function salesListShowMenuHTML(style){
  return `<div class="sl-menu sl-show-menu" style="${style}" role="dialog" aria-label="Show orders or quotes">${[['orders','Orders'],['quotes','Quotes'],['ncr','NCR']].map(([key,label])=>{
  const n=key==='ncr'?(DB.ncr||[]).length:(DB.salesOrder||[]).filter(o=>(key==='quotes')===salesIsQuote(o)&&(!salesIsQuote(o)||salesQuoteRepresentative(o).id===o.id)).length;
  const only=salesShow[key]&&['orders','quotes','ncr'].filter(k=>salesShow[k]).length===1;
- return `<label><input type="checkbox" data-show="${key}" ${salesShow[key]?'checked':''} ${only?'disabled':''} onchange="salesToggleShow('${key}')">${label}<small>${n}</small></label>`;
+ return `<label><input type="checkbox" data-show="${key}" ${salesShow[key]?'checked':''} ${only?'disabled':''} ${onAct('change',salesToggleShow,String(key))}>${label}<small>${n}</small></label>`;
  }).join('')}</div>`;
 }
 /* Один All (владелец, 2.11.2026): снимает быстрый вид и кнопку статуса; когда
@@ -31,7 +31,7 @@ function salesListShortLabel(s){return window.innerWidth>=1400?s:({'Due this wee
 /* Ряд кнопок статусов; на узком экране все статусы в одной кнопке Status. */
 function salesListStatusPills(chips){
  const cur=chips.find(c=>c.key===salesStatusFilter);
- if(window.innerWidth<1200)return `<button type="button" class="sl-quick-pill${cur?' on':''}" data-status-menu aria-haspopup="dialog" onclick="salesListOpenStatus(event)">Status: ${esc(cur?salesListShortLabel(cur.label):'All')}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`;
+ if(window.innerWidth<1200)return `<button type="button" class="sl-quick-pill${cur?' on':''}" data-status-menu aria-haspopup="dialog" ${onAct('click',salesListOpenStatus,EVENT)}>Status: ${esc(cur?salesListShortLabel(cur.label):'All')}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`;
  return '';
 }
 /* Статусы — второй строкой и только при All (владелец 07.11.2026): на
@@ -40,11 +40,12 @@ function salesListStatusPills(chips){
 function salesListStatusRow(chips){
  const p=salesListLoadPrefs();
  if(window.innerWidth<1200||p.statusHidden||p.quick!=='all'&&!salesStatusFilter)return '';
- return `<div class="sl-filter-row sl-status-row">${chips.map(c=>`<button type="button" class="sl-quick-pill sl-status-pill${c.key===salesStatusFilter?' on':''}" aria-pressed="${c.key===salesStatusFilter}" data-status-chip="${esc(c.key)}" onclick="salesSetStatusFilter(${esc(JSON.stringify(c.key))})">${esc(salesListShortLabel(c.label))}<b>${c.n.toLocaleString('en-US')}</b></button>`).join('')}</div>`;
+ return `<div class="sl-filter-row sl-status-row">${chips.map(c=>`<button type="button" class="sl-quick-pill sl-status-pill${c.key===salesStatusFilter?' on':''}" aria-pressed="${c.key===salesStatusFilter}" data-status-chip="${esc(c.key)}" ${onAct('click',salesSetStatusFilter,c.key)}>${esc(salesListShortLabel(c.label))}<b>${c.n.toLocaleString('en-US')}</b></button>`).join('')}</div>`;
 }
 function salesListOpenStatus(e){salesListMenu=Object.assign({kind:'status',scope:'sales'},salesListAt(e,220));render();}
+function salesListStatusMenuPick(key){salesListMenu=null;salesSetStatusFilter(key);}
 function salesListStatusMenuHTML(style){
- return `<div class="sl-menu sl-status-menu" style="${style}" role="dialog" aria-label="Status">${salesListChipsNow.map(c=>`<button type="button" class="sl-btn${c.key===salesStatusFilter?' on':''}" data-status-chip="${esc(c.key)}" onclick="salesListMenu=null;salesSetStatusFilter(${esc(JSON.stringify(c.key))})">${esc(c.label)}<b>${c.n.toLocaleString('en-US')}</b></button>`).join('')}</div>`;
+ return `<div class="sl-menu sl-status-menu" style="${style}" role="dialog" aria-label="Status">${salesListChipsNow.map(c=>`<button type="button" class="sl-btn${c.key===salesStatusFilter?' on':''}" data-status-chip="${esc(c.key)}" ${onAct('click',salesListStatusMenuPick,c.key)}>${esc(c.label)}<b>${c.n.toLocaleString('en-US')}</b></button>`).join('')}</div>`;
 }
 /* После отрисовки. Итоги прилипают к низу страницы, а это работает, только
    пока обёртка таблицы не прокручивается. Шире экрана (включили колонку,
@@ -119,7 +120,7 @@ const SALES_LIST_RANGE=[['last7','7 days'],['last14','14 days'],['last30','30 da
 function salesListDateButton(k){
  k=k||'created';const col=salesListColumn(k)||{label:'Created'},f=salesListLoadPrefs().filters[k],d=salesListDateParts(f),presets=(col.presets||SALES_LIST_PRESETS).concat(col.range||[]);
  const label=d.preset?(presets.find(x=>x[0]===d.preset)||['','Custom'])[1]:!d.simple?'Custom filter':d.from&&d.to?(d.from===d.to?salesListShortDay(d.from):salesListShortDay(d.from)+' – '+salesListShortDay(d.to)):d.from?'From '+salesListShortDay(d.from):d.to?'Through '+salesListShortDay(d.to):'All time';
- return `<button type="button" class="sl-quiet sl-date-toggle" data-created-range data-date-col="${esc(k)}" title="${esc(f?salesListFilterSummary(col,f):col.label+': all dates')}" aria-haspopup="dialog" onclick="salesListOpenDate(event,'${esc(k)}')">${esc(col.label)}: ${esc(label)}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`;
+ return `<button type="button" class="sl-quiet sl-date-toggle" data-created-range data-date-col="${esc(k)}" title="${esc(f?salesListFilterSummary(col,f):col.label+': all dates')}" aria-haspopup="dialog" ${onAct('click',salesListOpenDate,EVENT,String(k??''))}>${esc(col.label)}: ${esc(label)}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`;
 }
 function salesListOpenDate(e,k){k=k||'created';salesListMenu=Object.assign({kind:'date',scope:salesListScope(),col:k,error:''},salesListDateParts(salesListLoadPrefs().filters[k]),salesListAt(e,360));render();}
 function salesListDatePreset(key){
@@ -139,16 +140,17 @@ function salesListDateApply(){
 }
 function salesListDateMenuHTML(m,style){
  const col=salesListColumn(m.col||'created')||{label:'Created'};
- return `<div class="sl-menu sl-date-menu" style="${style}" role="dialog" aria-label="${esc(col.label)} date range"><div class="sl-date-presets">${(col.range||SALES_LIST_RANGE).map(([k,v])=>`<button type="button" class="sl-btn${m.preset===k&&m.simple&&(k||!m.from&&!m.to)?' on':''}" data-range-preset="${k}" onclick="salesListDatePreset('${k}')">${v}</button>`).join('')}</div>
+ return `<div class="sl-menu sl-date-menu" style="${style}" role="dialog" aria-label="${esc(col.label)} date range"><div class="sl-date-presets">${(col.range||SALES_LIST_RANGE).map(([k,v])=>`<button type="button" class="sl-btn${m.preset===k&&m.simple&&(k||!m.from&&!m.to)?' on':''}" data-range-preset="${k}" ${onAct('click',salesListDatePreset,String(k))}>${v}</button>`).join('')}</div>
   ${!m.simple?`<p class="mut">A custom ${esc(col.label)} filter is active. Choose a range to replace it.</p>`:''}
-  <div class="sl-date-inputs"><label>From<input type="date" data-range-from value="${esc(m.from)}" oninput="salesListDateInput('from',this.value)"></label><label>To<input type="date" data-range-to value="${esc(m.to)}" oninput="salesListDateInput('to',this.value)"></label></div>
-  ${m.error?`<p class="sl-range-error" role="alert">${esc(m.error)}</p>`:''}<div class="sl-date-actions"><button type="button" class="sl-text-button" data-range-today onclick="salesListDateToday()">Today</button><button type="button" class="sl-reset" data-range-reset title="Clear date range · show all dates" aria-label="Clear date range" onclick="salesListDateReset()">↺</button><span class="sp"></span><button type="button" class="pri" data-range-apply onclick="salesListDateApply()">Apply</button></div></div>`;
+  <div class="sl-date-inputs"><label>From<input type="date" data-range-from value="${esc(m.from)}" ${onAct('input',salesListDateInput,'from',EL_VALUE)}></label><label>To<input type="date" data-range-to value="${esc(m.to)}" ${onAct('input',salesListDateInput,'to',EL_VALUE)}></label></div>
+  ${m.error?`<p class="sl-range-error" role="alert">${esc(m.error)}</p>`:''}<div class="sl-date-actions"><button type="button" class="sl-text-button" data-range-today ${onAct('click',salesListDateToday)}>Today</button><button type="button" class="sl-reset" data-range-reset title="Clear date range · show all dates" aria-label="Clear date range" ${onAct('click',salesListDateReset)}>↺</button><span class="sp"></span><button type="button" class="pri" data-range-apply ${onAct('click',salesListDateApply)}>Apply</button></div></div>`;
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&salesListMenu){e.preventDefault();salesListCloseMenu();}});
 
-/* Shared status disclosure: the business statuses come from each list. */
+/* Shared status disclosure: the business statuses come from each list.
+   onSelect — действие выбора статуса (функция, core/actions): '' — все. */
 function salesListStatusControlHTML(chips,selection,total,onSelect){
  const p=salesListLoadPrefs(),selected=chips.find(c=>c.key===selection),label=selected?selected.label:'All',n=selected?selected.n:total;
- const toggle=`<button type="button" class="sl-status-toggle" data-status-toggle aria-expanded="${p.statusExpanded}" title="${p.statusExpanded?'Hide status filters':'Show status filters'}" onclick="salesListToggleStatuses()">${esc(label)} <b>${n}</b><span class="sl-disclosure" aria-hidden="true">${p.statusExpanded?'▾':'▸'}</span></button>`;
- return `<div class="sales-status-chips sl-status-compact">${toggle}${p.statusExpanded?`<div class="sl-status-options"><button type="button" data-status-all class="${selection?'':'on'}" onclick="${onSelect}('')">All <b>${total}</b></button>${chips.map(c=>`<button type="button" data-status-chip="${esc(c.key)}" class="${selection===c.key?'on':''}" onclick="${onSelect}(${esc(JSON.stringify(c.key))})">${esc(c.label)} <b>${c.n}</b></button>`).join('')}</div>`:''}</div>`;
+ const toggle=`<button type="button" class="sl-status-toggle" data-status-toggle aria-expanded="${p.statusExpanded}" title="${p.statusExpanded?'Hide status filters':'Show status filters'}" ${onAct('click',salesListToggleStatuses)}>${esc(label)} <b>${n}</b><span class="sl-disclosure" aria-hidden="true">${p.statusExpanded?'▾':'▸'}</span></button>`;
+ return `<div class="sales-status-chips sl-status-compact">${toggle}${p.statusExpanded?`<div class="sl-status-options"><button type="button" data-status-all class="${selection?'':'on'}" ${onAct('click',onSelect,'')}>All <b>${total}</b></button>${chips.map(c=>`<button type="button" data-status-chip="${esc(c.key)}" class="${selection===c.key?'on':''}" ${onAct('click',onSelect,c.key)}>${esc(c.label)} <b>${c.n}</b></button>`).join('')}</div>`:''}</div>`;
 }

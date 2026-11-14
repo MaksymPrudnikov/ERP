@@ -129,7 +129,7 @@ function salesQuoteTotalText(m){const t=finOrderTotals(m);return t.complete?docM
 function salesQuoteRevisionBar(shown){
  if(!shown||!(DB.salesOrder||[]).some(x=>x.id===shown.id))return '';
  const ms=salesQuoteMembers(shown),won=ms.some(m=>m.status==='won');
- return `<div class="quote-revs"><span>Revisions</span>${ms.map(m=>`<button type="button" class="quote-rev${m.id===shown.id?' on':''}" data-quote-rev="${esc(m.id)}" onclick="salesQuoteOpenRevision('${esc(m.id)}')"><b>${esc(salesQuoteRevName(m))}</b><small>${esc(salesQuoteRevState(m))} · ${esc(salesQuoteTotalText(m))}</small></button>`).join('')}${won?'':`<button type="button" class="quote-rev add" data-quote-new-rev onclick="salesQuoteNewRevision()"><b>+ New revision</b><small>copy of ${esc(salesQuoteRevName(shown))}</small></button>`}</div>`;
+ return `<div class="quote-revs"><span>Revisions</span>${ms.map(m=>`<button type="button" class="quote-rev${m.id===shown.id?' on':''}" data-quote-rev="${esc(m.id)}" ${onAct('click',salesQuoteOpenRevision,String(m.id??''))}><b>${esc(salesQuoteRevName(m))}</b><small>${esc(salesQuoteRevState(m))} · ${esc(salesQuoteTotalText(m))}</small></button>`).join('')}${won?'':`<button type="button" class="quote-rev add" data-quote-new-rev ${onAct('click',salesQuoteNewRevision)}><b>+ New revision</b><small>copy of ${esc(salesQuoteRevName(shown))}</small></button>`}</div>`;
 }
 function salesQuoteSentBanner(){
  const s=salesQuoteCopySource();if(!s)return '';

@@ -125,7 +125,7 @@ module.exports=async function({page,eq}){
 
  eq('menu and Users: Inventory after Purchasing, its own access checkbox',await t.p.evaluate(()=>{
   const i=NAV.findIndex(n=>n.k==='inventory');
-  return {after:NAV[i-1].k,section:USER_SECTIONS.indexOf('inventory')===USER_SECTIONS.indexOf('purchasing')+1,nav:!!document.querySelector('#side .nav-item[onclick*="inventory"]')};
+  return {after:NAV[i-1].k,section:USER_SECTIONS.indexOf('inventory')===USER_SECTIONS.indexOf('purchasing')+1,nav:!!document.querySelector('#side .nav-item[data-args-click*="inventory"]')};
  }),{after:'purchasing',section:true,nav:true});
 
  eq('dashboard: tiles follow column filters, status chip from a tile, minimum in the row, row opens the journal of this glass',await t.p.evaluate(()=>{

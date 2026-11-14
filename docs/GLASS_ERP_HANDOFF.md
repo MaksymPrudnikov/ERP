@@ -1,6 +1,6 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 5.311 · 12 ноября 2026 — журнал «кто что записал» для админа (Users → Cloud → Journal), HTTPS обязателен; хендофф — «как устроено сейчас» по разделам, журнал решений — `docs/journal/`.
+Версия 5.312 · 14 ноября 2026 — действия экрана без кода в разметке (`core/actions.js`): Sales, фигуры, списки и общее переведены, осталось 1435 обработчиков из 2095; хендофф — «как устроено сейчас» по разделам, журнал решений — `docs/journal/`.
 
 ## Как читать
 
@@ -44,8 +44,28 @@
   хранится и вне базы, не повторяется после старой выгрузки; с сервером — блоками `cloudNumbersReserve`.
 - Посчитанное живёт между отрисовками (`READ_KEEP`, `erp/read-scope`), сброс — любая запись и новый день.
 - Страница ходит только туда, что в CSP (`build/build.js`): свой сайт, `https://*.supabase.co`, Google Maps; `test/csp.js`.
-  `'unsafe-inline'` остаётся, пока обработчики в разметке (`onclick`).
-- Сторожа: `test/run.js` (все), `test/docs.js` (документы, карта, шапки модулей), `test/design-tokens.js`, `test/motion.js`.
+  `'unsafe-inline'` в `script-src` остаётся, пока в разметке есть обработчики (`onclick="…"`) и пока в
+  `dist/GLASS_ERP.html` весь код встроен одним `<script>` — ему нужен `sha256` от сборки (PR 5 задания ниже).
+- **Действия экрана без кода в разметке** (`src/core/actions.js`, задание `ЗАДАЧА_CSP_БЕЗ_INLINE.md`, 14.11): кнопка
+  несёт имя функции и аргументы данными (`data-on-click`, `data-args-click`), вызывает один слушатель на `document`
+  — только функции из реестра (их кладёт туда `onAct` при отрисовке), имя из разметки в `window` не ищется.
+  Порядок прежний: от цели вверх, раньше слушателей `document`; `event.stopPropagation()` и `event.currentTarget`
+  в действии работают как во встроенном обработчике. Разметку пишет помощник:
+  `onclick="salesOrderDelete('${esc(id)}')"` → `${onAct('click',salesOrderDelete,id)}`;
+  `oninput="f('name',this.value)"` → `${onAct('input',f,'name',EL_VALUE)}` (метки `EL`, `EVENT`, `EL_VALUE`,
+  `EL_CHECKED`, `elData('x')`); `event.stopPropagation();f()` → `onActStop`; `if(event.target===this)f()` →
+  `onActSelf`; в строке через `'+'` — `'<b '+onAct('click',f)+'>'`. Аргументы — данные, `esc` для них не нужен.
+  Несколько шагов, условие, присваивание — маленькая функция рядом со своим экраном (`salesDraftSet`,
+  `salesListDrop`). Код строкой (`${go}`) не передают — передают функцию и аргументы.
+- **Как перевести раздел** (PR 2–5): `node tools/csp-handlers.js --write <файлы>` переводит простые формы и
+  печатает остальные «руками» с причиной; `git diff` прочитать по каждому файлу (что проверять — в шапке скрипта);
+  функция, которую подменяют на `window[name]`, должна сохранить имя; тесты, искавшие элемент по `[onclick…]`, —
+  на `[data-on-click="имя"]`; уменьшить числа в `INLINE_LEFT` (`tools/csp-handlers.js`) — `test/docs.js` сверяет
+  список с кодом, новый `onclick` в любом файле красный. Кнопку записи база узнаёт по имени действия
+  (`storageLockButtons`): имя новой функции-обёртки должно так же подходить под `save*`, `*Save`, `*Create`, `del*`,
+  как прежний текст `onclick`, и не подходить, если прежний не подходил.
+- Сторожа: `test/run.js` (все), `test/docs.js` (документы, карта, шапки модулей, `INLINE_LEFT`), `test/actions.js`,
+  `test/design-tokens.js`, `test/motion.js`.
 
 ## Sales
 
@@ -102,6 +122,8 @@
 - Заказ — параметр расчёта: `salesOrderCommercialTotals(order)`, чужой заказ — `salesOrderArg`; `soDraft` только для
   открытого в Sales (этап 4 «до 10»). Расчёт строки `erp/sales/line-metrics`, работы `line-measure`, фигура
   `salesLineCutRect`, Save в фоне `save-job.js`, журнал `order-log.js` (`DB.orderEvent`), Hold `line-hold.js`.
+- Экраны Sales, фигуры, списки — без кода в разметке (действия `onAct`, см. Общее): поле шапки заказа пишет в
+  черновик через `salesDraftSet(k,v)`, поле строки — `salesLineSet(i,k,v)`, окна Hold — `salesLineHoldField`.
 - Цены: `salesBook`, `salesPriceBookOf`; надбавки `surchargeRates`, `salesSurcharges`; минимум `salesMinAreaFor`.
 - Сторожа: `test/order-totals.js` + эталоны `order-totals-fixture.js`, `money`, `line-metrics`, `line-measure`,
   `shape-cut-billing`, `order-delete`, `order-draft`, `copy-order`, `unit-cancel`, `batched-line-qty`, `dxf-import`,
@@ -489,14 +511,15 @@ masterdata.*` и `forms.*`.
   ПК, когда, строки по таблицам из `result.vers`, отказ `denied` / `conflict`), по 200, Older — `before_at`.
 - **Права таблиц**: правило есть у денег, комиссий, закупок и людей; остальные таблицы открыты всем участникам
   намеренно — закрывает админ в Users → Cloud → Access (владелец, 26.10). Запись закрытой таблицы чужим разделом —
-  отказ всей команды; команды цеха пишут таблицы разных разделов (Shipped — склад, Delete — деньги), поэтому новое
+  отказ всей команды; команды цеха пишут таблицы разных разделов (Save и Verify заказа — `glassPiece`, отмена заказа переносит
+  оплаты `receipt` через `finReleaseOrder`), поэтому новое
   закрытие — только с проверкой команд, которые эту таблицу пишут.
 - Сторожа: `test/cloud*.js`, `two-pcs` (на настоящем `schema.sql` через PGlite), `users-commands`, `csp`;
   `node tools/supabase/check-pglite.js`.
 
 **Открыто**: регистрация на Supabase открыта (`disable_signup`) — на решение; два настоящих ПК одновременно не
 проверены; переезд на новый домен — ближе к этапу 8 (владелец, 12.11: «есть ещё что в системе править»);
-`'unsafe-inline'` — хвост этапа 3. HTTPS обязателен (Enforce HTTPS, 12.11). Обязательная проверка CI для `main` не
+`'unsafe-inline'` — хвост этапа 3, идёт по разделам (PR 1 из 5 — 14.11, см. Общее). HTTPS обязателен (Enforce HTTPS, 12.11). Обязательная проверка CI для `main` не
 включена: автосборка пишет в `main` напрямую, правило её бы отклоняло.
 
 ## Overview

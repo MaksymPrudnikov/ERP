@@ -924,7 +924,7 @@ function salesExcelRowHtml(i){
  const v=salesExcelValidateRow(row),cols=salesExcelColumns();
  return `<tr data-row="${i}" class="${v.blank?'':(v.ok?'row-ok':'row-bad')}"><td class="n">${i+1}</td>`
   +cols.map(function(c){
-    return `<td class="cell ${c.cls}"><input data-r="${i}" data-c="${c.f}" class="${v.err[c.f]?'cell-bad':''}" value="${esc(row[c.f]||'')}"${i===0?` placeholder="${esc(c.ph)}"`:''}${c.list?` list="${c.list}"`:''} oninput="salesExcelCellInput(${i},'${c.f}',this)" onchange="salesExcelCellChange(${i},'${c.f}',this)" onkeydown="salesExcelCellKey(event,${i},'${c.f}')"></td>`;
+    return `<td class="cell ${c.cls}"><input data-r="${i}" data-c="${c.f}" class="${v.err[c.f]?'cell-bad':''}" value="${esc(row[c.f]||'')}"${i===0?` placeholder="${esc(c.ph)}"`:''}${c.list?` list="${c.list}"`:''} ${onAct('input',salesExcelCellInput,i,String(c.f),EL)} ${onAct('change',salesExcelCellChange,i,String(c.f),EL)} ${onAct('keydown',salesExcelCellKey,EVENT,i,String(c.f))}></td>`;
    }).join('')
   +`<td class="res">${salesExcelRowStatusHtml(v)}</td></tr>`;
 }
@@ -947,9 +947,9 @@ function salesExcelMapHtml(){
  const b=soExcelBlock,used=b.roles.filter(function(r){return r!=='skip';}).map(function(r){return SALES_EXCEL_ROLE_LABEL[r];}).join(' · ');
  const ignored=b.roles.filter(function(r){return r==='skip';}).length;
  return `<div class="excel-map"><span>Pasted ${b.cols} column${b.cols===1?'':'s'} → <b>${esc(used||'nothing')}</b>${ignored?`, ${ignored} ignored`:''}${b.header?', header row skipped':''}</span>`
-  +`<button class="sm" onclick="salesExcelToggleMap()">${soExcelMapOpen?'Hide columns':'Change columns'}</button></div>`
+  +`<button class="sm" ${onAct('click',salesExcelToggleMap)}>${soExcelMapOpen?'Hide columns':'Change columns'}</button></div>`
   +(soExcelMapOpen?`<div class="excel-map-grid"><table class="excel-grid"><thead><tr>${b.roles.map(function(role,i){
-     return `<th><select onchange="salesExcelSetRole(${i},this.value)">${SALES_EXCEL_ROLES.map(function(r){return `<option value="${r}" ${role===r?'selected':''}>${SALES_EXCEL_ROLE_LABEL[r]}</option>`;}).join('')}</select></th>`;
+     return `<th><select ${onAct('change',salesExcelSetRole,i,EL_VALUE)}>${SALES_EXCEL_ROLES.map(function(r){return `<option value="${r}" ${role===r?'selected':''}>${SALES_EXCEL_ROLE_LABEL[r]}</option>`;}).join('')}</select></th>`;
     }).join('')}</tr></thead><tbody data-raw>${b.rows.slice(0,4).map(function(cells){
      return `<tr>${b.roles.map(function(role,i){return `<td class="${role==='skip'?'off':''}">${esc(cells[i]||'')}</td>`;}).join('')}</tr>`;
     }).join('')}</tbody></table></div>`:'');
@@ -1487,9 +1487,9 @@ function salesChargeShortLabel(row){
   const l=String(row.label||'');if(l==='Clamp')return 'CLMP';if(l==='Hinge')return 'HNG';if(l.indexOf('Hole ')===0)return 'HOLE';if(l==='Flat Polish')return 'POLI';if(l==='Rough Arris')return 'ARRIS';if(l==='CNC Shape Polish')return 'CNC POL';if(l==='Muntin sections')return 'MUNTIN';if(l==='Lami Polish')return 'LAMPOL';if(l==='CNC Lami Polish')return 'CNC LAMI';if(l.indexOf('Mitering')===0)return 'MITER';if(l==='Radius Corner')return 'RAD';if(l==='Cutout')return 'CUT';if(l==='Hand notch'||l==='CNC notch')return 'NOTCH';if(l==='Triple IGU')return 'TRIPLE';if(l==='Shape Unit')return 'SHAPE';return l.slice(0,8).toUpperCase();}
 function salesLineServicesSummary(line){
  const rows=salesLineChargeRows(line),adjustments=salesLineCommercialAdjustments(line,soDraft),q=salesPositiveInt(line.qty,1),currency=soDraft.currency||'CAD';
- if(!rows.length&&!adjustments.length)return `<button type='button' class='line-services-btn empty' onclick='salesOpenLineServices("${esc(line.id)}")'><span>—</span><small>Services</small></button>`;
+ if(!rows.length&&!adjustments.length)return `<button type='button' class='line-services-btn empty' ${onAct('click',salesOpenLineServices,String(line.id??''))}><span>—</span><small>Services</small></button>`;
  const summary=salesLinePricingSummary(line),items=rows.map(function(r){const n=r.basis*q;return `<span>${esc(salesChargeShortLabel(r))}×${esc(salesChargeUnitValue(n,r.unit))}</span>`;}).concat(adjustments.map(function(a){return `<span class="commercial">${esc(a.label)} +${esc(a.percent)}%</span>`;})),chips=items.slice(0,3).join(''),more=items.length>3?`<i>+${items.length-3}</i>`:'',adjustmentTotal=adjustments.every(a=>a.complete)?salesMoney(adjustments.reduce((n,a)=>n+a.lineAmount,0)):null;
- return `<button type='button' class='line-services-btn${summary.unpriced||adjustments.some(a=>!a.complete)?' incomplete':''}' onclick='salesOpenLineServices("${esc(line.id)}")'><span class='line-services-chips'>${chips}${more}</span><span class='line-services-money'><b>${summary.total.toFixed(2)} ${esc(currency)}</b>${adjustments.length?`<small class="commercial-total">${adjustmentTotal==null?'surcharge —':'+'+adjustmentTotal.toFixed(2)+' surcharge'}</small>`:(summary.unpriced?`<small><span data-raw>${summary.unpriced}</span> <span>unpriced</span></small>`:'')}</span></button>`;
+ return `<button type='button' class='line-services-btn${summary.unpriced||adjustments.some(a=>!a.complete)?' incomplete':''}' ${onAct('click',salesOpenLineServices,String(line.id??''))}><span class='line-services-chips'>${chips}${more}</span><span class='line-services-money'><b>${summary.total.toFixed(2)} ${esc(currency)}</b>${adjustments.length?`<small class="commercial-total">${adjustmentTotal==null?'surcharge —':'+'+adjustmentTotal.toFixed(2)+' surcharge'}</small>`:(summary.unpriced?`<small><span data-raw>${summary.unpriced}</span> <span>unpriced</span></small>`:'')}</span></button>`;
 }
 function salesOrderChargeGroups(){
  const groups=Object.create(null);(soDraft.lines||[]).forEach(function(line,lineIndex){salesLineChargeRows(line).forEach(function(row){const gk=salesChargeGroupKey(row),q=salesPositiveInt(line.qty,1);if(!groups[gk])groups[gk]={key:gk,label:row.label,unit:row.unit,entries:[],basis:0,catalogRates:[]};const g=groups[gk],st=salesChargePricingState(line,row),basis=row.basis*q;g.entries.push({line:line,lineIndex:lineIndex,row:row,state:st,basis:basis,q:q});g.basis+=basis;if(st.catalogRate!=null&&!g.catalogRates.includes(st.catalogRate))g.catalogRates.push(st.catalogRate);});});

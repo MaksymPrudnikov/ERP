@@ -76,9 +76,10 @@ function priceListRowPrice(r,band){const b=band&&r.bands?r.bands[band]:null;retu
 /* Группа клиента — поле Group карточки (владелец, 22.10.2026: «это спец
    цены для клиентов»). Старый текст из Spil виден, пока группа не выбрана. */
 function customerGroupName(c){const l=c&&priceListById(c.priceGroupId);return l&&l.kind==='group'?(l.name||'Unnamed group'):(c&&c.group)||'';}
+function priceListGroupPick(v){cDraft.priceGroupId=v;cDraft.group='';}
 function customerGroupSelect(c){
  const old=!c.priceGroupId&&c.group?`<option value="" selected>${esc(c.group)} · not a price group</option>`:'';
- return `<select data-customer-group onchange="cDraft.priceGroupId=this.value;cDraft.group=''">${old}<option value="" ${!old&&!c.priceGroupId?'selected':''}>— None —</option>${priceListGroups().map(l=>`<option value="${esc(l.id)}" ${c.priceGroupId===l.id?'selected':''}>${esc(l.name||'Unnamed group')}</option>`).join('')}</select>`;
+ return `<select data-customer-group ${onAct('change',priceListGroupPick,EL_VALUE)}>${old}<option value="" ${!old&&!c.priceGroupId?'selected':''}>— None —</option>${priceListGroups().map(l=>`<option value="${esc(l.id)}" ${c.priceGroupId===l.id?'selected':''}>${esc(l.name||'Unnamed group')}</option>`).join('')}</select>`;
 }
 /* Строка прайса для цели: сама цель, иначе группа айтемов, заданная
    последней. Строка без цены — ещё не заполнена, её пропускаем. */

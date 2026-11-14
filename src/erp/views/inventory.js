@@ -88,15 +88,15 @@ function invListFilterBits(infos){
  let status='';
  if(invView==='offcuts'){
   const base=salesListRows(infos,['status']),f=salesListLoadPrefs().filters.status,selected=f&&f.values&&f.values.length===1?f.values[0]:'';
-  status=salesListStatusControlHTML(INV_OFFCUT_STATUSES.map(n=>({key:n,label:n,n:base.filter(i=>i.memo.status===n).length})).filter(c=>c.n||c.key===selected),selected,base.length,'invListStatus');
+  status=salesListStatusControlHTML(INV_OFFCUT_STATUSES.map(n=>({key:n,label:n,n:base.filter(i=>i.memo.status===n).length})).filter(c=>c.n||c.key===selected),selected,base.length,invListStatus);
  }
  if(invView==='stock'){
   const base=salesListRows(infos,['status']),f=salesListLoadPrefs().filters.status,selected=f&&f.values&&f.values.length===1?f.values[0]:'';
-  status=salesListStatusControlHTML(INV_STOCK_STATUSES.map(n=>({key:n,label:n,n:base.filter(i=>i.memo.status===n).length})).filter(c=>c.n||c.key===selected),selected,base.length,'invListStatus');
+  status=salesListStatusControlHTML(INV_STOCK_STATUSES.map(n=>({key:n,label:n,n:base.filter(i=>i.memo.status===n).length})).filter(c=>c.n||c.key===selected),selected,base.length,invListStatus);
  }
  if(invView==='sheets'){
   const base=salesListRows(infos,['status']),f=salesListLoadPrefs().filters.status,selected=f&&f.values&&f.values.length===1?f.values[0]:'';
-  status=salesListStatusControlHTML(INV_STATUSES.map(n=>({key:n,label:n,n:base.filter(i=>i.memo.status===n).length})).filter(c=>c.n||c.key===selected),selected,base.length,'invListStatus');
+  status=salesListStatusControlHTML(INV_STATUSES.map(n=>({key:n,label:n,n:base.filter(i=>i.memo.status===n).length})).filter(c=>c.n||c.key===selected),selected,base.length,invListStatus);
  }
  const date=invListDateColumn();
  return (status?'<span class="sl-filter-sep" aria-hidden="true"></span>'+status:'')+(date?'<span class="sales-toolbar-sp"></span>'+salesListDateButton(date):'');

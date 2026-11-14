@@ -417,20 +417,22 @@ function storageStatusHTML(){
  const admin=accessCan(ACCESS_ADMIN);
  return '<div class="storage-status'+(storageLastError||storageRecovery||storageStale?' bad':'')+'" role="status"><span>'+esc(text)+'</span>'+
   (storageLastSaved&&!storageLastError?'<small>Saved '+esc(new Date(storageLastSaved).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}))+'</small>':'')+
-  (typeof cloudSyncText==='function'&&cloudSyncText()?'<small data-cloud-sync-foot>Server: '+esc(cloudSyncText())+'</small>'+(cloudSync.warn?'<small data-cloud-warn-foot class="warn" title="Click to hide" onclick="cloudSync.warn=\'\';render()">'+esc(cloudSync.warn)+'</small>':'')
-   :typeof cloudJoinOpen==='function'&&!cloudConfig().session?'<button type="button" data-cloud-join-foot onclick="cloudJoinOpen()">Connect server</button>':'')+
+  (typeof cloudSyncText==='function'&&cloudSyncText()?'<small data-cloud-sync-foot>Server: '+esc(cloudSyncText())+'</small>'+(cloudSync.warn?'<small data-cloud-warn-foot class="warn" title="Click to hide" '+onAct('click',storageCloudWarnHide)+'>'+esc(cloudSync.warn)+'</small>':'')
+   :typeof cloudJoinOpen==='function'&&!cloudConfig().session?'<button type="button" data-cloud-join-foot '+onAct('click',cloudJoinOpen)+'>Connect server</button>':'')+
   (admin&&storageUsage?'<small>DB '+esc(String(Math.max(1,Math.round(storageUsage.usage/1048576))))+' MB</small>':'')+
   (admin&&storageLastAction!=null?'<small>Last action '+storageLastAction+' ms</small>':'')+'</div>';
 }
+function storageCloudWarnHide(){cloudSync.warn='';render();}
+function storageReload(){location.reload();}
 function storageAlertHTML(){
  const text=storageRecovery?'Database recovery needed. '+(storageLastError||''):!navigator.locks?'This browser cannot coordinate editing. Open Glass Farm in a current Chrome, Edge, Firefox or Safari.':storageStale?storageReadOnlyText():storageLastError||(storageUsageFull()?'Storage almost full. Export and tell admin.':'');
  if(!text)return '';
  return '<span>'+esc(text)+'</span>'+
-  (storageStale?'<button type="button" onclick="location.reload()">Reload</button>':'')+
-  (storageFailed&&!storageStale?'<button type="button" onclick="storageRetry()">Retry save</button>':'')+
-  (!storageWriter&&!storageRecovery&&!storageStale&&navigator.locks?'<button type="button" onclick="storageTakeControl()">Edit here</button>':'')+
-  (storageRecovery?'<button type="button" onclick="storageExportRecovery()">Export original data</button>':'')+
-  (storageRecovery&&storageBackupPresent?'<button type="button" onclick="storageRestoreBackup()">Restore pre-import backup</button>':'');
+  (storageStale?'<button type="button" '+onAct('click',storageReload)+'>Reload</button>':'')+
+  (storageFailed&&!storageStale?'<button type="button" '+onAct('click',storageRetry)+'>Retry save</button>':'')+
+  (!storageWriter&&!storageRecovery&&!storageStale&&navigator.locks?'<button type="button" '+onAct('click',storageTakeControl)+'>Edit here</button>':'')+
+  (storageRecovery?'<button type="button" '+onAct('click',storageExportRecovery)+'>Export original data</button>':'')+
+  (storageRecovery&&storageBackupPresent?'<button type="button" '+onAct('click',storageRestoreBackup)+'>Restore pre-import backup</button>':'');
 }
 function afterRender(){
  if(storageActionAt){const ms=performance.now()-storageActionAt;storageActionAt=0;storageLastAction=storageActionNow||ms<30000?Math.round(ms):null;}
@@ -446,8 +448,11 @@ function afterRender(){
    a broken database or in an older version, persisting controls are off. */
 function storageLockButtons(){
  if(storageRecovery||!navigator.locks||storageStale){
-  document.querySelectorAll('#app button[onclick],#app [data-station-scan]').forEach(el=>{
-   if(el.hasAttribute('data-station-scan')||/\b(?:save\w*|\w*Save|\w*Create|stationSubmit|stationMark|stationUndoClick|finConfirmApply|finExportQuickBooks|del\w*|carrierSet)\s*\(/.test(el.getAttribute('onclick')||'')){
+  /* Кнопку записи узнаём по имени действия (data-on-click, core/actions);
+     onclick — пока не все экраны переведены на действия (задание «CSP без inline»). */
+  document.querySelectorAll('#app button[onclick],#app button[data-on-click],#app [data-station-scan]').forEach(el=>{
+   const code=el.getAttribute('onclick')||(el.getAttribute('data-on-click')||'')+'(';
+   if(el.hasAttribute('data-station-scan')||/\b(?:save\w*|\w*Save|\w*Create|stationSubmit|stationMark|stationUndoClick|finConfirmApply|finExportQuickBooks|del\w*|carrierSet)\s*\(/.test(code)){
     el.disabled=true;el.title=storageStale?'Reload this tab to edit.':'Activate editing in this tab to change the database.';
    }
   });
@@ -807,6 +812,7 @@ async function storageImportFile(file){
  const raw=JSON.parse(await file.text());
  return storageImportState(raw,{test:!!raw&&raw.test===true});
 }
+actAllow(doImport); // поле файла стоит в src/shell.html готовой разметкой
 function doImport(inp){
  const f=inp.files[0];if(!f)return;
  if(!accessCan(ACCESS_ADMIN)){inp.value='';return;}

@@ -32,7 +32,7 @@ module.exports=async function({page,eq}){
   d.drawingLayout={[key]:{hide:true},'op:A':{hide:true}};const print=dlDoc(d,{sheet:true}),screen=dlDoc(d);
   const old=sDraft;sDraft=d;const list=shapeLayoutHiddenHTML();sDraft=old;
   return {fewerLines:dlLines(print).split('|').length===before.split('|').length-1,noFp:![...print.querySelectorAll('text')].some(x=>x.textContent==='FP'),
-   ghosts:screen.querySelectorAll('.shape-layout-ghost').length,printUi:print.querySelectorAll('.shape-layout-ghost,.shape-layout-menu,[onpointerdown]').length,show:(list.match(/Show /g)||[]).length};
+   ghosts:screen.querySelectorAll('.shape-layout-ghost').length,printUi:print.querySelectorAll('.shape-layout-ghost,.shape-layout-menu,[data-on-pointerdown]').length,show:(list.match(/Show /g)||[]).length};
  }),{fewerLines:true,noFp:true,ghosts:2,printUi:0,show:2});
  eq('selected label shows A− A+ Hide Reset only in the editor',await t.p.evaluate(()=>{
   const d=dlDef(),screen=dlDoc(d,{annotation:{interactive:true,layoutSelected:'op:A'}}),print=dlDoc(d,{sheet:true,annotation:{layoutSelected:'op:A'}});
@@ -100,7 +100,7 @@ module.exports=async function({page,eq}){
   const sheet=new DOMParser().parseFromString(ShapeModule.productionSvg(ShapeModule.compute(d),{metric:{},sheet:true}),'image/svg+xml');
   sDraft=d;sMetricDetail=true;const mm=shapeMetricHiddenControlsHTML(ShapeModule.compute(d));sMetricDetail=false;const inch=shapeMetricHiddenControlsHTML(ShapeModule.compute(d));
   sDraft=oldDraft;sMetricDetail=oldDetail;
-  return {angles:sheet.querySelectorAll('.shape-metric-angle').length,arcs:sheet.querySelectorAll('.shape-metric-angle-arc').length,ui:sheet.querySelectorAll('.shape-layout-ghost,.shape-layout-menu,[onpointerdown]').length,
+  return {angles:sheet.querySelectorAll('.shape-metric-angle').length,arcs:sheet.querySelectorAll('.shape-metric-angle-arc').length,ui:sheet.querySelectorAll('.shape-layout-ghost,.shape-layout-menu,[data-on-pointerdown]').length,
    mm:(mm.match(/shapeLayoutShow/g)||[]).length,mmKey:mm.includes('mm:angle:B~A'),inch:(inch.match(/shapeLayoutShow/g)||[]).length,inchKey:inch.includes('op:A')};
  }),{angles:3,arcs:3,ui:0,mm:1,mmKey:true,inch:1,inchKey:true});
  /* Меню числа лежит внутри его линии размера. Нажатие на A+ уходило линии и

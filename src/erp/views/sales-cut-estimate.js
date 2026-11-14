@@ -10,6 +10,7 @@
    пункт Cut preview в меню правой кнопки). Окно во весь экран; ‹ Sales или
    Esc закрывают его, и прикидки после этого нет — в базе её не было.
    ===================================================================== */
+function salesCutEstimateOpenSelected(){salesCutEstimateOpen(salesCutEstimateIds());}
 function salesCutEstimateIds(){return [...salesListSel].filter(id=>cutEstUsable(salesRecord(id)));}
 function salesCutEstimateOpen(ids){
  if(!cutEstOpen(ids))return;
@@ -46,8 +47,8 @@ function salesCutEstimateRecs(busy){
   const q=salesIsQuote(o),scan=cutEstScan(o),members=q?salesQuoteMembers(o):[];
   const count=new Map();scan.pieces.forEach(x=>count.set(x.c.glass,(count.get(x.c.glass)||0)+1));
   const glass=[...count].sort((a,b)=>a[0].localeCompare(b[0])).map(([g,n])=>g+' '+n);
-  const rev=members.length>1?`<select data-cut-est-rev="${esc(r.key)}" aria-label="Quote revision" ${busy?'disabled':''} onchange="salesCutEstimateRevision('${esc(r.key)}',this.value)">${members.map(m=>`<option value="${esc(m.id)}" ${m.id===r.id?'selected':''}>${esc(salesQuoteRevName(m))}</option>`).join('')}</select>`:'';
-  return `<div class="cut-est-rec${r.on?'':' off'}" data-cut-est-rec="${esc(r.key)}"><label class="chk"><input type="checkbox" data-cut-est-on ${r.on?'checked':''} ${busy?'disabled':''} onchange="salesCutEstimateToggle('${esc(r.key)}',this.checked)">
+  const rev=members.length>1?`<select data-cut-est-rev="${esc(r.key)}" aria-label="Quote revision" ${busy?'disabled':''} ${onAct('change',salesCutEstimateRevision,String(r.key??''),EL_VALUE)}>${members.map(m=>`<option value="${esc(m.id)}" ${m.id===r.id?'selected':''}>${esc(salesQuoteRevName(m))}</option>`).join('')}</select>`:'';
+  return `<div class="cut-est-rec${r.on?'':' off'}" data-cut-est-rec="${esc(r.key)}"><label class="chk"><input type="checkbox" data-cut-est-on ${r.on?'checked':''} ${busy?'disabled':''} ${onAct('change',salesCutEstimateToggle,String(r.key??''),EL_CHECKED)}>
    <span class="pill ${q?'kind-quote':'kind-order'}">${q?'Quote':'Order'}</span> <b class="mono">${esc(q?salesQuoteBaseNumber(o):o.businessNumber||'')}</b></label>${rev}
    <span>${esc(salesCustomerDisplay(o.customerId))}</span><span class="mut" data-cut-est-rec-pcs>${scan.pieces.length} pcs${glass.length?' · '+esc(glass.join(' · ')):''}</span></div>`;
  }).join('');
@@ -91,7 +92,7 @@ function viewSalesCutEstimate(){
  try{
   const head=cutLayoutHeader(est,'Preview'),on=cutEstRecords().length;
   return `<section class="optimization-queue glass-batches cut-est" data-cut-est>
-  <div class="page-head cut-page-head-wrap"><div class="gb-page-title"><button type="button" class="gb-link" data-cut-est-close onclick="salesCutEstimateClose()">‹ Sales</button><h2>Cut preview</h2><p>${on} of ${cutEst.recs.length} selected · nothing is saved</p></div>${head}</div>
+  <div class="page-head cut-page-head-wrap"><div class="gb-page-title"><button type="button" class="gb-link" data-cut-est-close ${onAct('click',salesCutEstimateClose)}>‹ Sales</button><h2>Cut preview</h2><p>${on} of ${cutEst.recs.length} selected · nothing is saved</p></div>${head}</div>
   <div class="card cut-est-head" data-cut-est-recs><div class="cut-est-recs">${salesCutEstimateRecs(busy)}</div>${salesCutEstimateGlass()}${salesCutEstimateSkipped()}</div>
   ${salesCutEstimateCompare()}
   <div class="card oq-card cut-card">${viewCutLayout(est)}</div>

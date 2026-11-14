@@ -229,7 +229,7 @@ function archiveListCell(info,col){
 }
 function archiveListRow(r,cols){
  const id=esc(r.o.id);
- return `<tr data-archived-row="${id}" class="sl-row-archived${salesListSel.has(r.o.id)?' sl-row-sel':''}" ondblclick="archiveOpenWork('${id}')">${salesListSideCheck(r.o.id,r.o.businessNumber||'')}${cols.map(c=>archiveListCell(r,c)).join('')}<td></td></tr>`;
+ return `<tr data-archived-row="${id}" class="sl-row-archived${salesListSel.has(r.o.id)?' sl-row-sel':''}" ${onAct('dblclick',archiveOpenWork,String(id))}>${salesListSideCheck(r.o.id,r.o.businessNumber||'')}${cols.map(c=>archiveListCell(r,c)).join('')}<td></td></tr>`;
 }
 
 /* ------------------------- Просмотр с диска --------------------------- */
@@ -317,7 +317,7 @@ function archiveVisitKeep(){
 function archiveViewing(o){return !!archiveVisit&&!!o&&(archiveVisit.ids.has(o.id)||typeof soDraft!=='undefined'&&o===soDraft);}
 function archiveHeaderActions(o){
  const a=archiveIndex.get(archiveVisit.id);
- return `<span class="sales-save-state" data-order-state>Archived${a&&a.archivedAt?' · '+esc(salesShortDate(a.archivedAt)):''}</span><button onclick="salesOrderClose()">Close</button><button onclick="docOpen()">Documents</button><button data-copy-order onclick="salesCopyOrder('${esc(o.id)}')">Copy</button>${salesIsQuote(o)?'':'<button class="ncr-btn" data-archive-ncr title="Returns the order to work" onclick="archiveNcr()">NCR</button>'}`;
+ return `<span class="sales-save-state" data-order-state>Archived${a&&a.archivedAt?' · '+esc(salesShortDate(a.archivedAt)):''}</span><button ${onAct('click',salesOrderClose)}>Close</button><button ${onAct('click',docOpen)}>Documents</button><button data-copy-order ${onAct('click',salesCopyOrder,String(o.id??''))}>Copy</button>${salesIsQuote(o)?'':'<button class="ncr-btn" data-archive-ncr title="Returns the order to work" '+onAct('click',archiveNcr)+'>NCR</button>'}`;
 }
 /* NCR по архивному заказу возвращает его в работу (владелец, 22.10.2026),
    и форма NCR открывается на нём. */

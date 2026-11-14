@@ -47,11 +47,11 @@ function shapeAnnUiShift(opts,key){var rec=shapeLayoutRec(opts,key),n=rec.off!=n
 function shapeAnnUiMenu(opts,key,cx,cy,F){
   if(!opts||!opts.interactive||opts.selectedKey!==key)return '';
   var x=Math.max(34,Math.min((F&&F.vw||960)-34,cx)),w=24,h=20,x0=x-w;
-  return '<g class="shape-dim-menu shape-inch-primary-menu" onclick="event.stopPropagation()"><rect x="'+(x0-4)+'" y="'+(cy-h/2-4)+'" width="'+(w*2+8)+'" height="'+(h+8)+'" rx="7"/><g class="shape-dim-btn" onclick="event.stopPropagation();shapeNudgeMetricLabel(\''+shapeXml(key)+'\',-1)"><rect x="'+x0+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="4"/><text x="'+(x0+w/2)+'" y="'+(cy+4)+'" text-anchor="middle">−</text></g><g class="shape-dim-btn" onclick="event.stopPropagation();shapeNudgeMetricLabel(\''+shapeXml(key)+'\',1)"><rect x="'+(x0+w)+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="4"/><text x="'+(x0+w+w/2)+'" y="'+(cy+4)+'" text-anchor="middle">+</text></g></g>';
+  return '<g class="shape-dim-menu shape-inch-primary-menu" '+onAct('click',actStop,EVENT)+'><rect x="'+(x0-4)+'" y="'+(cy-h/2-4)+'" width="'+(w*2+8)+'" height="'+(h+8)+'" rx="7"/><g class="shape-dim-btn" '+onActStop('click',shapeNudgeMetricLabel,String(key??''),-1)+'><rect x="'+x0+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="4"/><text x="'+(x0+w/2)+'" y="'+(cy+4)+'" text-anchor="middle">−</text></g><g class="shape-dim-btn" '+onActStop('click',shapeNudgeMetricLabel,String(key??''),1)+'><rect x="'+(x0+w)+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="4"/><text x="'+(x0+w+w/2)+'" y="'+(cy+4)+'" text-anchor="middle">+</text></g></g>';
 }
 function shapeAnnUiWrap(opts,key,body,cx,cy,F){
   if(!opts||!opts.interactive)return body;
-  return '<g class="shape-inch-primary-movable'+(opts.selectedKey===key?' active':'')+'" data-inch-primary-key="'+shapeXml(key)+'" onclick="event.stopPropagation();shapeSelectMetricLabel(\''+shapeXml(key)+'\')"><title>Move inch dimension · − / +</title>'+body+'</g>'+shapeAnnUiMenu(opts,key,cx,cy,F);
+  return '<g class="shape-inch-primary-movable'+(opts.selectedKey===key?' active':'')+'" data-inch-primary-key="'+shapeXml(key)+'" '+onActStop('click',shapeSelectMetricLabel,String(key??''))+'><title>Move inch dimension · − / +</title>'+body+'</g>'+shapeAnnUiMenu(opts,key,cx,cy,F);
 }
 /* ---------- ручная раскладка подписей ----------
    Владелец, 1 октября 2026: любую подпись чертежа — число цепочки, обработку
@@ -73,13 +73,14 @@ function shapeLayoutTransform(dx,dy,s,ax,ay){
 }
 function shapeLayoutPlain(svg){return String(svg).replace(/<title>[\s\S]*?<\/title>/g,'').replace(/<[^>]+>/g,' ').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&amp;/g,'&').replace(/\s+/g,' ').trim();}
 function shapeLayoutMenuSvg(key,cx,cy,vw,o){
-  o=o||{};var k=shapeXml(key),btn=(o.noScale?[]:[['A−','shapeLayoutScale(\''+k+'\',-1)',28],['A+','shapeLayoutScale(\''+k+'\',1)',28]]).concat([['Hide','shapeLayoutHide(\''+k+'\')',40],['Reset','shapeLayoutReset(\''+k+'\')',44]]);
+  /* Кнопка меню: [подпись, [действие, аргументы…], ширина] — действие уходит в onActStop. */
+  o=o||{};var k=String(key==null?'':key),btn=(o.noScale?[]:[['A−',[shapeLayoutScale,k,-1],28],['A+',[shapeLayoutScale,k,1],28]]).concat([['Hide',[shapeLayoutHide,k],40],['Reset',[shapeLayoutReset,k],44]]);
   /* Линия цепочки: −/+ по-прежнему двигают всю цепочку разом. */
-  if(o.chainKey){var ck=shapeXml(o.chainKey);btn.push(['Chain −','shapeNudgeMetricLabel(\''+ck+'\',-1)',56],['Chain +','shapeNudgeMetricLabel(\''+ck+'\',1)',56]);}
+  if(o.chainKey){var ck=String(o.chainKey);btn.push(['Chain −',[shapeNudgeMetricLabel,ck,-1],56],['Chain +',[shapeNudgeMetricLabel,ck,1],56]);}
   var total=btn.reduce(function(n,b){return n+b[2];},0),h=20,x=Math.max(total/2+6,Math.min((vw||960)-total/2-6,cx)),x0=x-total/2,run=0;
-  return '<g class="shape-dim-menu shape-layout-menu" onclick="event.stopPropagation()"><rect x="'+(x0-4)+'" y="'+(cy-h/2-4)+'" width="'+(total+8)+'" height="'+(h+8)+'" rx="7"/>'+btn.map(function(b){
+  return '<g class="shape-dim-menu shape-layout-menu" '+onAct('click',actStop,EVENT)+'><rect x="'+(x0-4)+'" y="'+(cy-h/2-4)+'" width="'+(total+8)+'" height="'+(h+8)+'" rx="7"/>'+btn.map(function(b){
     var bx=x0+run;run+=b[2];
-    return '<g class="shape-dim-btn" onclick="event.stopPropagation();'+b[1]+'"><rect x="'+bx+'" y="'+(cy-h/2)+'" width="'+b[2]+'" height="'+h+'" rx="4"/><text x="'+(bx+b[2]/2)+'" y="'+(cy+4)+'" text-anchor="middle">'+b[0]+'</text></g>';
+    return '<g class="shape-dim-btn" '+onActStop.apply(null,['click'].concat(b[1]))+'><rect x="'+bx+'" y="'+(cy-h/2)+'" width="'+b[2]+'" height="'+h+'" rx="4"/><text x="'+(bx+b[2]/2)+'" y="'+(cy+4)+'" text-anchor="middle">'+b[0]+'</text></g>';
   }).join('')+'</g>';
 }
 /* label — SVG подписи; (ax, ay) — её центр; o.from — точка линии, к которой
@@ -102,13 +103,13 @@ function shapeAnnItem(opts,key,label,ax,ay,o){
   ax=Math.round(ax*10)/10;ay=Math.round(ay*10)/10;
   if(rec.hide===true){
     if(!ui)return '';
-    return '<g class="shape-dim-ghost shape-layout-ghost" data-layout-key="'+k+'" onclick="event.stopPropagation();shapeLayoutShow(\''+k+'\')"><title>Show '+shapeXml(SHAPE_LAYOUT_TEXT[key])+'</title><circle cx="'+ax+'" cy="'+ay+'" r="7"/><text x="'+ax+'" y="'+(ay+3.5)+'" text-anchor="middle">+</text></g>';
+    return '<g class="shape-dim-ghost shape-layout-ghost" data-layout-key="'+k+'" '+onActStop('click',shapeLayoutShow,String(k))+'><title>Show '+shapeXml(SHAPE_LAYOUT_TEXT[key])+'</title><circle cx="'+ax+'" cy="'+ay+'" r="7"/><text x="'+ax+'" y="'+(ay+3.5)+'" text-anchor="middle">+</text></g>';
   }
   var sh=shapeAnnAxisShift(o,+rec.dx||0,+rec.dy||0),dx=sh[0],dy=sh[1],sc=o.noScale?1:(+rec.scale||1),tf=shapeLayoutTransform(dx,dy,sc,ax,ay),out='';
   if(o.from&&Math.hypot(dx,dy)>12)out+='<line class="shape-layout-leader" x1="'+o.from[0]+'" y1="'+o.from[1]+'" x2="'+(ax+dx)+'" y2="'+(ay+dy)+'" stroke="#98a2b3" stroke-width=".8"/>';
   var sel=ui&&opts.layoutSelected===key;
   var attrs='class="shape-layout-item'+(sel?' active':'')+'" data-layout-key="'+k+'"'+(tf?' transform="'+tf+'"':'')+
-    (ui?' data-layout-ax="'+ax+'" data-layout-ay="'+ay+'" data-layout-dx="'+dx+'" data-layout-dy="'+dy+'" data-layout-s="'+sc+'" data-layout-axis="'+(o.axis||'free')+'"'+(o.axis==='n'?' data-layout-nx="'+o.nx+'" data-layout-ny="'+o.ny+'"':'')+' onpointerdown="shapeLayoutPointerDown(event,this)" onclick="event.stopPropagation()"':'');
+    (ui?' data-layout-ax="'+ax+'" data-layout-ay="'+ay+'" data-layout-dx="'+dx+'" data-layout-dy="'+dy+'" data-layout-s="'+sc+'" data-layout-axis="'+(o.axis||'free')+'"'+(o.axis==='n'?' data-layout-nx="'+o.nx+'" data-layout-ny="'+o.ny+'"':'')+' '+onAct('pointerdown',shapeLayoutPointerDown,EVENT,EL)+' '+onAct('click',actStop,EVENT)+'':'');
   /* Одиночная подпись без своего transform и class получает атрибуты прямо на
      <text>: так подпись фурнитуры остаётся прямым потомком метки, и её стили
      (кегль отверстия) не меняются. */
