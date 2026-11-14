@@ -41,19 +41,12 @@ const ROOT = path.resolve(__dirname, '..');
 
 /* Файл → сколько встроенных обработчиков осталось. Только уменьшать.
    PR 1 (13.11.2026): Sales, фигуры, списки, общее; PR 2 (14.11.2026): Optimization,
-   Production, станции — переведены (их тут нет). */
+   Production, станции; PR 3 (14.11.2026): Master Data, формы, Customers, прайсы — переведены (их тут нет). */
 const INLINE_LEFT = {
   'src/erp/views/dashboard.js': 3,
   'src/erp/views/users.js': 43,
   'src/erp/signin.js': 10,
-  'src/erp/views/customers.js': 80,
   'src/erp/views/shipping.js': 30,
-  'src/erp/views/md-card.js': 1,
-  'src/erp/views/md-catalog.js': 10,
-  'src/erp/views/masterdata.js': 100,
-  'src/erp/views/surround-ui.js': 15,
-  'src/erp/views/price-lists-ui.js': 31,
-  'src/erp/views/documents-ui.js': 27,
   'src/erp/views/finance.js': 23,
   'src/erp/views/finance-workspace.js': 49,
   'src/erp/views/finance-lists.js': 27,
@@ -66,8 +59,6 @@ const INLINE_LEFT = {
   'src/erp/views/purchasing-receiving.js': 28,
   'src/erp/views/purchasing-delivery-documents.js': 7,
   'src/erp/views/purchasing-invoices.js': 20,
-  'src/erp/views/ncr-reasons-ui.js': 11,
-  'src/erp/views/forms-ui.js': 91,
   'src/erp/views/inventory.js': 52,
   'src/erp/views/shipping-lookup.js': 9,
   'src/erp/views/delivery.js': 18,

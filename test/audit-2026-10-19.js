@@ -84,7 +84,7 @@ module.exports=async function({page,eq}){
  await t.p.locator('.line-qty').first().fill('');await t.p.locator('.line-qty').first().type('1.5');
  const typed=await t.p.locator('.line-qty').first().inputValue();
  await t.p.evaluate(()=>{salesDraftDrop(true);tab='customers';customerNew();cTab='payment';cDraft.paymentMode='cash';render();});
- await t.p.locator('input[oninput="cDraft.depositPercent=this.value"]').type('12.5');
+ await t.p.locator(`input[data-on-input="custSet"][data-args-input*='"depositPercent"']`).type('12.5');
  eq('поля количества стёкол и юнитов: точку не набрать (1.5 → 15); проценты и деньги — как раньше (12.5)',{typed,deposit:await t.p.evaluate(()=>{const v=cDraft.depositPercent;cEdit=null;cDraft=null;tab='dashboard';render();return v;})},{typed:'15',deposit:'12.5'});
 
  eq('листов в строке — до 10 000: пересчёт и приёмка стекла отказывают с причиной, 10 000 — можно',await t.p.evaluate(()=>{

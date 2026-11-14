@@ -113,7 +113,7 @@ module.exports=async function({page,eq,ok}){
  }),{statement:'statement@example.test',invoice:'invoice@example.test',fallback:'invoice-only@example.test',mailed:'statement,invoice'});
 
  eq('Glass catalogue грузит GLASS_PRODUCTS.csv, Supply points — GLASS_SHEETS.csv',await t.p.evaluate(()=>{
-  tab='masterdata';mdSetTab('materials');const card=()=>{const d=document.createElement('div');d.innerHTML=mdImportCard();return d.querySelector('h3').textContent+' · '+d.querySelector('#mdCsv').getAttribute('onchange').match(/'(\w+)'/)[1];};
+  tab='masterdata';mdSetTab('materials');const card=()=>{const d=document.createElement('div');d.innerHTML=mdImportCard();return d.querySelector('h3').textContent+' · '+JSON.parse(d.querySelector('#mdCsv').getAttribute('data-args-change'))[1];};
   mdMatView='glassProduct';const glass=card();mdMatView='glassSheet';const sheets=card();mdMatView='glassProduct';
   const rep=importGlassProductsCsv('code,name,thickness_mm\nA5TEST,A5 Test Glass,6');DB.glassProduct=DB.glassProduct.filter(p=>p.code!=='A5TEST');
   return {glass,sheets,added:rep.added};

@@ -24,6 +24,7 @@ function docKindForm(k){const c=docCustomForm(k);return c?{kind:c.base,form:c.k}
 /* Чертежи строк — не бланк, а своя вкладка окна (владелец, 26–27.09.2026):
    лист текущей строки крупно, лента мини-листов, печать — этот лист или все.
    focus — строка, с которой открыть окно (клик по форме строки в батче). */
+function docLogoChoose(){document.getElementById('docLogoFile').click();}
 function docOpen(kind,focus){
  if(!soDraft)return;
  const kinds=docKindsFor(soDraft).map(d=>d.k),q=salesIsQuote(soDraft);
@@ -74,7 +75,7 @@ function docRevisionPicker(){
  if(!docState||docState.kind!=='quote')return '';
  const cur=salesQuoteCurrentId(),ref=cur&&(DB.salesOrder||[]).find(o=>o.id===cur);if(!ref)return '';
  const ms=salesQuoteMembers(ref);if(ms.length<2)return '';
- return `<span class="doc-revs">Revisions ${ms.map(m=>`<label><input type="checkbox" data-doc-rev="${esc(m.id)}" ${(docState.revs||[]).includes(m.id)?'checked':''} onchange="docToggleRev('${esc(m.id)}',this.checked)"> ${esc(salesQuoteRevName(m))}</label>`).join('')}</span>`;
+ return `<span class="doc-revs">Revisions ${ms.map(m=>`<label><input type="checkbox" data-doc-rev="${esc(m.id)}" ${(docState.revs||[]).includes(m.id)?'checked':''} ${onAct('change',docToggleRev,String(m.id??''),EL_CHECKED)}> ${esc(salesQuoteRevName(m))}</label>`).join('')}</span>`;
 }
 function docWarnings(){
  const out=[];if(docState.kind==='drawings')return '';
@@ -92,13 +93,13 @@ function docModal(){
  let pages=[],error='';
  if(!drawings)try{pages=docCurrentPages();}catch(e){error=e&&e.message||String(e);console.error(e);}
  const warn=docWarnings(),status=docState.status?'<span>'+esc(docState.status)+'</span>':'';
- const kinds=docKindsFor(soDraft).map(d=>`<button type="button" class="${d.k===(docState.form||docState.kind)?'on':''}" onclick="docSetKind('${esc(d.k)}')">${esc(d.label)}</button>`).join('')+`<button type="button" class="${drawings?'on':''}" data-doc-kind="drawings" onclick="docSetKind('drawings')">Drawings</button>`;
- const tools=drawings?docDrawingTools(items):`<button type="button" class="doc-pen${docState.panel?' on':''}" aria-pressed="${docState.panel}" onclick="docTogglePanel()">✎ Customize</button>`;
+ const kinds=docKindsFor(soDraft).map(d=>`<button type="button" class="${d.k===(docState.form||docState.kind)?'on':''}" ${onAct('click',docSetKind,String(d.k??''))}>${esc(d.label)}</button>`).join('')+`<button type="button" class="${drawings?'on':''}" data-doc-kind="drawings" ${onAct('click',docSetKind,'drawings')}>Drawings</button>`;
+ const tools=drawings?docDrawingTools(items):`<button type="button" class="doc-pen${docState.panel?' on':''}" aria-pressed="${docState.panel}" ${onAct('click',docTogglePanel)}>✎ Customize</button>`;
  const body=drawings?docDrawingsBody(items):`<div class="doc-pages">${error?`<div class="err" style="display:block">${esc(error)}</div>`:pages.map(pg=>`<div class="doc-sheet">${docPageSVG(pg)}</div>`).join('')}</div>`;
- return `<div class="doc-back" onclick="if(event.target===this)docClose()"><div class="doc-window" role="dialog" aria-modal="true" aria-label="Documents">
+ return `<div class="doc-back" ${onActSelf('click',docClose)}><div class="doc-window" role="dialog" aria-modal="true" aria-label="Documents">
   <div class="doc-bar"><b class="doc-title">Preview · ${docState.kind==='quote'?'Quote '+esc(salesQuoteBaseNumber(salesQuoteShown(soDraft))||'draft'):'Order '+esc(soDraft.businessNumber||'draft')}</b><div class="doc-kinds">${kinds}${docRevisionPicker()}</div><span class="doc-spacer"></span>
    ${tools}
-   ${drawings?`<span class="doc-print-pick"><button type="button" data-doc-print onclick="docDrawingPrintMenu(event)">Print ▾</button><span class="doc-print-menu" data-doc-print-menu hidden></span></span>`:'<button type="button" data-doc-print onclick="docPrint()">Print</button><button type="button" onclick="docEmail()">Email</button>'}<button type="button" onclick="docClose()">Close</button></div>
+   ${drawings?`<span class="doc-print-pick"><button type="button" data-doc-print ${onAct('click',docDrawingPrintMenu,EVENT)}>Print ▾</button><span class="doc-print-menu" data-doc-print-menu hidden></span></span>`:'<button type="button" data-doc-print '+onAct('click',docPrint)+'>Print</button><button type="button" '+onAct('click',docEmail)+'>Email</button>'}<button type="button" ${onAct('click',docClose)}>Close</button></div>
   ${warn||status?`<div class="doc-status">${warn}${status}</div>`:''}
   <div class="doc-body${docState.panel&&!drawings?' with-panel':''}">${body}${docState.panel&&!drawings?docPanel():''}</div>
  </div></div>`;
@@ -135,10 +136,10 @@ function docDrawingsBody(items){
  setTimeout(docDrawingsFit,0);
  if(!items.length)return '<div class="doc-drawings"><div class="empty">No drawings.</div></div>';
  const now=docDrawingNow(items),at=items.indexOf(now),many=items.length>1;
- const step=(d,label,sign,off)=>many?`<button type="button" class="doc-step" data-doc-${d} aria-label="${label}" title="${label} (${d==='prev'?'←':'→'})" ${off?'disabled':''} onclick="docDrawingStep(${sign})">${d==='prev'?'‹':'›'}</button>`:'';
+ const step=(d,label,sign,off)=>many?`<button type="button" class="doc-step" data-doc-${d} aria-label="${label}" title="${label} (${d==='prev'?'←':'→'})" ${off?'disabled':''} ${onAct('click',docDrawingStep,sign)}>${d==='prev'?'‹':'›'}</button>`:'';
  return `<div class="doc-drawings" data-doc-drawings>
   <div class="doc-stage">${step('prev','Previous drawing',-1,at<=0)}<figure class="doc-drawing" data-doc-drawing="${esc(now.key)}" style="zoom:${docDrawingZoom().toFixed(3)}">${docDrawingSheet(now)}</figure>${step('next','Next drawing',1,at>=items.length-1)}</div>
-  ${many?`<div class="doc-film" data-doc-film>${items.map(x=>`<button type="button" class="doc-thumb${x===now?' on':''}${x.recut?' doc-thumb-recut':''}" data-doc-thumb="${esc(x.key)}" title="${esc(docDrawingName(x))}" onclick="docDrawingGo('${esc(x.key)}')"><span class="doc-thumb-paper"><span class="doc-thumb-sheet">${x.html?docDrawingSheet(x):''}</span></span><b>${x.recut?'R'+x.recut.no+' · ':''}${x.i+1}${x.lite!=null?' · L'+(x.lite+1):''}</b></button>`).join('')}</div>`:''}
+  ${many?`<div class="doc-film" data-doc-film>${items.map(x=>`<button type="button" class="doc-thumb${x===now?' on':''}${x.recut?' doc-thumb-recut':''}" data-doc-thumb="${esc(x.key)}" title="${esc(docDrawingName(x))}" ${onAct('click',docDrawingGo,String(x.key??''))}><span class="doc-thumb-paper"><span class="doc-thumb-sheet">${x.html?docDrawingSheet(x):''}</span></span><b>${x.recut?'R'+x.recut.no+' · ':''}${x.i+1}${x.lite!=null?' · L'+(x.lite+1):''}</b></button>`).join('')}</div>`:''}
  </div>`;
 }
 function docDrawingsFit(){
@@ -175,7 +176,7 @@ function docDrawingPrintMenu(e){
  e.stopPropagation();
  const m=document.querySelector('[data-doc-print-menu]');if(!m)return;
  const items=docDrawingItems().filter(x=>x.html),now=docDrawingNow(docDrawingItems());
- m.innerHTML=(now&&now.html?`<button type="button" data-doc-print-one onclick="docDrawingsPrint('one')">This drawing · ${esc((now.recut?'Recut '+now.recut.no+' · ':'')+'Line '+(now.i+1)+(now.lite!=null?' · Lite '+(now.lite+1):''))}</button>`:'')+`<button type="button" data-doc-print-all onclick="docDrawingsPrint('all')">All · ${items.length}</button>`;
+ m.innerHTML=(now&&now.html?`<button type="button" data-doc-print-one ${onAct('click',docDrawingsPrint,'one')}>This drawing · ${esc((now.recut?'Recut '+now.recut.no+' · ':'')+'Line '+(now.i+1)+(now.lite!=null?' · Lite '+(now.lite+1):''))}</button>`:'')+`<button type="button" data-doc-print-all ${onAct('click',docDrawingsPrint,'all')}>All · ${items.length}</button>`;
  m.hidden=!m.hidden;
  if(!m.hidden)setTimeout(()=>document.addEventListener('click',()=>{m.hidden=true;},{once:true}),0);
 }
@@ -192,15 +193,15 @@ function docPanel(){
     галочка (по умолчанию стоит). */
  docFieldsFor(kind).filter(f=>!tpl||docFormHas(tpl,f.k)).concat(tpl?docFormAdded(kind,tpl).map(x=>({k:'b:'+x.b.id,g:'Added blocks',label:docFormBlockLabel(x.b),on:true})):[]).forEach(f=>{let g=groups.find(x=>x.name===f.g);if(!g){g={name:f.g,fields:[]};groups.push(g);}g.fields.push(f);});
  const hint=h=>h?'<small>'+h+'</small>':'';
- const box=f=>`<label class="doc-opt"><input type="checkbox" data-doc-field="${esc(f.k)}" ${(/^b:/.test(f.k)?o[f.k]!==false:o[f.k])?'checked':''} onchange="docSetOption('${esc(f.k)}',this.checked)"><span>${esc(f.label)}${hint(f.hint)}</span></label>`;
+ const box=f=>`<label class="doc-opt"><input type="checkbox" data-doc-field="${esc(f.k)}" ${(/^b:/.test(f.k)?o[f.k]!==false:o[f.k])?'checked':''} ${onAct('change',docSetOption,String(f.k??''),EL_CHECKED)}><span>${esc(f.label)}${hint(f.hint)}</span></label>`;
  const body=groups.map(g=>{
   if(g.name!=='Prices on lines')return `<h4>${g.name}</h4>${g.fields.map(box).join('')}`;
-  const modes=DOC_PRICE_MODES.map(m=>`<label class="doc-opt"><input type="radio" name="docPriceMode" data-doc-price="${m.k}" ${o.priceMode===m.k?'checked':''} onchange="docSetOption('priceMode','${m.k}')"><span>${m.label}${hint(m.hint)}</span></label>`).join('');
+  const modes=DOC_PRICE_MODES.map(m=>`<label class="doc-opt"><input type="radio" name="docPriceMode" data-doc-price="${m.k}" ${o.priceMode===m.k?'checked':''} ${onAct('change',docSetOption,'priceMode',String(m.k))}><span>${m.label}${hint(m.hint)}</span></label>`).join('');
   return `<h4>${g.name}</h4>${modes}<div class="doc-opt-sub">${g.fields.map(box).join('')}</div>`;
  }).join('');
- return `<aside class="doc-panel"><div class="doc-panel-head"><b>✎ Customize · ${docKindLabel(kind)}</b><button type="button" aria-label="Close panel" onclick="docTogglePanel()">×</button></div>
+ return `<aside class="doc-panel"><div class="doc-panel-head"><b>✎ Customize · ${docKindLabel(kind)}</b><button type="button" aria-label="Close panel" ${onAct('click',docTogglePanel)}>×</button></div>
   <p class="doc-panel-sub">Base set is ticked. Changes show on the left at once and apply to this print only.</p>${body}
-  <div class="doc-panel-actions"><button type="button" onclick="docResetOptions()">Reset to base</button><button type="button" class="pri" onclick="docSaveDefault()">Save as default</button></div></aside>`;
+  <div class="doc-panel-actions"><button type="button" ${onAct('click',docResetOptions)}>Reset to base</button><button type="button" class="pri" ${onAct('click',docSaveDefault)}>Save as default</button></div></aside>`;
 }
 
 /* ------------------------------ Печать ------------------------------ */
@@ -325,15 +326,15 @@ function docEmailQuote(){
 function viewMdCompany(){
  const c=DB.company;
  const f=(k,label,o)=>{o=o||{};const ph=o.ph?` placeholder="${esc(o.ph)}"`:'';
-  return `<div${o.wide?' class="doc-company-wide"':''}><label>${label}</label>${o.area?`<textarea rows="${o.rows||3}" data-company="${k}"${ph} onchange="companySet('${k}',this.value)">${esc(c[k])}</textarea>`:`<input${o.type?` type="${o.type}"`:''} data-company="${k}" value="${esc(c[k])}"${ph} onchange="companySet('${k}',this.value)">`}</div>`;};
+  return `<div${o.wide?' class="doc-company-wide"':''}><label>${label}</label>${o.area?`<textarea rows="${o.rows||3}" data-company="${k}"${ph} ${onAct('change',companySet,String(k),EL_VALUE)}>${esc(c[k])}</textarea>`:`<input${o.type?` type="${o.type}"`:''} data-company="${k}" value="${esc(c[k])}"${ph} ${onAct('change',companySet,String(k),EL_VALUE)}>`}</div>`;};
  return `<div class="sub">Printed on documents; empty — skipped.</div>
  <div class="doc-company">
   <div class="doc-company-logo"><label>Logo</label><div class="doc-logo-box">${c.logo?`<img src="${c.logo}" alt="Company logo">`:'<span>No logo</span>'}</div>
-   <div class="doc-logo-actions"><button type="button" onclick="document.getElementById('docLogoFile').click()">${c.logo?'Replace logo':'Upload logo'}</button>${c.logo?'<button type="button" onclick="companyRemoveLogo()">Remove</button>':''}</div>
-   <input type="file" id="docLogoFile" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="companyLogoUpload(this)"><small>PNG or JPEG.</small></div>
+   <div class="doc-logo-actions"><button type="button" ${onAct('click',docLogoChoose)}>${c.logo?'Replace logo':'Upload logo'}</button>${c.logo?'<button type="button" '+onAct('click',companyRemoveLogo)+'>Remove</button>':''}</div>
+   <input type="file" id="docLogoFile" accept="image/png,image/jpeg,image/webp" style="display:none" ${onAct('change',companyLogoUpload,EL)}><small>PNG or JPEG.</small></div>
   <div class="doc-company-grid">${f('legalName','Legal name *')}${f('hstNumber','HST number',{ph:'123456789 RT0001'})}${f('address1','Address line 1')}${f('address2','Address line 2')}${f('city','City')}${f('province','Province')}${f('postalCode','Postal code')}${f('country','Country')}${f('phone','Phone')}${f('email','Email',{type:'email'})}${f('website','Website')}${f('depositPercent','Deposit for cash customers, %',{type:'number'})}${f('quoteValidDays','Quote valid for, days',{type:'number'})}${f('paymentInstructions','Payment instructions',{area:true,wide:true,ph:'e-Transfer to … · Cheque payable to …'})}${f('termsText','Terms and conditions',{area:true,rows:6,wide:true})}${f('footerText','Footer line on customer documents',{wide:true,ph:'Thank you for your business'})}
-   <div class="doc-company-wide doc-myfields" data-company-myfields><label>My fields · for forms</label>${(c.myFields||[]).map(x=>`<div class="doc-myfield"><input data-myfield-name="${esc(x.id)}" value="${esc(x.name)}" placeholder="Name" onchange="companyMySet('${esc(x.id)}','name',this.value)"><input value="${esc(x.value)}" placeholder="Value" onchange="companyMySet('${esc(x.id)}','value',this.value)"><button type="button" aria-label="Remove field" onclick="companyMyRemove('${esc(x.id)}')">×</button></div>`).join('')}
-    <button type="button" class="doc-myfield-add" data-company-myfield-add onclick="companyMyAdd()">+ Add field</button><small>Each field is in Forms → Insert field → My fields.</small></div></div>
+   <div class="doc-company-wide doc-myfields" data-company-myfields><label>My fields · for forms</label>${(c.myFields||[]).map(x=>`<div class="doc-myfield"><input data-myfield-name="${esc(x.id)}" value="${esc(x.name)}" placeholder="Name" ${onAct('change',companyMySet,String(x.id??''),'name',EL_VALUE)}><input value="${esc(x.value)}" placeholder="Value" ${onAct('change',companyMySet,String(x.id??''),'value',EL_VALUE)}><button type="button" aria-label="Remove field" ${onAct('click',companyMyRemove,String(x.id??''))}>×</button></div>`).join('')}
+    <button type="button" class="doc-myfield-add" data-company-myfield-add ${onAct('click',companyMyAdd)}>+ Add field</button><small>Each field is in Forms → Insert field → My fields.</small></div></div>
  </div>`;
 }
 function companySet(k,v){

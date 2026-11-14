@@ -189,6 +189,13 @@ function formsPicture(input){
  reader.readAsDataURL(file);
 }
 function formsDelete(){const s=formsState(),sel=s.sel;if(!sel)return;s.sel=null;formsEdit(t=>{const p=t.parts[sel.part];p.blocks=p.blocks.filter(b=>b.id!==sel.id);});}
+/* Белый фон блока — значит без заливки. */
+function formsFillSet(v){formsSet('fill',v==='#ffffff'?'':v);}
+function formsModalPrefix(v){formsUi.modal.prefix=v;}
+function formsFileChoose(){document.querySelector('[data-forms-file]').click();}
+function formsPictureChoose(){document.querySelector('[data-forms-picture]').click();}
+/* Поле «N mm»: при входе — только число. */
+function formsMmFocus(el){el.value=parseFloat(el.value)||'';}
 function formsSet(k,v){
  const s=formsState();if(!s.sel)return;
  formsEdit(t=>{const b=formsFind(t,s.sel);if(!b)return;
@@ -231,16 +238,16 @@ function formsModalHTML(ctx){
  const fields=formsDef(s.form).fields(),groups=[...new Set(fields.map(f=>f.g).concat(['My fields']))].concat(['Page']);
  const val=f=>{let v=ctx.field(f.k);if(f.t)v=formFormat(v,f.t,m.format);v=Array.isArray(v)?v.join(' · '):String(v==null?'':v);return v||'—';};
  const q=m.q.trim().toLowerCase(),list=q?fields.filter(f=>(f.label+' '+f.g).toLowerCase().includes(q)):m.group==='Page'?[]:fields.filter(f=>f.g===m.group);
- const rows=list.map(f=>`<button type="button" class="fm-pick${m.field===f.k?' on':''}" data-forms-field="${esc(f.k)}" onclick="formsModalSet('field','${esc(f.k)}')"><span>${esc(f.label)}</span><em>${esc(val(f))}</em></button>`).join('')+(!q&&m.group==='Page'?`<button type="button" class="fm-pick${m.field==='@page'?' on':''}" onclick="formsModalSet('field','@page')"><span>Page number</span><em>1 of 2</em></button>`:'')+(!q&&m.group==='My fields'&&!list.length?'<p class="fm-note">Add your fields in Data → Company → My fields.</p>':'');
+ const rows=list.map(f=>`<button type="button" class="fm-pick${m.field===f.k?' on':''}" data-forms-field="${esc(f.k)}" ${onAct('click',formsModalSet,'field',String(f.k??''))}><span>${esc(f.label)}</span><em>${esc(val(f))}</em></button>`).join('')+(!q&&m.group==='Page'?`<button type="button" class="fm-pick${m.field==='@page'?' on':''}" ${onAct('click',formsModalSet,'field','@page')}><span>Page number</span><em>1 of 2</em></button>`:'')+(!q&&m.group==='My fields'&&!list.length?'<p class="fm-note">Add your fields in Data → Company → My fields.</p>':'');
  const f=fields.find(x=>x.k===m.field),formats=f&&f.t?FORM_FORMATS[f.t]:null,sample=f?ctx.field(f.k):'';
- const fmt=formats?formats.map((x,i)=>`<button type="button" class="fm-fmt${(m.format||formats[0].k)===x.k?' on':''}" onclick="formsModalSet('format','${x.k}')"><span>${esc(String(formFormat(sample||finToday(),f.t,x.k)))}</span><small>${esc(x.label)}</small></button>`).join(''):`<p class="fm-note">${f?'As is':'Choose a field'}</p>`;
- return `<div class="fm-modal-back" onclick="formsModalClose()"></div><div class="fm-modal" role="dialog" aria-modal="true" aria-label="Insert field" data-forms-modal>
-  <div class="fm-modal-head"><b>${m.mode==='change'?'Change field':'Insert field'}</b><button type="button" class="fm-x" aria-label="Close" onclick="formsModalClose()">×</button></div>
-  <input class="fm-search" data-forms-search placeholder="Search fields…" value="${esc(m.q)}" oninput="formsModalSet('q',this.value)">
-  <div class="fm-cols3"><div class="fm-groups">${groups.map(g=>`<button type="button" class="fm-pick${!q&&m.group===g?' on':''}" onclick="formsModalSet('group','${esc(g)}')">${esc(g)}</button>`).join('')}</div>
+ const fmt=formats?formats.map((x,i)=>`<button type="button" class="fm-fmt${(m.format||formats[0].k)===x.k?' on':''}" ${onAct('click',formsModalSet,'format',String(x.k))}><span>${esc(String(formFormat(sample||finToday(),f.t,x.k)))}</span><small>${esc(x.label)}</small></button>`).join(''):`<p class="fm-note">${f?'As is':'Choose a field'}</p>`;
+ return `<div class="fm-modal-back" ${onAct('click',formsModalClose)}></div><div class="fm-modal" role="dialog" aria-modal="true" aria-label="Insert field" data-forms-modal>
+  <div class="fm-modal-head"><b>${m.mode==='change'?'Change field':'Insert field'}</b><button type="button" class="fm-x" aria-label="Close" ${onAct('click',formsModalClose)}>×</button></div>
+  <input class="fm-search" data-forms-search placeholder="Search fields…" value="${esc(m.q)}" ${onAct('input',formsModalSet,'q',EL_VALUE)}>
+  <div class="fm-cols3"><div class="fm-groups">${groups.map(g=>`<button type="button" class="fm-pick${!q&&m.group===g?' on':''}" ${onAct('click',formsModalSet,'group',String(g??''))}>${esc(g)}</button>`).join('')}</div>
    <div class="fm-fields">${rows||(m.group==='My fields'?'':'<p class="fm-note">No fields</p>')}</div>
-   <div><div class="fm-h">Format</div>${fmt}<div class="fm-h">Before the value</div><input class="fm-in" data-forms-prefix value="${esc(m.prefix)}" placeholder="Date: " onchange="formsUi.modal.prefix=this.value"></div></div>
-  <div class="fm-modal-foot"><button type="button" onclick="formsModalClose()">Cancel</button><button type="button" class="pri" data-forms-insert ${m.field?'':'disabled'} onclick="formsModalApply()">${m.mode==='change'?'Apply':'Insert'}</button></div></div>`;
+   <div><div class="fm-h">Format</div>${fmt}<div class="fm-h">Before the value</div><input class="fm-in" data-forms-prefix value="${esc(m.prefix)}" placeholder="Date: " ${onAct('change',formsModalPrefix,EL_VALUE)}></div></div>
+  <div class="fm-modal-foot"><button type="button" ${onAct('click',formsModalClose)}>Cancel</button><button type="button" class="pri" data-forms-insert ${m.field?'':'disabled'} ${onAct('click',formsModalApply)}>${m.mode==='change'?'Apply':'Insert'}</button></div></div>`;
 }
 
 /* ---------------------------- Версии --------------------------------- */
@@ -282,18 +289,20 @@ function formsVersionsHTML(){
  /* Лист чертежа — HTML: версия на том же чертеже строки, без правки мышью. */
  if(def.html){try{sheet=`<div class="fm-vsheet fm-vdraw">${def.html(v.tpl,def.doc(s.sample),true)}</div>`;}catch(e){}setTimeout(()=>document.querySelectorAll('.fm-vdraw .print-sheet').forEach(el=>salesSheetFitDrawing(el)),0);}
  else try{pages=def.pages(v.tpl,def.doc(s.sample));}catch(e){}
- return `<div class="fm-modal-back" onclick="formsVersionsClose()"></div><div class="fm-modal fm-versions" role="dialog" aria-modal="true" aria-label="Versions" data-forms-versions>
+ return `<div class="fm-modal-back" ${onAct('click',formsVersionsClose)}></div><div class="fm-modal fm-versions" role="dialog" aria-modal="true" aria-label="Versions" data-forms-versions>
   <div class="fm-vlist"><div class="fm-modal-head"><b>Versions · ${esc(def.label)}</b></div>
-   ${list.map((x,i)=>`<button type="button" class="fm-pick fm-ver${i===m.sel?' on':''}" data-forms-version="${i}" onclick="formsVersionPick(${i})"><b>${esc(formsWhen(x.at))}${x.by?' · '+esc(x.by):''}</b><small>${esc(x.note||'')}</small></button>`).join('')}
-   <div class="fm-vfile"><button type="button" data-forms-download onclick="formsVersionDownload()">Download this version</button><button type="button" onclick="document.querySelector('[data-forms-file]').click()">Load form file…</button></div>
-   ${m.error?`<p class="fm-error" data-forms-file-error>${esc(m.error)}</p>`:''}<input type="file" accept=".json,application/json" hidden data-forms-file onchange="formsLoadFile(this)"></div>
+   ${list.map((x,i)=>`<button type="button" class="fm-pick fm-ver${i===m.sel?' on':''}" data-forms-version="${i}" ${onAct('click',formsVersionPick,i)}><b>${esc(formsWhen(x.at))}${x.by?' · '+esc(x.by):''}</b><small>${esc(x.note||'')}</small></button>`).join('')}
+   <div class="fm-vfile"><button type="button" data-forms-download ${onAct('click',formsVersionDownload)}>Download this version</button><button type="button" ${onAct('click',formsFileChoose)}>Load form file…</button></div>
+   ${m.error?`<p class="fm-error" data-forms-file-error>${esc(m.error)}</p>`:''}<input type="file" accept=".json,application/json" hidden data-forms-file ${onAct('change',formsLoadFile,EL)}></div>
   <div class="fm-vview"><div class="fm-vpages">${sheet}${pages.map(pg=>`<div class="fm-vsheet">${docPageSVG(pg).replace('width="612" height="792"','width="100%" height="100%"')}</div>`).join('')}</div>
-   <div class="fm-modal-foot"><button type="button" onclick="formsVersionsClose()">Close</button><button type="button" class="pri" data-forms-restore ${m.sel===0&&list[0].id!=='@default'&&!formsDirty()?'disabled':''} onclick="formsVersionRestore()">Restore this version</button></div></div></div>`;
+   <div class="fm-modal-foot"><button type="button" ${onAct('click',formsVersionsClose)}>Close</button><button type="button" class="pri" data-forms-restore ${m.sel===0&&list[0].id!=='@default'&&!formsDirty()?'disabled':''} ${onAct('click',formsVersionRestore)}>Restore this version</button></div></div></div>`;
 }
 
 /* ---------------------------- Колонки -------------------------------- */
 /* Владелец 05.11.2026: колонки списком справа (галочка, порядок, подпись,
    ширина), клик по строке или по колонке на листе — её настройки. */
+/* Нажатие на таблицу листа открывает её столбцы (без выделения текста). */
+function formsColumnsDown(ev,part,k){ev.preventDefault();formsColumns(part,k);}
 function formsColumns(part,k){const s=formsState();s.cols={part,k:k||''};s.sel=null;s.part=part;render();}
 function formsColCatalog(part){return (formsDef(formsState().form).columns||{})[part]||[];}
 function formsColEdit(part,fn){formsEdit(t=>{const p=t.parts[part];if(!p||!p.columns)return;p.columns=p.columns.map(c=>Object.assign({},c));fn(p.columns);});}
@@ -319,22 +328,24 @@ function formsColShows(part,k,key){
  formsUi.cols={part,k:key};render();
 }
 let formsColDrag='';
+function formsColDragStart(k){formsColDrag=k;}
+function formsColDropAt(ev,part,k){ev.preventDefault();formsColMove(part,formsColDrag,k);}
 function formsColsHTML(tpl){
  const s=formsState(),part=s.cols.part,p=tpl.parts[part],cat=formsColCatalog(part),lab=formsPartLabel(part);if(!p||!p.columns)return '';
  const mm=v=>Math.round((v||0)*FORMS_PT_MM),c=p.columns.find(x=>x.k===s.cols.k),free=cat.filter(x=>!p.columns.some(y=>y.k===x.k));
  if(c){const x=cat.find(y=>y.k===c.k),others=cat.filter(y=>y.k===c.k||!p.columns.some(z=>z.k===y.k)),al=c.align||(c.type==='num'?'right':'left');
-  return `<button type="button" class="fm-back" onclick="formsColumns('${part}','')">‹ Columns</button><div class="fm-h">Selected · Column</div>
-   <label><span>Heading</span><input class="fm-in" data-forms-col-label value="${esc(c.label||'')}" onchange="formsColSet('${part}','${esc(c.k)}','label',this.value)"></label>
-   <label><span>Shows</span><select class="fm-in" data-forms-col-shows onchange="formsColShows('${part}','${esc(c.k)}',this.value)">${others.map(y=>`<option value="${esc(y.k)}" ${y.k===c.k?'selected':''}>${esc(y.label)}</option>`).join('')}${x?'':`<option selected>${esc(c.k)}</option>`}</select></label>
-   <div class="fm-row"><label><span>Width, mm</span><input class="fm-in" data-forms-col-width inputmode="decimal" value="${mm(c.cw)}" onchange="formsColWidth('${part}','${esc(c.k)}',this.value)"></label><label><span>Size, pt</span><input class="fm-in" inputmode="decimal" value="${c.size||(c.type==='num'?9:8)}" onchange="formsColSize('${part}','${esc(c.k)}',this.value)"></label></div>
-   <div class="fm-seg"><button type="button" class="${c.bold?'on':''}" onclick="formsColToggle('${part}','${esc(c.k)}','bold')"><b>B</b></button>${['left','center','right'].map(a=>`<button type="button" class="${al===a?'on':''}" onclick="formsColSet('${part}','${esc(c.k)}','align','${a}')">${a[0].toUpperCase()+a.slice(1)}</button>`).join('')}</div>
-   <button type="button" class="fm-wide-btn" data-forms-col-hide onclick="formsColToggle('${part}','${esc(c.k)}','hide')">${c.hide?'Show this column':'Hide this column'}</button>
-   <button type="button" class="fm-wide-btn fm-danger" onclick="formsColRemove('${part}','${esc(c.k)}')">Remove column</button>`;}
- return `<div class="fm-h">${esc(lab[0])} · Columns</div><div class="fm-cols" data-forms-cols>${p.columns.map(x=>`<div class="fm-colrow${x.hide?' off':''}" draggable="true" data-forms-col="${esc(x.k)}" ondragstart="formsColDrag='${esc(x.k)}'" ondragover="event.preventDefault()" ondrop="event.preventDefault();formsColMove('${part}',formsColDrag,'${esc(x.k)}')" onclick="formsColumns('${part}','${esc(x.k)}')">
-   <i title="Drag to reorder">⋮⋮</i><input type="checkbox" ${x.hide?'':'checked'} title="Show" onclick="event.stopPropagation()" onchange="formsColToggle('${part}','${esc(x.k)}','hide')">
-   <input class="fm-in" value="${esc(x.label||'')}" onclick="event.stopPropagation()" onchange="formsColSet('${part}','${esc(x.k)}','label',this.value)">
-   <input class="fm-in fm-mm" value="${mm(x.cw)} mm" onclick="event.stopPropagation()" onfocus="this.value=parseFloat(this.value)||''" onchange="formsColWidth('${part}','${esc(x.k)}',this.value)"><span class="fm-open">›</span></div>`).join('')}</div>
-  ${free.length?`<select class="fm-in fm-add-col" data-forms-col-add onchange="formsColAdd('${part}',this.value)"><option value="">+ Column</option>${free.map(x=>`<option value="${esc(x.k)}">${esc(x.label)}</option>`).join('')}</select>`:''}
+  return `<button type="button" class="fm-back" ${onAct('click',formsColumns,String(part),'')}>‹ Columns</button><div class="fm-h">Selected · Column</div>
+   <label><span>Heading</span><input class="fm-in" data-forms-col-label value="${esc(c.label||'')}" ${onAct('change',formsColSet,String(part),String(c.k??''),'label',EL_VALUE)}></label>
+   <label><span>Shows</span><select class="fm-in" data-forms-col-shows ${onAct('change',formsColShows,String(part),String(c.k??''),EL_VALUE)}>${others.map(y=>`<option value="${esc(y.k)}" ${y.k===c.k?'selected':''}>${esc(y.label)}</option>`).join('')}${x?'':`<option selected>${esc(c.k)}</option>`}</select></label>
+   <div class="fm-row"><label><span>Width, mm</span><input class="fm-in" data-forms-col-width inputmode="decimal" value="${mm(c.cw)}" ${onAct('change',formsColWidth,String(part),String(c.k??''),EL_VALUE)}></label><label><span>Size, pt</span><input class="fm-in" inputmode="decimal" value="${c.size||(c.type==='num'?9:8)}" ${onAct('change',formsColSize,String(part),String(c.k??''),EL_VALUE)}></label></div>
+   <div class="fm-seg"><button type="button" class="${c.bold?'on':''}" ${onAct('click',formsColToggle,String(part),String(c.k??''),'bold')}><b>B</b></button>${['left','center','right'].map(a=>`<button type="button" class="${al===a?'on':''}" ${onAct('click',formsColSet,String(part),String(c.k??''),'align',String(a))}>${a[0].toUpperCase()+a.slice(1)}</button>`).join('')}</div>
+   <button type="button" class="fm-wide-btn" data-forms-col-hide ${onAct('click',formsColToggle,String(part),String(c.k??''),'hide')}>${c.hide?'Show this column':'Hide this column'}</button>
+   <button type="button" class="fm-wide-btn fm-danger" ${onAct('click',formsColRemove,String(part),String(c.k??''))}>Remove column</button>`;}
+ return `<div class="fm-h">${esc(lab[0])} · Columns</div><div class="fm-cols" data-forms-cols>${p.columns.map(x=>`<div class="fm-colrow${x.hide?' off':''}" draggable="true" data-forms-col="${esc(x.k)}" ${onAct('dragstart',formsColDragStart,String(x.k??''))} ${onAct('dragover',actPrevent,EVENT)} ${onAct('drop',formsColDropAt,EVENT,String(part),String(x.k??''))} ${onAct('click',formsColumns,String(part),String(x.k??''))}>
+   <i title="Drag to reorder">⋮⋮</i><input type="checkbox" ${x.hide?'':'checked'} title="Show" ${onAct('click',actStop,EVENT)} ${onAct('change',formsColToggle,String(part),String(x.k??''),'hide')}>
+   <input class="fm-in" value="${esc(x.label||'')}" ${onAct('click',actStop,EVENT)} ${onAct('change',formsColSet,String(part),String(x.k??''),'label',EL_VALUE)}>
+   <input class="fm-in fm-mm" value="${mm(x.cw)} mm" ${onAct('click',actStop,EVENT)} ${onAct('focus',formsMmFocus,EL)} ${onAct('change',formsColWidth,String(part),String(x.k??''),EL_VALUE)}><span class="fm-open">›</span></div>`).join('')}</div>
+  ${free.length?`<select class="fm-in fm-add-col" data-forms-col-add ${onAct('change',formsColAdd,String(part),EL_VALUE)}><option value="">+ Column</option>${free.map(x=>`<option value="${esc(x.k)}">${esc(x.label)}</option>`).join('')}</select>`:''}
   <p class="fm-note">Drag ⋮⋮ to reorder. Click a column to open it.</p>`;
 }
 
@@ -375,14 +386,14 @@ function formsRulerEnd(e,cancel){
 }
 function formsRulerMarks(tpl,fixed){
  const W=tpl.page.w,H=tpl.page.h,m=tpl.page.margin,pc=(v,of)=>(v/of*100).toFixed(4)+'%',in2=v=>(Math.round(v/72*100)/100)+'″';
- const mk=(which,cls,pos,title)=>`<span class="fm-mk ${cls}" data-forms-margin="${which}" style="${cls==='x'?'left':'top'}:${pos}" title="${title}" onpointerdown="formsRulerStart(event,'margin','${which}')"></span>`;
- return `<div class="fm-rgrab x" data-forms-ruler="x" title="Drag down for a guide" onpointerdown="formsRulerStart(event,'new','x')"></div><div class="fm-rgrab y" data-forms-ruler="y" title="Drag right for a guide" onpointerdown="formsRulerStart(event,'new','y')"></div>`+(fixed?'':
+ const mk=(which,cls,pos,title)=>`<span class="fm-mk ${cls}" data-forms-margin="${which}" style="${cls==='x'?'left':'top'}:${pos}" title="${title}" ${onAct('pointerdown',formsRulerStart,EVENT,'margin',String(which))}></span>`;
+ return `<div class="fm-rgrab x" data-forms-ruler="x" title="Drag down for a guide" ${onAct('pointerdown',formsRulerStart,EVENT,'new','x')}></div><div class="fm-rgrab y" data-forms-ruler="y" title="Drag right for a guide" ${onAct('pointerdown',formsRulerStart,EVENT,'new','y')}></div>`+(fixed?'':
   mk('left','x',pc(m.left,W),'Left margin '+in2(m.left))+mk('right','x',pc(W-m.right,W),'Right margin '+in2(m.right))+mk('top','y',pc(m.top,H),'Top margin '+in2(m.top))+mk('bottom','y',pc(H-m.bottom,H),'Bottom margin '+in2(m.bottom)));
 }
 function formsGuidesHTML(tpl){
  const g=tpl.guides||{},W=tpl.page.w,H=tpl.page.h,pc=(v,of)=>(v/of*100).toFixed(4)+'%',in2=v=>(Math.round(v/72*100)/100)+'″';
- return (g.x||[]).map((v,i)=>`<div class="fm-guide x" data-forms-guide="x${i}" title="Guide ${in2(v)}" style="left:${pc(v,W)}" onpointerdown="formsRulerStart(event,'guide','x',${i})"></div>`).join('')+
-  (g.y||[]).map((v,i)=>`<div class="fm-guide y" data-forms-guide="y${i}" title="Guide ${in2(v)}" style="top:${pc(v,H)}" onpointerdown="formsRulerStart(event,'guide','y',${i})"></div>`).join('');
+ return (g.x||[]).map((v,i)=>`<div class="fm-guide x" data-forms-guide="x${i}" title="Guide ${in2(v)}" style="left:${pc(v,W)}" ${onAct('pointerdown',formsRulerStart,EVENT,'guide','x',i)}></div>`).join('')+
+  (g.y||[]).map((v,i)=>`<div class="fm-guide y" data-forms-guide="y${i}" title="Guide ${in2(v)}" style="top:${pc(v,H)}" ${onAct('pointerdown',formsRulerStart,EVENT,'guide','y',i)}></div>`).join('');
 }
 
 /* ------------------------------ Лист --------------------------------- */
@@ -410,10 +421,10 @@ function formsSheetsHTML(){
   map.filter(r=>r.page===i).forEach(r=>{const k=r.part+'|'+r.id,b=boxes.get(k);if(!b)boxes.set(k,Object.assign({},r));else{const x2=Math.max(b.x+b.w,r.x+r.w),y2=Math.max(b.y+b.h,r.y+r.h);b.x=Math.min(b.x,r.x);b.y=Math.min(b.y,r.y);b.w=x2-b.x;b.h=y2-b.y;}});
   const hits=[...boxes.values()].map(r=>{
    if(String(r.id).startsWith('col:')){const k=r.id.slice(4),on=s.cols&&s.cols.part===r.part&&s.cols.k===k;
-    return `<div class="fm-hit fm-colhit${on?' sel':''}" data-forms-hit="${esc(r.part)}|${esc(r.id)}" title="Column" style="left:${pc(r.x,W)};top:${pc(r.y,H)};width:${pc(Math.max(r.w,4),W)};height:${pc(r.h,H)}" onpointerdown="event.preventDefault();formsColumns('${esc(r.part)}','${esc(k)}')"></div>`;}
+    return `<div class="fm-hit fm-colhit${on?' sel':''}" data-forms-hit="${esc(r.part)}|${esc(r.id)}" title="Column" style="left:${pc(r.x,W)};top:${pc(r.y,H)};width:${pc(Math.max(r.w,4),W)};height:${pc(r.h,H)}" ${onAct('pointerdown',formsColumnsDown,EVENT,String(r.part??''),String(k??''))}></div>`;}
    const sel=s.sel&&s.sel.part===r.part&&s.sel.id===r.id,b=formsFind(tpl,r);if(!b)return '';
    const handles=sel&&b.type!=='section'?'<span class="fm-rs e" data-forms-resize="e"></span>'+(formIsText(b)?'':'<span class="fm-rs s" data-forms-resize="s"></span>'):'';
-   return `<div class="fm-hit${sel?' sel':''}" data-forms-hit="${esc(r.part)}|${esc(r.id)}" title="${esc(formsBlockLabel(b))}" style="left:${pc(r.x,W)};top:${pc(r.y,H)};width:${pc(Math.max(r.w,4),W)};height:${pc(Math.max(r.h,4),H)}" onpointerdown="formsPointerStart(event,'${esc(r.part)}','${esc(r.id)}')">${handles}</div>`;}).join('');
+   return `<div class="fm-hit${sel?' sel':''}" data-forms-hit="${esc(r.part)}|${esc(r.id)}" title="${esc(formsBlockLabel(b))}" style="left:${pc(r.x,W)};top:${pc(r.y,H)};width:${pc(Math.max(r.w,4),W)};height:${pc(Math.max(r.h,4),H)}" ${onAct('pointerdown',formsPointerStart,EVENT,String(r.part??''),String(r.id??''))}>${handles}</div>`;}).join('');
   return `<div class="fm-sheet" data-forms-page="${i}" data-w="${W}" data-h="${H}">${docPageSVG(pg).replace('width="612" height="792"','width="100%" height="100%"')}${i?'':formsRuler(false,W)+formsRuler(true,H)+formsRulerMarks(tpl)}<div class="fm-margin" style="left:${pc(m.left,W)};right:${pc(m.right,W)}"></div>${formsGuidesHTML(tpl)}${hits}</div>`;
  }).join('');
 }
@@ -453,8 +464,8 @@ function formsTreeHTML(tpl){
  const s=formsState();
  return Object.keys(tpl.parts).map(k=>{const p=tpl.parts[k],lab=formsPartLabel(k);
   /* Строки бланка заказа рисует код: их вид — в окне ✎ Customize. */
-  const kids=p.lines?`<span class="fm-node c fm-node-note" data-forms-lines>${formsDef(s.form).custom?'Set in ✎ Customize':'Drawn by the program'}</span>`:p.columns?`<button type="button" class="fm-node c${s.cols&&s.cols.part===k?' sel':''}" data-forms-columns="${esc(k)}" onclick="formsColumns('${esc(k)}','')">Columns (${p.columns.filter(c=>!c.hide).length})</button>`:(p.blocks||[]).map(b=>`<button type="button" class="fm-node c${s.sel&&s.sel.part===k&&s.sel.id===b.id?' sel':''}" data-forms-node="${esc(k)}|${esc(b.id)}" onclick="formsSelect('${esc(k)}','${esc(b.id)}')">${esc(formsBlockLabel(b))}</button>`).join('');
-  return `<button type="button" class="fm-node p${!s.sel&&s.part===k?' sel':''}" data-forms-part="${esc(k)}" onclick="formsSelect('${esc(k)}','')"><span>${esc(lab[0])}</span><small>${esc(lab[1])}</small></button>${kids}`;}).join('');
+  const kids=p.lines?`<span class="fm-node c fm-node-note" data-forms-lines>${formsDef(s.form).custom?'Set in ✎ Customize':'Drawn by the program'}</span>`:p.columns?`<button type="button" class="fm-node c${s.cols&&s.cols.part===k?' sel':''}" data-forms-columns="${esc(k)}" ${onAct('click',formsColumns,String(k??''),'')}>Columns (${p.columns.filter(c=>!c.hide).length})</button>`:(p.blocks||[]).map(b=>`<button type="button" class="fm-node c${s.sel&&s.sel.part===k&&s.sel.id===b.id?' sel':''}" data-forms-node="${esc(k)}|${esc(b.id)}" ${onAct('click',formsSelect,String(k??''),String(b.id??''))}>${esc(formsBlockLabel(b))}</button>`).join('');
+  return `<button type="button" class="fm-node p${!s.sel&&s.part===k?' sel':''}" data-forms-part="${esc(k)}" ${onAct('click',formsSelect,String(k??''),'')}><span>${esc(lab[0])}</span><small>${esc(lab[1])}</small></button>${kids}`;}).join('');
 }
 function formsSettingsHTML(tpl){
  const s=formsState();if(s.cols)return formsColsHTML(tpl);const b=formsFind(tpl,s.sel);
@@ -463,36 +474,36 @@ function formsSettingsHTML(tpl){
  const mm=v=>v==null?'':Math.round(v*FORMS_PT_MM*10)/10,f=b.type==='field'||b.type==='barcode'?formsFieldDef(b.field):null,text=formIsText(b);
  /* Лист чертежа: строка текста в колонке — без ширины, интервала, переноса. */
  const hl=!!formsDef(s.form).html;
- const seg=(cur,list,fn)=>`<div class="fm-seg">${list.map(([k,l])=>`<button type="button" class="${cur===k?'on':''}" onclick="${fn}('${k}')">${l}</button>`).join('')}</div>`;
- const num=(k,label,v,isMm)=>`<label><span>${label}</span><input class="fm-in" data-forms-num="${k}" inputmode="decimal" value="${esc(String(v))}" onchange="formsNum('${k}',this.value,${isMm?'true':'false'})"></label>`;
+ const seg=(cur,list,fn)=>`<div class="fm-seg">${list.map(([k,l])=>`<button type="button" class="${cur===k?'on':''}" ${onAct('click',fn,String(k))}>${l}</button>`).join('')}</div>`;
+ const num=(k,label,v,isMm)=>`<label><span>${label}</span><input class="fm-in" data-forms-num="${k}" inputmode="decimal" value="${esc(String(v))}" ${onAct('change',formsNum,String(k),EL_VALUE,!!isMm)}></label>`;
  let what='';
- if(b.type==='text')what=`<label class="wide"><span>Text</span><textarea class="fm-in" data-forms-text rows="3" onchange="formsSet('text',this.value)">${esc(b.text||'')}</textarea></label><p class="fm-note">Fields in text: {number}, {page} of {pages}</p>`;
- else if(f||b.type==='field'||b.type==='barcode')what=`<label class="wide"><span>Field</span><button type="button" class="fm-in fm-field-btn" data-forms-change onclick="formsOpenField('change')">${esc(f?f.label:b.field)} ▾</button></label>${b.prefix?`<p class="fm-note">Before: “${esc(b.prefix)}”</p>`:''}`;
- else if(b.type==='image')what=`<button type="button" class="fm-wide-btn" onclick="document.querySelector('[data-forms-picture]').click()">Replace picture</button>`;
+ if(b.type==='text')what=`<label class="wide"><span>Text</span><textarea class="fm-in" data-forms-text rows="3" ${onAct('change',formsSet,'text',EL_VALUE)}>${esc(b.text||'')}</textarea></label><p class="fm-note">Fields in text: {number}, {page} of {pages}</p>`;
+ else if(f||b.type==='field'||b.type==='barcode')what=`<label class="wide"><span>Field</span><button type="button" class="fm-in fm-field-btn" data-forms-change ${onAct('click',formsOpenField,'change')}>${esc(f?f.label:b.field)} ▾</button></label>${b.prefix?`<p class="fm-note">Before: “${esc(b.prefix)}”</p>`:''}`;
+ else if(b.type==='image')what=`<button type="button" class="fm-wide-btn" ${onAct('click',formsPictureChoose)}>Replace picture</button>`;
  const look=text?`<div class="fm-h">Text</div><div class="fm-row">${num('size','Size, pt',b.size||9)}${hl?'':num('lh','Line spacing, pt',formLh(b))}</div>
-   <label><span>Font</span><select class="fm-in" data-forms-font onchange="formsSet('font',this.value)">${[['','Helvetica'],['times','Times'],['courier','Courier']].map(([k,l])=>`<option value="${k}" ${(b.font||'')===k?'selected':''}>${l}</option>`).join('')}</select></label>
-   <div class="fm-seg"><button type="button" class="${b.bold?'on':''}" onclick="formsToggle('bold')"><b>B</b></button><button type="button" class="${b.italic?'on':''}" data-forms-italic onclick="formsToggle('italic')"><i>I</i></button>${hl?'':['left','center','right'].map(a=>`<button type="button" class="${(b.align||'left')===a?'on':''}" onclick="formsSet('align','${a}')">${a[0].toUpperCase()+a.slice(1)}</button>`).join('')}</div>
-   <div class="fm-row"><label><span>Color</span><input type="color" class="fm-in fm-color" value="${esc(b.color||DOC_COLOR.ink)}" onchange="formsSet('color',this.value)"></label>${hl?'':`<label class="fm-check"><input type="checkbox" ${b.wrap?'checked':''} onchange="formsToggle('wrap')"><span>Wrap lines</span></label>`}</div>`
-  :b.type==='line'||b.type==='box'?`<div class="fm-h">Line</div><div class="fm-row"><label><span>Color</span><input type="color" class="fm-in fm-color" value="${esc(b.color||DOC_COLOR.line)}" onchange="formsSet('color',this.value)"></label>${num('lw','Width, pt',b.lw||.6)}</div>${b.type==='box'?`<div class="fm-row"><label><span>Fill</span><input type="color" class="fm-in fm-color" value="${esc(b.fill||'#ffffff')}" onchange="formsSet('fill',this.value==='#ffffff'?'':this.value)"></label>${num('r','Corner, pt',b.r||0)}</div>`:''}`:'';
+   <label><span>Font</span><select class="fm-in" data-forms-font ${onAct('change',formsSet,'font',EL_VALUE)}>${[['','Helvetica'],['times','Times'],['courier','Courier']].map(([k,l])=>`<option value="${k}" ${(b.font||'')===k?'selected':''}>${l}</option>`).join('')}</select></label>
+   <div class="fm-seg"><button type="button" class="${b.bold?'on':''}" ${onAct('click',formsToggle,'bold')}><b>B</b></button><button type="button" class="${b.italic?'on':''}" data-forms-italic ${onAct('click',formsToggle,'italic')}><i>I</i></button>${hl?'':['left','center','right'].map(a=>`<button type="button" class="${(b.align||'left')===a?'on':''}" ${onAct('click',formsSet,'align',String(a))}>${a[0].toUpperCase()+a.slice(1)}</button>`).join('')}</div>
+   <div class="fm-row"><label><span>Color</span><input type="color" class="fm-in fm-color" value="${esc(b.color||DOC_COLOR.ink)}" ${onAct('change',formsSet,'color',EL_VALUE)}></label>${hl?'':`<label class="fm-check"><input type="checkbox" ${b.wrap?'checked':''} ${onAct('change',formsToggle,'wrap')}><span>Wrap lines</span></label>`}</div>`
+  :b.type==='line'||b.type==='box'?`<div class="fm-h">Line</div><div class="fm-row"><label><span>Color</span><input type="color" class="fm-in fm-color" value="${esc(b.color||DOC_COLOR.line)}" ${onAct('change',formsSet,'color',EL_VALUE)}></label>${num('lw','Width, pt',b.lw||.6)}</div>${b.type==='box'?`<div class="fm-row"><label><span>Fill</span><input type="color" class="fm-in fm-color" value="${esc(b.fill||'#ffffff')}" ${onAct('change',formsFillSet,EL_VALUE)}></label>${num('r','Corner, pt',b.r||0)}</div>`:''}`:'';
  const sh=b.show||{},fl=formsDef(s.form).fields(),sec=b.type==='section';
- const showIf=`<div class="fm-h">Show if</div><select class="fm-in" data-forms-show onchange="formsShow('when',this.value)">${[['','Always'],['filled','A field is filled'],['is','A field is…'],['not','A field is not…']].map(([k,l])=>`<option value="${k}" ${(sh.when||'')===k?'selected':''}>${l}</option>`).join('')}</select>
-  ${sh.when?`<select class="fm-in fm-gap" data-forms-show-field onchange="formsShow('field',this.value)">${fl.map(f=>`<option value="${esc(f.k)}" ${sh.field===f.k?'selected':''}>${esc(f.g+' · '+f.label)}</option>`).join('')}</select>${sh.when!=='filled'?`<input class="fm-in fm-gap" data-forms-show-value placeholder="Value, e.g. Delivery" value="${esc(sh.value||'')}" onchange="formsShow('value',this.value)">`:''}`:''}`;
- return `<div class="fm-h fm-sel-h"><span>Selected · ${esc(formsTypeLabel(b))}</span><button type="button" class="fm-del" data-forms-delete onclick="formsDelete()">Delete</button></div>${what}
+ const showIf=`<div class="fm-h">Show if</div><select class="fm-in" data-forms-show ${onAct('change',formsShow,'when',EL_VALUE)}>${[['','Always'],['filled','A field is filled'],['is','A field is…'],['not','A field is not…']].map(([k,l])=>`<option value="${k}" ${(sh.when||'')===k?'selected':''}>${l}</option>`).join('')}</select>
+  ${sh.when?`<select class="fm-in fm-gap" data-forms-show-field ${onAct('change',formsShow,'field',EL_VALUE)}>${fl.map(f=>`<option value="${esc(f.k)}" ${sh.field===f.k?'selected':''}>${esc(f.g+' · '+f.label)}</option>`).join('')}</select>${sh.when!=='filled'?`<input class="fm-in fm-gap" data-forms-show-value placeholder="Value, e.g. Delivery" value="${esc(sh.value||'')}" ${onAct('change',formsShow,'value',EL_VALUE)}>`:''}`:''}`;
+ return `<div class="fm-h fm-sel-h"><span>Selected · ${esc(formsTypeLabel(b))}</span><button type="button" class="fm-del" data-forms-delete ${onAct('click',formsDelete)}>Delete</button></div>${what}
   ${sec?`<p class="fm-note">Drawn by the program.${formsDef(s.form).custom?' What it shows — ✎ Customize.':''}</p><div class="fm-h">Place on sheet</div><div class="fm-row">${num('y','Y, mm',mm(b.y),true)}</div>`
-  :`<div class="fm-h">Place on sheet</div>${seg(b.place||'left',[['left','Left'],['center','Center'],['right','Right'],['free','Free']],'formsPlace')}
-  <div class="fm-row">${b.place==='free'?num('x','X, mm',mm(b.x),true):''}${num('y','Y, mm',mm(b.y),true)}${hl?'':num('w','Width, mm',mm(b.w),true)}${text?'':num('h','Height, mm',mm(b.h),true)}</div>`}${hl?drawLayerHTML(b):''}${look}${showIf}${sec?'':`<button type="button" class="fm-wide-btn" data-forms-addto onclick="formsAddToOpen()">Add to other forms…</button>`}`;
+  :`<div class="fm-h">Place on sheet</div>${seg(b.place||'left',[['left','Left'],['center','Center'],['right','Right'],['free','Free']],formsPlace)}
+  <div class="fm-row">${b.place==='free'?num('x','X, mm',mm(b.x),true):''}${num('y','Y, mm',mm(b.y),true)}${hl?'':num('w','Width, mm',mm(b.w),true)}${text?'':num('h','Height, mm',mm(b.h),true)}</div>`}${hl?drawLayerHTML(b):''}${look}${showIf}${sec?'':`<button type="button" class="fm-wide-btn" data-forms-addto ${onAct('click',formsAddToOpen)}>Add to other forms…</button>`}`;
 }
 function viewMdForms(){
  const s=formsState(),def=formsDef(s.form),d=formsDraft(),tpl=d.tpl,dirty=formsDirty(),samples=def.samples();
  const ctx=def.context(def.doc(s.sample));
  const add=[['text','Text'],['field','Field'],['image','Picture'],['line','Line'],['box','Frame'],['barcode','Barcode']].filter(([k])=>!def.add||def.add.includes(k));
  return `<div class="fm" data-forms>
-  <div class="fm-bar"><div class="fm-forms">${formsDefs().map(x=>`<button type="button" class="sl-quick-pill${x.k===s.form?' on':''}" onclick="formsSetForm('${x.k}')">${esc(x.label)}</button>`).join('')}</div><span class="fm-sp"></span>
-   <label class="fm-preview"><span>Preview</span><select data-forms-sample onchange="formsSetSample(this.value)">${samples.length?samples.map(x=>`<option value="${esc(x.id)}" ${x.id===s.sample?'selected':''}>${esc(x.label)}</option>`).join(''):'<option value="sample">Sample</option>'}</select></label>
-   <button type="button" data-forms-undo ${d.undo.length?'':'disabled'} onclick="formsUndo()">Undo</button><button type="button" data-forms-redo ${d.redo.length?'':'disabled'} onclick="formsRedo()">Redo</button><button type="button" data-forms-new onclick="formsNewOpen()">+ New form</button>${def.base&&!DOC_FORM_KINDS.includes(def.base)?`<label class="fm-check" title="Prints instead of ${esc(formsDef(def.base).label)}"><input type="checkbox" data-forms-use ${def.use?'checked':''} onchange="formsUseForm(this.checked)"><span>Use for printing</span></label>`:''}${def.base?`<button type="button" data-forms-rename onclick="formsRenameForm()">Rename</button><button type="button" data-forms-remove onclick="formsRemoveForm()">Delete form</button>`:''}<button type="button" data-forms-history onclick="formsVersionsOpen()">History</button><button type="button" data-forms-reset onclick="formsReset()">Reset to default</button>
-   ${dirty?'<span class="fm-dirty" data-forms-dirty>Unsaved changes</span>':s.notice?`<span class="fm-saved">${esc(s.notice)}</span>`:''}<button type="button" class="pri" data-forms-save ${dirty?'':'disabled'} onclick="formsSave()">Save</button></div>
+  <div class="fm-bar"><div class="fm-forms">${formsDefs().map(x=>`<button type="button" class="sl-quick-pill${x.k===s.form?' on':''}" ${onAct('click',formsSetForm,String(x.k))}>${esc(x.label)}</button>`).join('')}</div><span class="fm-sp"></span>
+   <label class="fm-preview"><span>Preview</span><select data-forms-sample ${onAct('change',formsSetSample,EL_VALUE)}>${samples.length?samples.map(x=>`<option value="${esc(x.id)}" ${x.id===s.sample?'selected':''}>${esc(x.label)}</option>`).join(''):'<option value="sample">Sample</option>'}</select></label>
+   <button type="button" data-forms-undo ${d.undo.length?'':'disabled'} ${onAct('click',formsUndo)}>Undo</button><button type="button" data-forms-redo ${d.redo.length?'':'disabled'} ${onAct('click',formsRedo)}>Redo</button><button type="button" data-forms-new ${onAct('click',formsNewOpen)}>+ New form</button>${def.base&&!DOC_FORM_KINDS.includes(def.base)?`<label class="fm-check" title="Prints instead of ${esc(formsDef(def.base).label)}"><input type="checkbox" data-forms-use ${def.use?'checked':''} ${onAct('change',formsUseForm,EL_CHECKED)}><span>Use for printing</span></label>`:''}${def.base?`<button type="button" data-forms-rename ${onAct('click',formsRenameForm)}>Rename</button><button type="button" data-forms-remove ${onAct('click',formsRemoveForm)}>Delete form</button>`:''}<button type="button" data-forms-history ${onAct('click',formsVersionsOpen)}>History</button><button type="button" data-forms-reset ${onAct('click',formsReset)}>Reset to default</button>
+   ${dirty?'<span class="fm-dirty" data-forms-dirty>Unsaved changes</span>':s.notice?`<span class="fm-saved">${esc(s.notice)}</span>`:''}<button type="button" class="pri" data-forms-save ${dirty?'':'disabled'} ${onAct('click',formsSave)}>Save</button></div>
   <div class="fm-grid">
-   <aside class="fm-card fm-left"><div class="fm-h">Add</div><div class="fm-add">${add.map(([k,l])=>`<button type="button" data-forms-add="${k}" onclick="formsAdd('${k}')">+ ${l}</button>`).join('')}</div><input type="file" accept="image/*" hidden data-forms-picture onchange="formsPicture(this)">
+   <aside class="fm-card fm-left"><div class="fm-h">Add</div><div class="fm-add">${add.map(([k,l])=>`<button type="button" data-forms-add="${k}" ${onAct('click',formsAdd,String(k))}>+ ${l}</button>`).join('')}</div><input type="file" accept="image/*" hidden data-forms-picture ${onAct('change',formsPicture,EL)}>
     <div class="fm-h">Parts of the sheet</div><div class="fm-tree">${formsTreeHTML(tpl)}</div></aside>
    <div class="fm-stage" data-forms-stage>${formsSheetsHTML()}</div>
    <aside class="fm-card fm-right" data-forms-settings>${formsSettingsHTML(tpl)}</aside>
@@ -512,13 +523,13 @@ function formsNewSet(k,v){const m=formsUi.newForm;if(!m)return;m[k]=v;if(k==='ba
 function formsNewSources(base){return [{k:'blank',label:'Blank sheet'}].concat(formsDefs().filter(d=>d.k===base||d.base===base).map(d=>({k:d.k,label:'Copy of '+d.label})));}
 function formsNewHTML(){
  const m=formsState().newForm;if(!m)return '';
- return `<div class="fm-modal-back" onclick="formsNewClose()"></div><div class="fm-modal fm-addto" role="dialog" aria-modal="true" aria-label="New form" data-forms-new-modal>
-  <div class="fm-modal-head"><b>New form</b><button type="button" class="fm-x" aria-label="Close" onclick="formsNewClose()">×</button></div>
-  <label class="fm-row"><span>Name</span><input class="fm-in" data-forms-new-name maxlength="40" value="${esc(m.name)}" placeholder="Invoice · Spiel" oninput="formsNewSet('name',this.value)"></label>
-  <label class="fm-row"><span>Prints with</span><select class="fm-in" data-forms-new-base onchange="formsNewSet('base',this.value)">${formsDefs().filter(d=>!d.base).map(d=>`<option value="${d.k}" ${d.k===m.base?'selected':''}>${esc(d.label)}</option>`).join('')}</select></label>
-  <label class="fm-row"><span>Start from</span><select class="fm-in" data-forms-new-from onchange="formsNewSet('from',this.value)">${formsNewSources(m.base).map(x=>`<option value="${esc(x.k)}" ${x.k===m.from?'selected':''}>${esc(x.label)}</option>`).join('')}</select></label>
+ return `<div class="fm-modal-back" ${onAct('click',formsNewClose)}></div><div class="fm-modal fm-addto" role="dialog" aria-modal="true" aria-label="New form" data-forms-new-modal>
+  <div class="fm-modal-head"><b>New form</b><button type="button" class="fm-x" aria-label="Close" ${onAct('click',formsNewClose)}>×</button></div>
+  <label class="fm-row"><span>Name</span><input class="fm-in" data-forms-new-name maxlength="40" value="${esc(m.name)}" placeholder="Invoice · Spiel" ${onAct('input',formsNewSet,'name',EL_VALUE)}></label>
+  <label class="fm-row"><span>Prints with</span><select class="fm-in" data-forms-new-base ${onAct('change',formsNewSet,'base',EL_VALUE)}>${formsDefs().filter(d=>!d.base).map(d=>`<option value="${d.k}" ${d.k===m.base?'selected':''}>${esc(d.label)}</option>`).join('')}</select></label>
+  <label class="fm-row"><span>Start from</span><select class="fm-in" data-forms-new-from ${onAct('change',formsNewSet,'from',EL_VALUE)}>${formsNewSources(m.base).map(x=>`<option value="${esc(x.k)}" ${x.k===m.from?'selected':''}>${esc(x.label)}</option>`).join('')}</select></label>
   <p class="fm-note">${DOC_FORM_KINDS.includes(m.base)?'Sales → order → Documents, next to '+esc(docKindLabel(m.base))+'.':'Prints instead of '+esc(formsDef(m.base).label)+' when Use for printing is on.'}</p>
-  <div class="fm-modal-foot"><button type="button" onclick="formsNewClose()">Cancel</button><button type="button" class="pri" data-forms-new-create onclick="formsNewCreate()">Create</button></div></div>`;
+  <div class="fm-modal-foot"><button type="button" ${onAct('click',formsNewClose)}>Cancel</button><button type="button" class="pri" data-forms-new-create ${onAct('click',formsNewCreate)}>Create</button></div></div>`;
 }
 function formsNewCreate(){
  const s=formsState(),m=s.newForm;if(!m)return;
@@ -579,11 +590,11 @@ function formsPartLabelOf(k,part){const d=formsDef(k);return (d.parts&&d.parts[p
 function formsAddToHTML(){
  const s=formsState(),m=s.addTo;if(!m||!s.sel)return '';const b=formsFind(formsDraft().tpl,s.sel);if(!b)return '';
  const list=formsAddToTargets(b),n=list.filter(x=>!x.why&&m.on[x.k]).length;
- return `<div class="fm-modal-back" onclick="formsAddToClose()"></div><div class="fm-modal fm-addto" role="dialog" aria-modal="true" aria-label="Add to other forms" data-forms-addto-modal>
-  <div class="fm-modal-head"><b>Add “${esc(formsBlockLabel(b))}” to other forms</b><button type="button" class="fm-x" aria-label="Close" onclick="formsAddToClose()">×</button></div>
-  <div class="fm-addto-list">${list.map(x=>`<label class="fm-check${x.why?' off':''}"><input type="checkbox" data-forms-addto-form="${esc(x.k)}" ${x.why?'disabled':m.on[x.k]?'checked':''} onchange="formsAddToPick('${esc(x.k)}',this.checked)"><span>${esc(x.label)}</span><small>${x.why?esc(x.why):esc(formsPartLabelOf(x.k,x.part)[0])}</small></label>`).join('')}</div>
+ return `<div class="fm-modal-back" ${onAct('click',formsAddToClose)}></div><div class="fm-modal fm-addto" role="dialog" aria-modal="true" aria-label="Add to other forms" data-forms-addto-modal>
+  <div class="fm-modal-head"><b>Add “${esc(formsBlockLabel(b))}” to other forms</b><button type="button" class="fm-x" aria-label="Close" ${onAct('click',formsAddToClose)}>×</button></div>
+  <div class="fm-addto-list">${list.map(x=>`<label class="fm-check${x.why?' off':''}"><input type="checkbox" data-forms-addto-form="${esc(x.k)}" ${x.why?'disabled':m.on[x.k]?'checked':''} ${onAct('change',formsAddToPick,String(x.k??''),EL_CHECKED)}><span>${esc(x.label)}</span><small>${x.why?esc(x.why):esc(formsPartLabelOf(x.k,x.part)[0])}</small></label>`).join('')}</div>
   <p class="fm-note">Each form is saved at once and gets its own version in History.</p>
-  <div class="fm-modal-foot"><button type="button" onclick="formsAddToClose()">Cancel</button><button type="button" class="pri" data-forms-addto-apply ${n?'':'disabled'} onclick="formsAddToApply()">Add to ${n||''} ${n===1?'form':'forms'}</button></div></div>`;
+  <div class="fm-modal-foot"><button type="button" ${onAct('click',formsAddToClose)}>Cancel</button><button type="button" class="pri" data-forms-addto-apply ${n?'':'disabled'} ${onAct('click',formsAddToApply)}>Add to ${n||''} ${n===1?'form':'forms'}</button></div></div>`;
 }
 function formsAddToApply(){
  const s=formsState(),m=s.addTo,src=formsFind(formsDraft().tpl,s.sel);if(!m||!src)return;

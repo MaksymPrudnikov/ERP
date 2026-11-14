@@ -24,7 +24,9 @@ module.exports=async function({page,eq}){
   const banner=[...document.querySelectorAll('[data-md-status] option')].find(o=>o.value==='noshort');
   mdSearch='';mdStatus='noshort';render();const only=mdVisibleProducts().length===live&&mdVisibleProducts().every(x=>!x.shortName);
   mdStatus='all';mdSearch='6 clear';render();const found=mdVisibleProducts().map(x=>x.code);mdSearch='';render();
-  if(add)add.click();const focus=document.activeElement&&document.activeElement.id;mdEdit=null;render();
+  /* Кнопку берём заново: после перерисовки старая убрана, клик до действия не доходит (core/actions). */
+  mdSearch='6E272';render();const addNow=document.querySelector('[data-md-row="glassProduct:'+other.id+'"] .md-short-add');
+  if(addNow)addNow.click();const focus=document.activeElement&&document.activeElement.id;mdEdit=null;mdSearch='';render();
   return {err,saved:glassProductByCode('6CLEAR').shortName,heads,cell:row?row.querySelector('[data-md-short]').textContent:'',noshortRow:!!(miss&&miss.classList.contains('md-row-noshort')),add:!!add,
    pill:pill==='No short name '+live,banner:!!banner&&banner.textContent.includes(String(live)),only,found,focus};
  }),{err:'',saved:'6 Clear',heads:['Code','Short name','Name'],cell:'6 Clear',noshortRow:true,add:true,pill:true,banner:true,only:true,found:['6CLEAR'],focus:'md_short'});
