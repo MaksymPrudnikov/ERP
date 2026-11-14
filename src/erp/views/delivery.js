@@ -14,7 +14,7 @@ let deliveryKmBusy='';
 function deliveryKmHTML(date,t,stops){
  if(!stops.length)return '';
  const r=tripKmFind(date,t.id),stale=tripKmStale(r,stops),busy=deliveryKmBusy===date+'|'+t.id;
- return `<span class="delivery-km" data-trip-km="${esc(t.id)}">${r?`<b>${chNum(r.km,1)} km</b>${stale?' <span class="mut">· stops changed</span>':''}`:''}<button type="button" class="sm" data-trip-km-run ${busy?'disabled':''} onclick="deliveryKmRun('${date}','${esc(t.id)}')">${busy?'Calculating…':r?'Recalculate km':'Calculate km'}</button>${tripKmKey()?`<button type="button" class="sm" title="Google Maps key in this browser" onclick="deliveryKmKey()">Key</button>`:''}</span>`;
+ return `<span class="delivery-km" data-trip-km="${esc(t.id)}">${r?`<b>${chNum(r.km,1)} km</b>${stale?' <span class="mut">· stops changed</span>':''}`:''}<button type="button" class="sm" data-trip-km-run ${busy?'disabled':''} ${onAct('click',deliveryKmRun,String(date),String(t.id??''))}>${busy?'Calculating…':r?'Recalculate km':'Calculate km'}</button>${tripKmKey()?`<button type="button" class="sm" title="Google Maps key in this browser" ${onAct('click',deliveryKmKey)}>Key</button>`:''}</span>`;
 }
 function deliveryKmKey(){const k=prompt('Google Maps key (stays in this browser only):',tripKmKey());if(k!==null)tripKmSetKey(k);render();}
 async function deliveryKmRun(date,truckId){
@@ -34,40 +34,49 @@ function deliveryWeight(load){return (load.exact?'':'~')+docNum(load.kg,0)+' kg'
    дела грузовика (водитель, км, лист рейса) — сверху. */
 let deliveryPill='',deliverySel='';
 function deliveryPick(v){deliveryPill=v;deliverySel='';render();}
+/* Действия плана доставки: команда рейса и ответ на экране (deliveryRun),
+   день назад / вперёд, правый клик по строке. Имена с delivery — как прежний
+   onclick="deliveryRun(…)": кнопку записи база узнаёт по имени (storageLockButtons). */
+function deliveryRunMove(id,dir){deliveryRun(deliveryMove(id,dir));}
+function deliveryRunAssign(id,truckId){deliveryRun(deliveryAssign(id,truckId));}
+function deliveryRunDriver(date,truckId,profileId){deliveryRun(deliverySetDriver(date,truckId,profileId));}
+function deliveryRunTime(id,time){deliveryRun(deliverySetTime(id,time));}
+function deliveryDayStep(date,n){deliverySetDate(finAddDays(date,n));}
+function deliveryRowMenu(e,id){e.preventDefault();deliverySelect(id,true);}
 function deliverySelect(id,on){deliverySel=on?id:'';render();}
 function deliveryListColumns(){return [{k:'truck',label:'Truck',type:'list'},{k:'stop',label:'Stop',type:'number'},{k:'departs',label:'Departs',type:'text'},{k:'ps',label:'Packing slip',type:'text'},{k:'customer',label:'Customer',type:'text'},{k:'address',label:'Address',type:'text'},{k:'city',label:'City',type:'list',def:false},{k:'skids',label:'Skids',type:'text',tokens:true},{k:'units',label:'Units',type:'number',sum:true},{k:'kg',label:'Weight kg',type:'number',sum:true},{k:'status',label:'Status',type:'list'}].map(c=>Object.assign({def:true},c));}
 function deliveryHTML(){
  const day=deliveryDay(deliveryShownDate()),date=day.date,users=(DB.user||[]).filter(u=>u.name),active=(DB.truck||[]).filter(t=>t.active);
- const status=shippingStatusPill,ps=s=>`<button type="button" class="sm" onclick="shippingGo('${esc(s.id)}')">${esc(s.number)}</button>`;
+ const status=shippingStatusPill,ps=s=>`<button type="button" class="sm" ${onAct('click',shippingGo,String(s.id??''))}>${esc(s.number)}</button>`;
  const address=s=>esc(docAddressText(s.shipTo))||'<span class="mut">No address</span>';
  const all=[];day.trucks.forEach(({t,stops})=>stops.forEach((s,i)=>all.push({s,t,i,n:stops.length,kind:'truck'})));day.free.forEach(s=>all.push({s,kind:'free'}));day.pickups.forEach(s=>all.push({s,kind:'pickup'}));
  if(deliveryPill&&!['free','pickups'].includes(deliveryPill)&&!day.trucks.some(x=>x.t.id===deliveryPill))deliveryPill='';
  const rows=all.filter(x=>!deliveryPill||(deliveryPill==='free'?x.kind==='free':deliveryPill==='pickups'?x.kind==='pickup':x.t&&x.t.id===deliveryPill));
  if(deliverySel&&!rows.some(x=>x.s.id===deliverySel))deliverySel='';
  const sel=rows.find(x=>x.s.id===deliverySel),truck=deliveryPill&&!['free','pickups'].includes(deliveryPill)?day.trucks.find(x=>x.t.id===deliveryPill):sel&&sel.t?day.trucks.find(x=>x.t.id===sel.t.id):null;
- const q=(label,fn,on,extra)=>`<button type="button" class="sl-quiet" ${extra||''} ${on?'':'disabled'} onclick="${fn}">${label}</button>`,locked=sel&&sel.s.status==='delivered';
- const stopActs=sel&&sel.kind==='truck'?q('Move up',`deliveryRun(deliveryMove('${esc(sel.s.id)}',-1))`,!locked&&sel.i>0,`aria-label="Move ${esc(sel.s.number)} up"`)+q('Move down',`deliveryRun(deliveryMove('${esc(sel.s.id)}',1))`,!locked&&sel.i<sel.n-1,`aria-label="Move ${esc(sel.s.number)} down"`)+q('Off the truck',`deliveryRun(deliveryAssign('${esc(sel.s.id)}',''))`,!locked,`aria-label="Take ${esc(sel.s.number)} off the truck"`):'';
+ const q=(label,fn,on,extra)=>`<button type="button" class="sl-quiet" ${extra||''} ${on?'':'disabled'} ${onAct.apply(null,['click'].concat(fn))}>${label}</button>`,locked=sel&&sel.s.status==='delivered';
+ const stopActs=sel&&sel.kind==='truck'?q('Move up',[deliveryRunMove,String(sel.s.id),-1],!locked&&sel.i>0,`aria-label="Move ${esc(sel.s.number)} up"`)+q('Move down',[deliveryRunMove,String(sel.s.id),1],!locked&&sel.i<sel.n-1,`aria-label="Move ${esc(sel.s.number)} down"`)+q('Off the truck',[deliveryRunAssign,String(sel.s.id),''],!locked,`aria-label="Take ${esc(sel.s.number)} off the truck"`):'';
  const tr=truck&&truck.t,driver=tr&&deliveryDriver(date,tr.id),tl=truck?truck.stops.map(deliveryLoad):[],load=tr?`<span class="mut small" data-truck-load>${shippingCount(truck.stops.length,'stop')} · ${shippingCount(tl.reduce((n,l)=>n+l.skids.length,0),'skid')} · ${(tl.every(l=>l.exact)?'':'~')+docNum(tl.reduce((n,l)=>n+l.kg,0),0)} kg</span>`:'';
- const truckActs=tr?`${load}<label class="rep-inline">Driver<select aria-label="Driver ${esc(tr.name)}" ${truck.stops.length?'':'disabled'} onchange="deliveryRun(deliverySetDriver('${date}','${esc(tr.id)}',this.value))"><option value="">Not set</option>${users.map(u=>`<option value="${esc(u.viewProfileId)}" ${driver&&driver.viewProfileId===u.viewProfileId?'selected':''}>${esc(u.name)}</option>`).join('')}</select></label>${truck.stops.length?q('Trip sheet',`deliveryPrint('${date}','${esc(tr.id)}',false)`,true,'data-trip-sheet')+q('With packing slips',`deliveryPrint('${date}','${esc(tr.id)}',true)`,true,'data-trip-packet'):''}${deliveryKmHTML(date,tr,truck.stops)}`:'';
- const nav=`<button type="button" class="sl-quiet" aria-label="Previous day" onclick="deliverySetDate(finAddDays('${date}',-1))">‹</button><input type="date" aria-label="Delivery day" value="${date}" onchange="deliverySetDate(this.value)"><button type="button" class="sl-quiet" aria-label="Next day" onclick="deliverySetDate(finAddDays('${date}',1))">›</button><button type="button" class="sl-quiet" onclick="deliverySetDate('')">Today</button>`;
+ const truckActs=tr?`${load}<label class="rep-inline">Driver<select aria-label="Driver ${esc(tr.name)}" ${truck.stops.length?'':'disabled'} ${onAct('change',deliveryRunDriver,String(date),String(tr.id),EL_VALUE)}><option value="">Not set</option>${users.map(u=>`<option value="${esc(u.viewProfileId)}" ${driver&&driver.viewProfileId===u.viewProfileId?'selected':''}>${esc(u.name)}</option>`).join('')}</select></label>${truck.stops.length?q('Trip sheet',[deliveryPrint,String(date),String(tr.id),false],true,'data-trip-sheet')+q('With packing slips',[deliveryPrint,String(date),String(tr.id),true],true,'data-trip-packet'):''}${deliveryKmHTML(date,tr,truck.stops)}`:'';
+ const nav=`<button type="button" class="sl-quiet" aria-label="Previous day" ${onAct('click',deliveryDayStep,String(date),-1)}>‹</button><input type="date" aria-label="Delivery day" value="${date}" ${onAct('change',deliverySetDate,EL_VALUE)}><button type="button" class="sl-quiet" aria-label="Next day" ${onAct('click',deliveryDayStep,String(date),1)}>›</button><button type="button" class="sl-quiet" ${onAct('click',deliverySetDate,'')}>Today</button>`;
  const bar=`<div class="sales-toolbar delivery-bar">${nav}${sel?`<b class="oq-sel" title="${esc(sel.s.number)}">1 selected</b>`:''}${stopActs}${truckActs?'<span class="delivery-truck-acts">'+(tr?'<b>'+esc(tr.name)+'</b>':'')+truckActs+'</span>':''}<span class="sales-toolbar-sp"></span>${shippingBarRight()}</div>`;
- const pill=(k,l,n)=>`<button type="button" class="sl-quick-pill${deliveryPill===k?' on':''}" data-delivery-pill="${esc(k)}" onclick="deliveryPick('${esc(k)}')">${esc(l)} <b>${n}</b></button>`;
+ const pill=(k,l,n)=>`<button type="button" class="sl-quick-pill${deliveryPill===k?' on':''}" data-delivery-pill="${esc(k)}" ${onAct('click',deliveryPick,String(k??''))}>${esc(l)} <b>${n}</b></button>`;
  const pills=`<div class="sl-filter-row"><div class="sl-quick">${pill('','All',all.length)}${day.trucks.map(({t,stops})=>pill(t.id,t.name+(t.active?'':' · inactive'),stops.length)).join('')}${pill('free','Not on a truck',day.free.length)}${pill('pickups','Pickups',day.pickups.length)}</div></div>`;
- const truckCell=x=>x.kind==='pickup'?'<span class="mut">Pickup</span>':x.kind==='free'?(x.s.status==='delivered'?'<span class="mut">Not on a truck</span>':`<select aria-label="Truck for ${esc(x.s.number)}" onchange="deliveryRun(deliveryAssign('${esc(x.s.id)}',this.value))"><option value="">Choose truck</option>${active.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('')}</select>`):esc(x.t.name);
+ const truckCell=x=>x.kind==='pickup'?'<span class="mut">Pickup</span>':x.kind==='free'?(x.s.status==='delivered'?'<span class="mut">Not on a truck</span>':`<select aria-label="Truck for ${esc(x.s.number)}" ${onAct('change',deliveryRunAssign,String(x.s.id),EL_VALUE)}><option value="">Choose truck</option>${active.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('')}</select>`):esc(x.t.name);
  /* Строки — тот же список вида Sales, что у всех: Columns, фильтры, ширина, итог. */
  const infos=all.map(x=>{const load=deliveryLoad(x.s);return {o:{id:x.s.id},x,load,memo:{truck:x.kind==='truck'?x.t.name:x.kind==='free'?'Not on a truck':'Pickup',stop:x.kind==='truck'?x.i+1:null,departs:x.s.departAt||'',ps:x.s.number,customer:salesCustomerDisplay(x.s.customerId),address:x.kind==='pickup'?'':docAddressText(x.s.shipTo)||'',city:(x.s.shipTo&&x.s.shipTo.city)||'',skids:load.skids.join(', '),units:x.s.items.length,kg:Math.round(load.kg*10)/10,status:shippingStatus(x.s)}};});
  const shown=new Set(rows.map(x=>x.s.id)),list=salesListShown(salesListRows(infos).filter(i=>shown.has(i.x.s.id)));
  const cell=(i,c)=>{const x=i.x,s=x.s,v=i.memo[c.k],locked=s.status==='delivered';switch(c.k){
   case 'truck':return `<td>${truckCell(x)}</td>`;
   case 'stop':return `<td class="n">${v==null?'':v}</td>`;
-  case 'departs':return `<td>${x.kind==='truck'?`<input type="time" aria-label="Departs ${esc(s.number)}" value="${esc(s.departAt||'')}" ${locked?'disabled':''} onchange="deliveryRun(deliverySetTime('${esc(s.id)}',this.value))">`:''}</td>`;
+  case 'departs':return `<td>${x.kind==='truck'?`<input type="time" aria-label="Departs ${esc(s.number)}" value="${esc(s.departAt||'')}" ${locked?'disabled':''} ${onAct('change',deliveryRunTime,String(s.id),EL_VALUE)}>`:''}</td>`;
   case 'ps':return `<td>${ps(s)}</td>`;
   case 'customer':return `<td><b>${esc(v)}</b></td>`;
   case 'address':return `<td>${x.kind==='pickup'?'':address(s)}</td>`;
   case 'kg':return `<td class="n">${deliveryWeight(i.load)}</td>`;
   case 'status':return `<td>${status(s)}</td>`;
   default:return `<td${c.type==='number'?' class="n"':''}>${v===''||v==null?'<span class="mut">—</span>':esc(String(v))}</td>`;}};
- const row=i=>{const x=i.x,s=x.s,on=deliverySel===s.id;return {attrs:` ${x.kind==='truck'?`data-stop="${esc(s.number)}"`:x.kind==='free'?`data-free="${esc(s.number)}"`:`data-pickup="${esc(s.number)}"`} class="${x.kind==='pickup'?'delivery-pickup':''}${on?' oq-selected':''}" oncontextmenu="event.preventDefault();deliverySelect('${esc(s.id)}',true)"`,first:`<td class="sl-check"><input type="checkbox" aria-label="Select ${esc(s.number)}" ${on?'checked':''} onchange="deliverySelect('${esc(s.id)}',this.checked)"></td>`};};
+ const row=i=>{const x=i.x,s=x.s,on=deliverySel===s.id;return {attrs:` ${x.kind==='truck'?`data-stop="${esc(s.number)}"`:x.kind==='free'?`data-free="${esc(s.number)}"`:`data-pickup="${esc(s.number)}"`} class="${x.kind==='pickup'?'delivery-pickup':''}${on?' oq-selected':''}" ${onAct('contextmenu',deliveryRowMenu,EVENT,String(s.id))}`,first:`<td class="sl-check"><input type="checkbox" aria-label="Select ${esc(s.number)}" ${on?'checked':''} ${onAct('change',deliverySelect,String(s.id??''),EL_CHECKED)}></td>`};};
  const none=!active.length?'No trucks yet. Add them in Master Data → Trucks.':'No packing slips for this day.';
  return (deliveryNotice?`<div class="shipping-notice bad" role="alert">${esc(deliveryNotice)}</div>`:'')+`<div class="card sales-list-card sl-foot-pin delivery-list">${bar}${shippingTabs()}${pills}${salesListTableHTML({infos,rows:list,cell,row,cls:'delivery-table',noun:r=>r.length+' packing slip'+(r.length===1?'':'s'),empty:rows.length?'No packing slips match.':none})}</div>`;
 }
@@ -137,16 +146,16 @@ function deliveryPrint(date,truckId,withPS){
 
 /* ----------------------- Master Data → Trucks ----------------------- */
 function viewMdTrucks(){
- const set=(t,field,value)=>`mdTruckSet('${esc(t.id)}','${field}',${value})`;
+ const set=(t,field,value)=>onAct('change',mdTruckSet,String(t.id),field,value);
  /* Таблица вида Sales (владелец 07.11.2026): фильтр, сортировка, ширина, порядок. */
  const table=slTable('mdTrucks',{list:DB.truck||[],id:t=>t.id,empty:'No trucks yet',noun:r=>r.length+' truck'+(r.length===1?'':'s'),
   columns:()=>[
-   {k:'name',label:'Name',type:'text',v:t=>t.name,cell:t=>`<input aria-label="Truck name" value="${esc(t.name)}" onchange="${set(t,'name','this.value')}">`},
-   {k:'note',label:'Note',type:'text',v:t=>t.note,cell:t=>`<input aria-label="Note" value="${esc(t.note)}" placeholder="Note" onchange="${set(t,'note','this.value')}">`},
-   {k:'active',label:'Active',type:'list',v:t=>t.active?'Yes':'No',cell:t=>`<input type="checkbox" aria-label="Active" ${t.active?'checked':''} onchange="${set(t,'active','this.checked')}">`}],
+   {k:'name',label:'Name',type:'text',v:t=>t.name,cell:t=>`<input aria-label="Truck name" value="${esc(t.name)}" ${set(t,'name',EL_VALUE)}>`},
+   {k:'note',label:'Note',type:'text',v:t=>t.note,cell:t=>`<input aria-label="Note" value="${esc(t.note)}" placeholder="Note" ${set(t,'note',EL_VALUE)}>`},
+   {k:'active',label:'Active',type:'list',v:t=>t.active?'Yes':'No',cell:t=>`<input type="checkbox" aria-label="Active" ${t.active?'checked':''} ${set(t,'active',EL_CHECKED)}>`}],
   row:i=>({attrs:` data-truck-row="${esc(i.x.id)}"${i.x.active?'':' class="mut"'}`})});
  /* Ровная узкая таблица и «+ Truck» в строке инструментов (аудит D-6). */
- return `<div class="md-trucks"><div class="md-toolbar"><span class="mut">Trucks for the delivery plan.</span><span class="sp"></span><button class="pri" data-truck-add onclick="mdTruckAdd()">+ Truck</button></div>${table}</div>`;
+ return `<div class="md-trucks"><div class="md-toolbar"><span class="mut">Trucks for the delivery plan.</span><span class="sp"></span><button class="pri" data-truck-add ${onAct('click',mdTruckAdd)}>+ Truck</button></div>${table}</div>`;
 }
 function mdTruckAdd(){const out=truckAdd('');if(!out.ok)alert(out.error);render();}
 function mdTruckSet(id,field,value){const out=truckSet(id,field,value);if(!out.ok)alert(out.error);render();}

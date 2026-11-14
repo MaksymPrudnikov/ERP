@@ -8,9 +8,18 @@ let purView='orders',purOrderDraft=null,purOrderOriginal='',purShowDeleted=false
 /* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
 (window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!purOrderDraft&&JSON.stringify(purOrderDraft)!==purOrderOriginal);
 const PUR_VIEWS=[['orders','Purchase orders'],['receipts','Receipts'],['backorders','Backorders'],['held','Held at supplier'],['requests','Delivery requests'],['invoices','Invoices'],['payments','Payments'],['payables','We owe'],['suppliers','Suppliers'],['history','History']];
-function purNav(){return '<button type="button" class="sl-quiet" data-pur-sections aria-haspopup="dialog" onclick="purSectionsOpen(event)">'+esc((PUR_VIEWS.find(v=>v[0]===purView)||PUR_VIEWS[0])[1])+'<span class="sl-disclosure">▾</span></button>';}
+function purNav(){return '<button type="button" class="sl-quiet" data-pur-sections aria-haspopup="dialog" '+onAct('click',purSectionsOpen,EVENT)+'>'+esc((PUR_VIEWS.find(v=>v[0]===purView)||PUR_VIEWS[0])[1])+'<span class="sl-disclosure">▾</span></button>';}
 function purSectionsOpen(e){salesListMenu=Object.assign({kind:'pur-sections',scope:salesListScope()},salesListAt(e,240));render();}
-function purSectionsMenuHTML(style){return '<div class="sl-menu sl-show-menu" style="'+style+'" role="dialog" aria-label="Purchasing sections">'+PUR_VIEWS.map(([k,n])=>'<label><input type="radio" name="pur-section" '+(k===purView?'checked':'')+' onchange="purGo(\''+k+'\')">'+n+'</label>').join('')+(purView==='orders'?'<hr><label><input type="checkbox" '+(purShowDeleted?'checked':'')+' onchange="purShowDeleted=this.checked;render()">Include deleted</label>':'')+'</div>';}
+function purSectionsMenuHTML(style){return '<div class="sl-menu sl-show-menu" style="'+style+'" role="dialog" aria-label="Purchasing sections">'+PUR_VIEWS.map(([k,n])=>'<label><input type="radio" name="pur-section" '+(k===purView?'checked':'')+' '+onAct('change',purGo,String(k))+'>'+n+'</label>').join('')+(purView==='orders'?'<hr><label><input type="checkbox" '+(purShowDeleted?'checked':'')+' '+onAct('change',purShowDeletedSet,EL_CHECKED)+'>Include deleted</label>':'')+'</div>';}
+/* Действия экрана заказов поставщику: поля PO и строк, выбор строки заказа клиента. */
+function purShowDeletedSet(on){purShowDeleted=on;render();}
+function purOrderSet(key,v){purOrderDraft[key]=v;}
+function purOrderLineSet(i,key,v,totals){purOrderDraft.lines[i][key]=v;if(totals)purRefreshTotals();}
+function purOrderLineRemove(i){purOrderDraft.lines.splice(i,1);render();}
+function purOrderBack(){if(purOrderLeave())render();}
+function purPickerSet(key,v){purPicker[key]=v;render();}
+function purPickerOrder(id){purPicker.orderId=id;purPicker.lineId='';render();}
+function purPickerClose(){purPicker=null;render();}
 function purGo(v){if(!purSupplierLeave()||!purMoneyLeave()||!purFulfilLeave()||!purOrderLeave())return;purView=v;purNotice='';purNewSupplier=null;salesListMenu=null;render();}
 function purOrderLeave(){
  if(purOrderDraft&&JSON.stringify(purOrderDraft)!==purOrderOriginal&&!confirm('Discard unsaved purchase order changes?'))return false;
@@ -28,11 +37,11 @@ function purOrderList(){
  const infos=purOrderInfos(),rows=purOrderListRows(infos),cols=salesListColumns(),history=purView==='history';
  const cell=(i,c)=>{
   const v=salesListValue(i,c.k);
-  if(c.k==='number'||history&&c.k==='name')return '<td><button type="button" class="fin-link" data-pur-po="'+esc(i.p?i.p.id:i.e.entityId)+'" onclick="'+(i.p?'purOrderEdit('+purArg(i.p.id)+')':'purHistoryOpen('+purArg(i.e.entity)+','+purArg(i.e.entityId)+')')+'">'+esc(v)+'</button></td>';
+  if(c.k==='number'||history&&c.k==='name')return '<td><button type="button" class="fin-link" data-pur-po="'+esc(i.p?i.p.id:i.e.entityId)+'" '+(i.p?onAct('click',purOrderEdit,String(i.p.id)):onAct('click',purHistoryOpen,String(i.e.entity),String(i.e.entityId)))+'>'+esc(v)+'</button></td>';
   return '<td data-raw class="'+(c.type==='number'?'n':'')+'">'+(v==null||v===''?'—':c.k==='amount'?esc(docNum(v,2)):c.k==='at'?esc(new Date(i.e.at).toLocaleString()):esc(v))+'</td>';
  };
- return '<div class="purchasing-workspace"><div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">'+purNav()+'<span class="sales-toolbar-sp"></span>'+(history?'':'<button type="button" class="pri" data-pur-po-new onclick="purOrderEdit(\'\')">+ New Purchase Order</button>')+'</div>'+purListFilters(infos)+
-  (cw=>'<div class="sales-table-wrap"><table class="sl-table'+cw.cls+'"'+cw.attrs+'>'+cw.col)(salesListCwTable(cols.map(c=>c.k),[44],0))+'<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></span></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+
+ return '<div class="purchasing-workspace"><div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">'+purNav()+'<span class="sales-toolbar-sp"></span>'+(history?'':'<button type="button" class="pri" data-pur-po-new '+onAct('click',purOrderEdit,'')+'>+ New Purchase Order</button>')+'</div>'+purListFilters(infos)+
+  (cw=>'<div class="sales-table-wrap"><table class="sl-table'+cw.cls+'"'+cw.attrs+'>'+cw.col)(salesListCwTable(cols.map(c=>c.k),[44],0))+'<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button aria-label="Columns" '+onAct('click',salesListOpenColumns,EVENT)+'>'+ico('settings')+'</button></span></th>'+cols.map(purListHeader).join('')+'</tr></thead><tbody>'+
   purPageRows(rows).map(i=>'<tr><td></td>'+cols.map(c=>cell(i,c)).join('')+'</tr>').join('')+(!rows.length?'<tr><td colspan="'+(cols.length+1)+'" class="empty">No records in this view.</td></tr>':'')+'</tbody></table></div>'+purListPager(rows)+salesListMenuHTML(infos)+'</div></div>';
 }
 function purHistoryOpen(entity,id){if(PUR_MONEY[entity])purMoneyEdit(entity,id);else if(PUR_FULFIL[entity])purFulfilEdit(entity,id);else if(entity==='po')purOrderEdit(id);else purSupplierEdit(id);}
@@ -45,7 +54,7 @@ function purOrderEdit(id){
 }
 function purOrderField(k,label,type){
  const v=purOrderDraft[k]??'';
- return '<div><label for="pur_po_'+k+'">'+label+'</label><input id="pur_po_'+k+'" type="'+(type||'text')+'" value="'+esc(v)+'" oninput="purOrderDraft.'+k+'=this.value"></div>';
+ return '<div><label for="pur_po_'+k+'">'+label+'</label><input id="pur_po_'+k+'" type="'+(type||'text')+'" value="'+esc(v)+'" '+onAct('input',purOrderSet,k,EL_VALUE)+'></div>';
 }
 function purPickSupplier(id,draw){
  const s=purSupplierFind(id),d=purOrderDraft;d.supplierId=id;d.supplier=s?purClone(s):null;d.supplierName=s?s.name:'';
@@ -69,11 +78,11 @@ function purOrderRemove(){
 function purOrderRestoreForm(){const r=purOrderRestore(purOrderDraft.id);if(!r.ok){purNotice=r.error;render();return;}purOrderEdit(r.value.id);}
 function purOrderAddLine(kind){if(kind==='other'&&purOrderDraft.lines.length===1&&!purOrderDraft.lines[0].description&&!purOrderDraft.lines[0].productCode)purOrderDraft.lines=[];purOrderDraft.lines.push(kind==='other'?purLineClean({id:salesUid('PL'),kind:'other',qty:1},0):purCatalogueLine(''));render();}
 function purLineInput(l,i,k,label,type){
- return '<div><label for="pur_line_'+i+'_'+k+'">'+label+'</label><input id="pur_line_'+i+'_'+k+'" value="'+esc(l[k]??'')+'" '+(type==='number'?'type="number" step="any" min="0"':type==='date'?'type="date"':'type="text"')+(k==='unit'||k==='priceUnit'?' list="pur_units"':'')+' oninput="purOrderDraft.lines['+i+'].'+k+'=this.value;purRefreshTotals()"></div>';
+ return '<div><label for="pur_line_'+i+'_'+k+'">'+label+'</label><input id="pur_line_'+i+'_'+k+'" value="'+esc(l[k]??'')+'" '+(type==='number'?'type="number" step="any" min="0"':type==='date'?'type="date"':'type="text"')+(k==='unit'||k==='priceUnit'?' list="pur_units"':'')+' '+onAct('input',purOrderLineSet,i,k,EL_VALUE,true)+'></div>';
 }
 function purOrderLineHTML(l,i){
  const total=purLineTotal(l);
- return '<tr data-pur-line="'+i+'"><td><label for="pur_line_'+i+'_description">Item</label>'+(l.kind==='stock'?'<b data-raw>'+esc(l.description)+'</b>':'<input id="pur_line_'+i+'_description" value="'+esc(l.description)+'" oninput="purOrderDraft.lines['+i+'].description=this.value">')+'</td>'+purPOCell(l,i,'qty','Quantity','number')+purPOCell(l,i,'unit','Order unit')+purPOCell(l,i,'price','Price','number')+purPOCell(l,i,'priceUnit','Price per')+purPOCell(l,i,'note','Line note')+'<td class="n"><b data-pur-line-total="'+i+'">'+(total==null?'—':esc(docNum(total,2)))+'</b></td><td><button type="button" class="line-x" aria-label="Remove line '+(i+1)+'" onclick="purOrderDraft.lines.splice('+i+',1);render()">×</button></td></tr>';
+ return '<tr data-pur-line="'+i+'"><td><label for="pur_line_'+i+'_description">Item</label>'+(l.kind==='stock'?'<b data-raw>'+esc(l.description)+'</b>':'<input id="pur_line_'+i+'_description" value="'+esc(l.description)+'" '+onAct('input',purOrderLineSet,i,'description',EL_VALUE)+'>')+'</td>'+purPOCell(l,i,'qty','Quantity','number')+purPOCell(l,i,'unit','Order unit')+purPOCell(l,i,'price','Price','number')+purPOCell(l,i,'priceUnit','Price per')+purPOCell(l,i,'note','Line note')+'<td class="n"><b data-pur-line-total="'+i+'">'+(total==null?'—':esc(docNum(total,2)))+'</b></td><td><button type="button" class="line-x" aria-label="Remove line '+(i+1)+'" '+onAct('click',purOrderLineRemove,i)+'>×</button></td></tr>';
 }
 /* Update figures in place: rerendering on blur can remove the next input
    between focusing it and typing, silently losing its value. */
@@ -85,14 +94,14 @@ function purRefreshTotals(){
 }
 function purOrderForm(){
  const d=purOrderDraft,t=purOrderTotals(d),deleted=!!d.deletedAt;
- return '<div class="page-head sales-page-head"><div><h2>Purchasing</h2></div></div><div class="purchasing-workspace sales-order-editor"><div class="sales-editor-top"><div><div class="sales-order-title"><h3>'+esc(d.number||'New Purchase Order · Auto Number')+'</h3><span class="pill">'+purOrderStatus(d)+'</span></div><div class="mut mono" data-raw>'+esc(d.id||'Not saved')+'</div></div><div class="sales-editor-actions"><button type="button" onclick="if(purOrderLeave())render()">Close</button>'+
-  (deleted?'<button type="button" onclick="purOrderRestoreForm()">Restore</button>':'<button type="button" class="pri" data-pur-po-save onclick="purOrderSaveForm(true)">Save</button><button type="button" onclick="purDocOpen()">Documents</button>'+(d.id?'<button type="button" onclick="purOrderRemove()">Delete</button>':''))+'</div></div>'+purPOStatusStrip(d)+
+ return '<div class="page-head sales-page-head"><div><h2>Purchasing</h2></div></div><div class="purchasing-workspace sales-order-editor"><div class="sales-editor-top"><div><div class="sales-order-title"><h3>'+esc(d.number||'New Purchase Order · Auto Number')+'</h3><span class="pill">'+purOrderStatus(d)+'</span></div><div class="mut mono" data-raw>'+esc(d.id||'Not saved')+'</div></div><div class="sales-editor-actions"><button type="button" '+onAct('click',purOrderBack)+'>Close</button>'+
+  (deleted?'<button type="button" '+onAct('click',purOrderRestoreForm)+'>Restore</button>':'<button type="button" class="pri" data-pur-po-save '+onAct('click',purOrderSaveForm,true)+'>Save</button><button type="button" '+onAct('click',purDocOpen)+'>Documents</button>'+(d.id?'<button type="button" '+onAct('click',purOrderRemove)+'>Delete</button>':''))+'</div></div>'+purPOStatusStrip(d)+
   (purNotice?'<div role="status" data-pur-po-notice class="pur-notice">'+esc(purNotice)+'</div>':'')+
   '<fieldset class="pur-po-edit form" '+(deleted?'disabled':'')+'><div class="sales-header-compact">'+
-  purSupplierControl(d,'po')+purOrderField('date','Order date','date')+purOrderField('expectedDate','Expected date','date')+purCurrencyControl(d,'pur_po_currency','purOrderDraft.currency=this.value')+
+  purSupplierControl(d,'po')+purOrderField('date','Order date','date')+purOrderField('expectedDate','Expected date','date')+purCurrencyControl(d,'pur_po_currency',purOrderCurrencySet)+
   purOrderStateControl(d)+'</div>'+
   '<details class="sales-block pur-spec"><summary>Email / notes</summary><div class="sales-header-compact">'+purOrderField('to','Email to')+purOrderField('cc','CC')+'</div>'+
-  '<label for="pur_po_note">PO notes</label><textarea id="pur_po_note" rows="2" oninput="purOrderDraft.note=this.value">'+esc(d.note)+'</textarea></details>'+
+  '<label for="pur_po_note">PO notes</label><textarea id="pur_po_note" rows="2" '+onAct('input',purOrderSet,'note',EL_VALUE)+'>'+esc(d.note)+'</textarea></details>'+
   '<datalist id="pur_units">'+MD_UNITS.map(u=>'<option value="'+u.code+'">'+u.nameEn+'</option>').join('')+'<option value="block">block</option></datalist>'+purPOLinesHTML()+'</fieldset><div class="pur-total" data-pur-total><b>'+(t.complete?'Total':'Known subtotal')+': '+esc(docNum(t.known,2)+' '+d.currency)+'</b>'+(t.missing?' · '+t.missing+' line(s) need price, quantity or conversion':'')+'</div>'+
   (d.id?purPOReceivingHTML(d)+purPOInvoicesHTML(d)+purHistoryHTML('po',d.id):'')+purPickerHTML()+(purDoc?purDocHTML():'')+'</div>';
 }
@@ -100,7 +109,7 @@ function purOrderForm(){
    people set Draft, Sent, Closed or Cancelled (audit 14.10.2026). */
 function purOrderStateControl(d){
  const shown=purOrderStatus(d),computed=['Partially received','Received'].includes(shown)?shown:'';
- return '<div><label for="pur_po_state">Status</label><select id="pur_po_state" aria-label="PO status" onchange="purOrderDraft.state=this.value">'+
+ return '<div><label for="pur_po_state">Status</label><select id="pur_po_state" aria-label="PO status" '+onAct('change',purOrderSet,'state',EL_VALUE)+'>'+
   Object.entries(PUR_ORDER_STATES).map(([k,n])=>'<option value="'+k+'"'+(!computed&&k===d.state?' selected':'')+'>'+n+'</option>').join('')+
   (computed?'<option value="" selected disabled>'+computed+'</option>':'')+'</select></div>';
 }
@@ -109,18 +118,18 @@ function purPickerHTML(){
  let body='';
  if(p.kind==='sheet'){
   const rows=(DB.glassSheet||[]).filter(s=>!purOrderDraft.supplierId||s.supplierId===purOrderDraft.supplierId);
-  body='<p class="mut">Purchase prices keep their unit. All values can be changed in the PO.</p><label><input type="checkbox" onchange="purPicker.all=this.checked;render()" '+(p.all?'checked':'')+'> All suppliers</label>'+
-   '<div class="pur-picker-list">'+(p.all?DB.glassSheet:rows).map(s=>'<button type="button" onclick="purPickerAddSheet('+purArg(s.id)+')">'+esc([s.productCode,s.supplier,s.sheetWIn+' × '+s.sheetHIn+' in',s.currency].join(' · '))+'</button>').join('')+'</div>';
+  body='<p class="mut">Purchase prices keep their unit. All values can be changed in the PO.</p><label><input type="checkbox" '+onAct('change',purPickerSet,'all',EL_CHECKED)+' '+(p.all?'checked':'')+'> All suppliers</label>'+
+   '<div class="pur-picker-list">'+(p.all?DB.glassSheet:rows).map(s=>'<button type="button" '+onAct('click',purPickerAddSheet,String(s.id))+'>'+esc([s.productCode,s.supplier,s.sheetWIn+' × '+s.sheetHIn+' in',s.currency].join(' · '))+'</button>').join('')+'</div>';
  }else if(p.kind==='stock'){
   const groups=purMaterialGroups();
-  body=groups.length?'<label for="pur_material">Material</label><select id="pur_material" onchange="purPickerMaterial(this.value)"><option value="">Choose material</option>'+groups.map(g=>'<optgroup label="'+esc(g.label)+'">'+g.rows.map(r=>'<option value="'+esc(g.table+'|'+r.id)+'">'+esc(r.name+(r.code?' · '+r.code:''))+'</option>').join('')+'</optgroup>').join('')+'</select>':'<p class="mut">No materials in Master Data.</p>';
+  body=groups.length?'<label for="pur_material">Material</label><select id="pur_material" '+onAct('change',purPickerMaterial,EL_VALUE)+'><option value="">Choose material</option>'+groups.map(g=>'<optgroup label="'+esc(g.label)+'">'+g.rows.map(r=>'<option value="'+esc(g.table+'|'+r.id)+'">'+esc(r.name+(r.code?' · '+r.code:''))+'</option>').join('')+'</optgroup>').join('')+'</select>':'<p class="mut">No materials in Master Data.</p>';
  }else{
   const orders=(DB.salesOrder||[]).filter(o=>!salesIsQuote(o)),o=salesRecord(p.orderId),l=o&&(o.lines||[]).find(l=>l.id===p.lineId);
-  body='<label for="pur_source_order">Customer order</label><select id="pur_source_order" onchange="purPicker.orderId=this.value;purPicker.lineId=\'\';render()"><option value="">Choose order</option>'+orders.map(o=>'<option value="'+esc(o.id)+'" '+(o.id===p.orderId?'selected':'')+'>'+esc([o.businessNumber,salesCustomerDisplay(o.customerId)].filter(Boolean).join(' · '))+'</option>').join('')+'</select>'+
-   (o?'<label for="pur_source_line">Position</label><select id="pur_source_line" onchange="purPicker.lineId=this.value;render()"><option value="">Choose position</option>'+o.lines.map((l,i)=>'<option value="'+esc(l.id)+'" '+(l.id===p.lineId?'selected':'')+'>'+esc('Line '+(i+1)+' · '+(l.mark||'')+' · '+docSize(l)+' · Qty '+l.qty)+'</option>').join('')+'</select>':'')+
-   (l?'<div class="pur-picker-list"><button type="button" onclick="purPickerAddComponent(\'\')">Whole unit / laminate</button>'+glassBatchComponents(o,l).map(c=>'<button type="button" onclick="purPickerAddComponent('+purArg(c.key)+')">'+esc(purComponentLabel(c)+' · '+c.glass)+'</button>').join('')+'</div>':'');
+  body='<label for="pur_source_order">Customer order</label><select id="pur_source_order" '+onAct('change',purPickerOrder,EL_VALUE)+'><option value="">Choose order</option>'+orders.map(o=>'<option value="'+esc(o.id)+'" '+(o.id===p.orderId?'selected':'')+'>'+esc([o.businessNumber,salesCustomerDisplay(o.customerId)].filter(Boolean).join(' · '))+'</option>').join('')+'</select>'+
+   (o?'<label for="pur_source_line">Position</label><select id="pur_source_line" '+onAct('change',purPickerSet,'lineId',EL_VALUE)+'><option value="">Choose position</option>'+o.lines.map((l,i)=>'<option value="'+esc(l.id)+'" '+(l.id===p.lineId?'selected':'')+'>'+esc('Line '+(i+1)+' · '+(l.mark||'')+' · '+docSize(l)+' · Qty '+l.qty)+'</option>').join('')+'</select>':'')+
+   (l?'<div class="pur-picker-list"><button type="button" '+onAct('click',purPickerAddComponent,'')+'>Whole unit / laminate</button>'+glassBatchComponents(o,l).map(c=>'<button type="button" '+onAct('click',purPickerAddComponent,String(c.key))+'>'+esc(purComponentLabel(c)+' · '+c.glass)+'</button>').join('')+'</div>':'');
  }
- return '<div class="doc-back"><section class="card pur-picker" role="dialog" aria-label="Add purchase line"><div class="pur-section-head"><h3>Add purchase line</h3><button type="button" onclick="purPicker=null;render()">Close</button></div>'+body+'</section></div>';
+ return '<div class="doc-back"><section class="card pur-picker" role="dialog" aria-label="Add purchase line"><div class="pur-section-head"><h3>Add purchase line</h3><button type="button" '+onAct('click',purPickerClose)+'>Close</button></div>'+body+'</section></div>';
 }
 function purPickerMaterial(v){
  const i=String(v).indexOf('|'),l=i>0?purStockLine(v.slice(0,i),v.slice(i+1)):null;if(!l)return;
@@ -137,7 +146,7 @@ function purPickerAddSheet(id){
 function purPickerAddComponent(key){purPickerPush(purOrderComponentLine(purPicker.orderId,purPicker.lineId,key));}
 function purSalesLinksHTML(orderId,l,colspan){
  const links=purLinkedPurchases(orderId,l.id);if(!links.length)return '';
- return '<tr class="pur-sales-links"><td colspan="'+colspan+'">'+links.map(({p,l})=>'<span>'+esc(l.spec?l.spec.part:'Glass')+' · ordered from '+esc(purSupplierDisplay(p)||'Supplier not set')+' · '+(accessCan('purchasing')?'<button type="button" class="fin-link" onclick="purOpenLinked('+purArg(p.id)+')">'+esc(p.number)+'</button>':esc(p.number))+esc((l.expectedDate||p.expectedDate)?' · expected '+docDate(l.expectedDate||p.expectedDate):'')+'</span>').join(' · ')+'</td></tr>';
+ return '<tr class="pur-sales-links"><td colspan="'+colspan+'">'+links.map(({p,l})=>'<span>'+esc(l.spec?l.spec.part:'Glass')+' · ordered from '+esc(purSupplierDisplay(p)||'Supplier not set')+' · '+(accessCan('purchasing')?'<button type="button" class="fin-link" '+onAct('click',purOpenLinked,String(p.id))+'>'+esc(p.number)+'</button>':esc(p.number))+esc((l.expectedDate||p.expectedDate)?' · expected '+docDate(l.expectedDate||p.expectedDate):'')+'</span>').join(' · ')+'</td></tr>';
 }
 (window.NAV_GUARDS=window.NAV_GUARDS||[]).push((to)=>tab==='purchasing'&&to!=='purchasing'&&!purOrderLeave());
 

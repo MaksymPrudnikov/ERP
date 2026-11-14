@@ -41,33 +41,23 @@ const ROOT = path.resolve(__dirname, '..');
 
 /* Файл → сколько встроенных обработчиков осталось. Только уменьшать.
    PR 1 (13.11.2026): Sales, фигуры, списки, общее; PR 2 (14.11.2026): Optimization,
-   Production, станции; PR 3 (14.11.2026): Master Data, формы, Customers, прайсы — переведены (их тут нет). */
+   Production, станции; PR 3 (14.11.2026): Master Data, формы, Customers, прайсы; PR 4 (14.11.2026): Finance,
+   Agents, Purchasing, Inventory, Shipping — переведены (их тут нет). */
 const INLINE_LEFT = {
   'src/erp/views/dashboard.js': 3,
   'src/erp/views/users.js': 43,
   'src/erp/signin.js': 10,
-  'src/erp/views/shipping.js': 30,
-  'src/erp/views/finance.js': 23,
-  'src/erp/views/finance-workspace.js': 49,
-  'src/erp/views/finance-lists.js': 27,
-  'src/erp/views/finance-allocate.js': 16,
-  'src/erp/views/commissions.js': 28,
-  'src/erp/views/purchasing.js': 16,
-  'src/erp/views/purchase-orders.js': 26,
-  'src/erp/views/purchasing-catalog.js': 22,
-  'src/erp/views/purchase-documents.js': 9,
-  'src/erp/views/purchasing-receiving.js': 28,
-  'src/erp/views/purchasing-delivery-documents.js': 7,
-  'src/erp/views/purchasing-invoices.js': 20,
-  'src/erp/views/inventory.js': 52,
-  'src/erp/views/shipping-lookup.js': 9,
-  'src/erp/views/delivery.js': 18,
   'src/erp/views/reports.js': 156,
 };
 
 /* Функции, которыми аргумент экранировали под разметку: onAct экранирует сам,
    поэтому обёртка снимается. esc(x) и shapeXml(x) дают String(x ?? ''). */
 const ESCAPES = ['esc', 'shapeXml'];
+/* Обёртки, которые печатали готовую строку JS в кавычках, без своих кавычек вокруг:
+   purArg(x) и invArg(x) = esc(JSON.stringify(String(x))) — функция получала String(x).
+   Были в Purchasing и Inventory до PR 4 (14.11.2026); переменная, в которой лежит
+   такая строка (arg=invArg(…)), скрипту не видна — её переводить руками. */
+const LITERALS = ['purArg', 'invArg'];
 
 const files = () => require(path.join(ROOT, 'build/manifest.json')).scripts.concat('src/shell.html');
 const ATTR = /(?<=[\s"'`])on([a-z]+)=(\\?["'])/g;
@@ -242,8 +232,9 @@ function translate(h, html) {
     else if (/^this\.dataset\.[A-Za-z_$][\w$]*$/.test(a)) args.push(`elData('${a.slice(13)}')`);
     else if (/^-?\d+(\.\d+)?$/.test(a) || /^(true|false|null)$/.test(a)) args.push(a);
     else if (one) {
-      const e = exprs[+one[1]], json = unwrap(unwrap(e, ['esc']) || e, ['JSON.stringify']);
+      const e = exprs[+one[1]], json = unwrap(unwrap(e, ['esc']) || e, ['JSON.stringify']), lit = unwrap(e, LITERALS);
       if (json) args.push(json);
+      else if (lit) args.push(`String(${/^[\w$.\[\]]+$/.test(lit) ? lit : '(' + lit + ')'})`);
       else if (/['"`?]/.test(e)) return { why: 'выражение без кавычек со строкой или условием: ' + e };
       else args.push(e);
     } else if (str) {
