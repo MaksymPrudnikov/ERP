@@ -26,7 +26,7 @@ function sheetUsageInfos(){
 function sheetUsageOpenBatch(number){optimizationSetTab('production');glassBatchOpen(number);glassBatchDetailTab='optimization';render();}
 function sheetUsageCell(i,c){
  const v=salesListValue(i,c.k);
- if(c.k==='batch')return `<td><button type="button" class="gb-link" data-sheet-batch onclick="sheetUsageOpenBatch('${esc(v)}')">${esc(v)}</button></td>`;
+ if(c.k==='batch')return `<td><button type="button" class="gb-link" data-sheet-batch ${onAct('click',sheetUsageOpenBatch,String(v??''))}>${esc(v)}</button></td>`;
  if(c.k==='built')return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;
  if(c.k==='size')return `<td class="nowrap"><b>${esc(v)}</b></td>`;
  if(c.k==='status')return `<td><span class="gb-state ${v==='Cut'?'done':''}">${esc(v)}</span></td>`;
@@ -47,12 +47,12 @@ function sheetUsageFooter(rows,cols){
 function viewSheetUsage(){
  const infos=sheetUsageInfos(),rows=salesListRows(infos),cols=salesListColumns();
  const cwId=salesListCwId(),keys=cols.map(c=>c.k);
- const th=c=>{const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th"><span data-cw-label>${esc(c.label)}</span><button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span>${cwGrip()}</th>`;};
+ const th=c=>{const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th"><span data-cw-label>${esc(c.label)}</span><button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" ${onAct('click',salesListOpenFilter,EVENT,String(c.k))}></button></span>${cwGrip()}</th>`;};
  const body=rows.map(i=>`<tr data-sheet-row="${esc(i.r.batch+'|'+i.r.glass+'|'+(i.r.stock||i.r.w+'x'+i.r.h))}"><td class="sl-check"></td>${cols.map(c=>sheetUsageCell(i,c)).join('')}<td></td></tr>`).join('')
   ||`<tr><td colspan="${cols.length+2}" class="empty" data-sheet-empty>${infos.length?'Nothing matches the filters.':'No built layouts yet.'}</td></tr>`;
  return `<section class="optimization-queue sheet-usage">
   <div class="card oq-card sales-list-card sl-foot-pin"><div class="oq-toolbar sales-toolbar">${salesListDateButton('built')}<span class="sales-toolbar-sp"></span></div>
    ${glassBatchTabs()}${salesListFilterChips()}
-   <div class="sales-table-wrap"><table class="sl-table${cwTableClass(cwId)}"${cwTableAttrs(cwId,keys)} data-sheet-table>${cwColgroup(cwId,keys)}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button aria-label="Columns" title="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body}</tbody>${rows.length?sheetUsageFooter(rows,cols):''}</table></div>
+   <div class="sales-table-wrap"><table class="sl-table${cwTableClass(cwId)}"${cwTableAttrs(cwId,keys)} data-sheet-table>${cwColgroup(cwId,keys)}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button aria-label="Columns" title="Columns" ${onAct('click',salesListOpenColumns,EVENT)}>${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body}</tbody>${rows.length?sheetUsageFooter(rows,cols):''}</table></div>
   </div>${salesListMenuHTML(infos)}</section>`;
 }

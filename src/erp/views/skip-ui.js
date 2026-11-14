@@ -20,6 +20,7 @@ function skipSet(key,value,redraw){if(!skipDialog)return;skipDialog[key]=value;s
 function skipSetLine(lineId,value){if(!skipDialog)return;skipDialog.lines[lineId]=value;skipDialog.all=false;skipDialog.error='';}
 function skipSetExtra(extraId,value){if(!skipDialog)return;skipDialog.extras[extraId]=value;skipDialog.all=false;skipDialog.error='';}
 /* Весь заказ: все строки целиком и весь товар со склада. */
+function skipSetShipTo(v){skipDialog.shipTo=shippingAddress({address1:v});}
 function skipSetAll(on){
  const d=skipDialog,o=d&&salesRecord(d.orderId);if(!o)return;d.all=!!on;d.error='';
  (o.lines||[]).forEach(l=>{d.lines[l.id]=on?'all':'';});
@@ -56,27 +57,27 @@ function skipDialogHTML(){
  const pickup=d.to===SKIP_PICKUP,delivered=d.to===SKIP_DELIVERED,dispatch=pickup||delivered||d.to===shippingStations().ship,delivery=delivered||d.to===shippingStations().ship&&o.delivery==='delivery';
  const rows=(o.lines||[]).map((l,i)=>{const v=d.lines[l.id]==null?'':d.lines[l.id],left=d.left[l.id]||0;
   return `<tr data-skip-line="${esc(l.id)}" class="${v?'on':''}"><td>Line ${i+1}${l.mark?' · '+esc(l.mark):''}</td><td class="nowrap">${esc(dimIn16(l.width16/16))} × ${esc(dimIn16(l.height16/16))}</td><td>${esc(glassCodes(l))}</td><td class="n">${l.qty}</td><td class="n">${left}</td>
-   <td><input type="number" min="0" max="${left}" step="1" inputmode="numeric" data-skip-qty value="${v==='all'?left:esc(v)}" ${left?'':'disabled'} aria-label="Line ${i+1} units" oninput="skipSetLine('${esc(l.id)}',this.value)"></td></tr>`;}).join('');
+   <td><input type="number" min="0" max="${left}" step="1" inputmode="numeric" data-skip-qty value="${v==='all'?left:esc(v)}" ${left?'':'disabled'} aria-label="Line ${i+1} units" ${onAct('input',skipSetLine,String(l.id??''),EL_VALUE)}></td></tr>`;}).join('');
  const extras=(o.extraItems||[]).map(x=>{const left=skipExtraLeft(o,x),v=d.extras[x.id]||'';
-  return `<tr data-skip-extra="${esc(x.id)}"><td colspan="3">${esc(salesExtraItemName(x))}</td><td class="n">${x.qty}</td><td class="n">${left}</td><td><input type="number" min="0" max="${left}" step="1" inputmode="numeric" data-skip-extra-qty value="${esc(v)}" ${left&&dispatch?'':'disabled'} aria-label="Stock item units" oninput="skipSetExtra('${esc(x.id)}',this.value)"></td></tr>`;}).join('');
+  return `<tr data-skip-extra="${esc(x.id)}"><td colspan="3">${esc(salesExtraItemName(x))}</td><td class="n">${x.qty}</td><td class="n">${left}</td><td><input type="number" min="0" max="${left}" step="1" inputmode="numeric" data-skip-extra-qty value="${esc(v)}" ${left&&dispatch?'':'disabled'} aria-label="Stock item units" ${onAct('input',skipSetExtra,String(x.id??''),EL_VALUE)}></td></tr>`;}).join('');
  const stations=DB.station||[];
- return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)skipClose()"><div class="sales-service-modal sales-dialog ncr-modal skip-dialog" role="dialog" aria-modal="true" aria-label="Skip" data-skip-dialog>
-  <div class="sales-service-modal-head"><h3>Skip · Order ${esc(o.businessNumber)}</h3><button type="button" aria-label="Close" onclick="skipClose()">×</button></div>
+ return `<div class="sales-service-modal-back sales-dialog-back" ${onActSelf('click',skipClose)}><div class="sales-service-modal sales-dialog ncr-modal skip-dialog" role="dialog" aria-modal="true" aria-label="Skip" data-skip-dialog>
+  <div class="sales-service-modal-head"><h3>Skip · Order ${esc(o.businessNumber)}</h3><button type="button" aria-label="Close" ${onAct('click',skipClose)}>×</button></div>
   <div class="sales-dialog-body ncr-form">
    <p class="mut">${esc([salesCustomerDisplay(o.customerId),o.customerPo,salesStatusLabel(o)].filter(Boolean).join(' · '))}</p>
-   <label class="skip-all"><input type="checkbox" data-skip-all ${d.all?'checked':''} onchange="skipSetAll(this.checked)"> Whole order</label>
+   <label class="skip-all"><input type="checkbox" data-skip-all ${d.all?'checked':''} ${onAct('change',skipSetAll,EL_CHECKED)}> Whole order</label>
    <div class="ncr-lines-wrap">${slFromTable('skipLines',`<table class="ncr-lines"><thead><tr><th>Line</th><th>Size</th><th>Glass</th><th class="n">Qty</th><th class="n">Left</th><th>Skip</th></tr></thead><tbody>${rows}${extras}</tbody></table>`)}</div>
-   <label><span class="ncr-label">GLASS ID OR UNIT</span><input type="text" data-skip-codes value="${esc(d.codes)}" placeholder="Scan G- or U-" oninput="skipSet('codes',this.value)"></label>
+   <label><span class="ncr-label">GLASS ID OR UNIT</span><input type="text" data-skip-codes value="${esc(d.codes)}" placeholder="Scan G- or U-" ${onAct('input',skipSet,'codes',EL_VALUE)}></label>
    <div class="ncr-pick">
-    <label><span class="ncr-label">TO</span><select data-skip-to onchange="skipSet('to',this.value,true)"><option value="${SKIP_PICKUP}" ${pickup?'selected':''}>Picked up</option><option value="${SKIP_DELIVERED}" ${delivered?'selected':''}>Delivered</option>${stations.map(s=>`<option value="${esc(s.code)}" ${d.to===s.code?'selected':''}>${s.code===shippingStations().ship?'Shipped · ':''}${esc(s.code)} done</option>`).join('')}</select></label>
-    <label><span class="ncr-label">DATE</span><input type="date" data-skip-date max="${esc(finToday())}" value="${esc(d.date)}" onchange="skipSet('date',this.value)"></label>
-    <label><span class="ncr-label">${delivered?'RECEIVED BY':'PICKED UP BY'}</span><input type="text" data-skip-by value="${esc(d.receivedBy)}" maxlength="100" ${pickup||delivered?'':'disabled'} oninput="skipSet('receivedBy',this.value)"></label>
+    <label><span class="ncr-label">TO</span><select data-skip-to ${onAct('change',skipSet,'to',EL_VALUE,true)}><option value="${SKIP_PICKUP}" ${pickup?'selected':''}>Picked up</option><option value="${SKIP_DELIVERED}" ${delivered?'selected':''}>Delivered</option>${stations.map(s=>`<option value="${esc(s.code)}" ${d.to===s.code?'selected':''}>${s.code===shippingStations().ship?'Shipped · ':''}${esc(s.code)} done</option>`).join('')}</select></label>
+    <label><span class="ncr-label">DATE</span><input type="date" data-skip-date max="${esc(finToday())}" value="${esc(d.date)}" ${onAct('change',skipSet,'date',EL_VALUE)}></label>
+    <label><span class="ncr-label">${delivered?'RECEIVED BY':'PICKED UP BY'}</span><input type="text" data-skip-by value="${esc(d.receivedBy)}" maxlength="100" ${pickup||delivered?'':'disabled'} ${onAct('input',skipSet,'receivedBy',EL_VALUE)}></label>
    </div>
-   ${delivery?`<label><span class="ncr-label">DELIVERY ADDRESS</span><input type="text" data-skip-address value="${esc(docAddressText(d.shipTo))}" oninput="skipDialog.shipTo=shippingAddress({address1:this.value})"></label>`:''}
-   <label><span class="ncr-label">REASON</span><input type="text" data-skip-reason value="${esc(d.reason)}" maxlength="200" placeholder="${delivered?'Delivered Saturday':pickup?'Picked up Saturday':'Optional'}" oninput="skipSet('reason',this.value)"></label>
+   ${delivery?`<label><span class="ncr-label">DELIVERY ADDRESS</span><input type="text" data-skip-address value="${esc(docAddressText(d.shipTo))}" ${onAct('input',skipSetShipTo,EL_VALUE)}></label>`:''}
+   <label><span class="ncr-label">REASON</span><input type="text" data-skip-reason value="${esc(d.reason)}" maxlength="200" placeholder="${delivered?'Delivered Saturday':pickup?'Picked up Saturday':'Optional'}" ${onAct('input',skipSet,'reason',EL_VALUE)}></label>
    ${d.error?`<div class="ncr-error" role="alert" data-skip-error>${esc(d.error)}</div>`:''}
   </div>
-  <div class="sales-dialog-actions"><button type="button" onclick="skipClose()">Back</button><button type="button" class="pri" data-skip-run onclick="skipConfirm()">Skip</button></div></div></div>`;
+  <div class="sales-dialog-actions"><button type="button" ${onAct('click',skipClose)}>Back</button><button type="button" class="pri" data-skip-run ${onAct('click',skipConfirm)}>Skip</button></div></div></div>`;
 }
 (window.APP_OVERLAYS=window.APP_OVERLAYS||[]).push(skipDialogHTML);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&skipDialog)skipClose();});

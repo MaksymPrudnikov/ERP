@@ -107,6 +107,8 @@ function carrierColsShown(){return carrierColPrefs().filter(c=>c.on).map(c=>CARR
 function carrierColsStore(cols){const out=carrierColsSave(carrierMe().id,cols);if(!out.ok&&carrierWin)carrierWin.error=out.error;render();}
 function carrierColSet(k,on){const cols=carrierColPrefs(),c=cols.find(x=>x.k===k);if(!c)return;c.on=!!on;if(!cols.some(x=>x.on))c.on=true;carrierColsStore(cols);}
 function carrierColMove(k,delta){const cols=carrierColPrefs(),at=cols.findIndex(c=>c.k===k),to=at+delta;if(at<0||to<0||to>=cols.length)return;const [c]=cols.splice(at,1);cols.splice(to,0,c);carrierColsStore(cols);}
+function carrierColDragStart(k){carrierColDrag=k;}
+function carrierColDropAt(ev,k){ev.preventDefault();carrierColDrop(k);}
 function carrierColDrop(k){const from=carrierColDrag;carrierColDrag='';if(!from||from===k)return;const cols=carrierColPrefs(),at=cols.findIndex(c=>c.k===from);if(at<0)return;const [c]=cols.splice(at,1);cols.splice(cols.findIndex(x=>x.k===k),0,c);carrierColsStore(cols);}
 function carrierColsStandard(){carrierColsStore([]);}
 /* Ширина колонок окна — в этом браузере, у каждого человека своя; порядок —
@@ -123,7 +125,7 @@ cwRegister('carrierWin',Object.assign({lead:[36]},CARRIER_CW));
 cwRegister('carrierWinOut',Object.assign({lead:[]},CARRIER_CW));
 function carrierColsHTML(){
  const cols=carrierColPrefs(),at=carrierWin&&carrierWin.menu||{},top=Math.max(8,at.y||80);
- return `<div class="sl-menu sl-cols cw-cols" style="left:${Math.max(8,(at.x||window.innerWidth)-300)}px;top:${top}px;max-height:${Math.max(200,window.innerHeight-top-12)}px" role="dialog" aria-label="Columns" data-carrier-cols><h5>Columns · drag to reorder</h5>${cols.map((c,i)=>{const col=CARRIER_COLS.find(x=>x.k===c.k);return `<div class="sl-cols-row" draggable="true" data-carrier-col="${c.k}" ondragstart="carrierColDrag='${c.k}'" ondragover="event.preventDefault()" ondrop="event.preventDefault();carrierColDrop('${c.k}')"><span class="h" aria-hidden="true">⋮⋮</span><label><input type="checkbox" data-carrier-col-toggle="${c.k}" ${c.on?'checked':''} onchange="carrierColSet('${c.k}',this.checked)"> ${esc(col.label)}</label><button type="button" class="sm" aria-label="Move ${esc(col.label)} up" ${i===0?'disabled':''} onclick="carrierColMove('${c.k}',-1)">↑</button><button type="button" class="sm" aria-label="Move ${esc(col.label)} down" ${i===cols.length-1?'disabled':''} onclick="carrierColMove('${c.k}',1)">↓</button></div>`;}).join('')}<div class="sl-actions"><button type="button" class="sl-btn" onclick="carrierColsStandard()">Standard view</button></div></div>`;
+ return `<div class="sl-menu sl-cols cw-cols" style="left:${Math.max(8,(at.x||window.innerWidth)-300)}px;top:${top}px;max-height:${Math.max(200,window.innerHeight-top-12)}px" role="dialog" aria-label="Columns" data-carrier-cols><h5>Columns · drag to reorder</h5>${cols.map((c,i)=>{const col=CARRIER_COLS.find(x=>x.k===c.k);return `<div class="sl-cols-row" draggable="true" data-carrier-col="${c.k}" ${onAct('dragstart',carrierColDragStart,String(c.k))} ${onAct('dragover',actPrevent,EVENT)} ${onAct('drop',carrierColDropAt,EVENT,String(c.k))}><span class="h" aria-hidden="true">⋮⋮</span><label><input type="checkbox" data-carrier-col-toggle="${c.k}" ${c.on?'checked':''} ${onAct('change',carrierColSet,String(c.k),EL_CHECKED)}> ${esc(col.label)}</label><button type="button" class="sm" aria-label="Move ${esc(col.label)} up" ${i===0?'disabled':''} ${onAct('click',carrierColMove,String(c.k),-1)}>↑</button><button type="button" class="sm" aria-label="Move ${esc(col.label)} down" ${i===cols.length-1?'disabled':''} ${onAct('click',carrierColMove,String(c.k),1)}>↓</button></div>`;}).join('')}<div class="sl-actions"><button type="button" class="sl-btn" ${onAct('click',carrierColsStandard)}>Standard view</button></div></div>`;
 }
 
 /* ----------------------------- Значения ---------------------------- */
@@ -200,6 +202,8 @@ function carrierWinModel(){const w=carrierWin;return w?carrierModelOf(w.code,w.s
 /* Кто положил: станция последнего скана на эту тару. */
 function carrierLoaderOf(m){const top=m&&m.items.length?m.items[m.items.length-1]:null;return top&&top.scan&&top.scan.station||'';}
 function carrierWinLoader(){return carrierWin?carrierLoaderOf(carrierWinModel()):'';}
+/* Клик по строке выбирает её; по галочке — сама галочка (onchange). */
+function carrierWinRowClick(ev,key){if(ev.target.tagName!=='INPUT')carrierWinPick(key);}
 function carrierWinPick(key){const w=carrierWin;if(!w)return;if(w.sel.has(key))w.sel.delete(key);else w.sel.add(key);w.error='';render();}
 function carrierWinPickOrder(id){
  const w=carrierWin,m=carrierWinModel();if(!w||!m)return;
@@ -211,6 +215,12 @@ function carrierWinSelected(){const m=carrierWinModel();return m?m.items.filter(
 function carrierWinMenu(e){if(e)e.stopPropagation();if(!carrierWin)return;const r=e&&e.currentTarget&&e.currentTarget.getBoundingClientRect?e.currentTarget.getBoundingClientRect():null;carrierWin.menu=carrierWin.menu?false:{x:r?r.right:window.innerWidth-40,y:r?r.bottom+6:80};render();}
 /* Перенести выбранное на другую тару (carrierMove: «исправить ошибку
    рабочего»). Номер — как на этикетке, DL-15. */
+function carrierWinTo(v){carrierWin.to=v;}
+/* Enter в поле «куда» — то же, что кнопка Move. */
+function carrierWinMoveKey(ev,to){if(ev.key==='Enter'){ev.preventDefault();carrierWinMove(to);}}
+function carrierWinMoveTo(){carrierWinMove(document.querySelector('[data-carrier-to]').value);}
+/* Клик в окне мимо меню столбцов закрывает меню. */
+function carrierWinMenuOff(ev){if(carrierWin&&carrierWin.menu&&!ev.target.closest('[data-carrier-cols],[data-carrier-cols-button]')){carrierWin.menu=false;render();}}
 function carrierWinMove(to){
  const w=carrierWin;if(!w)return false;const code=carrierCode(to),items=carrierWinSelected();
  if(!items.length){w.error='Select glass first';render();return false;}
@@ -263,8 +273,8 @@ function carrierWinHTML(){
  const since=loaded?carrierSinceShort(m.list):'';
  const sub=[where,since&&since!=='—'?'since '+esc(since):'',loaded?'<b>'+esc(carrierCountText(m.items))+' · '+stationPlural(orders.length,'order','orders')+'</b>':''].filter(Boolean).join(' · ');
  const out=m.out?`<div class="cw-out" data-carrier-out>At <b data-raw>${esc(salesCustomerDisplay(m.out.customerId))}</b> since ${esc(salesListShortDay(finLocalDate(m.out.since)))} · ${skidDays(m.out.since)} day${skidDays(m.out.since)===1?'':'s'} · ${esc(m.out.ps)}${m.gone.length?' · went: '+esc(carrierCountText(m.gone)):''}</div>`:'';
- const done=w.done?`<div class="cw-done" role="status" data-carrier-done><b>${esc(w.done.text)}</b>${w.done.by?` · by <span data-raw>${esc(w.done.by)}</span>`:''}${w.done.kind==='back'?'':' <button type="button" class="sm" data-carrier-undo onclick="carrierWinUndo()">Undo</button>'}</div>`:'';
- const chips=loaded&&orders.length?`<div class="cw-orders">${orders.map(g=>{const all=g.items.every(i=>w.sel.has(i.key));return `<label class="cw-chip${all?' on':''}" data-carrier-order="${esc(g.o.businessNumber||'')}"><input type="checkbox" ${all?'checked':''} onchange="carrierWinPickOrder('${esc(g.o.id)}')"><b>${esc(g.o.businessNumber||'')}</b> <span data-raw>${esc(salesCustomerDisplay(g.o.customerId))}</span> · ${g.items.length}${carrierPrio(g.o)}</label>`;}).join('')}</div>`:'';
+ const done=w.done?`<div class="cw-done" role="status" data-carrier-done><b>${esc(w.done.text)}</b>${w.done.by?` · by <span data-raw>${esc(w.done.by)}</span>`:''}${w.done.kind==='back'?'':' <button type="button" class="sm" data-carrier-undo '+onAct('click',carrierWinUndo)+'>Undo</button>'}</div>`:'';
+ const chips=loaded&&orders.length?`<div class="cw-orders">${orders.map(g=>{const all=g.items.every(i=>w.sel.has(i.key));return `<label class="cw-chip${all?' on':''}" data-carrier-order="${esc(g.o.businessNumber||'')}"><input type="checkbox" ${all?'checked':''} ${onAct('change',carrierWinPickOrder,String(g.o.id??''))}><b>${esc(g.o.businessNumber||'')}</b> <span data-raw>${esc(salesCustomerDisplay(g.o.customerId))}</span> · ${g.items.length}${carrierPrio(g.o)}</label>`;}).join('')}</div>`:'';
  const allSel=loaded&&sel.length===m.items.length;
  /* Фильтр ▾, сортировка и быстрый фильтр в заголовке — движок Sales
     (владелец 07.11.2026: «все таблицы как Sales»). Колонки, их порядок и
@@ -277,16 +287,16 @@ function carrierWinHTML(){
   const infos=rows.map((it,i)=>({o:{id:String(it.key||it.label||i),createdAt:''},it,memo:Object.fromEntries(cols.map(c=>{const t=carrierText(it,c.k);return [c.k,num(c.k)?(parseFloat(String(t).replace(/[^\d.]/g,''))||''):t];}))}));
   shown=salesListRows(infos).map(x=>x.it);menu=salesListMenuHTML(infos);
  }finally{slScopeNow=was;}
- const fbtn=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button>`;};
- const head=`<tr>${loaded?`<th class="cw-check"><input type="checkbox" aria-label="Select all" data-carrier-all ${allSel?'checked':''} onchange="carrierWinPickAll(this.checked)"></th>`:''}${cols.map(c=>`<th${c.k==='weight'?' class="n"':''} data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th">${fbtn(c)}<span data-cw-label>${esc(c.label)}</span></span>${cwGrip()}</th>`).join('')}</tr>`,cwKeys=cols.map(c=>c.k),cwId=loaded?'carrierWin':'carrierWinOut';
- const body=shown.map(it=>{const on=w.sel.has(it.key);return `<tr class="${on?'on':''}" data-carrier-row="${esc(it.label)}"${loaded?` onclick="if(event.target.tagName!=='INPUT')carrierWinPick('${esc(it.key)}')"`:''}>${loaded?`<td class="cw-check"><input type="checkbox" ${on?'checked':''} aria-label="Select ${esc(it.label)}" onchange="carrierWinPick('${esc(it.key)}')"></td>`:''}${cols.map(c=>carrierCell(it,c)).join('')}</tr>`;}).join('');
+ const fbtn=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" ${onAct('click',salesListOpenFilter,EVENT,String(c.k))}></button>`;};
+ const head=`<tr>${loaded?`<th class="cw-check"><input type="checkbox" aria-label="Select all" data-carrier-all ${allSel?'checked':''} ${onAct('change',carrierWinPickAll,EL_CHECKED)}></th>`:''}${cols.map(c=>`<th${c.k==='weight'?' class="n"':''} data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th">${fbtn(c)}<span data-cw-label>${esc(c.label)}</span></span>${cwGrip()}</th>`).join('')}</tr>`,cwKeys=cols.map(c=>c.k),cwId=loaded?'carrierWin':'carrierWinOut';
+ const body=shown.map(it=>{const on=w.sel.has(it.key);return `<tr class="${on?'on':''}" data-carrier-row="${esc(it.label)}"${loaded?` ${onAct('click',carrierWinRowClick,EVENT,String(it.key??''))}`:''}>${loaded?`<td class="cw-check"><input type="checkbox" ${on?'checked':''} aria-label="Select ${esc(it.label)}" ${onAct('change',carrierWinPick,String(it.key??''))}></td>`:''}${cols.map(c=>carrierCell(it,c)).join('')}</tr>`;}).join('');
  const table=rows.length?`<div data-sl-scope="${scope}"><div class="cw-table-wrap"><table class="sl-table cw-table${cwTableClass(cwId)}"${cwTableAttrs(cwId,cwKeys)}>${cwColgroup(cwId,cwKeys)}<thead>${head}</thead><tbody>${body||`<tr><td colspan="${cols.length+1}" class="empty">Nothing matches the filters.</td></tr>`}</tbody></table></div>${menu}</div><div class="cw-note"><span>${loaded?'#1 went on first.':'What went to the customer on '+esc(m.out.ps)+'.'}</span><b data-carrier-total>Total: ${esc(carrierCountText(rows))} · ${stationPlural(orders.length,'order','orders')}</b></div>`:'<div class="empty">Nothing on it</div>';
- const bar=sel.length?`<div class="cw-bar" data-carrier-sel><span><b>${esc(carrierCountText(sel))} selected</b> <span class="mut">${sel.map(i=>'#'+i.pos).join(', ')}</span></span><span class="cw-sp"></span><label class="cw-to">Move to <input data-carrier-to placeholder="DL-15" value="${esc(w.to)}" oninput="carrierWin.to=this.value" onkeydown="if(event.key==='Enter'){event.preventDefault();carrierWinMove(this.value)}"></label><button type="button" class="pri" data-carrier-move onclick="carrierWinMove(document.querySelector('[data-carrier-to]').value)">Move</button>${m.code?`<button type="button" class="cw-danger" data-carrier-takeoff onclick="carrierWinTakeOff()">Take off ${esc(m.code)}</button>`:''}</div>`:'';
+ const bar=sel.length?`<div class="cw-bar" data-carrier-sel><span><b>${esc(carrierCountText(sel))} selected</b> <span class="mut">${sel.map(i=>'#'+i.pos).join(', ')}</span></span><span class="cw-sp"></span><label class="cw-to">Move to <input data-carrier-to placeholder="DL-15" value="${esc(w.to)}" ${onAct('input',carrierWinTo,EL_VALUE)} ${onAct('keydown',carrierWinMoveKey,EVENT,EL_VALUE)}></label><button type="button" class="pri" data-carrier-move ${onAct('click',carrierWinMoveTo)}>Move</button>${m.code?`<button type="button" class="cw-danger" data-carrier-takeoff ${onAct('click',carrierWinTakeOff)}>Take off ${esc(m.code)}</button>`:''}</div>`:'';
  const title=m.code?`<span class="cw-code">${esc(m.code)}</span><h3>${esc(m.type?m.type.label:'')}</h3>`:`<span class="cw-code none">${esc(m.word)}</span><h3>Waiting at ${esc(m.station)}</h3>`;
- return `<div class="sales-service-modal-back cw-back" onclick="if(event.target===this)carrierWinClose()"><div class="sales-service-modal cw" role="dialog" aria-modal="true" aria-label="${esc(m.code||m.word)}" data-carrier-window="${esc(m.code||'none:'+m.station)}" onclick="if(carrierWin&&carrierWin.menu&&!event.target.closest('[data-carrier-cols],[data-carrier-cols-button]')){carrierWin.menu=false;render();}">
-  <div class="cw-head"><div class="cw-title">${title}</div><button type="button" class="cw-cols-btn" data-carrier-cols-button onclick="carrierWinMenu(event)">Columns ▾</button>${w.menu?carrierColsHTML():''}<button type="button" class="cw-x" aria-label="Close" onclick="carrierWinClose()">×</button></div>
+ return `<div class="sales-service-modal-back cw-back" ${onActSelf('click',carrierWinClose)}><div class="sales-service-modal cw" role="dialog" aria-modal="true" aria-label="${esc(m.code||m.word)}" data-carrier-window="${esc(m.code||'none:'+m.station)}" ${onAct('click',carrierWinMenuOff,EVENT)}>
+  <div class="cw-head"><div class="cw-title">${title}</div><button type="button" class="cw-cols-btn" data-carrier-cols-button ${onAct('click',carrierWinMenu,EVENT)}>Columns ▾</button>${w.menu?carrierColsHTML():''}<button type="button" class="cw-x" aria-label="Close" ${onAct('click',carrierWinClose)}>×</button></div>
   ${sub?`<div class="cw-sub">${sub}</div>`:''}${out}${done}${w.error?`<div class="cw-err" role="alert" data-carrier-error>${esc(w.error)}</div>`:''}${chips}${table}${bar}
-  <div class="cw-foot">${m.code&&loaded?`<button type="button" class="cw-danger" data-carrier-empty onclick="carrierWinEmpty()">Empty ${esc(m.code)}</button>`:''}${m.out?`<button type="button" data-carrier-back onclick="carrierWinBack()">Back at the shop</button>`:''}<span class="cw-sp"></span><button type="button" data-carrier-print ${rows.length?'':'disabled'} onclick="carrierPrint()">Print</button><button type="button" onclick="carrierWinClose()">Close</button></div>
+  <div class="cw-foot">${m.code&&loaded?`<button type="button" class="cw-danger" data-carrier-empty ${onAct('click',carrierWinEmpty)}>Empty ${esc(m.code)}</button>`:''}${m.out?`<button type="button" data-carrier-back ${onAct('click',carrierWinBack)}>Back at the shop</button>`:''}<span class="cw-sp"></span><button type="button" data-carrier-print ${rows.length?'':'disabled'} ${onAct('click',carrierPrint)}>Print</button><button type="button" ${onAct('click',carrierWinClose)}>Close</button></div>
  </div></div>`;
 }
 (window.APP_OVERLAYS=window.APP_OVERLAYS||[]).push(carrierWinHTML);
@@ -367,7 +377,7 @@ function carrierPrintCode(code){const m=carrierModelOf(carrierCode(code));return
 /* Экран станции: «Print what is on SA-11» — набор колонок этой станции,
    печатает вошедший на станции (на SHIPR: отсканировал скид, напечатал,
    сверил с тем, что на скиде, замотал). */
-function carrierPrintButton(code){return code&&typeof stationCode==='string'&&stationCode?'<button type="button" class="b st-yes" data-station-print="'+esc(code)+'" onclick="carrierPrintAtStation(\''+esc(code)+'\')">Print what is on '+esc(code)+'</button>':'';}
+function carrierPrintButton(code){return code&&typeof stationCode==='string'&&stationCode?'<button type="button" class="b st-yes" data-station-print="'+esc(code)+'" '+onAct('click',carrierPrintAtStation,String(code??''))+'>Print what is on '+esc(code)+'</button>':'';}
 function carrierPrintAtStation(code){
  const who=typeof stationWho==='function'?stationWho():null;
  return carrierPrintSheet(carrierModelOf(carrierCode(code)),carrierColsOn(carrierStationCols(stationCode)||[]),who||{id:'',name:''},stationCode);
@@ -403,13 +413,13 @@ function prodCarrierInfos(){
  });
 }
 function carrierCardHTML(c){
- if(c.kind==='out'){const x=c.out,d=skidDays(x.since);return `<button type="button" class="cb-card" data-carrier-card="${esc(c.code)}" onclick="carrierWinOpen('${esc(c.code)}')"><span class="cb-top"><span class="cw-code sm">${esc(c.code)}</span></span><span class="cb-l" data-raw>${esc(salesCustomerDisplay(x.customerId))}</span><span class="cb-s">${d} day${d===1?'':'s'} · ${esc(x.ps)}</span></button>`;}
+ if(c.kind==='out'){const x=c.out,d=skidDays(x.since);return `<button type="button" class="cb-card" data-carrier-card="${esc(c.code)}" ${onAct('click',carrierWinOpen,String(c.code??''))}><span class="cb-top"><span class="cw-code sm">${esc(c.code)}</span></span><span class="cb-l" data-raw>${esc(salesCustomerDisplay(x.customerId))}</span><span class="cb-s">${d} day${d===1?'':'s'} · ${esc(x.ps)}</span></button>`;}
  const orders=carrierOrders(c.here),nums=orders.map(g=>g.o.businessNumber||''),one=orders.length===1?orders[0].o:null;
  const hot=orders.some(g=>g.o.priority==='critical')?'<span class="pill bad">Critical</span>':orders.some(g=>g.o.priority==='rush')?'<span class="pill warn">Rush</span>':'';
  const count=c.others.length?`${c.here.length} of ${c.items.length}`:carrierCountText(c.here);
  const line=one?`${esc(one.businessNumber||'')} · <span data-raw>${esc(salesCustomerDisplay(one.customerId))}</span>`:esc(nums.slice(0,3).join(' · ')+(nums.length>3?' +'+(nums.length-3):''));
- const open=c.code?`carrierWinOpen('${esc(c.code)}')`:`carrierWinOpen('','${esc(c.station)}')`;
- return `<button type="button" class="cb-card${c.kind==='loose'?' loose':''}" data-carrier-card="${esc(c.code||c.word+':'+c.station)}" onclick="${open}"><span class="cb-top"><span class="cw-code sm${c.code?'':' none'}">${esc(c.code||c.word)}</span><b>${esc(count)}</b></span><span class="cb-l">${line} ${hot}</span>${c.others.length?`<span class="cb-s">also ${esc(c.others.map(([s,n])=>s+' '+n).join(' · '))}</span>`:''}${c.kind==='loose'?`<span class="cb-s">scanned without a ${c.word==='No skid'?'skid':'dolly'} · ${stationPlural(orders.length,'order','orders')}</span>`:`<span class="cb-s">since ${esc(c.since)}</span>`}</button>`;
+ const open=c.code?[String(c.code)]:['',String(c.station??'')];
+ return `<button type="button" class="cb-card${c.kind==='loose'?' loose':''}" data-carrier-card="${esc(c.code||c.word+':'+c.station)}" ${onAct('click',carrierWinOpen,...open)}><span class="cb-top"><span class="cw-code sm${c.code?'':' none'}">${esc(c.code||c.word)}</span><b>${esc(count)}</b></span><span class="cb-l">${line} ${hot}</span>${c.others.length?`<span class="cb-s">also ${esc(c.others.map(([s,n])=>s+' '+n).join(' · '))}</span>`:''}${c.kind==='loose'?`<span class="cb-s">scanned without a ${c.word==='No skid'?'skid':'dolly'} · ${stationPlural(orders.length,'order','orders')}</span>`:`<span class="cb-s">since ${esc(c.since)}</span>`}</button>`;
 }
 function carrierBoardSet(v){carrierBoardShow=v;render();}
 function carrierBoardToggle(k){if(carrierBoardMore.has(k))carrierBoardMore.delete(k);else carrierBoardMore.add(k);render();}
@@ -421,7 +431,7 @@ function viewProdCarriers(){
  const p=salesListLoadPrefs(),show=carrierBoardShow,cards=rows.map(r=>r.card);
  const order=new Map((DB.station||[]).map((s,i)=>[s.code,[s.seq,i]]));
  const stations=[...new Set(cards.filter(c=>c.kind!=='out').map(c=>c.station))].sort((a,b)=>{const x=order.get(a)||[999,0],y=order.get(b)||[999,0];return x[0]-y[0]||x[1]-y[1];});
- const fbtn=(k,label)=>{const f=p.filters[k],on=!!f&&salesListFilterActive(f);return `<button type="button" class="sl-quiet cb-filter${on?' on':''}" data-filter-col="${k}" onclick="salesListOpenFilter(event,'${k}')">${label} ▾</button>`;};
+ const fbtn=(k,label)=>{const f=p.filters[k],on=!!f&&salesListFilterActive(f);return `<button type="button" class="sl-quiet cb-filter${on?' on':''}" data-filter-col="${k}" ${onAct('click',salesListOpenFilter,EVENT,String(k))}>${label} ▾</button>`;};
  const total=b.loadedN+b.outN+b.empty.length,seg=[['loaded','Loaded',b.loadedN],['out','At customers',b.outN],['empty','Empty',b.empty.length],['all','All',total]];
  /* Плитки — учёт тары (вариант 1 этапа 8): зарегистрировано, в цеху, у
     клиентов, стекло без тары, итоги последнего пересчёта. */
@@ -429,7 +439,7 @@ function viewProdCarriers(){
  /* Шапка вида Sales (этап 6): фильтры, подсказка и пересчёт — одной строкой;
     экраны Production и Loaded / At customers / Empty / All — таблетками. Доска
     и окно «что на ней» по клику — как были. */
- const tools=`<div class="sales-toolbar cb-tools">${fbtn('order','Order')}${fbtn('customer','Customer')}${fbtn('station','Station')}<span class="sales-toolbar-sp"></span><span class="mut small">Click a dolly or skid to see what is on it</span>${carrierCountButton()}</div><div class="sl-filter-row">${typeof sfScreenPills==='function'?sfScreenPills().replace('<div class="sl-filter-row">','').replace(/<\/div>$/,''):''}<span style="width:12px"></span><div class="sl-quick cb-seg">${seg.map(([k,l,n])=>`<button type="button" class="sl-quick-pill${show===k?' on':''}" data-carrier-show="${k}" onclick="carrierBoardSet('${k}')">${l} <b>${n}</b></button>`).join('')}</div></div>`;
+ const tools=`<div class="sales-toolbar cb-tools">${fbtn('order','Order')}${fbtn('customer','Customer')}${fbtn('station','Station')}<span class="sales-toolbar-sp"></span><span class="mut small">Click a dolly or skid to see what is on it</span>${carrierCountButton()}</div><div class="sl-filter-row">${typeof sfScreenPills==='function'?sfScreenPills().replace('<div class="sl-filter-row">','').replace(/<\/div>$/,''):''}<span style="width:12px"></span><div class="sl-quick cb-seg">${seg.map(([k,l,n])=>`<button type="button" class="sl-quick-pill${show===k?' on':''}" data-carrier-show="${k}" ${onAct('click',carrierBoardSet,String(k))}>${l} <b>${n}</b></button>`).join('')}</div></div>`;
  const group=(title,sub,body,key)=>`<section class="cb-group" data-carrier-group="${esc(key)}"><div class="cb-gh"><b>${esc(title)}</b><span>${esc(sub)}</span></div><div class="cb-cards">${body}</div></section>`;
  const many=(n,one,more)=>n===1?'1 '+one:n+' '+more;
  const groups=[];
@@ -440,13 +450,13 @@ function viewProdCarriers(){
  });
  if(show==='out'||show==='all'){
   const list=cards.filter(c=>c.kind==='out').sort((a,b)=>a.out.since.localeCompare(b.out.since)),open=carrierBoardMore.has('out'),cut=open?list:list.slice(0,11);
-  if(list.length)groups.push(group('At customers',many(list.length,'skid','skids'),cut.map(carrierCardHTML).join('')+(list.length>cut.length?`<button type="button" class="cb-card cb-more" onclick="carrierBoardToggle('out')">+${list.length-cut.length} more</button>`:open&&list.length>11?`<button type="button" class="cb-card cb-more" onclick="carrierBoardToggle('out')">Show less</button>`:''),'out'));
+  if(list.length)groups.push(group('At customers',many(list.length,'skid','skids'),cut.map(carrierCardHTML).join('')+(list.length>cut.length?`<button type="button" class="cb-card cb-more" ${onAct('click',carrierBoardToggle,'out')}>+${list.length-cut.length} more</button>`:open&&list.length>11?`<button type="button" class="cb-card cb-more" ${onAct('click',carrierBoardToggle,'out')}>Show less</button>`:''),'out'));
  }
  if(show==='empty'||show==='all'){
   const body=CARRIER_TYPES.map(t=>{
    const list=b.empty.filter(c=>c.code.startsWith(t.k+'-'));if(!list.length)return '';
    const open=carrierBoardMore.has(t.k),cut=open?list:list.slice(0,24);
-   return `<div class="cb-free" data-carrier-free="${t.k}"><div class="cb-free-h">${esc(t.label)}s · ${list.length}</div><div class="cb-free-l">${cut.map(c=>`<button type="button" class="cw-code sm" onclick="carrierWinOpen('${esc(c.code)}')">${esc(c.code)}</button>`).join('')}${list.length>cut.length?`<button type="button" class="cb-more-l" onclick="carrierBoardToggle('${t.k}')">+${list.length-cut.length}</button>`:open&&list.length>24?`<button type="button" class="cb-more-l" onclick="carrierBoardToggle('${t.k}')">less</button>`:''}</div></div>`;
+   return `<div class="cb-free" data-carrier-free="${t.k}"><div class="cb-free-h">${esc(t.label)}s · ${list.length}</div><div class="cb-free-l">${cut.map(c=>`<button type="button" class="cw-code sm" ${onAct('click',carrierWinOpen,String(c.code??''))}>${esc(c.code)}</button>`).join('')}${list.length>cut.length?`<button type="button" class="cb-more-l" ${onAct('click',carrierBoardToggle,String(t.k))}>+${list.length-cut.length}</button>`:open&&list.length>24?`<button type="button" class="cb-more-l" ${onAct('click',carrierBoardToggle,String(t.k))}>less</button>`:''}</div></div>`;
   }).join('');
   if(b.empty.length)groups.push(`<section class="cb-group" data-carrier-group="empty"><div class="cb-gh"><b>Empty — free</b><span>not at any station</span></div><div class="cb-free-all">${body}</div></section>`);
  }
@@ -462,11 +472,14 @@ let sfSheetEdit='',sfSheetDrag='';
 function carrierSheetCell(s,edit){
  const own=carrierStationCols(s.code),text=own?carrierColsOn(own).length+' columns':'All columns';
  if(!edit)return `<span class="mut" data-sf-sheet-cols="${esc(s.code)}">${text}</span>`;
- return `<span data-sf-sheet-cols="${esc(s.code)}">${text}</span> <button class="sm" data-sf-sheet="${esc(s.code)}" onclick="sfSheetEdit=sfSheetEdit==='${esc(s.code)}'?'':'${esc(s.code)}';render()">${sfSheetEdit===s.code?'Done':'Edit'}</button>`;
+ return `<span data-sf-sheet-cols="${esc(s.code)}">${text}</span> <button class="sm" data-sf-sheet="${esc(s.code)}" ${onAct('click',sfSheetEditToggle,String(s.code??''))}>${sfSheetEdit===s.code?'Done':'Edit'}</button>`;
 }
+function sfSheetEditToggle(code){sfSheetEdit=sfSheetEdit===code?'':code;render();}
 function sfSheetStore(code,cols){const out=carrierStationColsSave(code,cols);if(!out.ok)alert(out.error);render();}
 function sfSheetSet(code,k,on){const cols=carrierColsFill(carrierStationCols(code)||[]),c=cols.find(x=>x.k===k);if(!c)return;c.on=!!on;if(!cols.some(x=>x.on))c.on=true;sfSheetStore(code,cols);}
 function sfSheetMove(code,k,delta){const cols=carrierColsFill(carrierStationCols(code)||[]),at=cols.findIndex(c=>c.k===k),to=at+delta;if(at<0||to<0||to>=cols.length)return;const [c]=cols.splice(at,1);cols.splice(to,0,c);sfSheetStore(code,cols);}
+function sfSheetDragStart(k){sfSheetDrag=k;}
+function sfSheetDropAt(ev,code,k){ev.preventDefault();sfSheetDrop(code,k);}
 function sfSheetDrop(code,k){const from=sfSheetDrag;sfSheetDrag='';if(!from||from===k)return;const cols=carrierColsFill(carrierStationCols(code)||[]),at=cols.findIndex(c=>c.k===from);if(at<0)return;const [c]=cols.splice(at,1);cols.splice(cols.findIndex(x=>x.k===k),0,c);sfSheetStore(code,cols);}
 /* Образец: тара, которую эта станция загрузила последней; нет — любая загруженная. */
 function sfSheetSample(code){
@@ -476,7 +489,7 @@ function sfSheetSample(code){
 }
 function carrierSheetEditorHTML(code){
  const cols=carrierColsFill(carrierStationCols(code)||[]),m=sfSheetSample(code);
- const list=cols.map((c,i)=>{const col=CARRIER_COLS.find(x=>x.k===c.k);return `<div class="sl-cols-row" draggable="true" data-sf-sheet-col="${c.k}" ondragstart="sfSheetDrag='${c.k}'" ondragover="event.preventDefault()" ondrop="event.preventDefault();sfSheetDrop('${esc(code)}','${c.k}')"><span class="h" aria-hidden="true">⋮⋮</span><label><input type="checkbox" data-sf-sheet-toggle="${c.k}" ${c.on?'checked':''} onchange="sfSheetSet('${esc(code)}','${c.k}',this.checked)"> ${esc(col.label)}</label><button type="button" class="sm" aria-label="Move ${esc(col.label)} up" ${i===0?'disabled':''} onclick="sfSheetMove('${esc(code)}','${c.k}',-1)">↑</button><button type="button" class="sm" aria-label="Move ${esc(col.label)} down" ${i===cols.length-1?'disabled':''} onclick="sfSheetMove('${esc(code)}','${c.k}',1)">↓</button></div>`;}).join('');
- return `<div class="sf-sheet" data-sf-sheet-editor="${esc(code)}"><div class="sf-sheet-cols"><h4>${esc(code)} — what is on a dolly or skid</h4><div class="mut small">Printed and shown — drag to reorder</div>${list}<div class="row" style="margin-top:8px"><button class="sm" data-sf-sheet-all onclick="sfSheetStore('${esc(code)}',[])">All columns</button></div></div>
+ const list=cols.map((c,i)=>{const col=CARRIER_COLS.find(x=>x.k===c.k);return `<div class="sl-cols-row" draggable="true" data-sf-sheet-col="${c.k}" ${onAct('dragstart',sfSheetDragStart,String(c.k))} ${onAct('dragover',actPrevent,EVENT)} ${onAct('drop',sfSheetDropAt,EVENT,String(code??''),String(c.k))}><span class="h" aria-hidden="true">⋮⋮</span><label><input type="checkbox" data-sf-sheet-toggle="${c.k}" ${c.on?'checked':''} ${onAct('change',sfSheetSet,String(code??''),String(c.k),EL_CHECKED)}> ${esc(col.label)}</label><button type="button" class="sm" aria-label="Move ${esc(col.label)} up" ${i===0?'disabled':''} ${onAct('click',sfSheetMove,String(code??''),String(c.k),-1)}>↑</button><button type="button" class="sm" aria-label="Move ${esc(col.label)} down" ${i===cols.length-1?'disabled':''} ${onAct('click',sfSheetMove,String(code??''),String(c.k),1)}>↓</button></div>`;}).join('');
+ return `<div class="sf-sheet" data-sf-sheet-editor="${esc(code)}"><div class="sf-sheet-cols"><h4>${esc(code)} — what is on a dolly or skid</h4><div class="mut small">Printed and shown — drag to reorder</div>${list}<div class="row" style="margin-top:8px"><button class="sm" data-sf-sheet-all ${onAct('click',sfSheetStore,String(code??''),[])}>All columns</button></div></div>
   <div class="sf-sheet-preview"><div class="mut small">Preview${m?' · '+esc(m.code||m.station):''}</div>${m?`<div class="sf-sheet-paper">${carrierSheetHTML(m,carrierColsOn(cols),{id:'',name:''})}</div>`:'<div class="empty">No dolly or skid in use to preview</div>'}</div></div>`;
 }

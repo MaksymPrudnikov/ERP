@@ -172,7 +172,7 @@ function drawBlockStyle(b,base,kind,ml){
 /* Атрибуты блока; в конструкторе ещё и «взять мышью». */
 function drawBlockAttrs(part,b,st,edit){
  let a=st.length?' style="'+st.join(';')+'"':'';
- if(edit)a+=' data-forms-hit="'+esc(part)+'|'+esc(b.id)+'" onpointerdown="formsPointerStart(event,\''+esc(part)+'\',\''+esc(b.id)+'\')"'+(edit.sel&&edit.sel.part===part&&edit.sel.id===b.id?' data-forms-sel':'');
+ if(edit)a+=' data-forms-hit="'+esc(part)+'|'+esc(b.id)+'" '+onAct('pointerdown',formsPointerStart,EVENT,String(part??''),String(b.id??''))+''+(edit.sel&&edit.sel.part===part&&edit.sel.id===b.id?' data-forms-sel':'');
  return a;
 }
 function drawBlockText(b,ctx){
@@ -231,7 +231,7 @@ function drawFormSheetHTML(tpl,id,view){
  const s=formsState(),keep=drawFormPreview;drawFormPreview={tpl,edit:view?null:{sel:s.sel}};
  let d;try{d=salesLineDrawing(l,null,null,o);}finally{drawFormPreview=keep;}
  if(!d||!d.html)return '<div class="fm-note fm-dnote">'+esc(d&&d.error||'No drawing')+'</div>';
- const pick=(cls,part)=>h=>h.replace('class="'+cls,'data-forms-part-hit="'+part+'"'+(!s.sel&&s.part===part?' data-forms-sel':'')+' onpointerdown="formsSelect(\''+part+'\',\'\')" class="'+cls);
+ const pick=(cls,part)=>h=>h.replace('class="'+cls,'data-forms-part-hit="'+part+'"'+(!s.sel&&s.part===part?' data-forms-sel':'')+' '+onAct('pointerdown',formsSelect,String(part),'')+' class="'+cls);
  let h=printSheetUniqueIds(d.html);
  if(!view)[['sheet-field','drawing'],['sheet-side','info'],['sheet-route"','route']].forEach(([c,p])=>{h=pick(c,p)(h);});
  return '<div class="print-sheet gf-light">'+h+'</div>';
@@ -244,13 +244,13 @@ const DRAW_TEXT=[['dimSize','Numbers',18],['noteSize','Slope notes',16],['labelS
 const DRAW_LINES=[['edgeW','Glass edge',1.9],['lineW','Dimension lines',1],['featureW','Service marks',1.5]];
 const DRAW_LINE_STEPS=[[.7,'Thinner'],[0,'As now'],[1.5,'Bolder']];
 function drawFormStyleHTML(tpl){
- const st=drawStyle(tpl),set=(k,v)=>`formsStyle('${k}',${v})`;
- const seg=(k,cur,list,raw)=>`<div class="fm-seg">${list.map(([v,l])=>`<button type="button" class="${String(cur)===String(v)?'on':''}" onclick="${set(k,raw?v:`'${v}'`)}">${l}</button>`).join('')}</div>`;
- const sel=(k,cur,list)=>`<select class="fm-in" data-draw-${k} onchange="${set(k,'this.value')}">${list.map(([v,l])=>`<option value="${v}" ${cur===v?'selected':''}>${l}</option>`).join('')}</select>`;
+ const st=drawStyle(tpl),set=(type,k,v)=>onAct(type,formsStyle,String(k),v);
+ const seg=(k,cur,list,raw)=>`<div class="fm-seg">${list.map(([v,l])=>`<button type="button" class="${String(cur)===String(v)?'on':''}" ${set('click',k,raw?v:String(v))}>${l}</button>`).join('')}</div>`;
+ const sel=(k,cur,list)=>`<select class="fm-in" data-draw-${k} ${set('change',k,EL_VALUE)}>${list.map(([v,l])=>`<option value="${v}" ${cur===v?'selected':''}>${l}</option>`).join('')}</select>`;
  /* Число с − и +: пусто — как сейчас, первое нажатие идёт от прежнего значения. */
- const step=(k,now,d,unit)=>{const v=st[k];return `<span class="fm-step" data-draw-step="${k}"><button type="button" title="Less" onclick="formsStyleStep('${k}',${-d},${now})">−</button><input class="fm-in" inputmode="decimal" placeholder="${now}" title="Empty — as now" value="${v||''}" onchange="${set(k,'Number(this.value)||0')}"><button type="button" title="More" onclick="formsStyleStep('${k}',${d},${now})">+</button><i>${unit}</i></span>`;};
+ const step=(k,now,d,unit)=>{const v=st[k];return `<span class="fm-step" data-draw-step="${k}"><button type="button" title="Less" ${onAct('click',formsStyleStep,String(k),-d,now)}>−</button><input class="fm-in" inputmode="decimal" placeholder="${now}" title="Empty — as now" value="${v||''}" ${onAct('change',formsStyleNum,String(k),EL_VALUE)}><button type="button" title="More" ${onAct('click',formsStyleStep,String(k),d,now)}>+</button><i>${unit}</i></span>`;};
  const row=(label,ctl,reset)=>`<div class="fm-drow"><span>${label}</span>${ctl}${reset||'<i></i>'}</div>`;
- const back=k=>`<button type="button" class="fm-dreset" title="As now" onclick="${set(k,k==='dimSize'?18:k==='noteSize'?16:0)}">×</button>`;
+ const back=k=>`<button type="button" class="fm-dreset" title="As now" ${set('click',k,k==='dimSize'?18:k==='noteSize'?16:0)}>×</button>`;
  const changed=k=>k==='dimSize'?st[k]!==18:k==='noteSize'?st[k]!==16:st[k]>0;
  const lines=DRAW_LINES.every(([k])=>!st[k])?0:(DRAW_LINE_STEPS.find(([f])=>f&&DRAW_LINES.every(([k,,now])=>st[k]===Math.round(now*f*10)/10))||[-1])[0];
  const black=DRAW_LOOK.every(([k])=>k==='altColor'||st[k]==='#000000'),now=DRAW_LOOK.every(([k])=>!st[k]);
@@ -262,13 +262,14 @@ function drawFormStyleHTML(tpl){
    <label class="fm-dsub"><span>Second units, small gray</span>${sel('alt',st.alt,[['','None']].concat(DRAW_UNITS.filter(u=>u[0]!==st.units)))}</label>
    <div class="fm-dex" data-draw-example>Example: <b>${esc(ex)}</b>${ex2?`<span>${esc(ex2)}</span>`:''}</div></div>
   <div class="fm-dsec"><b>Text size</b>${DRAW_TEXT.map(([k,l,n])=>row(l,step(k,n,1,'px'),changed(k)?back(k):'')).join('')}
-   <label class="fm-check"><input type="checkbox" data-draw-bg ${st.bg?'checked':''} onchange="${set('bg','this.checked')}"><span>White under numbers</span></label></div>
-  <div class="fm-dsec"><b>Lines</b><div class="fm-seg" data-draw-lines>${DRAW_LINE_STEPS.map(([f,l])=>`<button type="button" class="${lines===f?'on':''}" onclick="formsStyleLines(${f})">${l}</button>`).join('')}</div>
+   <label class="fm-check"><input type="checkbox" data-draw-bg ${st.bg?'checked':''} ${set('change','bg',EL_CHECKED)}><span>White under numbers</span></label></div>
+  <div class="fm-dsec"><b>Lines</b><div class="fm-seg" data-draw-lines>${DRAW_LINE_STEPS.map(([f,l])=>`<button type="button" class="${lines===f?'on':''}" ${onAct('click',formsStyleLines,f)}>${l}</button>`).join('')}</div>
    ${DRAW_LINES.map(([k,l,n])=>row(l,step(k,n,.2,'px'),changed(k)?back(k):'')).join('')}</div>
-  <div class="fm-dsec"><b>Colors</b><div class="fm-seg" data-draw-colors><button type="button" class="${now?'on':''}" onclick="formsStyleColors('')">As now</button><button type="button" class="${black?'on':''}" onclick="formsStyleColors('#000000')">All black</button></div>
-   ${DRAW_LOOK.map(([k,label,was])=>row(label,`<input type="color" class="fm-in fm-color" data-draw-color="${k}" value="${st[k]||was}" title="Pick a color" onchange="${set(k,'this.value')}">`,st[k]?`<button type="button" class="fm-dreset" title="As now" onclick="${set(k,"''")}">×</button>`:'')).join('')}</div>
+  <div class="fm-dsec"><b>Colors</b><div class="fm-seg" data-draw-colors><button type="button" class="${now?'on':''}" ${onAct('click',formsStyleColors,'')}>As now</button><button type="button" class="${black?'on':''}" ${onAct('click',formsStyleColors,'#000000')}>All black</button></div>
+   ${DRAW_LOOK.map(([k,label,was])=>row(label,`<input type="color" class="fm-in fm-color" data-draw-color="${k}" value="${st[k]||was}" title="Pick a color" ${set('change',k,EL_VALUE)}>`,st[k]?`<button type="button" class="fm-dreset" title="As now" ${set('click',k,'')}>×</button>`:'')).join('')}</div>
   <p class="fm-note">The sheet shows every change at once. Save — all prints.</p>`;
 }
+function formsStyleNum(k,v){formsStyle(k,Number(v)||0);}
 function formsStyle(k,v){const def=formsDef(formsState().form).def().style||{};formsEdit(t=>{t.style=Object.assign({},def,t.style,{[k]:v});});}
 /* − / +: от сохранённого или прежнего значения, шаг 1 px у текста, 0.2 px у линий. */
 function formsStyleStep(k,d,now){
@@ -283,7 +284,7 @@ function formsStyleColors(c){formsEdit(t=>{t.style=Object.assign({},DRAW_STYLE_D
    всех блоков листа (владелец, 06.11.2026: «как обычно в Figma или в
    Adobe»). Чертёж — слой 0: To back кладёт блок под него. */
 function drawLayerHTML(b){
- const z=b.z||0,btn=(k,l,t)=>`<button type="button" data-draw-layer="${k}" title="${t}" onclick="formsLayer('${k}')">${l}</button>`;
+ const z=b.z||0,btn=(k,l,t)=>`<button type="button" data-draw-layer="${k}" title="${t}" ${onAct('click',formsLayer,String(k))}>${l}</button>`;
  return `<div class="fm-h">Layer</div><div class="fm-seg">${btn('toBack','To back','Under everything')}${btn('back','Back','One layer down')}${btn('forward','Forward','One layer up')}${btn('toFront','To front','Over everything')}</div><p class="fm-note">Layer ${z>0?'+'+z:z}${z<0?' · under the drawing':''}</p>`;
 }
 function formsLayer(k){
@@ -311,7 +312,7 @@ function drawFormShowHTML(part,tpl){
  const st=drawStyle(tpl),list=DRAW_SHOW.filter(x=>x[3]===part),lab=part==='info'?'Info':'Route';
  /* Блок целиком — над чертежом или под ним (владелец: «переместить можно
     сам блок?»); чертёж берёт всё остальное место. */
- const pk=part==='info'?'infoPlace':'routePlace',place=`<div class="fm-h">Place</div><div class="fm-seg" data-draw-place="${part}">${[['top',part==='info'?'Top (above drawing)':'Top (under header)'],['bottom',part==='info'?'Bottom (under drawing)':'Bottom']].map(([v,l])=>`<button type="button" class="${st[pk]===v?'on':''}" onclick="formsStyle('${pk}','${v}')">${l}</button>`).join('')}</div>`;
+ const pk=part==='info'?'infoPlace':'routePlace',place=`<div class="fm-h">Place</div><div class="fm-seg" data-draw-place="${part}">${[['top',part==='info'?'Top (above drawing)':'Top (under header)'],['bottom',part==='info'?'Bottom (under drawing)':'Bottom']].map(([v,l])=>`<button type="button" class="${st[pk]===v?'on':''}" ${onAct('click',formsStyle,String(pk),String(v))}>${l}</button>`).join('')}</div>`;
  return `<div class="fm-h">Part · ${lab}</div><p class="fm-note">Drawn by the program — you choose where and what.</p>${place}<div class="fm-h">Show</div>
-  ${list.map(([k,l])=>`<label class="fm-check fm-dshow"><input type="checkbox" data-draw-show="${k}" ${st[k]?'checked':''} onchange="formsStyle('${k}',this.checked)"><span>${l}</span></label>`).join('')}`;
+  ${list.map(([k,l])=>`<label class="fm-check fm-dshow"><input type="checkbox" data-draw-show="${k}" ${st[k]?'checked':''} ${onAct('change',formsStyle,String(k),EL_CHECKED)}><span>${l}</span></label>`).join('')}`;
 }

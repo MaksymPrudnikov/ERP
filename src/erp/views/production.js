@@ -29,9 +29,12 @@ const SF_TABS=[
 ];
 
 /* Переключатель экранов Production — таблетки, как быстрые виды в Sales. */
-function sfScreenPills(){return '<div class="sl-filter-row"><div class="sl-quick" role="tablist" aria-label="Production">'+SF_TABS.map(t=>`<button type="button" role="tab" class="sl-quick-pill${subtab===t.k?' on':''}" aria-selected="${subtab===t.k}" onclick="subtab='${t.k}';render()">${t.label}</button>`).join('')+'</div></div>';}
+function sfScreenPills(){return '<div class="sl-filter-row"><div class="sl-quick" role="tablist" aria-label="Production">'+SF_TABS.map(t=>`<button type="button" role="tab" class="sl-quick-pill${subtab===t.k?' on':''}" aria-selected="${subtab===t.k}" ${onAct('click',sfScreenGo,String(t.k))}>${t.label}</button>`).join('')+'</div></div>';}
+function sfScreenGo(k){subtab=k;render();}
+function sfOpenSelected(){stationOpen(sfSel);}
+function sfToMasterData(){tab='masterdata';mdSetTab('stations');}
 function sfStationsBar(){
- return `<div class="sales-toolbar"><button type="button" class="sl-quiet" data-sf-screen ${sfSel&&DB.station.some(s=>s.code===sfSel)?'':'disabled'} onclick="stationOpen(sfSel)" title="Open the scan screen">${sfSel&&DB.station.some(s=>s.code===sfSel)?'Open screen ('+esc(sfSel)+')':'Open screen'}</button><button type="button" class="sl-quiet" data-sf-to-md onclick="tab='masterdata';mdSetTab('stations')">Edit in Master Data</button></div>`;
+ return `<div class="sales-toolbar"><button type="button" class="sl-quiet" data-sf-screen ${sfSel&&DB.station.some(s=>s.code===sfSel)?'':'disabled'} ${onAct('click',sfOpenSelected)} title="Open the scan screen">${sfSel&&DB.station.some(s=>s.code===sfSel)?'Open screen ('+esc(sfSel)+')':'Open screen'}</button><button type="button" class="sl-quiet" data-sf-to-md ${onAct('click',sfToMasterData)}>Edit in Master Data</button></div>`;
 }
 function viewProduction(){
  if(!SF_TABS.some(t=>t.k===subtab)) subtab='orders';
@@ -49,6 +52,8 @@ let stEdit=null,stSeen=null;
    другой вкладки не пишет поверх свежей правки и не попадает на соседнюю
    станцию, если номера строк сдвинулись (как карточка клиента, F08;
    владелец, 20.10.2026). */
+function stEditNew(){stEdit='new';render();}
+function stEditCancel(){stEdit=null;stSeen=null;render();}
 function stEditOpen(i){stEdit=i;stSeen={i,json:JSON.stringify(DB.station[i])};render();}
 /* Габарит без пометки о замере читается как факт. Пока его не подтвердили
    рулеткой, рядом обязана стоять оговорка — иначе деталь уедет на станцию,
@@ -80,7 +85,7 @@ function sfRouteHTML(){
    const title=group?(edges?'Edges':list.map(name).join(' / ')):name(list[0]);
    const what=group?(edges?'edges ground and polished — at one of these':'at one of these'):(SF_PLAIN[list[0].code]||'');
    const idle=!always&&list.every(s=>!stationOperations(s.code).length),codes=list.map(s=>s.code).join(' · ');
-   return (i?'<span class="sf-route-arrow" aria-hidden="true">→</span>':'')+`<span class="sf-route-step${always?' always':''}" data-route-step="${seq}" data-route-codes="${esc(list.map(s=>s.code).join(' '))}" title="${esc(title+' · '+(always?'always':'if needed')+(what?' · '+what:'')+' · '+codes+(idle?' · no works yet':''))}" onclick="sfRouteFocus(this)"><span class="n">${i+1}</span><b data-raw>${esc(title)}</b><span class="when" hidden>${always?'always':'if needed'}</span>${what?`<span class="what" hidden>${esc(what)}</span>`:''}<span class="codes" data-raw>${esc(codes)}</span></span>`;
+   return (i?'<span class="sf-route-arrow" aria-hidden="true">→</span>':'')+`<span class="sf-route-step${always?' always':''}" data-route-step="${seq}" data-route-codes="${esc(list.map(s=>s.code).join(' '))}" title="${esc(title+' · '+(always?'always':'if needed')+(what?' · '+what:'')+' · '+codes+(idle?' · no works yet':''))}" ${onAct('click',sfRouteFocus,EL)}><span class="n">${i+1}</span><b data-raw>${esc(title)}</b><span class="when" hidden>${always?'always':'if needed'}</span>${what?`<span class="what" hidden>${esc(what)}</span>`:''}<span class="codes" data-raw>${esc(codes)}</span></span>`;
   }).join('')}<span class="mut small">· highlighted — always</span></div>`;
 }
 /* Щелчок по шагу подсвечивает его станции в таблице ниже. */
@@ -102,7 +107,7 @@ function viewSfStations(edit,framed){
  /* Таблица вида Sales (владелец 07.11.2026): фильтр, сортировка, ширина, порядок. */
  const table=slTable(edit?'mdStations':'prodStations',{list:DB.station,id:s=>s.code,empty:'empty',noun:l=>l.length+' station'+(l.length===1?'':'s'),fill:'works',acts:edit?120:90,
   columns:()=>[
-   {k:'step',label:'Step',type:'number',v:s=>s.seq,cell:(s,v,info)=>`<span style="white-space:nowrap">${edit?`<input class="sf-step" type="number" min="1" step="1" value="${s.seq}" data-sf-step="${esc(s.code)}" onchange="sfStationSetStep(${info.i},this.value)">`:`<b class="mono">${s.seq}</b>`}${steps.get(s.seq)>1?' <span class="pill info" title="Same step as another station">parallel</span>':''}</span>`},
+   {k:'step',label:'Step',type:'number',v:s=>s.seq,cell:(s,v,info)=>`<span style="white-space:nowrap">${edit?`<input class="sf-step" type="number" min="1" step="1" value="${s.seq}" data-sf-step="${esc(s.code)}" ${onAct('change',sfStationSetStep,info.i,EL_VALUE)}>`:`<b class="mono">${s.seq}</b>`}${steps.get(s.seq)>1?' <span class="pill info" title="Same step as another station">parallel</span>':''}</span>`},
    {k:'code',label:'Code',type:'text',v:s=>s.code,cell:s=>`<b class="mono">${raw(s.code)}</b>`},
    {k:'name',label:'Name',type:'text',v:s=>plain(sfLabel(s)),cell:s=>sfLabel(s)},
    {k:'route',label:'In route',type:'list',v:s=>s.always?'always':'when required',cell:s=>`<span class="pill ${s.always?'ok':'info'}">${s.always?'always':'when required'}</span>`},
@@ -112,15 +117,15 @@ function viewSfStations(edit,framed){
    {k:'works',label:'Works',type:'text',tokens:true,v:s=>works(s).join(' · '),cell:s=>{const w=works(s);return w.length?w.slice(0,6).map(n=>`<span class="pill info" data-raw>${esc(n)}</span>`).join(' ')+(w.length>6?` <span class="mut">+${w.length-6}</span>`:''):'<span class="mut">none</span>';}},
    {k:'note',label:'Note',type:'text',v:s=>s.note||'',cell:s=>`<span class="mut">${raw(s.note||'')}</span>`}],
   row:info=>{const s=info.x;return {attrs:` data-sf-station="${esc(s.code)}"${framed&&sfSel===s.code?' class="oq-selected"':''}`,
-   first:framed?`<td class="sl-check"><input type="checkbox" data-sf-check aria-label="Select ${esc(s.code)}" ${sfSel===s.code?'checked':''} onchange="sfSelect('${esc(s.code)}',this.checked)"></td>`:undefined,
-   last:`<span style="white-space:nowrap">${framed?'':`<button class="sm" onclick="stationOpen('${esc(s.code)}')" title="Open the scan screen">Screen</button>`}${edit?` <button class="sm" onclick="stEditOpen(${info.i})">Edit</button> <button class="sm dl" data-sf-del="${esc(s.code)}" onclick="delSfStation(${info.i})">×</button>`:''}</span>`,
+   first:framed?`<td class="sl-check"><input type="checkbox" data-sf-check aria-label="Select ${esc(s.code)}" ${sfSel===s.code?'checked':''} ${onAct('change',sfSelect,String(s.code??''),EL_CHECKED)}></td>`:undefined,
+   last:`<span style="white-space:nowrap">${framed?'':`<button class="sm" ${onAct('click',stationOpen,String(s.code??''))} title="Open the scan screen">Screen</button>`}${edit?` <button class="sm" ${onAct('click',stEditOpen,info.i)}>Edit</button> <button class="sm dl" data-sf-del="${esc(s.code)}" ${onAct('click',delSfStation,info.i)}>×</button>`:''}</span>`,
    /* Колонки листа долли/скида станции — под её строкой (views/carriers-board). */
    after:edit&&typeof sfSheetEdit!=='undefined'&&sfSheetEdit===s.code?n=>`<tr class="sf-sheet-row"><td colspan="${n}">${carrierSheetEditorHTML(s.code)}</td></tr>`:null};}});
  return `${edit&&stEdit!==null?sfStationForm():''}
   ${framed?'':`<div class="sub">${edit?'Same step — parallel stations.':'Route steps in order. Stations are added, removed and ordered in Master Data → Stations.'}</div>`}
-  ${edit||framed?'':`<div class="row" style="margin:0 0 10px"><button class="sm" data-sf-to-md onclick="tab='masterdata';mdSetTab('stations')">Edit in Master Data</button></div>`}
+  ${edit||framed?'':`<div class="row" style="margin:0 0 10px"><button class="sm" data-sf-to-md ${onAct('click',sfToMasterData)}>Edit in Master Data</button></div>`}
   ${table}
-  ${edit&&stEdit===null?'<div class="row"><button class="pri" data-sf-add onclick="stEdit=&quot;new&quot;;render()">Add station</button><button data-sf-tidy onclick="sfStationsTidy()" title="Renumber steps 1, 2, 3… keeping parallel stations together">Tidy step numbers</button></div>':''}`;
+  ${edit&&stEdit===null?'<div class="row"><button class="pri" data-sf-add '+onAct('click',stEditNew)+'>Add station</button><button data-sf-tidy '+onAct('click',sfStationsTidy)+' title="Renumber steps 1, 2, 3… keeping parallel stations together">Tidy step numbers</button></div>':''}`;
 }
 /* На что кладут стекло после станции — ставит владелец (6.10.2026). Без
    тары скан засчитывается, а станция спрашивает «Which dolly?». */
@@ -128,8 +133,9 @@ function sfPutsOnCell(s,edit){
  if(sfPutsOnOwn(s.code))return '<span class="mut">'+(sfPutsOn(s)==='skid'?'Skid · always':'own rules')+'</span>';
  const v=sfPutsOn(s);
  if(!edit)return v==='none'?'<span class="mut">—</span>':esc(SF_PUTS_ON.find(([k])=>k===v)[1]);
- return `<select data-sf-puts-on="${esc(s.code)}" style="min-width:96px" onchange="sfSetPutsOn('${esc(s.code)}',this.value);render()">${SF_PUTS_ON.map(([k,l])=>`<option value="${k}"${k===v?' selected':''}>${l}</option>`).join('')}</select>`;
+ return `<select data-sf-puts-on="${esc(s.code)}" style="min-width:96px" ${onAct('change',sfPutsOnPick,String(s.code??''),EL_VALUE)}>${SF_PUTS_ON.map(([k,l])=>`<option value="${k}"${k===v?' selected':''}>${l}</option>`).join('')}</select>`;
 }
+function sfPutsOnPick(code,v){sfSetPutsOn(code,v);render();}
 function sfStationSetStep(i,v){
  const n=Math.floor(+v),s=DB.station[i];if(!s||!(n>0)){render();return false;}
  s.seq=n;DB.station.sort((a,b)=>a.seq-b.seq);stationRouteReset();touch();render();return true;
@@ -157,7 +163,7 @@ function sfStationForm(){
   </div>
   <div style="margin-top:12px"><label>Note</label><input id="sf_note" value="${esc(r.note||'')}"></div>
   <div class="err" id="e_sfStation"></div>
-  <div class="row"><button class="pri" data-sf-save onclick="saveSfStation()">Save</button><button onclick="stEdit=null;stSeen=null;render()">Cancel</button></div></div>`;
+  <div class="row"><button class="pri" data-sf-save ${onAct('click',saveSfStation)}>Save</button><button ${onAct('click',stEditCancel)}>Cancel</button></div></div>`;
 }
 function saveSfStation(){
  const oldEdit=stEdit,oldCode=stEdit==='new'||!DB.station[stEdit]?'':DB.station[stEdit].code,newCode=document.getElementById('sf_code').value.trim().toUpperCase();
@@ -218,9 +224,16 @@ function delSfStation(i){
 let tmEdit=null;
 /* Terminals — вид Sales: Add terminal в шапке, Edit и × — для отмеченного. */
 let tmSel=null;
+function tmEditNew(){tmEdit='new';render();}
+function tmEditOpen(i){tmEdit=i;render();}
+function tmEditSelected(){tmEdit=tmSel;render();}
+function tmEditCancel(){tmEdit=null;render();}
+function tmSelect(i,on){tmSel=on?i:null;render();}
+/* Имя на del…: кнопку Delete база запирает на время записи (storageLockButtons). */
+function delSfTerminalSelected(){delSfTerminal(tmSel);tmSel=null;}
 function sfTerminalsBar(){
  const on=tmSel!==null&&DB.terminal[tmSel];
- return `<div class="sales-toolbar"><button type="button" class="sl-quiet" ${on?'':'disabled'} onclick="tmEdit=tmSel;render()">Edit</button><button type="button" class="sl-quiet sl-delete-quiet" ${on?'':'disabled'} onclick="delSfTerminal(tmSel);tmSel=null">Delete</button><span class="sales-toolbar-sp"></span><span class="mut small" title="One account per scanning screen; the operator is the badge scan. A step that is not in the glass route is not on the screen.">One account per screen · badge = person</span>${tmEdit!==null?'':'<button type="button" class="pri" onclick="tmEdit=&quot;new&quot;;render()">Add terminal</button>'}</div>`;
+ return `<div class="sales-toolbar"><button type="button" class="sl-quiet" ${on?'':'disabled'} ${onAct('click',tmEditSelected)}>Edit</button><button type="button" class="sl-quiet sl-delete-quiet" ${on?'':'disabled'} ${onAct('click',delSfTerminalSelected)}>Delete</button><span class="sales-toolbar-sp"></span><span class="mut small" title="One account per scanning screen; the operator is the badge scan. A step that is not in the glass route is not on the screen.">One account per screen · badge = person</span>${tmEdit!==null?'':'<button type="button" class="pri" '+onAct('click',tmEditNew)+'>Add terminal</button>'}</div>`;
 }
 function viewSfTerminals(){
  if(tmSel!==null&&!DB.terminal[tmSel])tmSel=null;
@@ -229,7 +242,7 @@ function viewSfTerminals(){
    {k:'name',label:'Name',type:'text',v:t=>String(sfLabel(t)).replace(/<[^>]*>/g,' ').trim(),cell:t=>sfLabel(t)},
    {k:'stations',label:'Stations',type:'text',tokens:true,v:t=>(t.stations||[]).join(' · '),cell:t=>(t.stations||[]).map(c=>`<span class="pill info" data-raw>${esc(c)}</span>`).join(' ')||'<span class="warn pill">no stations</span>'},
    {k:'note',label:'Note',type:'text',v:t=>t.note||'',cell:t=>`<span class="mut">${raw(t.note||'')}</span>`}],
-  row:info=>({attrs:`${tmSel===info.i?' class="oq-selected"':''} ondblclick="tmEdit=${info.i};render()"`,first:`<td class="sl-check"><input type="checkbox" aria-label="Select ${esc(info.x.code)}" ${tmSel===info.i?'checked':''} onchange="tmSel=this.checked?${info.i}:null;render()"></td>`})});
+  row:info=>({attrs:`${tmSel===info.i?' class="oq-selected"':''} ${onAct('dblclick',tmEditOpen,info.i)}`,first:`<td class="sl-check"><input type="checkbox" aria-label="Select ${esc(info.x.code)}" ${tmSel===info.i?'checked':''} ${onAct('change',tmSelect,info.i,EL_CHECKED)}></td>`})});
  return `${tmEdit!==null?'<div style="padding:0 20px">'+sfTerminalForm()+'</div>':''}
   ${table}`;
 }
@@ -246,7 +259,7 @@ function sfTerminalForm(){
    <div class="hint">One screen serves several stations — the operator will not switch it.</div></div>
   <div style="margin-top:12px"><label>Note</label><input id="tm_note" value="${esc(r.note||'')}"></div>
   <div class="err" id="e_sfTerminal"></div>
-  <div class="row"><button class="pri" onclick="saveSfTerminal()">Save</button><button onclick="tmEdit=null;render()">Cancel</button></div></div>`;
+  <div class="row"><button class="pri" ${onAct('click',saveSfTerminal)}>Save</button><button ${onAct('click',tmEditCancel)}>Cancel</button></div></div>`;
 }
 function saveSfTerminal(){
  const e=document.getElementById('e_sfTerminal'); e.style.display='none';
@@ -267,12 +280,13 @@ function delSfTerminal(i){
 
 /* --- 3. Импорт станций ----------------------------------------------- */
 let sfImportReport=null;
+function sfCsvChoose(){document.getElementById('sfCsv').click();}
 function sfImportCard(){
  return `<div class="card">
   <div class="section-title"><h3>Load STATIONS.csv</h3><span class="pill info">merged by code</span></div>
   <div class="sub">The file updates rows with the same codes and adds new ones. Rows missing from the file are left as they are — the import never erases anything silently.</div>
-  <div class="row"><button onclick="document.getElementById('sfCsv').click()">Choose file</button>
-   <input type="file" id="sfCsv" accept=".csv,.txt" style="display:none" onchange="sfImportCsv(this)"></div>
+  <div class="row"><button ${onAct('click',sfCsvChoose)}>Choose file</button>
+   <input type="file" id="sfCsv" accept=".csv,.txt" style="display:none" ${onAct('change',sfImportCsv,EL)}></div>
   ${sfImportReport?sfReportHTML(sfImportReport):''}</div>`;
 }
 function sfReportHTML(rep){

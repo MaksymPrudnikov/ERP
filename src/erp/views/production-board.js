@@ -113,14 +113,14 @@ function prodFocusStation(code){
  salesListSavePrefs();render();
 }
 function prodOn(list){return list&&list.length?list.map(c=>`<span class="st-on">${esc(c)}</span>`).join(' '):'<span class="pb-z">—</span>';}
-function prodTh(c,p){const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}${c.station?' pb-st':''}" data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th"><span data-cw-label>${esc(c.label)}</span><button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span>${cwGrip()}</th>`;}
+function prodTh(c,p){const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}${c.station?' pb-st':''}" data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th"><span data-cw-label>${esc(c.label)}</span><button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" ${onAct('click',salesListOpenFilter,EVENT,String(c.k))}></button></span>${cwGrip()}</th>`;}
 function prodCount(n,code){return n?`<span class="pb-n${code===stationCutCode()?' pb-cut':''}">${n}</span>`:'<span class="pb-z">·</span>';}
 /* Где стекло, там и тара (владелец, 6 октября 2026: «20 стёкол на
    tempering — 5 on dolly #7, 15 on dolly #8»): под числом столбиком. Ни
    одно не на таре — только число. */
 function prodOnSplit(m){
  const keys=Object.keys(m||{}).filter(Boolean).sort((a,b)=>a.localeCompare(b,'en',{numeric:true}));if(!keys.length)return '';
- return '<span class="pb-split" data-prod-on>'+keys.map(k=>'<i class="pb-on-open" title="What is on '+esc(k)+'" onclick="event.stopPropagation();carrierWinOpen(\''+esc(k)+'\')"><b>'+esc(k)+'</b> '+m[k]+'</i>').join('')+(m['']?'<i class="pb-loose" title="Not on a dolly">no dolly '+m['']+'</i>':'')+'</span>';
+ return '<span class="pb-split" data-prod-on>'+keys.map(k=>'<i class="pb-on-open" title="What is on '+esc(k)+'" '+onActStop('click',carrierWinOpen,String(k??''))+'><b>'+esc(k)+'</b> '+m[k]+'</i>').join('')+(m['']?'<i class="pb-loose" title="Not on a dolly">no dolly '+m['']+'</i>':'')+'</span>';
 }
 /* Станция в маршруте: число — ждут здесь, ✓ — все прошли, · — ещё не
    дошли. Станции нет в маршруте — клетка пустая. */
@@ -133,7 +133,7 @@ function prodCell(r,c){
  const v=salesListValue(r,c.k),x=r.x;
  if(c.station)return `<td class="pb-st">${prodStation(x.route[c.station],c.station,x.onAt[c.station])}</td>`;
  switch(c.k){
-  case 'number':return `<td class="mono"><button type="button" class="pb-open" onclick="event.stopPropagation();prodToggle('${esc(x.o.id)}')">${prodOpen.has(x.o.id)?'▾':'▸'} <b>${esc(v)}</b></button></td>`;
+  case 'number':return `<td class="mono"><button type="button" class="pb-open" ${onActStop('click',prodToggle,String(x.o.id??''))}>${prodOpen.has(x.o.id)?'▾':'▸'} <b>${esc(v)}</b></button></td>`;
   case 'customer':return `<td>${raw(v)}</td>`;
   case 'priority':return `<td>${x.o.priority==='critical'?'<span class="pill bad">Critical</span>':x.o.priority==='rush'?'<span class="pill warn">Rush</span>':''}</td>`;
   case 'due':return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;
@@ -171,13 +171,13 @@ function viewProdOrders(){
  const tiles=`<div class="pb-tiles"><div class="pb-tile q"><b>To batch</b><span>${total('queue').toLocaleString('en-US')}</span><small>in queue</small></div>`+(DB.station||[]).filter(s=>ahead(s.code)||total('st_'+s.code)>0).map(s=>{
   const k='st_'+s.code,n=total(k),f=p.filters[k],on=!!f&&salesListFilterActive(f);
   const tare=[...new Set(infos.flatMap(i=>Object.keys(i.x.onAt[s.code]||{}).filter(Boolean)))],d=tare.length,word=tare.every(c=>/^S/.test(c))?(d===1?'skid':'skids'):(d===1?'dolly':'dollies');
-  return `<button type="button" class="pb-tile${n?'':' zero'}${on?' sel':''}" data-prod-station="${esc(s.code)}" onclick="prodFocusStation('${esc(s.code)}')"><b>${esc(s.code)}</b><span>${n.toLocaleString('en-US')}</span><small>${s.code===cut?'in batches':'waiting'+(d?' · '+d+' '+word:'')}</small></button>`;
+  return `<button type="button" class="pb-tile${n?'':' zero'}${on?' sel':''}" data-prod-station="${esc(s.code)}" ${onAct('click',prodFocusStation,String(s.code??''))}><b>${esc(s.code)}</b><span>${n.toLocaleString('en-US')}</span><small>${s.code===cut?'in batches':'waiting'+(d?' · '+d+' '+word:'')}</small></button>`;
  }).join('')+'</div>';
- const body=listWindowBody(rows,r=>`<tr class="pb-row${r.x.o.priority==='critical'?' pb-hot':''}${prodOpen.has(r.x.o.id)?' pb-opened':''}" data-prod-order="${esc(r.x.o.id)}" onclick="prodToggle('${esc(r.x.o.id)}')">${cols.map(c=>prodCell(r,c)).join('')}<td></td></tr>`+(prodOpen.has(r.x.o.id)?prodSubRows(r,cols):''),cols.length+1);
+ const body=listWindowBody(rows,r=>`<tr class="pb-row${r.x.o.priority==='critical'?' pb-hot':''}${prodOpen.has(r.x.o.id)?' pb-opened':''}" data-prod-order="${esc(r.x.o.id)}" ${onAct('click',prodToggle,String(r.x.o.id??''))}>${cols.map(c=>prodCell(r,c)).join('')}<td></td></tr>`+(prodOpen.has(r.x.o.id)?prodSubRows(r,cols):''),cols.length+1);
  const cwId=salesListCwId(),keys=cols.map(c=>c.k);
  const glassN=rows.reduce((n,r)=>n+r.x.total-r.x.shipped,0);
  const foot=rows.length?`<tfoot><tr class="sl-foot">${cols.map((c,i)=>i===0?`<td data-foot-count><b>${rows.length} order${rows.length===1?'':'s'}</b></td>`:c.sum?`<td class="n pb-st">${rows.reduce((n,r)=>n+(salesListValue(r,c.k)||0),0)||''}</td>`:'<td></td>').join('')}<td></td></tr></tfoot>`:'';
- return `<div class="sales-toolbar">${salesListDateButton('due')}<span class="sales-toolbar-sp"></span><span class="mut small">${rows.length} order${rows.length===1?'':'s'} · ${glassN.toLocaleString('en-US')} glass components in production</span><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></div>${sfScreenPills()}<div class="pb-top">${tiles}${prodExceptionsHTML(infos)}</div>${salesListFilterChips()}
+ return `<div class="sales-toolbar">${salesListDateButton('due')}<span class="sales-toolbar-sp"></span><span class="mut small">${rows.length} order${rows.length===1?'':'s'} · ${glassN.toLocaleString('en-US')} glass components in production</span><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" ${onAct('click',salesListOpenColumns,EVENT)}>${ico('settings')}</button></div>${sfScreenPills()}<div class="pb-top">${tiles}${prodExceptionsHTML(infos)}</div>${salesListFilterChips()}
   <div class="sales-table-wrap"><table class="sl-table pb-table${cwTableClass(cwId)}"${cwTableAttrs(cwId,keys)}>${cwColgroup(cwId,keys)}<thead><tr>${cols.map(c=>prodTh(c,p)).join('')}<th></th></tr></thead>
   <tbody>${body||`<tr><td colspan="${cols.length+1}" class="empty">${infos.length?'Nothing matches the filters.':'No glass components in production yet.'}</td></tr>`}</tbody>${foot}</table></div>${salesListMenuHTML(infos)}`;
 }
@@ -191,5 +191,5 @@ function prodExceptionsHTML(infos){
  const ids=new Set(orders.map(o=>o.id));
  const recuts=(DB.recut||[]).filter(r=>ids.has(r.orderId)).length;
  const parked=stationParked(hit=>ids.has(hit.orderId)).length;
- return '<div class="pb-exceptions" data-prod-exceptions><b>Needs attention</b><span>'+hold+' orders on hold</span><span>'+late+' overdue orders</span><span>'+parked+' components waiting for a pair</span><span>'+recuts+' recut records</span><button type="button" onclick="navGo(\'shipping\')">Shipping</button></div>';
+ return '<div class="pb-exceptions" data-prod-exceptions><b>Needs attention</b><span>'+hold+' orders on hold</span><span>'+late+' overdue orders</span><span>'+parked+' components waiting for a pair</span><span>'+recuts+' recut records</span><button type="button" '+onAct('click',navGo,'shipping')+'>Shipping</button></div>';
 }

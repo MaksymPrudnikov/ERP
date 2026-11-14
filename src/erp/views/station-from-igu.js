@@ -87,6 +87,9 @@ function stationIguToggle(piece){stationIguOpen=stationIguOpen===piece?'':piece;
 /* «No skid» — на скид: нажатием, номером или сканом скида. Undo — как у
    переноса в окне тары. Скид заказа нажатием открывает окно скида
    (stationSkidOpen) с этим заказом. */
+/* Enter в поле «куда» — то же, что кнопка Move. */
+function stationIguMoveKey(ev,to){if(ev.key==='Enter'){ev.preventDefault();stationIguMove(to);}}
+function stationIguMoveTo(){stationIguMove(document.querySelector('[data-igu-to-input]').value);}
 function stationIguMove(to){
  const who=stationWho();if(!who||!stationIguSel.size)return false;
  const code=typeof carrierCode==='function'?carrierCode(to):'';
@@ -105,14 +108,14 @@ function stationIguLabels(list){return list.slice(0,4).map(u=>u.label||u.pieces[
 function stationIguOrder(r){
  const id=r.o.id,customer=salesCustomerDisplay(r.o.customerId);
  const chips=[...r.skids].map(([code,list])=>{
-  return '<button type="button" class="st-igu-sk" data-igu-pick="'+esc(code)+'" onclick="stationSkidOpen(\''+esc(code)+'\',\''+esc(id)+'\')"><b>'+esc(code)+'</b> '+list.length+(r.mix.get(code)?' <i>mix</i>':'')+'</button>';}).join('');
+  return '<button type="button" class="st-igu-sk" data-igu-pick="'+esc(code)+'" '+onAct('click',stationSkidOpen,String(code??''),String(id??''))+'><b>'+esc(code)+'</b> '+list.length+(r.mix.get(code)?' <i>mix</i>':'')+'</button>';}).join('');
  const head='<div class="st-igu-o'+(r.rank===3?' done':'')+'" data-igu-order="'+esc(r.o.businessNumber||'')+'"><span class="st-igu-who"><b>'+esc(r.o.businessNumber||'')+'</b> <span data-raw>'+esc(customer)+'</span></span>'+
   '<span class="st-igu-sks">'+chips+'</span><b class="st-igu-n">'+r.done+' / '+r.total+(r.done===r.total?' ✓':'')+'</b></div>';
  const missed=r.missed.slice(0,STATION_IGU_ROWS).map(u=>{const p=u.pieces[0],open=stationIguOpen===p;
-  return '<div class="st-igu-r bad'+(open?' open':'')+'" data-igu-missed="'+esc(u.label||p)+'" onclick="stationIguToggle(\''+esc(p)+'\')"><span class="st-dchip st-igu-x">✕</span><span><b class="mono">'+esc(u.label||p)+'</b> · '+esc(stationIguSize(u.geo))+' · '+esc(stationTime(u.at))+'</span><span class="st-igu-tag">NOT SCANNED</span></div>'+
-   (open?'<div class="st-igu-acts"><button type="button" class="b" data-igu-mark onclick="stationMark(\''+esc(p)+'\')">✓ Mark ready</button><button type="button" class="b" data-igu-print onclick="stationPrintUnit(\''+esc(p)+'\')">Print sticker</button><button type="button" class="b st-red-b" data-igu-broken onclick="stationOpenRecut(\''+esc(p)+'\')">Broken</button></div>':'');}).join('')+
+  return '<div class="st-igu-r bad'+(open?' open':'')+'" data-igu-missed="'+esc(u.label||p)+'" '+onAct('click',stationIguToggle,String(p??''))+'><span class="st-dchip st-igu-x">✕</span><span><b class="mono">'+esc(u.label||p)+'</b> · '+esc(stationIguSize(u.geo))+' · '+esc(stationTime(u.at))+'</span><span class="st-igu-tag">NOT SCANNED</span></div>'+
+   (open?'<div class="st-igu-acts"><button type="button" class="b" data-igu-mark '+onAct('click',stationMark,String(p??''))+'>✓ Mark ready</button><button type="button" class="b" data-igu-print '+onAct('click',stationPrintUnit,String(p??''))+'>Print sticker</button><button type="button" class="b st-red-b" data-igu-broken '+onAct('click',stationOpenRecut,String(p??''))+'>Broken</button></div>':'');}).join('')+
   (r.missed.length>STATION_IGU_ROWS?'<div class="mut st-more">+'+(r.missed.length-STATION_IGU_ROWS)+' more not scanned</div>':'');
- const nk='n|'+id,noSkid=r.noSkid.length?'<div class="st-igu-r warn'+(stationIguSel.has(nk)?' sel':'')+'" data-igu-noskid onclick="stationIguPick(\''+esc(nk)+'\')"><span class="st-dchip none">No skid</span><span><b>'+r.noSkid.length+'</b> <span class="mono mut">'+esc(stationIguLabels(r.noSkid))+'</span></span><span class="st-igu-tag">NO SKID</span></div>':'';
+ const nk='n|'+id,noSkid=r.noSkid.length?'<div class="st-igu-r warn'+(stationIguSel.has(nk)?' sel':'')+'" data-igu-noskid '+onAct('click',stationIguPick,String(nk??''))+'><span class="st-dchip none">No skid</span><span><b>'+r.noSkid.length+'</b> <span class="mono mut">'+esc(stationIguLabels(r.noSkid))+'</span></span><span class="st-igu-tag">NO SKID</span></div>':'';
  const line=r.line.length?'<div class="st-igu-r line" data-igu-line><span class="st-dchip none">In line</span><span><b>'+r.line.length+'</b> <span class="mono mut">'+esc(stationIguLabels(r.line))+'</span></span><span class="mut">coming</span></div>':'';
  return '<div class="st-igu-g">'+head+missed+noSkid+line+'</div>';
 }
@@ -126,9 +129,9 @@ function stationSkidTargets(except){
 function stationIguFoot(b){
  if(!stationIguSel.size)return '';
  const n=stationIguUnits(b,stationIguSel).length;
- return '<div class="st-igu-foot" data-igu-foot><b>'+stationPlural(n,'unit','units')+'</b> →'+stationSkidTargets('').map(c=>'<button type="button" class="b sm" data-igu-to="'+esc(c)+'" onclick="stationIguMove(\''+esc(c)+'\')">'+esc(c)+'</button>').join('')+
-  '<input class="st-mv-to" data-station-keep data-igu-to-input placeholder="SL-5" onkeydown="if(event.key===\'Enter\'){event.preventDefault();stationIguMove(this.value)}"><button type="button" class="b st-yes" onclick="stationIguMove(document.querySelector(\'[data-igu-to-input]\').value)">Move</button>'+
-  '<button type="button" class="b" onclick="stationIguClear()">Clear</button></div>';
+ return '<div class="st-igu-foot" data-igu-foot><b>'+stationPlural(n,'unit','units')+'</b> →'+stationSkidTargets('').map(c=>'<button type="button" class="b sm" data-igu-to="'+esc(c)+'" '+onAct('click',stationIguMove,String(c??''))+'>'+esc(c)+'</button>').join('')+
+  '<input class="st-mv-to" data-station-keep data-igu-to-input placeholder="SL-5" '+onAct('keydown',stationIguMoveKey,EVENT,EL_VALUE)+'><button type="button" class="b st-yes" '+onAct('click',stationIguMoveTo)+'>Move</button>'+
+  '<button type="button" class="b" '+onAct('click',stationIguClear)+'>Clear</button></div>';
 }
 function stationIguCard(){
  if(!stationIsReady())return '';
@@ -165,6 +168,8 @@ function stationSkidPickOrder(id){
  keys.forEach(k=>{if(all)d.sel.delete(k);else d.sel.add(k);});d.error='';render();
 }
 function stationSkidPick(key){const d=stationDrawer;if(!d||d.kind!=='skid')return;if(d.sel.has(key))d.sel.delete(key);else d.sel.add(key);d.error='';render();}
+function stationSkidMoveKey(ev,to){if(ev.key==='Enter'){ev.preventDefault();stationSkidMove(to);}}
+function stationSkidMoveTo(){stationSkidMove(document.querySelector('[data-skid-to-input]').value);}
 function stationSkidMove(to){
  const d=stationDrawer,who=stationWho();if(!d||d.kind!=='skid'||!d.sel.size||!who)return false;
  const code=typeof carrierCode==='function'?carrierCode(to):'';
@@ -182,17 +187,17 @@ function stationSkidHTML(){
  const rows=[...orders.values()].sort((a,b)=>a.at.localeCompare(b.at)).map(g=>{
   const all=g.items.every(i=>d.sel.has(i.key));
   g.items.sort((a,b)=>(a.unit||1e9)-(b.unit||1e9)||a.label.localeCompare(b.label));
-  return '<tr class="st-skid-oh'+(all?' on':'')+'" data-skid-order="'+esc(g.o.businessNumber||'')+'" onclick="stationSkidPickOrder(\''+esc(g.o.id)+'\')"><td class="st-pos">'+(all?'✓':'')+'</td><td colspan="2"><b>'+esc(g.o.businessNumber||'')+'</b> · <span data-raw>'+esc(salesCustomerDisplay(g.o.customerId))+'</span></td><td class="n"><b>'+stationPlural(g.items.length,g.items.every(i=>i.unit)?'unit':'glass',g.items.every(i=>i.unit)?'units':'glass')+'</b></td></tr>'+
-   g.items.map(i=>{const on=d.sel.has(i.key);return '<tr class="st-mv-row'+(on?' on':'')+'" data-skid-unit="'+esc(i.label)+'" onclick="stationSkidPick(\''+esc(i.key)+'\')"><td class="st-pos">'+(on?'✓':'')+'</td><td class="mono"><b>'+esc(i.label)+'</b></td><td>Line '+((g.o.lines||[]).indexOf(i.l)+1)+' · <b>'+esc(frac16(i.geo.width16/16)+' × '+frac16(i.geo.height16/16))+'</b></td><td class="mut">'+esc(stationTime(i.at))+'</td></tr>';}).join('');
+  return '<tr class="st-skid-oh'+(all?' on':'')+'" data-skid-order="'+esc(g.o.businessNumber||'')+'" '+onAct('click',stationSkidPickOrder,String(g.o.id??''))+'><td class="st-pos">'+(all?'✓':'')+'</td><td colspan="2"><b>'+esc(g.o.businessNumber||'')+'</b> · <span data-raw>'+esc(salesCustomerDisplay(g.o.customerId))+'</span></td><td class="n"><b>'+stationPlural(g.items.length,g.items.every(i=>i.unit)?'unit':'glass',g.items.every(i=>i.unit)?'units':'glass')+'</b></td></tr>'+
+   g.items.map(i=>{const on=d.sel.has(i.key);return '<tr class="st-mv-row'+(on?' on':'')+'" data-skid-unit="'+esc(i.label)+'" '+onAct('click',stationSkidPick,String(i.key??''))+'><td class="st-pos">'+(on?'✓':'')+'</td><td class="mono"><b>'+esc(i.label)+'</b></td><td>Line '+((g.o.lines||[]).indexOf(i.l)+1)+' · <b>'+esc(frac16(i.geo.width16/16)+' × '+frac16(i.geo.height16/16))+'</b></td><td class="mut">'+esc(stationTime(i.at))+'</td></tr>';}).join('');
  }).join('');
  const n=items.filter(i=>d.sel.has(i.key)).length,since=list.length&&typeof carrierSince==='function'?' · since '+carrierSince(list):'';
- return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer st-drawer-wide" role="dialog" aria-label="Skid" data-station-skid-window="'+esc(d.code)+'">'+
+ return '<div class="st-dim" '+onAct('click',stationCloseDrawer)+'></div><div class="st-drawer st-drawer-wide" role="dialog" aria-label="Skid" data-station-skid-window="'+esc(d.code)+'">'+
   '<h2><span class="st-dchip skid">'+esc(d.code)+'</span>'+(list.length?stationTareCount(list):'Empty')+'</h2>'+
   '<div class="mut">Tap a customer — all its units; tap a unit — one by one'+esc(since)+'</div>'+
   (items.length?'<table class="st-mv st-skid-t"><tbody>'+rows+'</tbody></table>':'<div class="empty">Nothing on it</div>')+
   (d.error?'<div class="st-pin-err" role="alert">'+esc(d.error)+'</div>':'')+
-  '<div class="st-drawer-foot">'+(!n&&list.length&&typeof carrierPrintButton==='function'?carrierPrintButton(d.code):'')+(n?'<span data-skid-sel><b>'+n+' selected</b> →</span>'+stationSkidTargets(d.code).map(c=>'<button type="button" class="b sm" data-skid-to="'+esc(c)+'" onclick="stationSkidMove(\''+esc(c)+'\')">'+esc(c)+'</button>').join('')+
-   '<input class="st-mv-to" data-station-keep data-skid-to-input placeholder="SL-5" onkeydown="if(event.key===\'Enter\'){event.preventDefault();stationSkidMove(this.value)}"><button type="button" class="b st-yes" data-skid-move onclick="stationSkidMove(document.querySelector(\'[data-skid-to-input]\').value)">Move</button>':
+  '<div class="st-drawer-foot">'+(!n&&list.length&&typeof carrierPrintButton==='function'?carrierPrintButton(d.code):'')+(n?'<span data-skid-sel><b>'+n+' selected</b> →</span>'+stationSkidTargets(d.code).map(c=>'<button type="button" class="b sm" data-skid-to="'+esc(c)+'" '+onAct('click',stationSkidMove,String(c??''))+'>'+esc(c)+'</button>').join('')+
+   '<input class="st-mv-to" data-station-keep data-skid-to-input placeholder="SL-5" '+onAct('keydown',stationSkidMoveKey,EVENT,EL_VALUE)+'><button type="button" class="b st-yes" data-skid-move '+onAct('click',stationSkidMoveTo)+'>Move</button>':
    '<span class="mut">Select to move</span>'+stationEmptyButton(d.code))+
-  '<button type="button" class="b" onclick="stationCloseDrawer()">Close</button></div></div>';
+  '<button type="button" class="b" '+onAct('click',stationCloseDrawer)+'>Close</button></div></div>';
 }

@@ -271,15 +271,15 @@ function stationBatchHTML(){
   const left=g.sheets.filter(s=>!stationSheetDone(s,cut)).length;
   return '<div class="st-bgroup"><div class="st-bgh"><b data-raw>'+esc(glassCodeLabel(g.glass))+'</b><span class="mut">'+g.sheets.length+' sheet'+(g.sheets.length===1?'':'s')+' · '+(left?left+' left':'all cut')+'</span></div><div class="st-bsheets">'+
    g.sheets.map(sh=>{const k=sh.pieces.filter(p=>cut.has(p.piece)).length,sz=sh.size||g.sheet||{},stock=/^S-/.test(String(sz.key||''));
-    return '<button type="button" class="st-bsheet'+(stationSheetDone(sh,cut)?' done':'')+'" data-batch-sheet="'+esc(g.glass)+':'+sh.no+'" onclick="stationSheetPick(\''+esc(b.number)+'\',\''+esc(g.glass)+'\','+sh.no+')">'+stationSheetSVG(g,sh,pieces,cut,'',true,broken,stale&&stale.gone)+
+    return '<button type="button" class="st-bsheet'+(stationSheetDone(sh,cut)?' done':'')+'" data-batch-sheet="'+esc(g.glass)+':'+sh.no+'" '+onAct('click',stationSheetPick,String(b.number??''),String(g.glass??''),sh.no)+'>'+stationSheetSVG(g,sh,pieces,cut,'',true,broken,stale&&stale.gone)+
      '<span class="st-bsheet-t"><b>Sheet '+sh.no+'</b><span>'+sh.pieces.length+' glass'+(k?' · '+k+' cut':'')+'</span>'+(stock?'<span class="pill warn">Offcut '+esc(sz.key)+'</span>':'<span class="mut">'+esc(frac16(sz.w)+' × '+frac16(sz.h))+'</span>')+'</span></button>';}).join('')+'</div></div>';
  }).join('');
  const miss=(plan&&Array.isArray(plan.missing)?plan.missing:[]).map(gl=>'<div class="st-bgroup"><div class="st-bgh"><b data-raw>'+esc(gl)+'</b><span class="pill warn">no cutting plan</span></div></div>').join('');
- return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer st-drawer-wide" role="dialog" aria-label="Batch" data-station-batch-view="'+esc(b.number)+'">'+
+ return '<div class="st-dim" '+onAct('click',stationCloseDrawer)+'></div><div class="st-drawer st-drawer-wide" role="dialog" aria-label="Batch" data-station-batch-view="'+esc(b.number)+'">'+
   '<h2>Batch <b class="mono st-bnum">'+esc(b.number)+'</b>'+(urg===2?'<span class="pill bad">Critical</span>':urg===1?'<span class="pill warn">Rush</span>':'')+'</h2>'+
   '<div class="mut">'+done+' of '+live.length+' glass cut · '+orders.length+' order'+(orders.length===1?'':'s')+(due?' · due '+esc(salesListShortDay(due)):'')+'</div>'+stationStaleHTML(stale)+
   (plan?groups+miss:'<div class="st-noplan"><b>No cutting plan yet</b><div class="mut">Make it in Optimization → Batches</div></div>')+
-  '<div class="st-drawer-foot"><span class="mut">Tap a sheet to put it on the table</span><button type="button" class="b" onclick="stationCloseDrawer()">Close</button><button type="button" class="b st-yes" data-batch-cut-open onclick="stationBatchOpen(\''+esc(b.number)+'\')">Cut this batch</button></div></div>';
+  '<div class="st-drawer-foot"><span class="mut">Tap a sheet to put it on the table</span><button type="button" class="b" '+onAct('click',stationCloseDrawer)+'>Close</button><button type="button" class="b st-yes" data-batch-cut-open '+onAct('click',stationBatchOpen,String(b.number??''))+'>Cut this batch</button></div></div>';
 }
 /* Над листом: батч (очередь офиса) и стёкла батча — каждое своей кнопкой. */
 function stationBatchBar(v,plan){
@@ -294,9 +294,9 @@ function stationBatchBar(v,plan){
  const cutSet=stationCutSet();
  const miss=plan&&Array.isArray(plan.missing)?plan.missing:[];
  const groups=plan&&plan.groups.length+miss.length>1?plan.groups.map(g=>{const left=g.sheets.filter(s=>!stationSheetDone(s,cutSet)).length;
-  return '<button type="button" class="st-gbtn'+(g.glass===v.glass?' on':'')+(left?'':' done')+'" data-station-glass="'+esc(g.glass)+'" onclick="stationBatchOpen(\''+esc(v.batch)+'\',\''+esc(g.glass)+'\')"><b data-raw>'+esc(glassCodeLabel(g.glass))+'</b><span>'+(left?left+' of '+g.sheets.length+' left':'✓')+'</span></button>';}).join('')+
+  return '<button type="button" class="st-gbtn'+(g.glass===v.glass?' on':'')+(left?'':' done')+'" data-station-glass="'+esc(g.glass)+'" '+onAct('click',stationBatchOpen,String(v.batch??''),String(g.glass??''))+'><b data-raw>'+esc(glassCodeLabel(g.glass))+'</b><span>'+(left?left+' of '+g.sheets.length+' left':'✓')+'</span></button>';}).join('')+
   miss.map(gl=>'<span class="st-gbtn st-gmiss" data-station-glass-missing="'+esc(gl)+'"><b data-raw>'+esc(gl)+'</b><span>no cutting plan</span></span>').join(''):'';
- return '<div class="st-batchbar"><label>Batch <select data-station-batch onchange="stationBatchOpen(this.value)">'+list.map(opt).join('')+'</select></label><button type="button" class="st-gbtn st-gview" data-station-batch-view-open onclick="stationBatchView(\''+esc(v.batch)+'\')"><b>All sheets</b><span>view the batch</span></button>'+groups+'</div>';
+ return '<div class="st-batchbar"><label>Batch <select data-station-batch '+onAct('change',stationBatchOpen,EL_VALUE)+'>'+list.map(opt).join('')+'</select></label><button type="button" class="st-gbtn st-gview" data-station-batch-view-open '+onAct('click',stationBatchView,String(v.batch??''))+'><b>All sheets</b><span>view the batch</span></button>'+groups+'</div>';
 }
 function stationSheetSVG(group,sheet,pieces,cut,nowId,still,broken,gone){
  /* CUT and Optimization share contours, rotation, holes, trim and offcuts.
@@ -345,19 +345,19 @@ function stationSheetCard(){
  const cut=stationCutSet(),broken=stationBrokenSet(),pieces=cutPieces(glassBatchFind(v.batch),plan.settings||{}),nowId=stationLast&&stationLast.check&&stationLast.check.code,size=sheet.size||{},stale=glassBatchStale(glassBatchFind(v.batch));
  const n=sheet.pieces.filter(p=>cut.has(p.piece)).length;
  const tiles=group.sheets.map(s=>{const done=stationSheetDone(s,cut),k=s.pieces.filter(p=>cut.has(p.piece)).length;
-  return '<button type="button" class="st-tile'+(done?' done':'')+(s===sheet?' now':'')+'" onclick="stationSheetPick(\''+esc(v.batch)+'\',\''+esc(group.glass)+'\','+s.no+')"><b>'+s.no+'</b><span>'+(done?'✓':k?k+'/'+s.pieces.length:s.pieces.length)+'</span></button>';}).join('');
+  return '<button type="button" class="st-tile'+(done?' done':'')+(s===sheet?' now':'')+'" '+onAct('click',stationSheetPick,String(v.batch??''),String(group.glass??''),s.no)+'><b>'+s.no+'</b><span>'+(done?'✓':k?k+'/'+s.pieces.length:s.pieces.length)+'</span></button>';}).join('');
  const menu=stationMenu&&sheet.pieces.some(p=>p.piece===stationMenu.piece)?stationMenuHTML():'';
  const breaks=(DB.sheetBreak||[]).filter(x=>!x.undoneAt&&x.batch===v.batch&&x.glass===group.glass&&x.sheet===sheet.no).length;
- return '<div class="card st-sheet-card">'+stationBatchBar(v,plan)+stationStaleHTML(stale)+'<div class="st-sec"><h3>Sheet '+sheet.no+' of '+group.sheets.length+'</h3><span class="pill" data-raw>'+esc(glassCodeLabel(group.glass))+' · '+esc(frac16(size.w)+' × '+frac16(size.h))+'</span>'+(breaks?'<span class="pill bad" data-sheet-breaks>broke '+breaks+'×</span>':'')+'<span class="sp"></span><span class="pill '+(n===sheet.pieces.length?'ok':'')+'">'+n+' / '+sheet.pieces.length+' cut</span><button type="button" class="b sm st-sheetbrk st-sheetprint" data-station-print onclick="stationOpenPrint()">'+ico('printer')+'Print</button><button type="button" class="b sm st-sheetbrk" onclick="stationOpenSheetBreak()">Sheet broke</button></div>'+
+ return '<div class="card st-sheet-card">'+stationBatchBar(v,plan)+stationStaleHTML(stale)+'<div class="st-sec"><h3>Sheet '+sheet.no+' of '+group.sheets.length+'</h3><span class="pill" data-raw>'+esc(glassCodeLabel(group.glass))+' · '+esc(frac16(size.w)+' × '+frac16(size.h))+'</span>'+(breaks?'<span class="pill bad" data-sheet-breaks>broke '+breaks+'×</span>':'')+'<span class="sp"></span><span class="pill '+(n===sheet.pieces.length?'ok':'')+'">'+n+' / '+sheet.pieces.length+' cut</span><button type="button" class="b sm st-sheetbrk st-sheetprint" data-station-print '+onAct('click',stationOpenPrint)+'>'+ico('printer')+'Print</button><button type="button" class="b sm st-sheetbrk" '+onAct('click',stationOpenSheetBreak)+'>Sheet broke</button></div>'+
   stationSheetSVG(group,sheet,pieces,cut,nowId,false,broken,stale&&stale.gone)+'<div class="st-tiles">'+tiles+'</div>'+menu+'</div>';
 }
 function stationMenuHTML(){
  const m=stationMenu,cut=stationCutSet().has(m.piece),x=Math.max(8,m.x-90),y=m.y+12;
  return '<div class="st-menu" style="left:'+x+'px;top:'+y+'px"><div class="st-menu-h mono">'+esc(m.piece)+'</div>'+
-  (cut?'':'<button type="button" onclick="stationMark(\''+esc(m.piece)+'\')">✓ Mark cut</button>')+
-  (stationBrokenSet().has(m.piece)?'':'<button type="button" class="st-menu-red" onclick="stationOpenRecut(\''+esc(m.piece)+'\')">✕ Broken — recut</button>')+
-  '<button type="button" onclick="stationPrintSticker(\''+esc(m.piece)+'\')">Reprint sticker</button>'+
-  '<button type="button" onclick="stationPeek(\''+esc(m.piece)+'\')">Details</button></div>';
+  (cut?'':'<button type="button" '+onAct('click',stationMark,String(m.piece??''))+'>✓ Mark cut</button>')+
+  (stationBrokenSet().has(m.piece)?'':'<button type="button" class="st-menu-red" '+onAct('click',stationOpenRecut,String(m.piece??''))+'>✕ Broken — recut</button>')+
+  '<button type="button" '+onAct('click',stationPrintSticker,String(m.piece??''))+'>Reprint sticker</button>'+
+  '<button type="button" '+onAct('click',stationPeek,String(m.piece??''))+'>Details</button></div>';
 }
 
 /* ------------------------------ Карточка ----------------------------- */
@@ -427,14 +427,14 @@ function stationCard(){
  const canRecut=g&&!['broken','recut','cancelled','unit','unknown'].includes(c.kind)&&typeof recutCanOpen==='function'&&recutCanOpen(g.o);
  const stickerFor=c.kind==='recut'?(c.newIds||[])[0]:g?c.code:'';
  /* Юнит собран — его стикер можно перепечатать на любой станции. */
- const unitNo=g&&c.kind!=='recut'?stationUnitNo(g):0,unitBtn=unitNo&&!(L.check&&stationUnitMerge(g.o,g.l)===stationCode)?'<button type="button" class="b" data-station-unit-reprint onclick="stationPrintUnit(\''+esc(c.code)+'\')">Unit sticker</button>':'';
+ const unitNo=g&&c.kind!=='recut'?stationUnitNo(g):0,unitBtn=unitNo&&!(L.check&&stationUnitMerge(g.o,g.l)===stationCode)?'<button type="button" class="b" data-station-unit-reprint '+onAct('click',stationPrintUnit,String(c.code??''))+'>Unit sticker</button>':'';
  if(c.kind==='skipped')return '<div class="st-res st-amber" data-station-result="skipped"><div class="st-res-h">'+esc(K.head)+'<span>'+esc(stationTime(L.at))+'</span></div><div class="st-res-b">'+big+'<div class="st-info">'+info+'</div></div>'+
-  '<div class="st-acts"><button type="button" class="b st-yes" data-station-yes onclick="stationAnswer(\''+esc(c.code)+'\',true)">✓ Yes, done</button><button type="button" class="b st-red-b" data-station-no onclick="stationAnswer(\''+esc(c.code)+'\',false)">✕ No — back to '+esc((c.missed||[])[0]||'')+'</button></div></div>';
- const thumb=g&&d?(stationDrawThumb(g,d)||(!d.shape&&c.kind!=='recut'?stationGlassPreview(g,size):'')):'',drawBtn=g&&(g.l.shapeRef||stationDrawRecut(g.o,g.l,g.unit))&&c.kind!=='recut'?'<button type="button" class="b" data-station-drawing onclick="stationDrawOpen(\''+esc(g.o.id)+'\',\''+esc(g.l.id)+'\',\''+esc(String(g.unit))+'\')">Drawing</button>':'';
- const acts=(L.rec||canRecut||stickerFor||drawBtn)?'<div class="st-acts">'+(L.rec?'<button type="button" class="b" onclick="stationUndoClick(\''+esc(L.rec.id)+'\')">Undo</button>':'')+
-  (L.rec&&L.rec.on?'<button type="button" class="b" data-station-off onclick="stationScanOffClick(\''+esc(L.rec.id)+'\')">Not on '+esc(L.rec.on)+'</button>':'')+
-  (canRecut?'<button type="button" class="b st-red-b" data-station-recut onclick="stationOpenRecut(\''+esc(c.code)+'\')">Recut</button>':'')+
-  (stickerFor?'<button type="button" class="b" data-station-sticker onclick="stationPrintSticker(\''+esc(stickerFor)+'\')">'+(c.kind==='recut'?'Print new sticker':'Sticker')+'</button>':'')+unitBtn+drawBtn+'</div>':'';
+  '<div class="st-acts"><button type="button" class="b st-yes" data-station-yes '+onAct('click',stationAnswer,String(c.code??''),true)+'>✓ Yes, done</button><button type="button" class="b st-red-b" data-station-no '+onAct('click',stationAnswer,String(c.code??''),false)+'>✕ No — back to '+esc((c.missed||[])[0]||'')+'</button></div></div>';
+ const thumb=g&&d?(stationDrawThumb(g,d)||(!d.shape&&c.kind!=='recut'?stationGlassPreview(g,size):'')):'',drawBtn=g&&(g.l.shapeRef||stationDrawRecut(g.o,g.l,g.unit))&&c.kind!=='recut'?'<button type="button" class="b" data-station-drawing '+onAct('click',stationDrawOpen,String(g.o.id??''),String(g.l.id??''),String((String(g.unit))??''))+'>Drawing</button>':'';
+ const acts=(L.rec||canRecut||stickerFor||drawBtn)?'<div class="st-acts">'+(L.rec?'<button type="button" class="b" '+onAct('click',stationUndoClick,String(L.rec.id??''))+'>Undo</button>':'')+
+  (L.rec&&L.rec.on?'<button type="button" class="b" data-station-off '+onAct('click',stationScanOffClick,String(L.rec.id??''))+'>Not on '+esc(L.rec.on)+'</button>':'')+
+  (canRecut?'<button type="button" class="b st-red-b" data-station-recut '+onAct('click',stationOpenRecut,String(c.code??''))+'>Recut</button>':'')+
+  (stickerFor?'<button type="button" class="b" data-station-sticker '+onAct('click',stationPrintSticker,String(stickerFor??''))+'>'+(c.kind==='recut'?'Print new sticker':'Sticker')+'</button>':'')+unitBtn+drawBtn+'</div>':'';
  return '<div class="st-res '+K.cls+'" data-station-result="'+esc(c.kind)+'">'+(bar||'<div class="st-res-h">'+esc(K.head)+'<span>'+esc(stationTime(L.at))+'</span></div>')+
   (bar&&c.kind!=='ok'?'<div class="st-res-h">'+esc(K.head)+'<span>'+esc(stationTime(L.at))+'</span></div>':'')+stationForeignBar(L)+stationWrongBar(L)+stationQueueBar(g)+stationAskBar(L)+
   '<div class="st-res-b">'+(thumb?'<div class="st-left">'+big+thumb+'</div>':big)+'<div class="st-info">'+info+'</div></div>'+acts+'</div>';
@@ -455,7 +455,7 @@ function stationJournal(){
   return '<tr'+(g&&stationUrgency(g.o)===2?' class="st-hot"':'')+'><td class="mut">'+esc(stationTime(s.at))+'</td><td class="mono"><b>'+esc(s.piece)+'</b>'+(s.manual?' <span class="st-man" title="Marked by hand">hand</span>':'')+(s.confirmedAt?' <span class="st-man" title="Not scanned here — confirmed at '+esc(s.confirmedAt)+'">at '+esc(s.confirmedAt)+'</span>':'')+'</td>'+
    '<td>'+esc(g?g.o.businessNumber||'':'')+'</td><td>'+esc(g&&snap?'Line '+snap.line:'')+'</td>'+
    '<td class="st-to">'+(s.broken?'<span class="st-brk">✕ Recut '+esc(String(s.recut).replace(/^R/,''))+'</span>':s.park?'<span class="st-parkj">Out · waits for a pair</span>':place&&place.waiting?'→ '+esc(place.waiting):place&&place.shipped?'✓':'')+'</td><td>'+(s.on?'<b class="st-on">'+esc(s.on)+'</b>':'<span class="mut">—</span>')+'</td><td class="mut" data-raw>'+esc(s.by)+'</td>'+
-   '<td style="text-align:right">'+(!s.broken&&!s.park&&lastOf.get(s.piece)===s?'<button type="button" class="b sm" onclick="stationUndoClick(\''+esc(s.id)+'\')">Undo</button>':'')+'</td></tr>';
+   '<td style="text-align:right">'+(!s.broken&&!s.park&&lastOf.get(s.piece)===s?'<button type="button" class="b sm" '+onAct('click',stationUndoClick,String(s.id??''))+'>Undo</button>':'')+'</td></tr>';
  }).join('');
  return '<div class="card st-journal"><div class="st-sec"><h3>Last scans</h3></div><table><thead><tr><th>Time</th><th>Glass</th><th>Order</th><th>Line</th><th>Next</th><th>On</th><th>By</th><th></th></tr></thead><tbody>'+body+'</tbody></table></div>';
 }
@@ -468,30 +468,30 @@ function stationBatchChip(){
 }
 function stationTop(who){
  const s=stationRow();
- const tabs=who?'<div class="st-tabs"><button type="button" class="'+(stationTab==='scan'?'on':'')+'" onclick="stationTab=\'scan\';stationMenu=null;render()">Scan</button><button type="button" class="'+(stationTab==='queue'?'on':'')+'" data-station-tab="queue" onclick="stationTab=\'queue\';stationMenu=null;render()">Queue</button><button type="button" class="'+(stationTab==='board'?'on':'')+'" data-station-tab="board" onclick="stationTab=\'board\';stationMenu=null;render()">Board</button><button type="button" class="'+(stationTab==='dollies'?'on':'')+'" data-station-tab="dollies" onclick="stationTab=\'dollies\';stationMenu=null;render()">Dollies</button></div>'+
-  (stationTab==='queue'||stationTab==='board'?'<label class="st-topscan">'+ico('scan')+'<input id="stationScanField" data-station-scan autocomplete="off" spellcheck="false" placeholder="Scan barcode…" onkeydown="stationKey(event,this)"></label>':''):'';
+ const tabs=who?'<div class="st-tabs"><button type="button" class="'+(stationTab==='scan'?'on':'')+'" '+onAct('click',stationTabGo,'scan')+'>Scan</button><button type="button" class="'+(stationTab==='queue'?'on':'')+'" data-station-tab="queue" '+onAct('click',stationTabGo,'queue')+'>Queue</button><button type="button" class="'+(stationTab==='board'?'on':'')+'" data-station-tab="board" '+onAct('click',stationTabGo,'board')+'>Board</button><button type="button" class="'+(stationTab==='dollies'?'on':'')+'" data-station-tab="dollies" '+onAct('click',stationTabGo,'dollies')+'>Dollies</button></div>'+
+  (stationTab==='queue'||stationTab==='board'?'<label class="st-topscan">'+ico('scan')+'<input id="stationScanField" data-station-scan autocomplete="off" spellcheck="false" placeholder="Scan barcode…" '+onAct('keydown',stationKey,EVENT,EL)+'></label>':''):'';
  return '<div class="st-top"><div class="st-code">'+esc(stationCode)+'</div><div class="st-name">'+(s?sfLabel(s):'Unknown station')+'</div>'+tabs+'<span class="sp"></span>'+
-  (who&&stationMergeCodes().includes(stationCode)?'<button type="button" class="st-chip st-autoprint'+(stationAutoPrintOn()?' on':'')+'" data-station-autoprint onclick="stationAutoPrintToggle()" title="Unit sticker when the last lite is scanned">Unit stickers <b>'+(stationAutoPrintOn()?'Auto':'By button')+'</b></button>':'')+
-  (who&&stationQuestions.length?'<button type="button" class="st-chip st-ask-chip" data-station-questions onclick="stationShowQuestion()">'+stationQuestions.length+' to answer</button>':'')+
-  (who&&stationLoose().length?'<button type="button" class="st-chip st-loose-chip" data-station-loose onclick="stationDollyOpen(\'\',\'out\')" title="Scanned without a '+stationTareWord()+'">No '+stationTareWord()+' · <b>'+stationLoose().length+'</b></button>':'')+
-  (who&&stationPutOn()?'<div class="st-chip st-puton" data-station-puton title="Putting on"><span class="st-chip-more">Putting on </span><b>'+esc(stationPutOn())+'</b><button type="button" title="Stop putting on this dolly" onclick="stationClearPutOn()">✕</button></div>':'')+
+  (who&&stationMergeCodes().includes(stationCode)?'<button type="button" class="st-chip st-autoprint'+(stationAutoPrintOn()?' on':'')+'" data-station-autoprint '+onAct('click',stationAutoPrintToggle)+' title="Unit sticker when the last lite is scanned">Unit stickers <b>'+(stationAutoPrintOn()?'Auto':'By button')+'</b></button>':'')+
+  (who&&stationQuestions.length?'<button type="button" class="st-chip st-ask-chip" data-station-questions '+onAct('click',stationShowQuestion)+'>'+stationQuestions.length+' to answer</button>':'')+
+  (who&&stationLoose().length?'<button type="button" class="st-chip st-loose-chip" data-station-loose '+onAct('click',stationDollyOpen,'','out')+' title="Scanned without a '+stationTareWord()+'">No '+stationTareWord()+' · <b>'+stationLoose().length+'</b></button>':'')+
+  (who&&stationPutOn()?'<div class="st-chip st-puton" data-station-puton title="Putting on"><span class="st-chip-more">Putting on </span><b>'+esc(stationPutOn())+'</b><button type="button" title="Stop putting on this dolly" '+onAct('click',stationClearPutOn)+'>✕</button></div>':'')+
   (who?stationTripChip():'')+
-  (who?'<button type="button" class="st-btn" data-station-drawings onclick="stationDrawPick()">Drawings</button>':'')+
-  (who?stationBatchChip()+'<div class="st-chip"><span class="st-av">'+esc(stationInitials(who.name))+'</span><b data-raw>'+esc(who.name)+'</b></div><button type="button" class="st-btn" onclick="stationSwitch()">Switch</button>':'')+
-  stationThemeButton()+'<button type="button" class="st-btn st-exit" onclick="stationExit()" title="Back to ERP">ERP</button></div>';
+  (who?'<button type="button" class="st-btn" data-station-drawings '+onAct('click',stationDrawPick)+'>Drawings</button>':'')+
+  (who?stationBatchChip()+'<div class="st-chip"><span class="st-av">'+esc(stationInitials(who.name))+'</span><b data-raw>'+esc(who.name)+'</b></div><button type="button" class="st-btn" '+onAct('click',stationSwitch)+'>Switch</button>':'')+
+  stationThemeButton()+'<button type="button" class="st-btn st-exit" '+onAct('click',stationExit)+' title="Back to ERP">ERP</button></div>';
 }
 /* Тема на станции: бокового меню с логотипом GF здесь нет, а сменить тему
    нужно (владелец, 6 октября 2026: «тему сменить нельзя»). Тот же выбор
    браузера, что в офисе; на кнопке — тема, в которую переключит. */
 function stationThemeButton(){
  const dark=document.documentElement.getAttribute('data-theme')==='dark';
- return '<button type="button" class="st-btn" data-station-theme onclick="toggleTheme();render()" title="Light / dark">'+(dark?'Light':'Dark')+'</button>';
+ return '<button type="button" class="st-btn" data-station-theme '+onAct('click',stationThemeToggle)+' title="Light / dark">'+(dark?'Light':'Dark')+'</button>';
 }
 function stationLoginView(){
  const pin=stationLoginStep==='pin',hi=typeof signinGreeting==='function'?signinGreeting():'Hello';
  const shown=pin?'<div class="st-dots'+(stationPinError?' bad':'')+'">'+[0,1,2,3].map(i=>'<i class="'+(i<stationPin.length?'f':'')+'"></i>').join('')+'</div>'
   :'<div class="st-login-no'+(stationLoginNo?'':' blank')+'" data-station-login-no>'+(stationLoginNo?esc(stationLoginNo):'· ·')+'</div>';
- const keys=['1','2','3','4','5','6','7','8','9','back','0','ok'].map(k=>'<button type="button"'+(k==='ok'?' class="st-key-ok"'+(pin||!stationLoginNo?' disabled':''):'')+' data-station-key="'+k+'" onclick="stationLoginKey(\''+k+'\')">'+(k==='back'?'⌫':k==='ok'?'→':k)+'</button>').join('');
+ const keys=['1','2','3','4','5','6','7','8','9','back','0','ok'].map(k=>'<button type="button"'+(k==='ok'?' class="st-key-ok"'+(pin||!stationLoginNo?' disabled':''):'')+' data-station-key="'+k+'" '+onAct('click',stationLoginKey,String(k))+'>'+(k==='back'?'⌫':k==='ok'?'→':k)+'</button>').join('');
  return '<div class="st-login card"><div class="st-login-hi">'+esc(hi)+(typeof signinClock==='function'?' · <span data-signin-clock>'+esc(signinClock())+'</span>':'')+'</div><h2>'+(pin?'PIN':'Your number')+'</h2>'+shown+
   '<div class="st-pin-err" role="alert">'+esc(stationPinError)+'</div><div class="st-keys">'+keys+'</div></div>';
 }
@@ -500,7 +500,7 @@ function viewStation(){
  /* Звук готовится сразу: первый скан не ждёт его (X-02, 0,3 с на слабом ПК). */
  if(!stationAudio)setTimeout(()=>{try{stationAudioReady();}catch(e){}},0);
  if(!s){
-  return stationTop(null)+'<div class="st-body st-one"><div class="card"><h2>Choose a station</h2><div class="st-names">'+(DB.station||[]).map(x=>'<button type="button" class="st-name-btn" onclick="location.hash=\'station='+esc(x.code)+'\'"><b>'+esc(x.code)+'</b> '+sfLabel(x)+'</button>').join('')+'</div></div></div>';
+  return stationTop(null)+'<div class="st-body st-one"><div class="card"><h2>Choose a station</h2><div class="st-names">'+(DB.station||[]).map(x=>'<button type="button" class="st-name-btn" '+onAct('click',stationGoTo,String(x.code??''))+'><b>'+esc(x.code)+'</b> '+sfLabel(x)+'</button>').join('')+'</div></div></div>';
  }
  const who=stationWho();
  if(!who)return stationTop(null)+'<div class="st-body st-one">'+stationLoginView()+'</div>';
@@ -512,7 +512,7 @@ function viewStation(){
  if(stationTab==='board')return stationTop(who)+stationBoardView(who)+drawer;
  if(stationTab==='dollies')return stationTop(who)+stationDolliesView()+drawer;
  return stationTop(who)+'<div class="st-body"><div class="st-col">'+
-  '<label class="st-scan"><span class="st-scan-ico">'+ico('scan')+'</span><span class="st-scan-lab"><b>SCAN BARCODE</b><input id="stationScanField" data-station-scan autocomplete="off" spellcheck="false" placeholder="Glass sticker or number" onkeydown="stationKey(event,this)"></span><span class="st-ready"><i></i>Ready</span></label>'+
+  '<label class="st-scan"><span class="st-scan-ico">'+ico('scan')+'</span><span class="st-scan-lab"><b>SCAN BARCODE</b><input id="stationScanField" data-station-scan autocomplete="off" spellcheck="false" placeholder="Glass sticker or number" '+onAct('keydown',stationKey,EVENT,EL)+'></span><span class="st-ready"><i></i>Ready</span></label>'+
   stationCard()+(stationNote?'<div class="st-note">'+esc(stationNote)+'</div>':'')+(stationIsShip()?stationShipJournal():stationJournal())+
   '</div><div class="st-col">'+(stationCode===stationCutCode()?stationSheetCard()+stationLoadedCard():(stationIsShip()?stationTripsCard():'')+stationIguCard()+stationPairsCard()+stationHereCard()+stationLoadedCard())+'</div></div>'+drawer;
 }
@@ -586,7 +586,7 @@ function stationHereOpenSrc(srcs){
 function stationHereSrc(id){const open=stationHereOpenSrc(stationHereSources());stationIncoming=open&&(open.code||STATION_NO_DOLLY)===id?'~':id;stationHereOpen='';render();}
 function stationHereSrcRow(s,open){
  const u=s.urg;
- return '<div class="st-dl st-src'+(open?' open':'')+(u===2?' hot':'')+'" '+(s.code?'data-station-incoming="'+esc(s.code)+'"':'data-station-nodolly')+' onclick="stationHereSrc(\''+esc(s.code||STATION_NO_DOLLY)+'\')">'+
+ return '<div class="st-dl st-src'+(open?' open':'')+(u===2?' hot':'')+'" '+(s.code?'data-station-incoming="'+esc(s.code)+'"':'data-station-nodolly')+' '+onAct('click',stationHereSrc,String((s.code||STATION_NO_DOLLY)??''))+'>'+
   '<span class="st-dchip'+(s.code?(/^S/.test(s.code)?' skid':''):' none')+'">'+esc(s.code||'No '+stationTareWord())+'</span>'+
   '<span class="st-src-t"><b>'+stationHereCount(s.list)+'</b>'+(u===2?'<span class="pill bad">Critical</span>':u===1?'<span class="pill warn">Rush</span>':'')+'<span class="st-bmix">'+stationBatchMix(s.list)+'</span>'+(s.other?'<span class="mut">+'+s.other+' for other stations</span>':'')+'</span>'+
   '<span class="mut st-src-r">'+(s.since?esc(stationTime(s.since))+' ':'')+(open?'▾':'▸')+'</span></div>';
@@ -598,11 +598,11 @@ function stationHereTable(s){
   const o=r.g.o,l=r.g.l,urg=stationUrgency(o),open=stationHereOpen===r.key,comps=glassBatchComponents(o,l).filter(c=>!c.missing);
   const glass=r.unit?'Unit · '+comps.map(c=>glassCodeLabel(c.glass)).join(' / '):(r.g.c?(comps.length>1?'Lite '+r.g.c.lite+' · ':'')+glassCodeLabel(r.g.c.glass):'');
   const batches=[...new Set(r.list.map(x=>x.batch).filter(Boolean))].join(', '),cols=stack?7:6;
-  return '<tr class="st-here-row'+(urg===2?' st-hot':'')+(open?' open':'')+'" data-station-here="'+esc(r.key)+'" onclick="stationHereOpen=stationHereOpen===\''+esc(r.key)+'\'?\'\':\''+esc(r.key)+'\';render()">'+
+  return '<tr class="st-here-row'+(urg===2?' st-hot':'')+(open?' open':'')+'" data-station-here="'+esc(r.key)+'" '+onAct('click',stationHereToggle,String(r.key??''))+'>'+
    (stack?'<td class="mut st-pos">#'+(r.pos[0]===r.pos[1]?r.pos[0]:r.pos[0]+'–'+r.pos[1])+'</td>':'')+
    '<td><b>'+esc(o.businessNumber||'')+'</b>'+(urg?' <span class="pill '+(urg===2?'bad':'warn')+'">'+(urg===2?'Critical':'Rush')+'</span>':'')+'</td><td>Line '+r.li+' · <b>'+esc(frac16(stationGeo(r.g).width16/16)+' × '+frac16(stationGeo(r.g).height16/16))+'</b></td><td data-raw>'+esc(glass)+'</td>'+
    '<td class="mono st-bcell">'+esc(batches||'—')+'</td><td class="n"><b>'+r.n+'</b></td><td class="mut">'+esc(o.dueDate?salesListShortDay(o.dueDate):'')+'</td></tr>'+
-   (open?'<tr class="st-here-acts"><td colspan="'+cols+'"><span class="mut">Sticker unreadable?</span><button type="button" class="b" data-station-here-mark onclick="stationHereMark(\''+esc(r.key)+'\')">✓ Mark 1 '+(r.unit?'unit':'glass')+' done</button><button type="button" class="b" data-station-here-print onclick="stationHerePrint(\''+esc(r.key)+'\')">Print a new '+(r.unit?'unit ':'')+'sticker</button>'+(l.shapeRef||stationDrawRecut(o,l,r.g.unit)?'<button type="button" class="b" data-station-here-drawing onclick="stationDrawOpen(\''+esc(o.id)+'\',\''+esc(l.id)+'\',\''+esc(String(r.g.unit))+'\')">Drawing</button>':'')+'</td></tr>':'');
+   (open?'<tr class="st-here-acts"><td colspan="'+cols+'"><span class="mut">Sticker unreadable?</span><button type="button" class="b" data-station-here-mark '+onAct('click',stationHereMark,String(r.key??''))+'>✓ Mark 1 '+(r.unit?'unit':'glass')+' done</button><button type="button" class="b" data-station-here-print '+onAct('click',stationHerePrint,String(r.key??''))+'>Print a new '+(r.unit?'unit ':'')+'sticker</button>'+(l.shapeRef||stationDrawRecut(o,l,r.g.unit)?'<button type="button" class="b" data-station-here-drawing '+onAct('click',stationDrawOpen,String(o.id??''),String(l.id??''),String((String(r.g.unit))??''))+'>Drawing</button>':'')+'</td></tr>':'');
  }).join('');
  return '<table class="st-here-t" '+(stack?'data-station-stack="'+esc(s.code)+'"':'data-station-nodolly-list')+'><thead><tr>'+(stack?'<th>#</th>':'')+'<th>Order</th><th>Line</th><th>Glass</th><th>Batch</th><th class="n">Pcs</th><th>Due</th></tr></thead><tbody>'+body+'</tbody></table>'+
   (all.length>rows.length?'<div class="mut st-more">+'+(all.length-rows.length)+' more rows</div>':'');
@@ -613,8 +613,12 @@ function stationHereCard(){
  const done=stationIncoming&&!['~',STATION_NO_DOLLY].includes(stationIncoming)&&!srcs.some(s=>s.code===stationIncoming)&&typeof carrierFind==='function'&&carrierFind(stationIncoming)?
   '<div class="st-dl st-src done" data-station-stack-done="'+esc(stationIncoming)+'"><span class="st-dchip">'+esc(stationIncoming)+'</span><span class="mut">Nothing left for '+esc(stationCode)+' on it</span><span class="pill ok">done</span></div>':'';
  return '<div class="card st-here"><div class="st-sec"><h3>Waiting here</h3><span class="pill info">'+total+' glass</span><span class="sp"></span><span class="mut">'+(srcs.length>1?'tap a '+stationTareWord():'tap a row — no sticker')+'</span></div>'+done+
-  (srcs.length?srcs.map(s=>stationHereSrcRow(s,s===open)+(s===open?stationHereTable(s)+'<div class="st-fix"><button type="button" class="b sm" data-station-fix="'+esc(s.code||STATION_NO_DOLLY)+'" onclick="stationDollyOpen(\''+esc(s.code)+'\',\'here\')">'+(s.code?'Move glass to another '+stationTareWord():'Put on a '+stationTareWord())+'</button></div>':'')).join(''):'<div class="empty">Nothing waiting</div>')+'</div>';
+  (srcs.length?srcs.map(s=>stationHereSrcRow(s,s===open)+(s===open?stationHereTable(s)+'<div class="st-fix"><button type="button" class="b sm" data-station-fix="'+esc(s.code||STATION_NO_DOLLY)+'" '+onAct('click',stationDollyOpen,String(s.code??''),'here')+'>'+(s.code?'Move glass to another '+stationTareWord():'Put on a '+stationTareWord())+'</button></div>':'')).join(''):'<div class="empty">Nothing waiting</div>')+'</div>';
 }
+function stationTabGo(k){stationTab=k;stationMenu=null;render();}
+function stationThemeToggle(){toggleTheme();render();}
+function stationGoTo(code){location.hash='station='+code;}
+function stationHereToggle(key){stationHereOpen=stationHereOpen===key?'':key;render();}
 function stationKey(ev,el){
  if(ev.key!=='Enter'&&!(ev.key==='Tab'&&el.value.trim()))return;
  ev.preventDefault();const v=el.value;el.value='';if(v.trim())(typeof storageWhenWriter==='function'?storageWhenWriter:f=>f())(()=>stationSubmit(v));
@@ -662,16 +666,16 @@ function stationRecutHTML(){
  const d=stationDrawer,check=stationCheck(stationCode,d.piece),g=check&&check.g;
  const all=typeof ncrReasonsFor==='function'?ncrReasonsFor(stationCode,{activeOnly:true}):[];
  const own=all.filter(r=>r.where===stationCode),common=all.filter(r=>r.where!==stationCode);
- const btn=r=>'<button type="button" class="st-reason" data-recut-reason="'+esc(r.id)+'" onclick="stationRecutCreate(\''+esc(r.id)+'\')">'+raw(r.name)+'</button>';
+ const btn=r=>'<button type="button" class="st-reason" data-recut-reason="'+esc(r.id)+'" '+onAct('click',stationRecutCreate,String(r.id??''))+'>'+raw(r.name)+'</button>';
  const line=g?(g.o.lines||[]).indexOf(g.l)+1:0;
- return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer" role="dialog" aria-label="Recut">'+
+ return '<div class="st-dim" '+onAct('click',stationCloseDrawer)+'></div><div class="st-drawer" role="dialog" aria-label="Recut">'+
   '<h2><span class="st-flag">RECUT</span><span class="mono">'+esc(d.piece)+'</span></h2>'+
   (g?'<div class="st-dinfo"><span class="k">Order</span><span><b>'+esc(g.o.businessNumber||'')+'</b> · <span data-raw>'+esc(salesCustomerDisplay(g.o.customerId))+'</span></span><span class="k">Line</span><span>Line '+line+' · <b>'+esc(frac16(stationGeo(g).width16/16)+' × '+frac16(stationGeo(g).height16/16))+'</b></span><span class="k">Glass</span><span><b data-raw>'+esc(g.c?glassCodeLabel(g.c.glass):'')+'</b></span></div>':'')+
   stationRecutPlanHTML(g)+
   (own.length?'<div class="st-rgroup">'+esc(stationCode)+'</div><div class="st-reasons">'+own.map(btn).join('')+'</div>':'')+
   '<div class="st-rgroup">Any station</div><div class="st-reasons">'+common.map(btn).join('')+'</div>'+
   (d.error?'<div class="st-pin-err">'+esc(d.error)+'</div>':'')+
-  '<div class="st-drawer-foot"><span class="mut">New glass → next batch</span><button type="button" class="b" onclick="stationCloseDrawer()">Cancel</button></div></div>';
+  '<div class="st-drawer-foot"><span class="mut">New glass → next batch</span><button type="button" class="b" '+onAct('click',stationCloseDrawer)+'>Cancel</button></div></div>';
 }
 /* Что сделает Recut: после IGU — весь юнит; на IGU — остальные лайты сборки
    выйдут из машины и подождут новое стекло. */
@@ -698,9 +702,9 @@ function stationSheetBreakSave(){
 }
 function stationSheetBreakHTML(){
  const d=stationDrawer;
- return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer st-drawer-sm" role="dialog" aria-label="Sheet broke">'+
+ return '<div class="st-dim" '+onAct('click',stationCloseDrawer)+'></div><div class="st-drawer st-drawer-sm" role="dialog" aria-label="Sheet broke">'+
   '<h2>Sheet '+d.no+' broke</h2><p class="st-dtext">Cut the same layout again on a new sheet. Stickers stay the same.</p>'+
-  '<div class="st-drawer-foot"><button type="button" class="b st-red-b" data-sheet-break-save onclick="stationSheetBreakSave()">Record broken sheet</button><button type="button" class="b" onclick="stationCloseDrawer()">Cancel</button></div></div>';
+  '<div class="st-drawer-foot"><button type="button" class="b st-red-b" data-sheet-break-save '+onAct('click',stationSheetBreakSave)+'>Record broken sheet</button><button type="button" class="b" '+onAct('click',stationCloseDrawer)+'>Cancel</button></div></div>';
 }
 
 /* ------------------------------- Queue ------------------------------- */
@@ -742,7 +746,7 @@ function stationQueueView(){
  const head=n?'<div class="st-qhead" data-queue-head><h3>Batches</h3><span class="mut">office order — cut any one · '+n+' batch'+(n===1?'':'es')+(left?' · '+left+' sheet'+(left===1?'':'s')+' left':'')+'</span></div>':'<div class="card"><div class="empty">Nothing to cut</div></div>';
  const onTable=stationSheetView&&stationSheetView.batch;
  const cards=q.cards.map((c,i)=>'<div class="st-qcard'+(c.b.number===onTable?' now':'')+'" data-queue-batch="'+esc(c.b.number)+'"><div class="st-qh"><span class="st-qn">'+(i+1)+'</span><b class="mono">'+esc(c.b.number)+'</b>'+(c.b.number===onTable?'<span class="pill ok">On the table</span>':'')+
-  (c.stale?'<span class="pill bad" data-queue-stale title="'+esc(c.stale.text)+'">Changed — wait</span>':'')+(c.urg===2?'<span class="pill bad">Critical</span>':c.urg===1?'<span class="pill warn">Rush</span>':'')+'<span class="mut">'+c.left+' of '+c.live+' to cut · '+c.orders+' order'+(c.orders===1?'':'s')+'</span><span class="sp"></span>'+(c.due?'<span class="pill">Due '+esc(salesListShortDay(c.due))+'</span>':'')+'<button type="button" class="b sm" data-queue-view="'+esc(c.b.number)+'" onclick="stationBatchView(\''+esc(c.b.number)+'\')">View</button><button type="button" class="b sm" data-queue-open="'+esc(c.b.number)+'" onclick="stationBatchOpen(\''+esc(c.b.number)+'\')">Cut this batch</button></div>'+
+  (c.stale?'<span class="pill bad" data-queue-stale title="'+esc(c.stale.text)+'">Changed — wait</span>':'')+(c.urg===2?'<span class="pill bad">Critical</span>':c.urg===1?'<span class="pill warn">Rush</span>':'')+'<span class="mut">'+c.left+' of '+c.live+' to cut · '+c.orders+' order'+(c.orders===1?'':'s')+'</span><span class="sp"></span>'+(c.due?'<span class="pill">Due '+esc(salesListShortDay(c.due))+'</span>':'')+'<button type="button" class="b sm" data-queue-view="'+esc(c.b.number)+'" '+onAct('click',stationBatchView,String(c.b.number??''))+'>View</button><button type="button" class="b sm" data-queue-open="'+esc(c.b.number)+'" '+onAct('click',stationBatchOpen,String(c.b.number??''))+'>Cut this batch</button></div>'+
   (c.plan?c.groups.map(g=>'<div class="st-qg"><b data-raw>'+esc(glassCodeLabel(g.glass))+'</b><span>'+(g.stock?'<span class="pill warn">Stock offcut '+esc(g.label)+'</span>':esc(g.label))+'</span><span class="st-qbar"><i style="width:'+Math.round((g.pcs?g.pcut/g.pcs:g.done/g.total)*100)+'%"></i></span><span class="n"><b>'+(g.total-g.done)+'</b> of '+g.total+' sheet'+(g.total===1?'':'s')+' left</span></div>').join(''):'<div class="mut st-qnoplan">No cutting plan yet — the office builds it in Optimize</div>')+'</div>').join('');
  const bring=q.bring.length?'<table><thead><tr><th>Glass</th><th>Sheet</th><th>For</th><th class="n">Sheets</th></tr></thead><tbody>'+q.bring.map(x=>'<tr><td><b data-raw>'+esc(glassCodeLabel(x.glass))+'</b></td><td>'+(x.stock?'<span class="pill warn">'+esc(x.label)+'</span>':esc(x.label))+'</td><td class="mono">'+esc(x.batches.join(', '))+'</td><td class="n st-qbig">'+x.n+'</td></tr>').join('')+'</tbody></table>':'<div class="empty">Nothing to bring</div>';
  let after='';
@@ -789,7 +793,7 @@ function stationCarrierCard(L){
  if(c.kind==='carrierPark')return '<div class="st-res st-ok" data-station-result="carrierPark"><div class="st-res-h">✓ On '+esc(c.code)+' · waits for a pair'+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>SET ASIDE ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">'+c.count+' glass waits for Recut</div><div class="mut">When the new glass comes, the screen says where its pair is</div></div></div></div>';
  if(c.kind==='carrierBad')return '<div class="st-res st-red" data-station-result="carrierBad"><div class="st-res-h">✕ Unknown dolly or skid'+time+'</div><div class="st-res-b"><div class="st-big st-red"><small>NOT FOUND</small><b class="st-big-code">'+esc(c.code)+'</b><span>New one? Register it</span></div><div class="st-info"><div class="st-gid mono">'+esc(c.code)+'</div><div class="mut">Dollies tab → Register new</div></div></div></div>';
  if(c.kind==='carrierIn')return '<div class="st-res st-info" data-station-result="carrierIn"><div class="st-res-h">'+esc(c.code)+' arrived · '+c.count+' glass for '+esc(stationCode)+(c.took?' · took '+c.took+' glass':'')+stationBackText(c)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>STACK</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Scan the glass from the top</div><div class="mut">'+(stationPutOn()===c.code?'Glass stays on '+esc(c.code):'The stack is on the right, top first')+'</div>'+stationSkidSummary(c.code)+'</div></div>'+stationSkidEmptyButton(c)+'</div>';
- if(c.kind==='carrierMoved')return '<div class="st-res st-ok" data-station-result="carrierMoved"><div class="st-res-h">✓ Moved '+stationMovedWhat(c)+' · '+esc(c.from||'no '+stationTareWord())+' → '+esc(c.code)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>NOW ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">'+stationMovedWhat(c)+' moved</div><div class="mut">From '+esc(c.from||'no '+stationTareWord())+(c.puton?' · next glass goes on '+esc(c.code):'')+'</div></div></div><div class="st-acts"><button type="button" class="b" data-dolly-undo onclick="stationDollyUndo()">Undo move</button></div></div>';
+ if(c.kind==='carrierMoved')return '<div class="st-res st-ok" data-station-result="carrierMoved"><div class="st-res-h">✓ Moved '+stationMovedWhat(c)+' · '+esc(c.from||'no '+stationTareWord())+' → '+esc(c.code)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>NOW ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">'+stationMovedWhat(c)+' moved</div><div class="mut">From '+esc(c.from||'no '+stationTareWord())+(c.puton?' · next glass goes on '+esc(c.code):'')+'</div></div></div><div class="st-acts"><button type="button" class="b" data-dolly-undo '+onAct('click',stationDollyUndo)+'>Undo move</button></div></div>';
  if(c.kind==='carrierEmptied')return stationEmptiedCard(L);
  if(c.took)return '<div class="st-res st-ok" data-station-result="carrierTook"><div class="st-res-h">Putting on '+esc(c.code)+' · took '+c.took+' glass'+stationBackText(c)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>PUT ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">'+c.took+' glass without a '+stationTareWord()+' — on '+esc(c.code)+' now</div><div class="mut">Next glass goes on '+esc(c.code)+'</div></div></div></div>';
  return '<div class="st-res st-ok" data-station-result="carrierPut"><div class="st-res-h">Putting on '+esc(c.code)+stationBackText(c)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>PUT ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Next glass goes on '+esc(c.code)+'</div><div class="mut">'+(c.count?'On it now: '+c.count+' glass'+(c.since?' · since '+esc(c.since):''):'Empty')+' · another dolly — scan it</div>'+stationSkidSummary(c.code)+'</div></div>'+stationSkidEmptyButton(c)+'</div>';
@@ -820,11 +824,11 @@ function stationLoadedCard(){
  const batchOf=list=>list.map(x=>({batch:x.g.entry?x.g.entry.batch.number:''}));
  const kind=rows.length&&rows.every(r=>/^S/.test(r.code))||!rows.length&&stationTareWord()==='skid'?'Skids':'Dollies';
  return '<div class="card" data-station-loaded-card><div class="st-sec"><h3>'+kind+' at '+esc(stationCode)+'</h3><span class="sp"></span><span class="mut">another one: scan it</span></div>'+
-  rows.map(r=>'<div class="st-dl'+(r.code===put?' now':'')+'" data-station-loaded="'+esc(r.code)+'" onclick="stationDollyOpen(\''+esc(r.code)+'\')"><span class="st-dchip'+(/^S/.test(r.code)?' skid':'')+'">'+esc(r.code)+'</span>'+
+  rows.map(r=>'<div class="st-dl'+(r.code===put?' now':'')+'" data-station-loaded="'+esc(r.code)+'" '+onAct('click',stationDollyOpen,String(r.code??''))+'><span class="st-dchip'+(/^S/.test(r.code)?' skid':'')+'">'+esc(r.code)+'</span>'+
    '<span class="st-src-t"><b>'+(r.list.length?stationTareCount(r.list):'Empty')+'</b>'+(r.list.length?'<span class="st-bmix">'+stationBatchMix(batchOf(r.list))+'</span><span class="mut">'+next(r.list)+'</span>':'')+'</span>'+
    '<span class="mut st-src-r">'+(r.code===put?'<span class="pill ok">putting on</span>':esc(stationTime(r.since)))+'</span></div>').join('')+
   /* Отсканировано здесь без тары и ушло дальше — видно и исправляется. */
-  (loose.length?'<div class="st-dl" data-station-loaded="'+STATION_NO_DOLLY+'" onclick="stationDollyOpen(\'\',\'out\')"><span class="st-dchip none">No '+stationTareWord()+'</span><span class="st-src-t"><b>'+stationPlural(loose.length,'glass','glass')+'</b><span class="st-bmix">'+stationBatchMix(batchOf(loose))+'</span><span class="mut">'+next(loose)+'</span></span><span class="mut st-src-r">fix ›</span></div>':'')+'</div>';
+  (loose.length?'<div class="st-dl" data-station-loaded="'+STATION_NO_DOLLY+'" '+onAct('click',stationDollyOpen,'','out')+'><span class="st-dchip none">No '+stationTareWord()+'</span><span class="st-src-t"><b>'+stationPlural(loose.length,'glass','glass')+'</b><span class="st-bmix">'+stationBatchMix(batchOf(loose))+'</span><span class="mut">'+next(loose)+'</span></span><span class="mut st-src-r">fix ›</span></div>':'')+'</div>';
 }
 
 /* -------------------- Сначала тара: «Which dolly?» -------------------- */
@@ -900,7 +904,7 @@ function stationWrongBar(L){
  const w=L.wrong;if(!w)return '';
  return '<div class="st-askbar st-wrong" data-station-wrong>'+esc(w.on)+' → '+esc(w.to.join(', '))+'<span>This glass → '+esc(w.mine)+' · scan its '+stationTareWord()+'</span>'+stationWarnKeepBtn(w.on)+'</div>';
 }
-function stationWarnKeepBtn(code){return '<button type="button" class="b sm" data-station-warn-keep onclick="stationWarnKeep()">✓ Keep on '+esc(code)+'</button>';}
+function stationWarnKeepBtn(code){return '<button type="button" class="b sm" data-station-warn-keep '+onAct('click',stationWarnKeep)+'>✓ Keep on '+esc(code)+'</button>';}
 /* Скан тары сразу после предупреждения — «вот куда»: тара того же вида,
    что кладут здесь (на SHIPR — скид). */
 function stationWarnTare(code){
@@ -960,6 +964,9 @@ function stationDollyList(d){
 function stationDollyOpen(code,scope){if(code&&!scope&&/^S[LA]-/.test(code))return stationSkidOpen(code);stationMenu=null;stationDrawer={kind:'dolly',code:code||'',scope:scope||'',a:0,b:0,error:''};render();}
 function stationDollyTap(pos){const d=stationDrawer;if(!d||d.kind!=='dolly')return;if(!d.a||d.b){d.a=pos;d.b=0;}else d.b=pos;d.error='';render();}
 function stationDollyRange(d){return d.a?[Math.min(d.a,d.b||d.a),Math.max(d.a,d.b||d.a)]:[0,0];}
+/* Enter в поле «куда» — то же, что кнопка Move. */
+function stationDollyMoveKey(ev,to){if(ev.key==='Enter'){ev.preventDefault();stationDollyMove(to);}}
+function stationDollyMoveTo(){stationDollyMove(document.querySelector('[data-dolly-to]').value);}
 function stationDollyMove(to){
  const d=stationDrawer,who=stationWho();if(!d||d.kind!=='dolly'||!d.a||!who)return false;
  const code=typeof carrierCode==='function'?carrierCode(to):'';
@@ -988,17 +995,17 @@ function stationDollyHTML(){
  const rows=list.map((x,i)=>({x,pos:i+1})).reverse().map(({x,pos})=>{
   const o=x.g.o,l=x.g.l,comps=glassBatchComponents(o,l).filter(c=>!c.missing),on=d.a&&pos>=lo&&pos<=hi;
   const glass=x.g.c?(comps.length>1?'Lite '+x.g.c.lite+' · ':'')+glassCodeLabel(x.g.c.glass):'';
-  return '<tr class="st-mv-row'+(on?' on':'')+'" data-dolly-pos="'+pos+'" onclick="stationDollyTap('+pos+')"><td class="st-pos">#'+pos+'</td><td><b>'+esc(o.businessNumber||'')+'</b></td><td>Line '+((o.lines||[]).indexOf(l)+1)+' · <b>'+esc(frac16(stationGeo(x.g).width16/16)+' × '+frac16(stationGeo(x.g).height16/16))+'</b></td>'+
+  return '<tr class="st-mv-row'+(on?' on':'')+'" data-dolly-pos="'+pos+'" '+onAct('click',stationDollyTap,pos)+'><td class="st-pos">#'+pos+'</td><td><b>'+esc(o.businessNumber||'')+'</b></td><td>Line '+((o.lines||[]).indexOf(l)+1)+' · <b>'+esc(frac16(stationGeo(x.g).width16/16)+' × '+frac16(stationGeo(x.g).height16/16))+'</b></td>'+
    '<td data-raw>'+esc(glass)+'</td><td class="mono st-bcell">'+esc(x.g.entry?x.g.entry.batch.number:'—')+'</td><td>'+(x.place&&x.place.waiting?'→ '+esc(x.place.waiting):'')+'</td><td class="mut">'+esc(x.scan.station)+' '+esc(stationTime(x.scan.at))+'</td></tr>';
  }).join('');
  const title=d.code||'No '+stationTareWord();
- return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer st-drawer-wide" role="dialog" aria-label="Dolly" data-station-dolly="'+esc(d.code||STATION_NO_DOLLY)+'">'+
+ return '<div class="st-dim" '+onAct('click',stationCloseDrawer)+'></div><div class="st-drawer st-drawer-wide" role="dialog" aria-label="Dolly" data-station-dolly="'+esc(d.code||STATION_NO_DOLLY)+'">'+
   '<h2><span class="st-dchip'+(d.code?(/^S/.test(d.code)?' skid':''):' none')+'">'+esc(title)+'</span>'+stationPlural(n,'glass','glass')+'</h2>'+
   '<div class="mut">#1 went on first. Tap the first and the last glass to move.</div>'+
   (n?'<table class="st-mv"><thead><tr><th>#</th><th>Order</th><th>Line</th><th>Glass</th><th>Batch</th><th>Next</th><th>Scanned</th></tr></thead><tbody>'+rows+'</tbody></table>':'<div class="empty">Nothing on it</div>')+
   (d.error?'<div class="st-pin-err" role="alert">'+esc(d.error)+'</div>':'')+
-  '<div class="st-drawer-foot">'+(d.code&&n&&!count&&typeof carrierPrintButton==='function'?carrierPrintButton(d.code):'')+(count?'<span data-dolly-sel><b>'+count+' glass</b> #'+lo+(hi>lo?'–'+hi:'')+' →</span><input class="st-mv-to" data-station-keep data-dolly-to placeholder="DL-4" onkeydown="if(event.key===\'Enter\'){event.preventDefault();stationDollyMove(this.value)}"><button type="button" class="b st-yes" data-dolly-move onclick="stationDollyMove(document.querySelector(\'[data-dolly-to]\').value)">Move</button>':'<span class="mut">Select glass to move</span>')+
-  (d.code&&n&&!count?stationEmptyButton(d.code):'')+'<button type="button" class="b" onclick="stationCloseDrawer()">Close</button></div></div>';
+  '<div class="st-drawer-foot">'+(d.code&&n&&!count&&typeof carrierPrintButton==='function'?carrierPrintButton(d.code):'')+(count?'<span data-dolly-sel><b>'+count+' glass</b> #'+lo+(hi>lo?'–'+hi:'')+' →</span><input class="st-mv-to" data-station-keep data-dolly-to placeholder="DL-4" '+onAct('keydown',stationDollyMoveKey,EVENT,EL_VALUE)+'><button type="button" class="b st-yes" data-dolly-move '+onAct('click',stationDollyMoveTo)+'>Move</button>':'<span class="mut">Select glass to move</span>')+
+  (d.code&&n&&!count?stationEmptyButton(d.code):'')+'<button type="button" class="b" '+onAct('click',stationCloseDrawer)+'>Close</button></div></div>';
 }
 
 /* --------------------- Пропущенная станция: вопрос --------------------- */
@@ -1041,11 +1048,11 @@ function stationUnitHTML(L){
  if(L.mates&&L.mates.length)out+='<div class="st-unitnote">Unit moved: '+(L.mates.length+1)+' glass'+(c.unitCode?' · '+esc(c.unitCode):'')+'</div>';
  const st=g&&['ok','hold','already','peek'].includes(c.kind)?stationUnitStatus(g,stationCode):null;
  if(st&&st.lites.length>1){
-  const miss=x=>!st.complete&&!x.here?' <button type="button" class="b sm st-red-b" data-station-pair-recut="'+esc(x.key)+'" onclick="stationRecutMissing(\''+esc(st.asm)+'\',\''+esc(x.key)+'\')" title="The pair is bad at the light — do not scan it">Recut</button>':'';
+  const miss=x=>!st.complete&&!x.here?' <button type="button" class="b sm st-red-b" data-station-pair-recut="'+esc(x.key)+'" '+onAct('click',stationRecutMissing,String(st.asm??''),String(x.key??''))+' title="The pair is bad at the light — do not scan it">Recut</button>':'';
   const row=x=>'<span class="st-unit-st">'+(x.here?'<span class="ok">✓ in</span>':x.parked?'<span class="take">on <b>'+esc(x.parked)+'</b> — take it</span>':x.waitingHere?'<span class="wait">'+x.waitingHere+' waiting here</span>':'<span class="wait">not here yet</span>')+miss(x)+'</span>';
   out+='<div class="st-unit'+(st.complete?' done':'')+'" data-station-unit="'+esc(st.unit)+'"><div class="st-unit-h"><b>'+(st.complete?'Unit complete'+(L.printRequested&&L.unitDone===st.n?' · print requested':''):'Unit · waiting for its pair')+'</b><span class="mono">'+esc(st.unit)+'</span></div>'+
    st.lites.map(x=>'<div class="st-unit-r"><span>Lite '+esc(x.lite)+' · <b data-raw>'+esc(glassCodeLabel(x.glass))+'</b></span>'+row(x)+'</div>').join('')+
-   (st.complete?'<button type="button" class="b" data-station-unit-sticker onclick="stationPrintUnit(\''+esc(c.code)+'\')">'+(L.printRequested&&L.unitDone===st.n?'Reprint unit sticker':'Print unit sticker')+'</button>':'')+'</div>';
+   (st.complete?'<button type="button" class="b" data-station-unit-sticker '+onAct('click',stationPrintUnit,String(c.code??''))+'>'+(L.printRequested&&L.unitDone===st.n?'Reprint unit sticker':'Print unit sticker')+'</button>':'')+'</div>';
  }
  return out;
 }

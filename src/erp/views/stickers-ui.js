@@ -155,6 +155,7 @@ function stkBatchRender(){
  if(html)back.outerHTML=html;else render();
  const next=document.querySelector('[data-stk-batch-list]');if(next)next.scrollTop=top;
 }
+function stkBatchSheetsKey(ev,v){if(ev.key==='Enter'){ev.preventDefault();stkBatchSheets(v);}}
 function stkBatchSheets(v){const d=stkDialog;if(!d)return;d.sheets=String(v==null?'':v).trim();d.sheetKey='';d.warning='';d.error='';d.notice='';stkBatchRender();}
 function stkBatchThis(key){const d=stkDialog;if(!d)return;d.sheets='';d.sheetKey=String(key||'');d.warning='';d.error='';d.notice='';stkBatchRender();}
 function stkBatchCheck(kind,v,on){
@@ -239,9 +240,9 @@ function stkDialogUndoLayout(){if(stkDialog){stkDialog.tpl=null;stkDialog.warnin
 function stkDialogHTML(){
  const d=stkDialog;if(!d)return '';
  if(stkPrintEdit)return `<div class="sales-service-modal-back sales-dialog-back"><div class="sales-service-modal sales-dialog stk-edit-modal" role="dialog" aria-modal="true" aria-label="Customize this print">
-  <div class="sales-service-modal-head"><h3>Customize this print · ${esc(stkTypeLabel(stkPrintEdit.type))} · ${esc(stkSizeDef(stkPrintEdit.size).label)}</h3><button type="button" aria-label="Close" onclick="stkPrintEditCancel()">×</button></div>
+  <div class="sales-service-modal-head"><h3>Customize this print · ${esc(stkTypeLabel(stkPrintEdit.type))} · ${esc(stkSizeDef(stkPrintEdit.size).label)}</h3><button type="button" aria-label="Close" ${onAct('click',stkPrintEditCancel)}>×</button></div>
   <div class="sales-dialog-body">${stkEditorHTML()}</div></div></div>`;
- const seg=(list,cur,fn,dis)=>`<div class="stk-seg">${list.map(x=>`<button type="button" class="${x.k===cur?'on':''}" ${dis&&dis(x)?'disabled':''} onclick="${fn}('${x.k}')">${esc(x.label)}</button>`).join('')}</div>`;
+ const seg=(list,cur,fn,dis)=>`<div class="stk-seg">${list.map(x=>`<button type="button" class="${x.k===cur?'on':''}" ${dis&&dis(x)?'disabled':''} ${onAct('click',fn,String(x.k))}>${esc(x.label)}</button>`).join('')}</div>`;
  if(d.mode==='batch')return stkBatchDialogHTML(d,seg);
  const r=stkDialogJobs(),count=r.error||r.jobs.length+' sticker'+(r.jobs.length===1?'':'s');
  const o=salesRecord(d.orderId);if(!o){stkDialog=null;return '';}
@@ -250,24 +251,24 @@ function stkDialogHTML(){
   const x=d.rows[row.key]||{on:false,which:'all',units:''},unitType=d.type==='unit',usable=unitType?row.kind==='line'&&row.comps.length>1:row.comps.length>0,on=x.on&&usable;
   const opts=unitType?[{v:'all',t:'Whole unit'}]:[{v:'all',t:row.comps.length>1?'All glass':'Lite '+(row.comps[0]?row.comps[0].lite+' · '+glassCodeLabel(row.comps[0].glass):'')}].concat(row.comps.length>1?row.comps.map(c=>({v:c.key,t:'Lite '+c.lite+' · '+glassCodeLabel(c.glass)})):[]);
   const max=row.kind==='recut'?row.r.qty:row.l.qty,name=row.kind==='recut'?`<b class="stk-recut">Recut ${row.r.no}</b> · Line ${row.li+1}`:'Line '+(row.li+1)+(row.l.mark?' · '+esc(row.l.mark):'');
-  return `<tr data-stk-row="${esc(row.key)}" class="${on?'on':''}${usable?'':' off'}"><td><input type="checkbox" data-stk-row-on ${on?'checked':''} ${usable?'':'disabled'} aria-label="Print ${row.kind==='recut'?'recut '+row.r.no:'line '+(row.li+1)}" onchange="stkDialogRow('${esc(row.key)}','on',this.checked,true)"></td>
+  return `<tr data-stk-row="${esc(row.key)}" class="${on?'on':''}${usable?'':' off'}"><td><input type="checkbox" data-stk-row-on ${on?'checked':''} ${usable?'':'disabled'} aria-label="Print ${row.kind==='recut'?'recut '+row.r.no:'line '+(row.li+1)}" ${onAct('change',stkDialogRow,String(row.key??''),'on',EL_CHECKED,true)}></td>
    <td>${name}</td><td class="nowrap">${(g=>`${esc(dimIn16(g.width16/16))} × ${esc(dimIn16(g.height16/16))}`)(row.kind==='recut'?recutLine(row.r,row.l):row.l)}</td><td class="n">${max}</td>
-   <td>${usable?`<select data-stk-which ${on&&opts.length>1?'':'disabled'} aria-label="Which glass" onchange="stkDialogRow('${esc(row.key)}','which',this.value,true)">${opts.map(v=>`<option value="${esc(v.v)}" ${x.which===v.v?'selected':''}>${esc(v.t)}</option>`).join('')}</select>`:`<span class="mut">${unitType?'Single glass':'No glass'}</span>`}</td>
-   <td><input type="text" data-stk-units value="${esc(x.units)}" placeholder="1-${max}" ${on?'':'disabled'} aria-label="Units" oninput="stkDialogRow('${esc(row.key)}','units',this.value)"></td></tr>`;
+   <td>${usable?`<select data-stk-which ${on&&opts.length>1?'':'disabled'} aria-label="Which glass" ${onAct('change',stkDialogRow,String(row.key??''),'which',EL_VALUE,true)}>${opts.map(v=>`<option value="${esc(v.v)}" ${x.which===v.v?'selected':''}>${esc(v.t)}</option>`).join('')}</select>`:`<span class="mut">${unitType?'Single glass':'No glass'}</span>`}</td>
+   <td><input type="text" data-stk-units value="${esc(x.units)}" placeholder="1-${max}" ${on?'':'disabled'} aria-label="Units" ${onAct('input',stkDialogRow,String(row.key??''),'units',EL_VALUE)}></td></tr>`;
  }).join('');
  const body=`<div class="ncr-lines-wrap">${slFromTable('stickerLines',`<table class="ncr-lines stk-lines"><thead><tr><th></th><th>Line</th><th>Size</th><th class="n">Qty</th><th>Which glass</th><th>Units</th></tr></thead><tbody>${rows}</tbody></table>`)}</div>`;
- const types=`<div><div class="ncr-label">STICKER</div>${seg(STK_TYPES,d.type,'stkDialogType')}</div>`;
- return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)stkDialogClose()"><div class="sales-service-modal sales-dialog stk-modal" role="dialog" aria-modal="true" aria-label="Print stickers">
-  <div class="sales-service-modal-head"><h3>${esc(title)}</h3><button type="button" aria-label="Close" onclick="stkDialogClose()">×</button></div>
+ const types=`<div><div class="ncr-label">STICKER</div>${seg(STK_TYPES,d.type,stkDialogType)}</div>`;
+ return `<div class="sales-service-modal-back sales-dialog-back" ${onActSelf('click',stkDialogClose)}><div class="sales-service-modal sales-dialog stk-modal" role="dialog" aria-modal="true" aria-label="Print stickers">
+  <div class="sales-service-modal-head"><h3>${esc(title)}</h3><button type="button" aria-label="Close" ${onAct('click',stkDialogClose)}>×</button></div>
   <div class="sales-dialog-body stk-dialog"><p class="mut">${esc(sub)}</p>
-   <div class="stk-dialog-pick">${types}<div><div class="ncr-label">SIZE</div>${seg(STK_SIZES,d.size,'stkDialogSize')}</div></div>
+   <div class="stk-dialog-pick">${types}<div><div class="ncr-label">SIZE</div>${seg(STK_SIZES,d.size,stkDialogSize)}</div></div>
    ${body}
    <div class="sales-quote-note stk-count${r.error?' bad':''}" data-stk-count>${esc(count)}</div>
-   ${d.tpl?`<div class="stk-custom" data-stk-custom>Custom layout · this print <button type="button" class="gb-link" onclick="stkDialogUndoLayout()">Undo</button></div>`:''}
+   ${d.tpl?`<div class="stk-custom" data-stk-custom>Custom layout · this print <button type="button" class="gb-link" ${onAct('click',stkDialogUndoLayout)}>Undo</button></div>`:''}
    ${d.warning?`<div class="ncr-warning" role="alert" data-stk-warning>⚠ ${esc(d.warning)}</div>`:''}
    ${d.error?`<div class="ncr-error" role="alert">${esc(d.error)}</div>`:''}
   </div>
-  <div class="sales-dialog-actions"><button type="button" class="stk-customize" data-stk-customize ${r.error||!r.jobs.length?'disabled':''} onclick="stkPrintCustomize()">✎ Customize</button><span class="sp"></span><button type="button" onclick="stkDialogClose()">Cancel</button><button type="button" class="pri" data-stk-print ${r.error||!r.jobs.length?'disabled':''} onclick="stkDialogPrint()">${d.warning?'Print anyway':'Print'}</button></div></div></div>`;
+  <div class="sales-dialog-actions"><button type="button" class="stk-customize" data-stk-customize ${r.error||!r.jobs.length?'disabled':''} ${onAct('click',stkPrintCustomize)}>✎ Customize</button><span class="sp"></span><button type="button" ${onAct('click',stkDialogClose)}>Cancel</button><button type="button" class="pri" data-stk-print ${r.error||!r.jobs.length?'disabled':''} ${onAct('click',stkDialogPrint)}>${d.warning?'Print anyway':'Print'}</button></div></div></div>`;
 }
 
 /* Окно батча: листы — All / This / поле «2, 5-7»; список стёкол по листам
@@ -280,40 +281,40 @@ function stkBatchDialogHTML(d,seg){
  const sub=[glass,x.all.filter(j=>j.type!=='stock').length+' glass',x.laid?plural(x.keys.length,'sheet'):'Not built · in order'].join(' · ');
  /* This — лист, открытый в Optimization: стекло и номер. */
  const ui=typeof cutUi!=='undefined'&&cutUi&&cutUi.batch===b.number?stkSheetKey(cutUi.glass,+cutUi.sheet||1):'',cur=x.keys.includes(ui)?ui:x.keys[0]||'',curAt=cur.lastIndexOf(':');
- const sheets=x.laid?`<div><div class="ncr-label">SHEETS</div><div class="stk-sheets"><div class="stk-seg"><button type="button" class="${d.sheets===''&&!d.sheetKey?'on':''}" data-stk-sheets-all onclick="stkBatchSheets('')">All</button><button type="button" class="${d.sheetKey&&d.sheetKey===cur?'on':''}" data-stk-sheets-this onclick="stkBatchThis('${esc(cur)}')">This · ${esc((x.multi?glassCodeLabel(cur.slice(0,curAt))+' ':'')+cur.slice(curAt+1))}</button></div><input type="text" data-stk-sheets value="${esc(d.sheets)}" placeholder="1-${x.max}" aria-label="Sheets" onchange="stkBatchSheets(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();stkBatchSheets(this.value);}"></div></div>`:'';
+ const sheets=x.laid?`<div><div class="ncr-label">SHEETS</div><div class="stk-sheets"><div class="stk-seg"><button type="button" class="${d.sheets===''&&!d.sheetKey?'on':''}" data-stk-sheets-all ${onAct('click',stkBatchSheets,'')}>All</button><button type="button" class="${d.sheetKey&&d.sheetKey===cur?'on':''}" data-stk-sheets-this ${onAct('click',stkBatchThis,String(cur??''))}>This · ${esc((x.multi?glassCodeLabel(cur.slice(0,curAt))+' ':'')+cur.slice(curAt+1))}</button></div><input type="text" data-stk-sheets value="${esc(d.sheets)}" placeholder="1-${x.max}" aria-label="Sheets" ${onAct('change',stkBatchSheets,EL_VALUE)} ${onAct('keydown',stkBatchSheetsKey,EVENT,EL_VALUE)}></div></div>`:'';
  /* Стекло Recut со своим чертежом — его форма и размер (erp/quality/recut). */
  const lines=new Map(),info=j=>{const g=glassRecutLine(j.o,j.l,j.unit),k=j.o.id+'|'+j.l.id+'|'+(g===j.l?'':String(j.unit).split('.')[0]);if(!lines.has(k))lines.set(k,{g,shape:!salesShapeIsLineRect(salesLineGeometryShape(g)),many:glassBatchComponents(j.o,j.l).length>1});return lines.get(k);};
  const row=j=>{
   const k=stkJobKey(j),on=!d.off.has(k);
-  if(j.type==='stock')return `<tr data-stk-item="${esc(k)}" class="${on?'':'off'}"><td><input type="checkbox" data-stk-check ${on?'checked':''} aria-label="Print ${esc(k)}" onchange="stkBatchCheck('item','${esc(k)}',this.checked)"></td><td class="gb-piece">${esc(k)}</td><td class="mut">Stock offcut</td><td></td><td class="nowrap">${esc(frac16(j.rec.w))} × ${esc(frac16(j.rec.h))}″</td><td></td></tr>`;
+  if(j.type==='stock')return `<tr data-stk-item="${esc(k)}" class="${on?'':'off'}"><td><input type="checkbox" data-stk-check ${on?'checked':''} aria-label="Print ${esc(k)}" ${onAct('change',stkBatchCheck,'item',String(k??''),EL_CHECKED)}></td><td class="gb-piece">${esc(k)}</td><td class="mut">Stock offcut</td><td></td><td class="nowrap">${esc(frac16(j.rec.w))} × ${esc(frac16(j.rec.h))}″</td><td></td></tr>`;
   const f=info(j),li=j.o.lines.indexOf(j.l)+1;
-  return `<tr data-stk-item="${esc(k)}" class="${on?'':'off'}"><td><input type="checkbox" data-stk-check ${on?'checked':''} aria-label="Print ${esc(k)}" onchange="stkBatchCheck('item','${esc(k)}',this.checked)"></td><td class="gb-piece">${esc(k)}</td><td>${esc(j.o.businessNumber||'')} / ${li}${f.many?' · Lite '+esc(j.c.lite):''}${j.l.mark?' · '+esc(j.l.mark):''}</td><td>${esc(salesCustomerDisplay(j.o.customerId))}</td><td class="nowrap">${esc(dimIn16(f.g.width16/16))} × ${esc(dimIn16(f.g.height16/16))}</td><td>${f.shape?'<span class="pill">shape</span>':''}</td></tr>`;
+  return `<tr data-stk-item="${esc(k)}" class="${on?'':'off'}"><td><input type="checkbox" data-stk-check ${on?'checked':''} aria-label="Print ${esc(k)}" ${onAct('change',stkBatchCheck,'item',String(k??''),EL_CHECKED)}></td><td class="gb-piece">${esc(k)}</td><td>${esc(j.o.businessNumber||'')} / ${li}${f.many?' · Lite '+esc(j.c.lite):''}${j.l.mark?' · '+esc(j.l.mark):''}</td><td>${esc(salesCustomerDisplay(j.o.customerId))}</td><td class="nowrap">${esc(dimIn16(f.g.width16/16))} × ${esc(dimIn16(f.g.height16/16))}</td><td>${f.shape?'<span class="pill">shape</span>':''}</td></tr>`;
  };
  const groups=[];x.scope.forEach(j=>{const g=groups[groups.length-1];if(g&&g.key===j.sheetKey)g.jobs.push(j);else groups.push({key:j.sheetKey,no:j.sheet,glass:j.glass,jobs:[j]});});
  const body=groups.map(g=>{
   const on=g.jobs.filter(j=>!d.off.has(stkJobKey(j))).length,n=g.jobs.filter(j=>j.type!=='stock').length,st=g.jobs.length-n;
-  const head=x.laid?`<tr class="stk-sheet-row" data-stk-sheet="${esc(g.key)}"><td><input type="checkbox" data-stk-sheet-check ${on===g.jobs.length?'checked':''} aria-label="Print sheet ${g.no}" onchange="stkBatchCheck('sheet','${esc(g.key)}',this.checked)"></td><td colspan="5"><b>${esc(stkSheetLabel(g.glass,g.no,x.multi))}</b> · ${n+' glass'}${st?' · '+st+' stock':''}</td></tr>`:'';
+  const head=x.laid?`<tr class="stk-sheet-row" data-stk-sheet="${esc(g.key)}"><td><input type="checkbox" data-stk-sheet-check ${on===g.jobs.length?'checked':''} aria-label="Print sheet ${g.no}" ${onAct('change',stkBatchCheck,'sheet',String(g.key??''),EL_CHECKED)}></td><td colspan="5"><b>${esc(stkSheetLabel(g.glass,g.no,x.multi))}</b> · ${n+' glass'}${st?' · '+st+' stock':''}</td></tr>`:'';
   return head+g.jobs.map(row).join('');
  }).join('');
  const allOn=x.scope.length&&x.scope.every(j=>!d.off.has(stkJobKey(j)));
- const list=`<div class="ncr-lines-wrap stk-batch-list" data-stk-batch-list><table class="ncr-lines stk-lines"><thead><tr><th><input type="checkbox" data-stk-check-all ${allOn?'checked':''} ${x.scope.length?'':'disabled'} aria-label="Print all" onchange="stkBatchCheck('all','',this.checked)"></th><th>Glass</th><th>Order / Line</th><th>Customer</th><th>Size</th><th></th></tr></thead><tbody>${body||'<tr><td colspan="6" class="empty">No glass on these sheets.</td></tr>'}</tbody></table></div>`;
+ const list=`<div class="ncr-lines-wrap stk-batch-list" data-stk-batch-list><table class="ncr-lines stk-lines"><thead><tr><th><input type="checkbox" data-stk-check-all ${allOn?'checked':''} ${x.scope.length?'':'disabled'} aria-label="Print all" ${onAct('change',stkBatchCheck,'all','',EL_CHECKED)}></th><th>Glass</th><th>Order / Line</th><th>Customer</th><th>Size</th><th></th></tr></thead><tbody>${body||'<tr><td colspan="6" class="empty">No glass on these sheets.</td></tr>'}</tbody></table></div>`;
  const count=x.error||[glassN+' glass',stockN?stockN+' stock':'',x.laid?plural(x.sheets.length,'sheet'):'',x.away?x.away+' not on a sheet':''].filter(Boolean).join(' · ');
  const none=!!x.error||!x.selected.length;
- return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)stkDialogClose()"><div class="sales-service-modal sales-dialog stk-modal" role="dialog" aria-modal="true" aria-label="Print batch">
-  <div class="sales-service-modal-head"><h3>${esc('Print · Batch '+b.number)}</h3><button type="button" aria-label="Close" onclick="stkDialogClose()">×</button></div>
+ return `<div class="sales-service-modal-back sales-dialog-back" ${onActSelf('click',stkDialogClose)}><div class="sales-service-modal sales-dialog stk-modal" role="dialog" aria-modal="true" aria-label="Print batch">
+  <div class="sales-service-modal-head"><h3>${esc('Print · Batch '+b.number)}</h3><button type="button" aria-label="Close" ${onAct('click',stkDialogClose)}>×</button></div>
   <div class="sales-dialog-body stk-dialog"><p class="mut">${esc(sub)}</p>
-   <div class="stk-dialog-pick">${sheets}<div><div class="ncr-label">STICKER SIZE</div>${seg(STK_SIZES,d.size,'stkDialogSize')}</div></div>
+   <div class="stk-dialog-pick">${sheets}<div><div class="ncr-label">STICKER SIZE</div>${seg(STK_SIZES,d.size,stkDialogSize)}</div></div>
    ${list}
    <div class="sales-quote-note stk-count${x.error?' bad':''}" data-stk-count>${esc(count)}</div>
-   ${d.tpl?`<div class="stk-custom" data-stk-custom>Custom layout · this print <button type="button" class="gb-link" onclick="stkDialogUndoLayout()">Undo</button></div>`:''}
+   ${d.tpl?`<div class="stk-custom" data-stk-custom>Custom layout · this print <button type="button" class="gb-link" ${onAct('click',stkDialogUndoLayout)}>Undo</button></div>`:''}
    ${d.notice?`<div class="stk-sent" data-stk-notice>✓ ${esc(d.notice)}</div>`:''}
    ${d.warning?`<div class="ncr-warning" role="alert" data-stk-warning>⚠ ${esc(d.warning)}</div>`:''}
    ${d.error?`<div class="ncr-error" role="alert">${esc(d.error)}</div>`:''}
   </div>
-  <div class="sales-dialog-actions"><button type="button" class="stk-customize" data-stk-customize ${none||!glassN?'disabled':''} onclick="stkPrintCustomize()">✎ Customize</button><span class="sp"></span>
-   <button type="button" class="stk-print-btn" data-stk-print ${none?'disabled':''} onclick="stkDialogPrint()">${ico('printer')}${d.warning?'Stickers anyway':'Stickers · '+x.selected.length}</button>
-   <button type="button" class="stk-print-btn" data-stk-print-drawings ${none||!glassN?'disabled':''} onclick="stkBatchDrawings()">${ico('printer')}Drawings · ${glassN}</button>
-   <button type="button" class="stk-print-btn" data-stk-print-layouts ${none||!x.laid||!x.sheets.length?'disabled':''} onclick="stkBatchLayouts()">${ico('printer')}Layouts · ${x.laid?x.sheets.length:0}</button></div></div></div>`;
+  <div class="sales-dialog-actions"><button type="button" class="stk-customize" data-stk-customize ${none||!glassN?'disabled':''} ${onAct('click',stkPrintCustomize)}>✎ Customize</button><span class="sp"></span>
+   <button type="button" class="stk-print-btn" data-stk-print ${none?'disabled':''} ${onAct('click',stkDialogPrint)}>${ico('printer')}${d.warning?'Stickers anyway':'Stickers · '+x.selected.length}</button>
+   <button type="button" class="stk-print-btn" data-stk-print-drawings ${none||!glassN?'disabled':''} ${onAct('click',stkBatchDrawings)}>${ico('printer')}Drawings · ${glassN}</button>
+   <button type="button" class="stk-print-btn" data-stk-print-layouts ${none||!x.laid||!x.sheets.length?'disabled':''} ${onAct('click',stkBatchLayouts)}>${ico('printer')}Layouts · ${x.laid?x.sheets.length:0}</button></div></div></div>`;
 }
 /* ---------------------------- Конструктор ---------------------------- */
 function stkBuilderState(){
@@ -421,7 +422,7 @@ function stkHitsHTML(pg,tpl,s){
  const free=tpl.layout==='free',pc=(v,of)=>(v/of*100).toFixed(4)+'%';
  return pg.boxes.map(x=>{const b=tpl.blocks.find(y=>y.id===x.id);if(!b)return '';const sel=s.sel===x.id,bad=x.bad||(pg.issues||[]).some(i=>i.id===x.id);
   const handles=free&&sel?['nw','n','ne','e','se','s','sw','w'].map(k=>`<span class="stk-resize stk-resize-${k}" data-stk-resize="${k}" title="Resize ${k.toUpperCase()}" aria-hidden="true"></span>`).join(''):'';
-  const drag=free?`draggable="false" onpointerdown="stkPointerStart(event,'${x.id}')" onclick="stkHitClick(event,'${x.id}')"`:`draggable="true" ondragstart="stkDragStart(event,'${x.id}')" ondragover="stkDragOver(event)" ondragleave="stkDragLeave(event)" ondrop="stkDrop(event,'${x.id}',true)" onclick="stkBSelect('${x.id}')"`;
+  const drag=free?`draggable="false" ${onAct('pointerdown',stkPointerStart,EVENT,String(x.id))} ${onAct('click',stkHitClick,EVENT,String(x.id))}`:`draggable="true" ${onAct('dragstart',stkDragStart,EVENT,String(x.id))} ${onAct('dragover',stkDragOver,EVENT)} ${onAct('dragleave',stkDragLeave,EVENT)} ${onAct('drop',stkDrop,EVENT,String(x.id),true)} ${onAct('click',stkBSelect,String(x.id))}`;
   return `<div class="stk-hit${free?' free':''}${sel?' sel':''}${bad?' bad':''}" data-stk-hit="${x.id}" title="${esc(stkBlockLabel(b))}" style="left:${pc(x.x,pg.w)};top:${pc(x.y,pg.h)};width:${pc(x.w,pg.w)};height:${pc(free?x.h:Math.max(6/STK_PX,x.h),pg.h)}" ${drag}>${handles}</div>`;
  }).join('');
 }
@@ -487,54 +488,59 @@ function stkSampleData(type){
  if(!data.id)data.id=type==='unit'?'U-0000000':'G-0000000';
  return {data,list,key:s.key};
 }
+/* Строка блока: выбрать по клику на фон строки или на имя, не на поля внутри. */
+function stkBRowClick(ev,el,id){if(ev.target===el||ev.target.classList.contains('stk-name'))stkBSelect(id);}
+/* Ушёл из поля числа — записать, если начинал править (stkNumberBegin). */
+function stkBNumberBlur(id,kind,key,el){if(el._stkBefore)stkBNumber(id,kind,key,el,true);}
+function stkBSample(value){stkBuilderState().sample=value;render();}
 function viewMdStickers(){return stkEditorHTML();}
 function stkEditorHTML(){
  const s=stkBuilderState(),dr=stkDraft(),tpl=dr.tpl,{data,list,key}=stkSampleData(s.type),pg=stkLayout(tpl,s.size,data),free=tpl.layout==='free';
- const seg=(items,cur,fn,mark)=>`<div class="stk-seg">${items.map(x=>`<button type="button" class="${x.k===cur?'on':''}" data-stk-seg="${x.k}" onclick="${fn}('${x.k}')">${esc(x.label)}${mark&&mark(x)?' •':''}</button>`).join('')}</div>`;
+ const seg=(items,cur,fn,mark)=>`<div class="stk-seg">${items.map(x=>`<button type="button" class="${x.k===cur?'on':''}" data-stk-seg="${x.k}" ${onAct('click',fn,String(x.k))}>${esc(x.label)}${mark&&mark(x)?' •':''}</button>`).join('')}</div>`;
  const dirtyType=t=>STK_SIZES.some(z=>(s.drafts[stkKey(t.k,z.k)]||{}).dirty),dirtySize=z=>!!(s.drafts[stkKey(s.type,z.k)]||{}).dirty;
  const usable=tpl.blocks.filter(b=>(stkBlockDef(b.k)||{types:[]}).types.includes(s.type));
  const fields=Object.keys(data.vars||{}).filter(k=>data.vars[k]!=='');
- const fieldSelect=(attr,call)=>`<select ${attr} aria-label="Insert field" onchange="${call}"><option value="">+ Field…</option>${fields.map(k=>`<option value="${esc(k)}">${esc(k)} — ${esc(String(data.vars[k]).slice(0,28))}</option>`).join('')}</select>`;
+ const fieldSelect=(attr,fn,...args)=>`<select ${attr} aria-label="Insert field" ${onAct('change',fn,...args,EL_VALUE)}><option value="">+ Field…</option>${fields.map(k=>`<option value="${esc(k)}">${esc(k)} — ${esc(String(data.vars[k]).slice(0,28))}</option>`).join('')}</select>`;
  const row=b=>{
   const def=stkBlockDef(b.k),sel=s.sel===b.id,open=s.open===b.id,A=free&&b.k==='route'&&!STK_ALIGNS.some(a=>a.k===b.align)?'center':stkAlignOf(b,b.at==='right'?'right':'full');
-  const numbers=(kind,key,label,value,unit,min,max)=>`<label class="stk-number-label">${label}<span><input type="number" data-stk-${kind}="${key}" value="${value}" ${min!=null?'min="'+min+'"':''} ${max!=null?'max="'+max+'"':''} step="${kind==='frame'?'0.1':'0.5'}" placeholder="Auto" aria-label="${label} ${unit}" onfocus="stkNumberBegin(this)" oninput="stkBNumber('${b.id}','${kind}','${key}',this,false)" onchange="stkBNumber('${b.id}','${kind}','${key}',this,true)" onblur="if(this._stkBefore)stkBNumber('${b.id}','${kind}','${key}',this,true)">${unit}</span></label>`;
+  const numbers=(kind,key,label,value,unit,min,max)=>`<label class="stk-number-label">${label}<span><input type="number" data-stk-${kind}="${key}" value="${value}" ${min!=null?'min="'+min+'"':''} ${max!=null?'max="'+max+'"':''} step="${kind==='frame'?'0.1':'0.5'}" placeholder="Auto" aria-label="${label} ${unit}" ${onAct('focus',stkNumberBegin,EL)} ${onAct('input',stkBNumber,String(b.id),String(kind),String(key),EL,false)} ${onAct('change',stkBNumber,String(b.id),String(kind),String(key),EL,true)} ${onAct('blur',stkBNumberBlur,String(b.id),String(kind),String(key),EL)}>${unit}</span></label>`;
   const frame=free&&b.frame?`<div class="stk-frame-fields">${[['x','X'],['y','Y'],['w','Width'],['h','Height']].map(([k,label])=>numbers('frame',k,label,stkMM(b.frame[k]),'mm',k==='w'||k==='h'?0.36:null,null)).join('')}</div>`:'';
   const fonts=stkFontFields(b),fontPanel=fonts.length?`<div class="stk-font-fields">${fonts.map(([k,label])=>numbers('font',k,label,b.fonts&&b.fonts[k]||'','pt',6,144)).join('')}</div>`:'';
   const panel=open?`<div class="stk-details" data-stk-details-panel="${b.id}">
     ${frame}
-    ${!free&&(b.k==='divider'||b.k==='route')?'':`<span class="stk-seg stk-seg-sm" aria-label="Horizontal alignment">${STK_ALIGNS.map(a=>`<button type="button" class="${A===a.k?'on':''}" data-stk-align="${a.k}" onclick="stkBAlign('${b.id}','${a.k}')">${a.label}</button>`).join('')}</span>`}
-    ${free?`<span class="stk-seg stk-seg-sm" aria-label="Vertical alignment">${[['top','Top'],['middle','Middle'],['bottom','Bottom']].map(([k,label])=>`<button type="button" class="${(b.valign||(b.k==='route'?'middle':'top'))===k?'on':''}" data-stk-valign="${k}" onclick="stkBValign('${b.id}','${k}')">${label}</button>`).join('')}</span>`:''}
-    ${def.graphic?'':`<label><input type="checkbox" data-stk-bold ${b.bold?'checked':''} onchange="stkBBold('${b.id}')"> Bold</label>`}
-    ${def.details.map(x=>`<label><input type="checkbox" data-stk-detail="${x[0]}" ${b.details[x[0]]?'checked':''} onchange="stkBDetail('${b.id}','${x[0]}',this.checked)"> ${esc(x[1])}</label>`).join('')}
-    ${b.k==='text'?fieldSelect('data-stk-field',"stkBField('"+b.id+"',this.value)"):''}${fontPanel}</div>`:'';
-  return `<div class="stk-row${b.on?'':' off'}${sel?' sel':''}" data-stk-block="${b.id}" data-stk-kind="${b.k}" draggable="true" ondragstart="stkDragStart(event,'${b.id}')" ondragover="stkDragOver(event)" ondragleave="stkDragLeave(event)" ondrop="stkDrop(event,'${b.id}',false)" onclick="if(event.target===this||event.target.classList.contains('stk-name'))stkBSelect('${b.id}')">
-   <span class="stk-grip" title="Drag">⋮⋮</span><input type="checkbox" data-stk-on ${b.on?'checked':''} aria-label="Print ${esc(def.label)}" onchange="stkBToggle('${b.id}',this.checked)">
-   <span class="stk-name">${b.k==='text'?`<input type="text" class="stk-text" data-stk-text value="${esc(b.text)}" maxlength="${STK_TEXT_MAX}" aria-label="Text" placeholder="Text or {field}" onchange="stkBText('${b.id}',this.value)">`:esc(def.label)}</span>
-   <select data-stk-place aria-label="Place" ${free?'disabled title="Position uses frame coordinates"':''} onchange="stkBPlace('${b.id}',this.value)">${STK_PLACES.map(p=>`<option value="${p.k}" ${b.at===p.k?'selected':''}>${p.label}</option>`).join('')}</select>
-   ${free&&['shape','barcode','route'].includes(b.k)?'<span class="stk-frame-size">Frame · mm</span>':`<span class="stk-step"><button type="button" aria-label="Smaller" data-stk-minus onclick="stkBSize('${b.id}',0,-1)">−</button><input type="number" data-stk-size value="${b.size}" min="${def.size[1]}" max="${def.size[2]}" step="${stkSizeStep(def)}" aria-label="Size pt" ${free?`onfocus="stkNumberBegin(this)" oninput="stkBNumber('${b.id}','size','',this,false)" onchange="stkBNumber('${b.id}','size','',this,true)" onblur="if(this._stkBefore)stkBNumber('${b.id}','size','',this,true)"`:`onchange="stkBSize('${b.id}',this.value)"`}><button type="button" aria-label="Larger" data-stk-plus onclick="stkBSize('${b.id}',0,1)">+</button></span>`}
-   <button type="button" class="stk-icon${open?' on':''}" data-stk-gear title="Settings" aria-expanded="${open}" onclick="stkBSelect('${b.id}')">⚙</button>
-   ${def.multi?`<button type="button" class="stk-icon" data-stk-remove title="Remove" onclick="stkBRemove('${b.id}')">×</button>`:'<span class="stk-icon-sp"></span>'}
+    ${!free&&(b.k==='divider'||b.k==='route')?'':`<span class="stk-seg stk-seg-sm" aria-label="Horizontal alignment">${STK_ALIGNS.map(a=>`<button type="button" class="${A===a.k?'on':''}" data-stk-align="${a.k}" ${onAct('click',stkBAlign,String(b.id),String(a.k))}>${a.label}</button>`).join('')}</span>`}
+    ${free?`<span class="stk-seg stk-seg-sm" aria-label="Vertical alignment">${[['top','Top'],['middle','Middle'],['bottom','Bottom']].map(([k,label])=>`<button type="button" class="${(b.valign||(b.k==='route'?'middle':'top'))===k?'on':''}" data-stk-valign="${k}" ${onAct('click',stkBValign,String(b.id),String(k))}>${label}</button>`).join('')}</span>`:''}
+    ${def.graphic?'':`<label><input type="checkbox" data-stk-bold ${b.bold?'checked':''} ${onAct('change',stkBBold,String(b.id))}> Bold</label>`}
+    ${def.details.map(x=>`<label><input type="checkbox" data-stk-detail="${x[0]}" ${b.details[x[0]]?'checked':''} ${onAct('change',stkBDetail,String(b.id),String(x[0]),EL_CHECKED)}> ${esc(x[1])}</label>`).join('')}
+    ${b.k==='text'?fieldSelect('data-stk-field',stkBField,String(b.id)):''}${fontPanel}</div>`:'';
+  return `<div class="stk-row${b.on?'':' off'}${sel?' sel':''}" data-stk-block="${b.id}" data-stk-kind="${b.k}" draggable="true" ${onAct('dragstart',stkDragStart,EVENT,String(b.id))} ${onAct('dragover',stkDragOver,EVENT)} ${onAct('dragleave',stkDragLeave,EVENT)} ${onAct('drop',stkDrop,EVENT,String(b.id),false)} ${onAct('click',stkBRowClick,EVENT,EL,String(b.id))}>
+   <span class="stk-grip" title="Drag">⋮⋮</span><input type="checkbox" data-stk-on ${b.on?'checked':''} aria-label="Print ${esc(def.label)}" ${onAct('change',stkBToggle,String(b.id),EL_CHECKED)}>
+   <span class="stk-name">${b.k==='text'?`<input type="text" class="stk-text" data-stk-text value="${esc(b.text)}" maxlength="${STK_TEXT_MAX}" aria-label="Text" placeholder="Text or {field}" ${onAct('change',stkBText,String(b.id),EL_VALUE)}>`:esc(def.label)}</span>
+   <select data-stk-place aria-label="Place" ${free?'disabled title="Position uses frame coordinates"':''} ${onAct('change',stkBPlace,String(b.id),EL_VALUE)}>${STK_PLACES.map(p=>`<option value="${p.k}" ${b.at===p.k?'selected':''}>${p.label}</option>`).join('')}</select>
+   ${free&&['shape','barcode','route'].includes(b.k)?'<span class="stk-frame-size">Frame · mm</span>':`<span class="stk-step"><button type="button" aria-label="Smaller" data-stk-minus ${onAct('click',stkBSize,String(b.id),0,-1)}>−</button><input type="number" data-stk-size value="${b.size}" min="${def.size[1]}" max="${def.size[2]}" step="${stkSizeStep(def)}" aria-label="Size pt" ${free?`${onAct('focus',stkNumberBegin,EL)} ${onAct('input',stkBNumber,String(b.id),'size','',EL,false)} ${onAct('change',stkBNumber,String(b.id),'size','',EL,true)} ${onAct('blur',stkBNumberBlur,String(b.id),'size','',EL)}`:`${onAct('change',stkBSize,String(b.id),EL_VALUE)}`}><button type="button" aria-label="Larger" data-stk-plus ${onAct('click',stkBSize,String(b.id),0,1)}>+</button></span>`}
+   <button type="button" class="stk-icon${open?' on':''}" data-stk-gear title="Settings" aria-expanded="${open}" ${onAct('click',stkBSelect,String(b.id))}>⚙</button>
+   ${def.multi?`<button type="button" class="stk-icon" data-stk-remove title="Remove" ${onAct('click',stkBRemove,String(b.id))}>×</button>`:'<span class="stk-icon-sp"></span>'}
   </div>${panel}`;
  };
- const zone=(name,list,z)=>`<div class="stk-zone" data-stk-zone="${z}" ondragover="event.preventDefault()" ondrop="stkDropZone(event,'${z}')"><div class="stk-zone-head">${name}</div>${list.map(row).join('')||'<div class="stk-zone-empty">Drop here</div>'}</div>`;
+ const zone=(name,list,z)=>`<div class="stk-zone" data-stk-zone="${z}" ${onAct('dragover',actPrevent,EVENT)} ${onAct('drop',stkDropZone,EVENT,String(z))}><div class="stk-zone-head">${name}</div>${list.map(row).join('')||'<div class="stk-zone-empty">Drop here</div>'}</div>`;
  const W=pg.w*STK_PX,H=pg.h*STK_PX;
  const hits=stkHitsHTML(pg,tpl,s),fit=stkFitHTML(pg);
- const samples=list.length?`<select data-stk-sample aria-label="Sample" onchange="stkBuilderState().sample=this.value;render()">${list.map(x=>`<option value="${esc(x.key)}" ${x.key===key?'selected':''}>${esc(x.label)}</option>`).join('')}</select>`:'<span class="mut">Demo glass</span>';
+ const samples=list.length?`<select data-stk-sample aria-label="Sample" ${onAct('change',stkBSample,EL_VALUE)}>${list.map(x=>`<option value="${esc(x.key)}" ${x.key===key?'selected':''}>${esc(x.label)}</option>`).join('')}</select>`:'<span class="mut">Demo glass</span>';
  return `<div class="stk-builder" data-stk-builder>
   <div class="stk-head">
-   ${s.print?'':`<div class="stk-ctl"><span class="ncr-label">STICKER</span>${seg(STK_TYPES,s.type,'stkBType',dirtyType)}</div>
-   <div class="stk-ctl"><span class="ncr-label">SIZE</span>${seg(STK_SIZES,s.size,'stkBSizeKey',dirtySize)}</div>`}
-   <div class="stk-ctl"><span class="ncr-label">ORIENTATION</span>${seg([{k:'portrait',label:'Portrait'},{k:'landscape',label:'Landscape'}],tpl.orient,'stkBOrient')}</div>
-   <div class="stk-ctl"><span class="ncr-label">LAYOUT</span><div class="stk-seg">${[['auto','Automatic'],['free','Free layout']].map(([k,label])=>`<button type="button" class="${(tpl.layout||'auto')===k?'on':''}" data-stk-layout="${k}" onclick="stkBLayout('${k}')">${label}</button>`).join('')}</div></div>
+   ${s.print?'':`<div class="stk-ctl"><span class="ncr-label">STICKER</span>${seg(STK_TYPES,s.type,stkBType,dirtyType)}</div>
+   <div class="stk-ctl"><span class="ncr-label">SIZE</span>${seg(STK_SIZES,s.size,stkBSizeKey,dirtySize)}</div>`}
+   <div class="stk-ctl"><span class="ncr-label">ORIENTATION</span>${seg([{k:'portrait',label:'Portrait'},{k:'landscape',label:'Landscape'}],tpl.orient,stkBOrient)}</div>
+   <div class="stk-ctl"><span class="ncr-label">LAYOUT</span><div class="stk-seg">${[['auto','Automatic'],['free','Free layout']].map(([k,label])=>`<button type="button" class="${(tpl.layout||'auto')===k?'on':''}" data-stk-layout="${k}" ${onAct('click',stkBLayout,String(k))}>${label}</button>`).join('')}</div></div>
    <div class="stk-ctl stk-sample"><span class="ncr-label">SAMPLE</span>${samples}</div>
   </div>
-  <div class="stk-edit-tools"><button type="button" data-stk-undo ${dr.undo.length?'':'disabled'} onclick="stkBUndo()">↶ Undo</button><button type="button" data-stk-redo ${dr.redo.length?'':'disabled'} onclick="stkBRedo()">↷ Redo</button>${free?'<span class="mut">Drag blocks or resize their frames. Text sizes use pt.</span>':''}</div>
+  <div class="stk-edit-tools"><button type="button" data-stk-undo ${dr.undo.length?'':'disabled'} ${onAct('click',stkBUndo)}>↶ Undo</button><button type="button" data-stk-redo ${dr.redo.length?'':'disabled'} ${onAct('click',stkBRedo)}>↷ Redo</button>${free?'<span class="mut">Drag blocks or resize their frames. Text sizes use pt.</span>':''}</div>
   <div class="stk-grid">
    <div class="stk-side">${zone('TOP',usable.filter(b=>b.at!=='bottom'),'top')}${zone('BOTTOM',usable.filter(b=>b.at==='bottom'),'bottom')}
-    <div class="stk-add"><button type="button" data-stk-add="text" onclick="stkBAdd('text')">+ Custom text</button>${fieldSelect('data-stk-add-field','stkBAddField(this.value)')}<button type="button" data-stk-add="divider" onclick="stkBAdd('divider')">+ Divider</button></div></div>
-   <div class="stk-preview"><div class="stk-paper${free?' stk-free-paper':''}" data-stk-paper data-stk-width="${pg.w}" data-stk-height="${pg.h}" onpointermove="stkPointerMove(event)" onpointerup="stkPointerEnd(event,false)" onpointercancel="stkPointerEnd(event,true)" style="width:${W.toFixed(0)}px;max-width:100%;aspect-ratio:${pg.w}/${pg.h}">${stkPageSVG(pg,'100%','100%')}${hits}</div><div class="stk-fit" data-stk-fit-wrap>${fit}</div></div>
+    <div class="stk-add"><button type="button" data-stk-add="text" ${onAct('click',stkBAdd,'text')}>+ Custom text</button>${fieldSelect('data-stk-add-field',stkBAddField)}<button type="button" data-stk-add="divider" ${onAct('click',stkBAdd,'divider')}>+ Divider</button></div></div>
+   <div class="stk-preview"><div class="stk-paper${free?' stk-free-paper':''}" data-stk-paper data-stk-width="${pg.w}" data-stk-height="${pg.h}" ${onAct('pointermove',stkPointerMove,EVENT)} ${onAct('pointerup',stkPointerEnd,EVENT,false)} ${onAct('pointercancel',stkPointerEnd,EVENT,true)} style="width:${W.toFixed(0)}px;max-width:100%;aspect-ratio:${pg.w}/${pg.h}">${stkPageSVG(pg,'100%','100%')}${hits}</div><div class="stk-fit" data-stk-fit-wrap>${fit}</div></div>
   </div>
-  ${s.print?`<div class="stk-foot"><button type="button" data-stk-reset onclick="stkBReset()">Reset to template</button><span class="sp"></span><button type="button" onclick="stkPrintEditCancel()">Cancel</button><button type="button" data-stk-save-template onclick="stkPrintEditSave()">Save as template</button><button type="button" class="pri" data-stk-done onclick="stkPrintEditDone()">Done</button></div>`
-  :`<div class="stk-foot"><button type="button" data-stk-reset onclick="stkBReset()">Reset to base</button><span class="sp"></span>${dr.dirty?'<span class="stk-dirty" data-stk-dirty>Unsaved changes</span>':s.notice?`<span class="stk-saved">${esc(s.notice)}</span>`:''}<button type="button" class="pri" data-stk-save ${dr.dirty?'':'disabled'} onclick="stkBSave()">Save template</button></div>`}
+  ${s.print?`<div class="stk-foot"><button type="button" data-stk-reset ${onAct('click',stkBReset)}>Reset to template</button><span class="sp"></span><button type="button" ${onAct('click',stkPrintEditCancel)}>Cancel</button><button type="button" data-stk-save-template ${onAct('click',stkPrintEditSave)}>Save as template</button><button type="button" class="pri" data-stk-done ${onAct('click',stkPrintEditDone)}>Done</button></div>`
+  :`<div class="stk-foot"><button type="button" data-stk-reset ${onAct('click',stkBReset)}>Reset to base</button><span class="sp"></span>${dr.dirty?'<span class="stk-dirty" data-stk-dirty>Unsaved changes</span>':s.notice?`<span class="stk-saved">${esc(s.notice)}</span>`:''}<button type="button" class="pri" data-stk-save ${dr.dirty?'':'disabled'} ${onAct('click',stkBSave)}>Save template</button></div>`}
  </div>`;
 }

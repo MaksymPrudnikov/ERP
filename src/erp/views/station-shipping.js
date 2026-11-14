@@ -107,14 +107,14 @@ function stationEmptyUndo(){
 function stationEmptyButton(code){
  const list=carrierContents().get(code)||[];if(!list.length||stationIsShip()&&/^S[LA]-/.test(code))return '';
  const ask=stationEmptyAsk===code;
- return '<button type="button" class="b'+(ask?' st-red-b':'')+'" data-skid-empty onclick="stationSkidEmpty(\''+esc(code)+'\')">'+(ask?'Empty '+stationTareCount(list)+' — tap again':'Empty '+esc(code))+'</button>';
+ return '<button type="button" class="b'+(ask?' st-red-b':'')+'" data-skid-empty '+onAct('click',stationSkidEmpty,String(code??''))+'>'+(ask?'Empty '+stationTareCount(list)+' — tap again':'Empty '+esc(code))+'</button>';
 }
 function stationSkidEmptyButton(c){const b=stationEmptyButton(c.code);return b?'<div class="st-acts">'+b+'</div>':'';}
 function stationEmptiedCard(L){
  const c=L.check,t=carrierType(c.code),word=t&&t.kind==='Skid'?'skid':'dolly';
  return '<div class="st-res st-ok" data-station-result="carrierEmptied"><div class="st-res-h">✓ '+esc(c.code)+' emptied<span>'+esc(stationTime(L.at))+'</span></div>'+
   '<div class="st-res-b"><div class="st-big st-dark"><small>EMPTY</small><b>'+esc(c.code)+'</b><span>'+esc(c.what||c.count+' glass')+' without a '+word+'</span></div><div class="st-info"><div class="st-gid">Glass stays at its station</div><div class="mut">Scan the '+word+', then what goes on it</div></div></div>'+
-  '<div class="st-acts"><button type="button" class="b" data-empty-undo onclick="stationEmptyUndo()">Undo</button></div></div>';
+  '<div class="st-acts"><button type="button" class="b" data-empty-undo '+onAct('click',stationEmptyUndo)+'>Undo</button></div></div>';
 }
 
 /* ------------------------- скид вернулся --------------------------- */
@@ -131,7 +131,7 @@ function stationSetTrip(id){const m=stationSessions(),s=m[stationCode];if(!s||ty
 function stationTripPick(id){stationSetTrip(id);stationNote='';render();}
 function stationTripChip(){
  const t=stationIsShip()?stationTrip():null;
- return t?'<div class="st-chip st-puton" data-station-trip>Loading <b>'+esc(t.number)+'</b><span data-raw>'+esc(salesCustomerDisplay(t.customerId))+'</span><button type="button" title="Close this trip" onclick="stationTripPick(\'\')">✕</button></div>':'';
+ return t?'<div class="st-chip st-puton" data-station-trip>Loading <b>'+esc(t.number)+'</b><span data-raw>'+esc(salesCustomerDisplay(t.customerId))+'</span><button type="button" title="Close this trip" '+onAct('click',stationTripPick,'')+'>✕</button></div>':'';
 }
 function stationShipShow(out){
  stationMenu=null;stationNote=out.kind==='saveError'?out.note:'';
@@ -181,10 +181,10 @@ function stationShipCard(L){
   (c.balance?'<div class="st-urg" data-station-balance>BALANCE DUE<span>· office</span></div>':'')+
   '<div class="st-res-b"><div class="st-big st-dark"><small>'+(c.added?'ADDED TO':'LOADED')+'</small><b class="st-big-code">'+esc(c.ps)+'</b><span data-raw>'+esc(c.customer)+'</span></div>'+
   '<div class="st-info"><div class="st-gid mono">'+esc(c.label)+'</div><div class="st-kv"><span class="k">Units</span><span><b>'+c.units+'</b></span><span class="k">Orders</span><span>'+c.orders.map(o=>'<b>'+esc(o.number)+'</b> ×'+o.units).join(' · ')+'</span></div></div></div>'+
-  '<div class="st-acts"><button type="button" class="b" data-station-load-undo onclick="stationUndoClick(\''+esc(c.recId)+'\')">Undo</button></div></div>';
+  '<div class="st-acts"><button type="button" class="b" data-station-load-undo '+onAct('click',stationUndoClick,String(c.recId??''))+'>Undo</button></div></div>';
  if(c.kind==='shipMoved')return '<div class="st-res '+(L.foreign?'st-red':'st-ok')+'" data-station-result="shipMoved"><div class="st-res-h">✓ Moved '+esc(c.from||'No skid')+' → '+what+time+'</div>'+stationForeignBar(L)+
   '<div class="st-res-b"><div class="st-big st-dark"><small>NOW ON</small><b>'+what+'</b><span>was on '+esc(c.from||'no skid')+'</span></div><div class="st-info"><div class="st-gid mono">'+esc(c.label)+'</div><div class="st-kv"><span class="k">Order</span><span><b>'+esc(c.order)+'</b> · <span data-raw>'+esc(c.customer)+'</span></span></div></div></div>'+
-  '<div class="st-acts"><button type="button" class="b" data-station-move-undo onclick="stationUndoClick(\''+esc(c.recId)+'\')">Undo</button></div></div>';
+  '<div class="st-acts"><button type="button" class="b" data-station-move-undo '+onAct('click',stationUndoClick,String(c.recId??''))+'>Undo</button></div></div>';
  if(c.kind==='shipOnSkid')return '<div class="st-res st-amber" data-station-result="shipOnSkid"><div class="st-res-h">Already on '+what+time+'</div><div class="st-res-b"><div class="st-big st-ask"><small>ALREADY ON</small><b>'+what+'</b><span>Another skid — scan it</span></div><div class="st-info"><div class="st-gid mono">'+esc(c.label)+'</div></div></div></div>';
  if(c.kind==='shipBack')return '<div class="st-res st-ok" data-station-result="shipBack"><div class="st-res-h">✓ '+what+' back from <b data-raw>'+esc(c.back.customer)+'</b>'+time+'</div>'+
   '<div class="st-res-b"><div class="st-big st-dark"><small>BACK FROM</small><b class="st-big-code" data-raw>'+esc(c.back.customer)+'</b><span>'+shippingCount(c.back.days,'day')+' · '+esc(c.back.ps)+'</span></div><div class="st-info"><div class="st-gid mono">'+what+'</div></div></div></div>';
@@ -220,7 +220,7 @@ function stationShipJournal(){
   const office=new Set(list.map(s=>s.actionId||s.id)).size>1,skids=[...new Set(items.map(i=>i.skid).filter(Boolean))].join(', ');
   return '<tr data-station-load="'+esc(first.on||(office?ps.number:first.piece))+'"><td class="mut">'+esc(stationTime(first.at))+'</td><td>'+(first.on?'<b class="st-on">'+esc(first.on)+'</b>':office?(skids?'<b>'+esc(skids)+'</b>':'<span class="mut">No skid</span>'):'<b class="mono">'+esc(items[0]?items[0].label:first.piece)+'</b>')+(first.manual?' <span class="st-man" title="Marked by hand">hand</span>':'')+'</td>'+
    '<td>'+(ps?'<b>'+esc(ps.number)+'</b>':'<span class="mut">—</span>')+'</td><td>'+esc(orders.join(', '))+'</td><td>'+(items.length?shippingCount(items.length,'unit'):list.length+' glass')+'</td><td class="mut" data-raw>'+esc(first.by)+'</td>'+
-   '<td style="text-align:right">'+(!ps||ps.status==='planned'?'<button type="button" class="b sm" onclick="stationUndoClick(\''+esc(first.id)+'\')">Undo</button>':'')+'</td></tr>';
+   '<td style="text-align:right">'+(!ps||ps.status==='planned'?'<button type="button" class="b sm" '+onAct('click',stationUndoClick,String(first.id??''))+'>Undo</button>':'')+'</td></tr>';
  }).join('');
  return '<div class="card st-journal"><div class="st-sec"><h3>Loaded</h3></div><table><thead><tr><th>Time</th><th>Skid</th><th>Packing slip</th><th>Order</th><th>Units</th><th>By</th><th></th></tr></thead><tbody>'+body+'</tbody></table></div>';
 }
@@ -229,7 +229,7 @@ function stationTripsCard(){
  const trips=shippingOpenTrips(),cur=stationTrip();
  const rows=shippingWithCtx(()=>trips.map(s=>{
   const st=shippingLoadState(s),text=shippingLoadText(st)||(st.units.length?shippingLoadPart(st.units)+' planned':'Open trip');
-  return '<div class="st-dl'+(cur&&cur.id===s.id?' now':'')+'" data-station-trip-row="'+esc(s.number)+'" onclick="stationTripPick(\''+esc(s.id)+'\')"><span class="st-dchip">'+esc(s.number)+'</span><span><b data-raw>'+esc(salesCustomerDisplay(s.customerId))+'</b> <span class="mut">'+esc(text)+'</span></span><span class="mut">'+esc(docDate(s.date))+'</span></div>';
+  return '<div class="st-dl'+(cur&&cur.id===s.id?' now':'')+'" data-station-trip-row="'+esc(s.number)+'" '+onAct('click',stationTripPick,String(s.id??''))+'><span class="st-dchip">'+esc(s.number)+'</span><span><b data-raw>'+esc(salesCustomerDisplay(s.customerId))+'</b> <span class="mut">'+esc(text)+'</span></span><span class="mut">'+esc(docDate(s.date))+'</span></div>';
  }).join(''));
  return '<div class="card" data-station-trips><div class="st-sec"><h3>Trips</h3><span class="sp"></span><span class="mut">first skid opens the trip</span></div>'+(rows||'<div class="mut">No open packing slips</div>')+'</div>';
 }

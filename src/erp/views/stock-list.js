@@ -83,11 +83,11 @@ function stockUiContext(e,id){
  if(rows.length)cutUiMenuShow(rows,e.clientX,e.clientY);
 }
 function stockUiBar(rows){
- const r=rows.find(x=>x.id===stockSel),w=r&&r.status==='stock'?stockUiWhere(r.id):null,id=r?esc(r.id):'';
- const b=(attr,label,fn,on,cls)=>`<button type="button" class="sl-quiet${cls?' '+cls:''}" ${attr} ${on?'':'disabled'} onclick="${fn}">${label}</button>`;
- return b('data-stock-open',w?'Open '+esc(w.batch):'Open batch',w?`stockUiOpenBatch('${esc(w.batch)}')`:'',!!w)+b('data-stock-release','Release',w?`stockUiRelease('${id}','${esc(w.batch)}')`:'',!!w)
-  +b('data-stock-use-menu','Use in batch ▾',`stockUiUseMenu(event,'${id}')`,!!r&&r.status==='stock'&&!w)+b('data-stock-print','Sticker',`stockUiPrint('${id}')`,!!r&&r.status==='stock'&&!w)
-  +b('data-stock-drop','Back to waste',`stockUiDrop('${id}')`,!!r&&r.status==='stock'&&!w,'sl-delete-quiet');
+ const r=rows.find(x=>x.id===stockSel),w=r&&r.status==='stock'?stockUiWhere(r.id):null,id=r?String(r.id):'';
+ const b=(attr,label,fn,on,cls)=>`<button type="button" class="sl-quiet${cls?' '+cls:''}" ${attr} ${on?'':'disabled'} ${fn?onAct('click',...fn):''}>${label}</button>`;
+ return b('data-stock-open',w?'Open '+esc(w.batch):'Open batch',w?[stockUiOpenBatch,String(w.batch)]:null,!!w)+b('data-stock-release','Release',w?[stockUiRelease,id,String(w.batch)]:null,!!w)
+  +b('data-stock-use-menu','Use in batch ▾',[stockUiUseMenu,EVENT,id],!!r&&r.status==='stock'&&!w)+b('data-stock-print','Sticker',[stockUiPrint,id],!!r&&r.status==='stock'&&!w)
+  +b('data-stock-drop','Back to waste',[stockUiDrop,id],!!r&&r.status==='stock'&&!w,'sl-delete-quiet');
 }
 function stockListColumns(){return [{k:'id',label:'Stock',type:'text'},{k:'glass',label:'Glass',type:'list'},{k:'mm',label:'Thickness',type:'list'},{k:'size',label:'Size',type:'text'},{k:'area',label:'ft²',type:'number',sum:true,digits:2},{k:'from',label:'From',type:'text'},{k:'booked',label:'Booked',type:'date'},{k:'status',label:'Status',type:'list'}].map(c=>Object.assign({def:true},c));}
 function viewStockList(){
@@ -102,15 +102,15 @@ function viewStockList(){
   case 'booked':return `<td>${esc(salesShortDate(r.at))}</td>`;
   case 'status':return `<td>${r.status!=='stock'?'<span class="mut">Back to waste</span>':(w=>w?`<span class="pill" data-stock-in>${w.laid?'In':'Picked for'} ${esc(w.batch)}</span>`:'<span class="mut">On the rack</span>')(stockUiWhere(r.id))}</td>`;
   default:return `<td${c.type==='number'?' class="n"':''}>${v===''||v==null?'<span class="mut">—</span>':esc(String(v))}</td>`;}};
- const row=i=>{const r=i.r;return {attrs:` data-stock-row="${esc(r.id)}" class="${r.status==='stock'?'':'off'}${stockSel===r.id?' oq-selected':''}" oncontextmenu="stockUiContext(event,'${esc(r.id)}')"`,first:`<td class="sl-check"><input type="checkbox" data-stock-check aria-label="Select ${esc(r.id)}" ${stockSel===r.id?'checked':''} onchange="stockUiSelect('${esc(r.id)}',this.checked)"></td>`};};
+ const row=i=>{const r=i.r;return {attrs:` data-stock-row="${esc(r.id)}" class="${r.status==='stock'?'':'off'}${stockSel===r.id?' oq-selected':''}" ${onAct('contextmenu',stockUiContext,EVENT,String(r.id??''))}`,first:`<td class="sl-check"><input type="checkbox" data-stock-check aria-label="Select ${esc(r.id)}" ${stockSel===r.id?'checked':''} ${onAct('change',stockUiSelect,String(r.id??''),EL_CHECKED)}></td>`};};
  const table=salesListTableHTML({infos,rows:list,cell,row,noun:r=>r.length+' offcut'+(r.length===1?'':'s'),empty:shown.length?'Nothing matches the filters.':'<span data-stock-empty>Nothing in stock yet. Offcuts get here from a batch layout: right-click an offcut → To stock.</span>'});
  return `<section class="optimization-queue">
   <div class="card oq-card sales-list-card sl-foot-pin"><div class="oq-toolbar sales-toolbar">${stockUiBar(shown)}<b class="oq-sel" data-stock-total title="Offcuts booked from cut layouts. To cut one, tick its S-… row in the batch layout: Reset → SHEETS → Build.">${live.length} in stock · ${stockOffcutTotal()} ft\u00b2</b><span class="sales-toolbar-sp"></span>
-   ${off.length?`<label class="chk"><input type="checkbox" data-stock-show-off ${stockShowOff?'checked':''} onchange="stockUiShowOff(this.checked)"> Show ${off.length} back to waste</label>`:''}</div>
+   ${off.length?`<label class="chk"><input type="checkbox" data-stock-show-off ${stockShowOff?'checked':''} ${onAct('change',stockUiShowOff,EL_CHECKED)}> Show ${off.length} back to waste</label>`:''}</div>
    ${glassBatchTabs()}
    ${cutNotice?`<div class="ncr-error" role="alert" data-stock-error>${esc(cutNotice)}</div>`:''}
    ${stockInfo?`<div class="cut-info" data-stock-info>${esc(stockInfo.id)} ${stockInfo.used?'→':'✕'} ${esc(stockInfo.batch)}${stockInfo.used?' · press Build there':''}
-    <button type="button" class="gb-link" data-stock-info-open onclick="stockUiOpenBatch('${esc(stockInfo.batch)}')">Open ${esc(stockInfo.batch)}</button></div>`:''}
+    <button type="button" class="gb-link" data-stock-info-open ${onAct('click',stockUiOpenBatch,String(stockInfo.batch??''))}>Open ${esc(stockInfo.batch)}</button></div>`:''}
    ${table}
   </div>${typeof stkDialogHTML==='function'?stkDialogHTML():''}</section>`;
 }

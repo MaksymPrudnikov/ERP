@@ -27,7 +27,7 @@ module.exports=async function({page,eq,ok}){
   const mine=[...document.querySelectorAll('[data-board-mine] .ch-stat')].map(x=>x.querySelector('span').textContent+' '+x.querySelector('b').textContent);
   const app=document.getElementById('app'),board=app.querySelector('.sb').innerText;
   return {days:repWorkFacts().map(f=>f.day===finToday()),waiting:tile('[data-board-waiting]'),done:tile('[data-board-done]'),mine,hour0:document.querySelectorAll('[data-board-mine] .ch-col')[0].title,
-   otherStations:(DB.station||[]).filter(s=>s.code!=='CUT'&&new RegExp('\\b'+s.code+'\\b').test(board)).map(s=>s.code),onlyMine:!app.innerHTML.includes('Vasyl'),noMoney:!/\$/.test(app.innerHTML),shipping:!!app.querySelector('[data-board-shipping]')};
+   otherStations:(DB.station||[]).filter(s=>s.code!=='CUT'&&new RegExp('\\b'+s.code+'\\b').test(board)).map(s=>s.code),onlyMine:!app.innerHTML.includes('Vasyl'),/* «$» в data-args — метки действий (core/actions), не деньги */noMoney:!/\$/.test(app.innerHTML.replace(/ data-args-[a-z]+="[^"]*"/g,'')),shipping:!!app.querySelector('[data-board-shipping]')};
  }),{days:[false,true,true,true],waiting:'1',done:'2',mine:['Glass 1','Glass ft² 18.2'],hour0:'0:00 · 1 glass',otherStations:[],onlyMine:true,noMoney:true,shipping:false});
 
  eq('факты дня (Overview, доска станции) собираются только по сканам дня — те же, что срез всех фактов',await t.p.evaluate(()=>{
