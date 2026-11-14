@@ -62,16 +62,18 @@ module.exports=async function({page,eq}){
   return {asm,before,deleted,gone:!salesRecord(a),psGone:!shippingFind(pa.id),stop:shippingFind(pb.id).stop,scans:odLiveScans(pieces),batch:odInBatch(a),imported:odImport()};
  }),{asm:true,before:[1,2],deleted:true,gone:true,psGone:true,stop:1,scans:0,batch:false,imported:true});
 
- eq('права: Оля (только Sales) тронутый заказ не удаляет, новый — удаляет; Optimization, Finance и Users удаляют',await t.p.evaluate(()=>{
-  odReset();const touched=odOrder();oqThrough(touched,'batched');const fresh=odOrder();odSay=[];
-  const ola=odAs(['sales'],()=>({touched:odDelete(touched),say:odSay.slice(),still:!!salesRecord(touched),fresh:odDelete(fresh),freshGone:!salesRecord(fresh)}));
-  const who=['optimization','finance','users'].map(k=>{const id=odOrder();oqThrough(id,'batched');return odAs([k],()=>odDelete(id))&&!salesRecord(id);});
+ /* Владелец 13.11.2026: заказ удаляет и отменяет только тот, у кого галочка Finance;
+    черновик (Draft) и квота — не заказ, их Sales удаляет как раньше. */
+ eq('права: заказ (тронутый и новый) удаляет только Finance; Sales, Optimization и Users — нет; черновик Sales удаляет',await t.p.evaluate(()=>{
+  odReset();const touched=odOrder();oqThrough(touched,'batched');const fresh=odOrder(),draft=odOrder();salesRecord(draft).isDraft=true;odSay=[];
+  const ola=odAs(['sales'],()=>({touched:odDelete(touched),fresh:odDelete(fresh),say:odSay.slice(),still:!!salesRecord(touched)&&!!salesRecord(fresh),draft:odDelete(draft),draftGone:!salesRecord(draft)}));
+  const who=['optimization','users','finance'].map(k=>{const id=odOrder();oqThrough(id,'batched');return odAs([k],()=>odDelete(id))&&!salesRecord(id);});
   return {ola,who};
- }),{ola:{touched:false,say:['alert: Ask Finance, Optimization or Users to delete this order.'],still:true,fresh:true,freshGone:true},who:[true,true,true]});
+ }),{ola:{touched:false,fresh:false,say:['alert: Ask Finance to cancel or delete this order.','alert: Ask Finance to cancel or delete this order.'],still:true,draft:true,draftGone:true},who:[false,false,true]});
 
  eq('деньги: Sales видит сумму, оптимизатор — без суммы; оплата уходит на депозит',await t.p.evaluate(()=>{
   odReset();const id=odOrder();oqThrough(id,'batched');oqPay(id);const o=salesRecord(id),paid=finOrderPaid(id).paid,customer=o.customerId;
-  const sales=odAs(['sales','finance'],()=>salesDeleteConfirmText(o)),opt=odAs(['optimization'],()=>salesDeleteConfirmText(o)),deleted=odAs(['optimization'],()=>odDelete(id));
+  const sales=odAs(['sales','finance'],()=>salesDeleteConfirmText(o)),opt=odAs(['optimization'],()=>salesDeleteConfirmText(o)),deleted=odAs(['optimization','finance'],()=>odDelete(id));
   return {sales:sales.includes('$'+paid.toFixed(2)+' goes back to the customer deposit.'),opt:opt.includes('Receipts go back to the customer deposit.')&&!opt.includes('$'),deleted,deposit:finCustomerDeposit(customer)===paid};
  }),{sales:true,opt:true,deleted:true,deposit:true});
 
@@ -95,6 +97,14 @@ module.exports=async function({page,eq}){
   const c=window.confirm;window.confirm=()=>true;try{one.click();}finally{window.confirm=c;}
   return {two,enabled,label,gone:!salesRecord(a),other:!!salesRecord(b)};
  }),{two:true,enabled:true,label:'Delete',gone:true,other:true});
+ eq('Optimization без Finance: Delete и Cancel order неактивны и говорят, к кому идти; в меню правой кнопки их нет; On Hold есть',await t.p.evaluate(()=>{
+  odReset();const a=odOrder();tab='optimization';optimizationSetTab('all');optimizationSel=new Set([a]);
+  return odAs(['sales','optimization','users'],()=>{
+   render();const btn=k=>document.querySelector(`[data-queue-action="${k}"]`),show=k=>[btn(k).disabled,btn(k).title];
+   optimizationContext({preventDefault(){},stopPropagation(){},clientX:300,clientY:300},a);const menu=[...document.querySelectorAll('.sl-ctx [data-menu]')].map(b=>b.dataset.menu);salesListMenu=null;render();
+   return {del:show('delete'),cancel:show('cancelled'),hold:btn('hold').disabled,menu:menu.filter(k=>['delete','cancelled','hold'].includes(k))};
+  });
+ }),{del:[true,'Ask Finance to cancel or delete this order.'],cancel:[true,'Ask Finance to cancel or delete this order.'],hold:false,menu:['hold']});
 
  eq('заказ открыт в редакторе, Delete из Optimization: черновик закрывается, Save не возвращает заказ',await t.p.evaluate(()=>{
   odReset();const id=odOrder();oqThrough(id,'batched');salesOrderEdit(id);tab='optimization';optimizationSetTab('all');render();
