@@ -2,8 +2,9 @@
 /* =====================================================================
    Встроенные обработчики (onclick="…" в разметке): счёт и перевод на
    действия core/actions.js. Задание «CSP без inline» (хвост этапа 3
-   плана «до 10», 13.11.2026): пока в разметке есть on<событие>="код",
-   из script-src нельзя убрать 'unsafe-inline'.
+   плана «до 10», 13–14.11.2026): все 2095 переведены (PR #466–#469 и PR 5),
+   'unsafe-inline' из script-src убран — встроенный обработчик браузер
+   больше не выполняет (кнопка молча перестала бы работать).
 
      node tools/csp-handlers.js                 — сколько осталось по файлам
      node tools/csp-handlers.js --list <файл…>  — обработчики файла: что
@@ -31,24 +32,13 @@
    - Аргумент считается при отрисовке. Раньше выражение без ${} считалось в
      момент клика — такие скрипт не трогает, но проверить стоит.
 
-   Сторож перехода — INLINE_LEFT ниже: «файл → сколько обработчиков ещё
-   осталось». test/docs.js сверяет список с кодом. Число может только
-   уменьшаться; у переведённого файла строки нет (ноль). Новый onclick в
-   любом файле — красный тест: писать через onAct.
+   Сторож — inlineProblems() ниже: ни одного on<событие>="…" в модулях
+   build/manifest.json и src/shell.html (test/docs.js). Новый onclick в
+   любом файле — красный тест: писать через onAct. Ветка, начатая до PR 5,
+   переводит свои обработчики тем же --write.
    ===================================================================== */
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.resolve(__dirname, '..');
-
-/* Файл → сколько встроенных обработчиков осталось. Только уменьшать.
-   PR 1 (13.11.2026): Sales, фигуры, списки, общее; PR 2 (14.11.2026): Optimization,
-   Production, станции; PR 3 (14.11.2026): Master Data, формы, Customers, прайсы; PR 4 (14.11.2026): Finance,
-   Agents, Purchasing, Inventory, Shipping — переведены (их тут нет). */
-const INLINE_LEFT = {
-  'src/erp/views/dashboard.js': 3,
-  'src/erp/views/users.js': 43,
-  'src/erp/signin.js': 10,
-  'src/erp/views/reports.js': 156,
-};
 
 /* Функции, которыми аргумент экранировали под разметку: onAct экранирует сам,
    поэтому обёртка снимается. esc(x) и shapeXml(x) дают String(x ?? ''). */
@@ -270,18 +260,11 @@ function count() {
   });
   return out;
 }
-/* Расхождения списка INLINE_LEFT с кодом: [] — совпадает. */
-function leftProblems() {
-  const now = count(), bad = [];
-  Object.keys(now).forEach(f => {
-    const want = INLINE_LEFT[f] || 0;
-    if (now[f] > want) bad.push(`${f}: ${now[f]} встроенных обработчиков, в INLINE_LEFT ${want} — новые писать через onAct (core/actions.js)`);
-    if (now[f] < want) bad.push(`${f}: осталось ${now[f]}, в INLINE_LEFT ${want} — уменьшить число`);
-  });
-  Object.keys(INLINE_LEFT).forEach(f => { if (!now[f]) bad.push(`${f}: переведён — убрать из INLINE_LEFT`); });
-  return bad;
+/* Файлы со встроенными обработчиками: [] — ни одного. */
+function inlineProblems() {
+  return Object.entries(count()).map(([f, n]) => `${f}: ${n} встроенных обработчиков — писать через onAct (core/actions.js), node tools/csp-handlers.js --write ${f}`);
 }
-module.exports = { INLINE_LEFT, count, leftProblems, handlers, translate, rewrite, contexts };
+module.exports = { count, inlineProblems, handlers, translate, rewrite, contexts };
 
 if (require.main === module) {
   const argv = process.argv.slice(2), mode = argv[0] && argv[0].startsWith('--') ? argv[0] : '', names = argv.filter(a => !a.startsWith('--'));
@@ -301,7 +284,6 @@ if (require.main === module) {
     const now = count(), total = Object.values(now).reduce((a, b) => a + b, 0);
     Object.entries(now).sort((a, b) => b[1] - a[1]).forEach(([f, n]) => console.log(String(n).padStart(5) + '  ' + f));
     console.log(`Всего встроенных обработчиков: ${total} в ${Object.keys(now).length} файлах`);
-    const bad = leftProblems();
-    console.log('INLINE_LEFT: ' + (bad.length ? 'не совпадает с кодом —\n  ' + bad.join('\n  ') : 'совпадает с кодом'));
+    if (total) process.exitCode = 1;
   }
 }

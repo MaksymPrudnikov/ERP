@@ -55,12 +55,12 @@ function viewUsers(){
       {k:'password',label:'Password',type:'list',v:x=>pw(x.u),cell:x=>pw(x.u)==='set'?'<span class="pill ok">set</span>':pw(x.u)==='server'?'<span class="pill ok" title="Server login">server</span>':'<span class="pill warn" title="Cannot sign in">not set</span>'}])
    .concat(srv&&!prod?[{k:'server',label:'Server',type:'text',v:x=>x.u.email||'',cell:x=>userServerHTML(x.u).replace(/^<td/,'<span').replace(/<\/td>$/,'</span>')}]:[])
    .concat([{k:'email',label:'Email',type:'text',def:false,v:x=>x.u.email||''}]),
-  row:info=>{const u=info.x.u,on=uSel===u.viewProfileId;return {attrs:` data-user-row="${esc(u.viewProfileId)}"${on?' class="oq-selected"':''} ondblclick="userEditOpen(${info.x.i})"`,first:`<td class="sl-check"><input type="checkbox" aria-label="Select ${esc(u.name)}" ${on?'checked':''} onchange="uSel=this.checked?'${esc(u.viewProfileId)}':'';render()"></td>`};}});
+  row:info=>{const u=info.x.u,on=uSel===u.viewProfileId;return {attrs:` data-user-row="${esc(u.viewProfileId)}"${on?' class="oq-selected"':''} ${onAct('dblclick',userEditOpen,info.x.i)}`,first:`<td class="sl-check"><input type="checkbox" aria-label="Select ${esc(u.name)}" ${on?'checked':''} ${onAct('change',usersSelTick,String(u.viewProfileId??''),EL_CHECKED)}></td>`};}});
  /* Вход ещё выключен (signinOn): пароля нет ни у кого с разделом Users. */
  const off=DB.user.some(userOffice)&&!signinOn()?'<span class="pill warn" data-signin-off>Sign-in is off — set a password for someone with Users</span>':'';
- const tabs=`<div class="sl-filter-row"><div class="sl-quick" role="tablist">${[['office','Office'],['production','Production'],['log','Sign-in log'],['cloud','Cloud']].map(([k,l])=>`<button type="button" role="tab" class="sl-quick-pill${side===k?' on':''}" data-users-side="${k}" onclick="usersTab('${k}')">${l} <b>${count(k)}</b></button>`).join('')}</div></div>`;
+ const tabs=`<div class="sl-filter-row"><div class="sl-quick" role="tablist">${[['office','Office'],['production','Production'],['log','Sign-in log'],['cloud','Cloud']].map(([k,l])=>`<button type="button" role="tab" class="sl-quick-pill${side===k?' on':''}" data-users-side="${k}" ${onAct('click',usersTab,String(k))}>${l} <b>${count(k)}</b></button>`).join('')}</div></div>`;
  const selI=list.findIndex(x=>x.u.viewProfileId===uSel),sel=selI<0?null:list[selI];
- const bar=`<div class="sales-toolbar">${sel?`<b class="oq-sel" title="${esc(sel.u.name)}">1 selected</b>`:''}<button type="button" class="sl-quiet" data-user-edit ${sel?'':'disabled'} onclick="userEditOpen(${sel?sel.i:-1})">Edit</button><button type="button" class="sl-quiet sl-delete-quiet" data-user-remove ${sel?'':'disabled'} title="${prod?'Remove from production':'Remove from office'}" onclick="delUser(${sel?sel.i:-1},'${side}');uSel=''">Remove</button><span class="sales-toolbar-sp"></span>${off}${uEdit!==null||log||cloud?'':`<button class="pri" data-user-add onclick="userEditOpen('new')">Add user</button>`}</div>`;
+ const bar=`<div class="sales-toolbar">${sel?`<b class="oq-sel" title="${esc(sel.u.name)}">1 selected</b>`:''}<button type="button" class="sl-quiet" data-user-edit ${sel?'':'disabled'} ${onAct('click',userEditOpen,sel?sel.i:-1)}>Edit</button><button type="button" class="sl-quiet sl-delete-quiet" data-user-remove ${sel?'':'disabled'} title="${prod?'Remove from production':'Remove from office'}" ${onAct('click',delUserSel,sel?sel.i:-1,String(side))}>Remove</button><span class="sales-toolbar-sp"></span>${off}${uEdit!==null||log||cloud?'':`<button class="pri" data-user-add ${onAct('click',userEditOpen,'new')}>Add user</button>`}</div>`;
  return `${cloud?`<div class="card sales-list-card"><div class="sales-toolbar"><span class="sales-toolbar-sp"></span>${off}</div>${tabs}<div style="padding:0 20px 16px">${usersCloudHTML()}</div></div>`:log?`<div class="card sales-list-card users-log-card">${tabs}${authLogTable()}</div>`:`<div class="card sales-list-card sl-foot-pin">${bar}${tabs}
   ${uEdit!==null?userForm():''}
   ${table}
@@ -91,15 +91,15 @@ function usersCloudHTML(){
    <div><label>Password</label>${pwInput('id="cl_pass" autocomplete="current-password"')}</div>
   </div>
   <div class="row">${status}
-   <button class="pri" data-cloud-connect ${st.busy?'disabled':''} onclick="usersCloudConnect()">Connect</button>
-   ${s?`<button data-cloud-check onclick="cloudCheck()">Check</button><button data-cloud-out onclick="cloudSignOut()">Sign out</button>`:''}</div>
+   <button class="pri" data-cloud-connect ${st.busy?'disabled':''} ${onAct('click',usersCloudConnect)}>Connect</button>
+   ${s?`<button data-cloud-check ${onAct('click',cloudCheck)}>Check</button><button data-cloud-out ${onAct('click',cloudSignOut)}>Sign out</button>`:''}</div>
   ${s?usersCloudSyncHTML():''}${s&&Array.isArray(cloudAccess.members)?usersCloudAccessHTML()+usersCloudJournalHTML():''}${usersDataHTML()}</div>`;
 }
 /* Вся база файлом — только здесь, не на каждом экране (владелец, 02.11.2026).
    С сервером замена базы ушла бы всем: Import, Restore и Clear не показаны. */
 function usersDataHTML(){
  const on=typeof cloudSync!=='undefined'&&cloudSync.on;
- return `<h3>Data</h3><div class="row" data-users-data><button onclick="doExport()">Export JSON</button>${on?'':`<button onclick="document.getElementById('imp').click()">Import JSON</button>${storageBackupPresent?'<button onclick="storageRestoreBackup()">Restore pre-import backup</button>':''}<button onclick="storageClear()">Clear database</button>`}</div>`;
+ return `<h3>Data</h3><div class="row" data-users-data><button ${onAct('click',doExport)}>Export JSON</button>${on?'':`<button ${onAct('click',usersImportPick)}>Import JSON</button>${storageBackupPresent?'<button '+onAct('click',storageRestoreBackup)+'>Restore pre-import backup</button>':''}<button ${onAct('click',storageClear)}>Clear database</button>`}</div>`;
 }
 function usersCloudSyncHTML(){
  const y=cloudSync,text=cloudSyncText(),busy=!!y.busy;
@@ -107,8 +107,8 @@ function usersCloudSyncHTML(){
  const warn=y.warn?`<div class="hint warn" data-cloud-warn>${esc(y.warn)}</div>`:'';
  const err=!y.on&&y.error?`<div class="hint warn" data-cloud-sync-error>${esc(y.error)}</div>`:'';
  return `<h3>Sync</h3>${warn}${err}<div class="row">${pill}
-  ${y.on?`<button data-cloud-stop ${busy?'disabled':''} onclick="cloudSyncStop()">Stop sync</button>`
-   :`<button class="pri" data-cloud-upload ${busy?'disabled':''} onclick="cloudUpload()">Upload this database</button><button data-cloud-download ${busy?'disabled':''} onclick="cloudDownload()">Download from server</button>`}</div>`;
+  ${y.on?`<button data-cloud-stop ${busy?'disabled':''} ${onAct('click',cloudSyncStop)}>Stop sync</button>`
+   :`<button class="pri" data-cloud-upload ${busy?'disabled':''} ${onAct('click',cloudUpload)}>Upload this database</button><button data-cloud-download ${busy?'disabled':''} ${onAct('click',cloudDownload)}>Download from server</button>`}</div>`;
 }
 /* Access — правила таблиц на сервере (erp_table_rule): кто читает и кто
    пишет. Нет раздела — все. Видит и меняет администратор сервера. */
@@ -119,19 +119,19 @@ function usersRuleText(v){
 function usersCloudAccessHTML(){
  const a=cloudAccess,d=a.draft,list=d||a.rules||[],busy=a.busy;
  const ticks=(r,side)=>{const on=String(r[side]||'').split(',');
-  return `<div class="user-secs" data-rule-side="${side}">${USER_SECTIONS.map(k=>`<label class="user-sec${on.includes(k)?' on':''}" data-rule-sec="${k}"><input type="checkbox" ${on.includes(k)?'checked':''} onchange="usersRuleTick('${esc(r.tbl)}','${side}','${k}',this.checked)">${esc(userSectionNav(k).label)}</label>`).join('')}</div>`;};
+  return `<div class="user-secs" data-rule-side="${side}">${USER_SECTIONS.map(k=>`<label class="user-sec${on.includes(k)?' on':''}" data-rule-sec="${k}"><input type="checkbox" ${on.includes(k)?'checked':''} ${onAct('change',usersRuleTick,String(r.tbl??''),String(side),String(k),EL_CHECKED)}>${esc(userSectionNav(k).label)}</label>`).join('')}</div>`;};
  const rows=list.map(r=>{
   const open=d&&a.open===r.tbl;
   return `<tr data-rule-row="${esc(r.tbl)}"><td class="mono">${esc(r.tbl)}</td><td>${usersRuleText(r.read)}</td><td>${usersRuleText(r.write)}</td>
-   <td style="white-space:nowrap"><button class="sm" data-rule-open ${busy?'disabled':''} onclick="usersRuleOpen('${esc(r.tbl)}')">${open?'Done':'Edit'}</button><button class="sm dl" data-rule-drop title="Remove rule" ${busy?'disabled':''} onclick="usersRuleDrop('${esc(r.tbl)}')">×</button></td></tr>`
+   <td style="white-space:nowrap"><button class="sm" data-rule-open ${busy?'disabled':''} ${onAct('click',usersRuleOpen,String(r.tbl??''))}>${open?'Done':'Edit'}</button><button class="sm dl" data-rule-drop title="Remove rule" ${busy?'disabled':''} ${onAct('click',usersRuleDrop,String(r.tbl??''))}>×</button></td></tr>`
    +(open?`<tr data-rule-edit><td></td><td>${ticks(r,'read')}</td><td>${ticks(r,'write')}</td><td></td></tr>`:'');
  }).join('');
  const used=new Set(list.map(r=>r.tbl)),free=Object.keys(DB).filter(t=>Array.isArray(DB[t])&&/^[A-Za-z]/.test(t)&&!used.has(t)).sort();
- const add=`<select id="cl_rule_tbl" ${busy?'disabled':''}>${free.map(t=>`<option>${esc(t)}</option>`).join('')}</select><button class="sm" data-rule-add ${busy?'disabled':''} onclick="usersRuleAdd()">Add rule</button>`;
+ const add=`<select id="cl_rule_tbl" ${busy?'disabled':''}>${free.map(t=>`<option>${esc(t)}</option>`).join('')}</select><button class="sm" data-rule-add ${busy?'disabled':''} ${onAct('click',usersRuleAdd)}>Add rule</button>`;
  return `<h3>Access</h3><div class="hint">No rule — everyone.</div>
   ${a.error?`<div class="hint warn" data-cloud-access-error>${esc(a.error)}</div>`:''}
   ${slFromTable('cloudRules',`<table data-cloud-rules><thead><tr><th>Table</th><th>Read</th><th>Write</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="empty">No rules</td></tr>'}</tbody></table>`)}
-  <div class="row">${add}${d?`<button class="pri" data-rule-save ${busy?'disabled':''} onclick="cloudRulesSave(cloudAccess.draft)">Save access</button><button ${busy?'disabled':''} onclick="cloudAccess.draft=null;cloudAccess.open='';render()">Cancel</button>`:`<button class="sm" ${busy?'disabled':''} onclick="cloudAccessLoad()">Refresh</button>`}</div>`;
+  <div class="row">${add}${d?`<button class="pri" data-rule-save ${busy?'disabled':''} ${onAct('click',cloudRulesDraftSave)}>Save access</button><button ${busy?'disabled':''} ${onAct('click',cloudRulesCancel)}>Cancel</button>`:`<button class="sm" ${busy?'disabled':''} ${onAct('click',cloudAccessLoad)}>Refresh</button>`}</div>`;
 }
 /* Journal — кто что записал на сервере (erp_journal): только администратор,
    по кнопке — журнал не грузится сам при каждом заходе в Users. */
@@ -150,7 +150,7 @@ function usersCloudJournalHTML(){
  return `<h3>Journal</h3><div class="hint">Who wrote what on the server.</div>
   ${j.error?`<div class="hint warn" data-journal-error>${esc(j.error)}</div>`:''}
   ${j.rows?slFromTable('cloudJournal',`<table data-cloud-journal><thead><tr><th>When</th><th>Who</th><th>Computer</th><th>Result</th><th>What</th></tr></thead><tbody>${body||'<tr><td colspan="5" class="empty">No records</td></tr>'}</tbody></table>`):''}
-  <div class="row"><button class="sm" data-journal-load ${busy?'disabled':''} onclick="cloudJournalLoad()">${j.rows?'Refresh':'Show journal'}</button>${j.more?`<button class="sm" data-journal-older ${busy?'disabled':''} onclick="cloudJournalLoad(true)">Older</button>`:''}</div>`;
+  <div class="row"><button class="sm" data-journal-load ${busy?'disabled':''} ${onAct('click',cloudJournalLoad)}>${j.rows?'Refresh':'Show journal'}</button>${j.more?`<button class="sm" data-journal-older ${busy?'disabled':''} ${onAct('click',cloudJournalLoad,true)}>Older</button>`:''}</div>`;
 }
 function usersRuleDraft(){if(!cloudAccess.draft)cloudAccess.draft=(cloudAccess.rules||[]).map(r=>({tbl:r.tbl,read:r.read||'',write:r.write||''}));return cloudAccess.draft;}
 function usersRuleOpen(t){usersRuleDraft();cloudAccess.open=cloudAccess.open===t?'':t;render();}
@@ -173,7 +173,7 @@ function usersRuleTick(t,side,k,on){
 let cloudJoin=null;
 function cloudJoinButton(){
  const c=cloudConfig();let host='';try{host=c.url?new URL(c.url).host.split('.')[0]:'';}catch(e){}
- return `<button type="button" class="signin-server" data-cloud-join onclick="cloudJoinOpen()">${host?'Server · '+esc(host):'Connect to server'}</button>`;
+ return `<button type="button" class="signin-server" data-cloud-join ${onAct('click',cloudJoinOpen)}>${host?'Server · '+esc(host):'Connect to server'}</button>`;
 }
 /* render синхронный; фокус позже уводил набранное в Server (как в Purchasing, v5.261). */
 function cloudJoinOpen(){cloudJoin={busy:false,error:''};render();const el=document.getElementById(cloudConfig().url?'cj_email':'cj_url');if(el)el.focus();}
@@ -181,15 +181,15 @@ function cloudJoinClose(){if(cloudJoin&&cloudJoin.busy)return;cloudJoin=null;ren
 function cloudJoinHTML(){
  if(!cloudJoin)return '';
  const c=cloudConfig(),b=cloudJoin.busy?'disabled':'';
- return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)cloudJoinClose()"><div class="sales-service-modal sales-dialog" role="dialog" aria-modal="true" aria-label="Server" data-cloud-join-dialog>
-  <div class="sales-service-modal-head"><div><span>This computer</span><h3>Server</h3></div><button type="button" aria-label="Close" onclick="cloudJoinClose()">×</button></div>
-  <form class="sales-dialog-body form" onsubmit="event.preventDefault();cloudJoinGo()">
+ return `<div class="sales-service-modal-back sales-dialog-back" ${onActSelf('click',cloudJoinClose)}><div class="sales-service-modal sales-dialog" role="dialog" aria-modal="true" aria-label="Server" data-cloud-join-dialog>
+  <div class="sales-service-modal-head"><div><span>This computer</span><h3>Server</h3></div><button type="button" aria-label="Close" ${onAct('click',cloudJoinClose)}>×</button></div>
+  <form class="sales-dialog-body form" ${onAct('submit',cloudJoinSubmit,EVENT)}>
    <label>Server</label><input id="cj_url" autocomplete="off" placeholder="https://xxxx.supabase.co" value="${esc(c.url||'')}" ${b}>
    <label>Publishable key</label><input id="cj_key" autocomplete="off" placeholder="sb_publishable_…" value="${esc(c.key||'')}" ${b}>
    <label>Email</label><input id="cj_email" autocomplete="username" value="${esc(c.session&&c.session.email||'')}" ${b}>
    <label>Password</label>${pwInput('id="cj_pass" autocomplete="current-password" '+b)}
    <div class="signin-err" role="alert" data-cloud-join-error>${esc(cloudJoin.error||'')}</div>
-   <div class="row"><button type="submit" class="pri" data-cloud-join-go ${b}>${cloudJoin.busy?esc(cloudJoin.busy):'Connect'}</button><button type="button" onclick="cloudJoinClose()" ${b}>Cancel</button></div>
+   <div class="row"><button type="submit" class="pri" data-cloud-join-go ${b}>${cloudJoin.busy?esc(cloudJoin.busy):'Connect'}</button><button type="button" ${onAct('click',cloudJoinClose)} ${b}>Cancel</button></div>
   </form></div></div>`;
 }
 (window.APP_OVERLAYS=window.APP_OVERLAYS||[]).push(()=>tab==='station'?'':cloudJoinHTML());
@@ -229,7 +229,7 @@ function authLogTable(){
  const head=c=>salesListHead(c),cw=salesListCwTable(cols.map(c=>c.k),[44],0);
  const cell=(i,c)=>c.k==='when'?`<td>${esc(salesListShortDay(i.memo.when))} · ${esc(new Date(i.e.at).toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit',hour12:false}))}</td>`:c.k==='what'?`<td><span class="pill ${i.e.what==='Sign in'?'ok':''}">${esc(i.e.what)}</span></td>`:`<td>${i.memo[c.k]?raw(String(i.memo[c.k])):'<span class="mut">—</span>'}</td>`;
  return `<div class="sales-toolbar">${salesListDateButton('when')}</div>${salesListFilterChips()}
-  <div class="sales-table-wrap"><table class="sl-table users-log${cw.cls}"${cw.attrs}>${cw.col}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(head).join('')}</tr></thead>
+  <div class="sales-table-wrap"><table class="sl-table users-log${cw.cls}"${cw.attrs}>${cw.col}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" ${onAct('click',salesListOpenColumns,EVENT)}>${ico('settings')}</button></span></th>${cols.map(head).join('')}</tr></thead>
   <tbody>${rows.map(i=>`<tr data-auth-row><td class="sl-check"></td>${cols.map(c=>cell(i,c)).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length+1}" class="empty">${infos.length?'Nothing matches the filters.':'No sign-ins yet'}</td></tr>`}</tbody></table></div>
   <div class="mut cust-foot">${rows.length} of ${infos.length} records · this computer only</div>${salesListMenuHTML(infos)}`;
 }
@@ -255,24 +255,24 @@ function userEditOpen(i){
 function userForm(){
  const r=uDraft;
  const sections=USER_SECTIONS.map(k=>{const n=userSectionNav(k),on=r.access.includes(k);
-  return `<label class="user-sec${on?' on':''}" data-user-sec="${k}"><input type="checkbox" ${on?'checked':''} onchange="userToggleSection('${k}',this.checked)">${ico(n.icon,'icon-inline')}${esc(n.label)}</label>`;}).join('');
+  return `<label class="user-sec${on?' on':''}" data-user-sec="${k}"><input type="checkbox" ${on?'checked':''} ${onAct('change',userToggleSection,String(k),EL_CHECKED)}>${ico(n.icon,'icon-inline')}${esc(n.label)}</label>`;}).join('');
  const office=r.onOffice?`<div class="user-block-body">
-   <div class="grid"><div><label>Password</label>${pwInput(`id="u_password" autocomplete="new-password" placeholder="${r.hasPassword?'set · type to change':USER_PASSWORD_MIN+'+ characters'}" value="${esc(r.newPassword||'')}" oninput="uDraft.newPassword=this.value"`)}</div>
-    <div><label>Server login</label><input id="u_email" autocomplete="off" placeholder="email" value="${esc(r.email||'')}" oninput="uDraft.email=this.value"></div></div>
-   <div class="user-sec-head"><label>Sections</label><button type="button" class="sm" onclick="userSetSections(true)">All</button><button type="button" class="sm" onclick="userSetSections(false)">None</button></div>
+   <div class="grid"><div><label>Password</label>${pwInput(`id="u_password" autocomplete="new-password" placeholder="${r.hasPassword?'set · type to change':USER_PASSWORD_MIN+'+ characters'}" value="${esc(r.newPassword||'')}" ${onAct('input',uDraftSet,'newPassword',EL_VALUE)}`)}</div>
+    <div><label>Server login</label><input id="u_email" autocomplete="off" placeholder="email" value="${esc(r.email||'')}" ${onAct('input',uDraftSet,'email',EL_VALUE)}></div></div>
+   <div class="user-sec-head"><label>Sections</label><button type="button" class="sm" ${onAct('click',userSetSections,true)}>All</button><button type="button" class="sm" ${onAct('click',userSetSections,false)}>None</button></div>
    <div class="user-secs">${sections}</div></div>`:'';
  const station=r.onStation?`<div class="user-block-body"><div class="grid">
-   <div><label>No.</label><input id="u_no" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="auto" value="${esc(r.no||'')}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,4);uDraft.no=this.value"></div>
-   <div><label>PIN</label>${pwInput(`id="u_pin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="${r.hasPin?'set · type to change':'4 digits'}" value="${esc(r.newPin||'')}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,4);uDraft.newPin=this.value"`)}</div>
+   <div><label>No.</label><input id="u_no" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="auto" value="${esc(r.no||'')}" ${onAct('input',uDraftDigits,'no',EL)}></div>
+   <div><label>PIN</label>${pwInput(`id="u_pin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="${r.hasPin?'set · type to change':'4 digits'}" value="${esc(r.newPin||'')}" ${onAct('input',uDraftDigits,'newPin',EL)}`)}</div>
   </div><div class="hint">Any station. The office gives the PIN.</div></div>`:'';
  return `<div class="form user-form"><h3>${uEdit==='new'?'New user':'Edit'}</h3>
-  <div class="grid"><div><label>Name *</label><input id="u_name" value="${esc(r.name||'')}" oninput="uDraft.name=this.value"></div></div>
+  <div class="grid"><div><label>Name *</label><input id="u_name" value="${esc(r.name||'')}" ${onAct('input',uDraftSet,'name',EL_VALUE)}></div></div>
   <div class="user-blocks">
-   <div class="user-block${r.onOffice?' on':''}"><label class="user-block-head"><input type="checkbox" id="u_office" ${r.onOffice?'checked':''} onchange="uDraft.onOffice=this.checked;render()"><b>Office sign-in</b><span class="mut">password · sections</span></label>${office}</div>
-   <div class="user-block${r.onStation?' on':''}"><label class="user-block-head"><input type="checkbox" id="u_station" ${r.onStation?'checked':''} onchange="uDraft.onStation=this.checked;render()"><b>Station sign-in</b><span class="mut">number · PIN</span></label>${station}</div>
+   <div class="user-block${r.onOffice?' on':''}"><label class="user-block-head"><input type="checkbox" id="u_office" ${r.onOffice?'checked':''} ${onAct('change',uDraftSet,'onOffice',EL_CHECKED,true)}><b>Office sign-in</b><span class="mut">password · sections</span></label>${office}</div>
+   <div class="user-block${r.onStation?' on':''}"><label class="user-block-head"><input type="checkbox" id="u_station" ${r.onStation?'checked':''} ${onAct('change',uDraftSet,'onStation',EL_CHECKED,true)}><b>Station sign-in</b><span class="mut">number · PIN</span></label>${station}</div>
   </div>
   <div class="err" id="e_user"></div>
-  <div class="row"><button class="pri" data-user-save onclick="saveUser()">Save</button><button onclick="uEdit=null;uDraft=null;render()">Cancel</button></div></div>`;
+  <div class="row"><button class="pri" data-user-save ${onAct('click',saveUser)}>Save</button><button ${onAct('click',userEditCancel)}>Cancel</button></div></div>`;
 }
 function userToggleSection(k,on){
  const set=new Set(uDraft.access);if(on)set.add(k);else set.delete(k);
@@ -304,6 +304,18 @@ function saveUser(){
  });
 }
 function userSaveButton(busy){const b=document.querySelector('[data-user-save]');if(b){b.disabled=busy;b.textContent=busy?'Saving…':'Save';}}
+/* Действия экрана Users (были кодом в разметке, задание «CSP без inline»). */
+function usersSelTick(id,checked){uSel=checked?id:'';render();}
+/* Имя del… — кнопка серая без записи (storageLockButtons), как прежний onclick="delUser(…)". */
+function delUserSel(i,side){delUser(i,side);uSel='';}
+function usersImportPick(){document.getElementById('imp').click();}
+/* Имя …Save — так же: прежний onclick="cloudRulesSave(…)". */
+function cloudRulesDraftSave(){return cloudRulesSave(cloudAccess.draft);}
+function cloudRulesCancel(){cloudAccess.draft=null;cloudAccess.open='';render();}
+function cloudJoinSubmit(ev){ev.preventDefault();cloudJoinGo();}
+function uDraftSet(key,v,redraw){uDraft[key]=v;if(redraw)render();}
+function uDraftDigits(key,el){el.value=el.value.replace(/\D/g,'').slice(0,4);uDraft[key]=el.value;}
+function userEditCancel(){uEdit=null;uDraft=null;render();}
 function delUser(i,side){
  const u=DB.user[i];if(!u)return Promise.resolve(null);
  const rev=u.rev,err=usersDropError(u.viewProfileId,side,rev);if(err){alert(err);return Promise.resolve(usersFail(err));}

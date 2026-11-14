@@ -426,4 +426,6 @@ function archiveIguJoin(g,hot,cold){
  used.forEach((u,k)=>{const a=m.get('ARCH|'+k);if(!a)return;a.qty-=u.qty;a.missing=Math.max(0,a.missing-u.missing);g.sum.forEach(f=>{if(f.endsWith('Ft')||f.endsWith('Kg'))if(a[f])a[f]-=u.qty;});if(Math.abs(a.qty)<1e-6&&!a.missing)m.delete('ARCH|'+k);});
  return [...m.values()];
 }
-Object.keys(ARCH_GENS).forEach(gen=>{const name=ARCH_GENS[gen].fn,fn=window[name];window[name]=function(){return archiveFactsMerge(gen,fn.apply(this,arguments),arguments);};});
+/* Обёртке — имя прежней функции: onAct (core/actions.js) узнаёт действие по имени. */
+Object.keys(ARCH_GENS).forEach(gen=>{const name=ARCH_GENS[gen].fn,fn=window[name];window[name]=function(){return archiveFactsMerge(gen,fn.apply(this,arguments),arguments);};
+ Object.defineProperty(window[name],'name',{value:name});});

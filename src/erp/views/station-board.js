@@ -97,7 +97,7 @@ let stationBoardShow='';
 function stationBoardSet(id){stationBoardShow=id||'';render();}
 function stationBoardView(who){
  const reps=typeof repScreensFor==='function'?repScreensFor('stations',stationCode):[],cur=reps.some(r=>r.id===stationBoardShow)?stationBoardShow:'';
- const tabs=reps.length?'<div class="sb-tabs">'+repScreenTabs(reps,cur,'stationBoardSet')+'</div>':'';
+ const tabs=reps.length?'<div class="sb-tabs">'+repScreenTabs(reps,cur,stationBoardSet)+'</div>':'';
  if(cur)return tabs+'<div class="sb-report">'+repScreenHTML(reps.find(r=>r.id===cur),{station:stationCode,person:who.name})+'</div>';
  const d=stationBoardData(),ship=stationIsShip()||stationIsReady();
  return tabs+'<div class="st-body sb"><div class="st-col">'+stationBoardHere(d)+stationBoardMine(d,who)+'</div><div class="st-col">'+stationBoardHot(d)+(ship?stationBoardShipping(d):'')+'</div></div>';

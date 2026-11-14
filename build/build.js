@@ -63,13 +63,19 @@ var ERP_BUILD='${buildFingerprint}';`;
    базы (data:, blob:). Ходить по сети страница может только на сервер
    Supabase и в Google Maps (километры рейса, по кнопке): чужой скрипт,
    попавший в страницу, не отправит базу на свой адрес ни запросом, ни
-   картинкой, ни формой, и не подгрузит код со стороны. Обработчики onclick
-   в разметке — встроенный код, поэтому 'unsafe-inline' (без него ERP не
-   работает); eval не нужен и запрещён. GitHub Pages не даёт заголовков —
-   политика в <meta>. Проверка — test/csp.js; нарушения ловит каждый тест. */
+   картинкой, ни формой, и не подгрузит код со стороны. eval запрещён.
+   Встроенный код запрещён тоже (без 'unsafe-inline' в script-src, задание
+   «CSP без inline», 14.11.2026): обработчиков onclick в разметке нет
+   (действия — core/actions.js), а единственный свой встроенный <script>
+   браузер узнаёт по хешу — сборка считает sha256 его текста и кладёт
+   'sha256-…' в script-src (cspWithScript). В dist это весь код, в
+   src/index.html — метка сборки. Текст из базы, попавший на экран без esc,
+   кодом не станет. Стили: 'unsafe-inline' в style-src остаётся
+   (style="…" в разметке). GitHub Pages не даёт заголовков — политика в
+   <meta>. Проверка — test/csp.js; нарушения ловит каждый тест. */
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://maps.gstatic.com",
+  "script-src 'self' https://maps.googleapis.com https://maps.gstatic.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com",
   "font-src 'self' data:",
@@ -80,11 +86,18 @@ const CSP = [
   "base-uri 'none'",
   "form-action 'self'"
 ].join('; ');
-const CSP_META = `<meta http-equiv="Content-Security-Policy" content="${CSP}">`;
+/* Политика страницы со встроенным скриптом body: его хеш — в script-src.
+   Браузер хеширует текст между <script> и </script> как есть, поэтому в
+   страницу кладут ровно ту же строку body. */
+function cspWithScript(body) {
+  const hash = "'sha256-" + crypto.createHash('sha256').update(body, 'utf8').digest('base64') + "'";
+  return CSP.replace("script-src 'self'", "script-src 'self' " + hash);
+}
+const cspMeta = body => `<meta http-equiv="Content-Security-Policy" content="${cspWithScript(body)}">`;
 
 /* ---- Standalone: стили и модули внутри одного файла ---- */
 function renderHtml(loader) {
-  const { css, js, shell, stamp } = sources(loader);
+  const { css, js, shell, stamp } = sources(loader), body = `\n${stamp}\n${js}\n`;
   return `<!DOCTYPE html>
 <!--
   ${M.title}
@@ -95,7 +108,7 @@ function renderHtml(loader) {
 <html lang="en">
 <head>
 <meta charset="utf-8">
-${CSP_META}
+${cspMeta(body)}
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${M.title}</title>
 <style>
@@ -104,10 +117,7 @@ ${css}
 </head>
 <body>
 ${shell}
-<script>
-${stamp}
-${js}
-</script>
+<script>${body}</script>
 </body>
 </html>
 `;
@@ -115,7 +125,7 @@ ${js}
 
 /* ---- Web: те же стили и модули отдельными файлами ---- */
 function renderWeb(loader) {
-  const { shell, stamp } = sources(loader);
+  const { shell, stamp } = sources(loader), body = `\n${stamp}\n`;
   return `<!DOCTYPE html>
 <!--
   ${M.title} — версия по модулям.
@@ -130,16 +140,14 @@ function renderWeb(loader) {
 <html lang="en">
 <head>
 <meta charset="utf-8">
-${CSP_META}
+${cspMeta(body)}
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${M.title} — modules</title>
 ${M.styles.map(f => `<link rel="stylesheet" href="${fromSrc(f)}">`).join('\n')}
 </head>
 <body>
 ${shell}
-<script>
-${stamp}
-</script>
+<script>${body}</script>
 ${M.scripts.map(f => `<script src="${fromSrc(f)}"></script>`).join('\n')}
 </body>
 </html>
@@ -171,4 +179,4 @@ function build(options) {
 
 if (require.main === module) build({ onlyWeb: process.argv.includes('--web') });
 
-module.exports = { build, normalizeNewlines, renderHtml, renderWeb, CSP };
+module.exports = { build, normalizeNewlines, renderHtml, renderWeb, CSP, cspWithScript };

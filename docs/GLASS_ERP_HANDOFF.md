@@ -1,6 +1,6 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 5.315 · 14 ноября 2026 — действия экрана без кода в разметке (`core/actions.js`): Sales, фигуры, списки, общее, Optimization, Production, станции, Master Data, формы, Customers, прайсы, Finance, Agents, Purchasing, Inventory и Shipping переведены, осталось 212 обработчиков из 2095; Cancel order и Delete заказа — только с галочкой Finance; хендофф — «как устроено сейчас» по разделам, журнал решений — `docs/journal/`.
+Версия 5.316 · 14 ноября 2026 — встроенный код в странице запрещён: `script-src` без `'unsafe-inline'`, свой `<script>` — по `sha256` от сборки; все действия экрана — `onAct` (`core/actions.js`), встроенных обработчиков не осталось (было 2095); Cancel order и Delete заказа — только с галочкой Finance; хендофф — «как устроено сейчас» по разделам, журнал решений — `docs/journal/`.
 
 ## Как читать
 
@@ -44,8 +44,13 @@
   хранится и вне базы, не повторяется после старой выгрузки; с сервером — блоками `cloudNumbersReserve`.
 - Посчитанное живёт между отрисовками (`READ_KEEP`, `erp/read-scope`), сброс — любая запись и новый день.
 - Страница ходит только туда, что в CSP (`build/build.js`): свой сайт, `https://*.supabase.co`, Google Maps; `test/csp.js`.
-  `'unsafe-inline'` в `script-src` остаётся, пока в разметке есть обработчики (`onclick="…"`) и пока в
-  `dist/GLASS_ERP.html` весь код встроен одним `<script>` — ему нужен `sha256` от сборки (PR 5 задания ниже).
+  **Встроенный код запрещён** (`script-src` без `'unsafe-inline'`, PR 5 задания ниже, 14.11): обработчик `onclick="…"`
+  или `<script>`, попавший в страницу (текст из базы без `esc`), браузер не выполняет. Свой единственный встроенный
+  `<script>` страница пропускает по хешу: сборка считает `sha256` его текста и кладёт `'sha256-…'` в `script-src`
+  (`cspWithScript`, `renderHtml` / `renderWeb`) — в `dist/GLASS_ERP.html` это весь код, в `src/index.html` — метка
+  сборки (`ERP_BUILD`). Правка модуля меняет метку, а с ней и хеш, — `npm run build:web` после правки `src/` и так
+  обязателен. Стили `style="…"` можно (`style-src 'unsafe-inline'` оставлен). Новый `<script>` в разметке
+  (`src/shell.html`, строки модулей) не заработает — код только в модулях манифеста.
 - **Действия экрана без кода в разметке** (`src/core/actions.js`, задание `ЗАДАЧА_CSP_БЕЗ_INLINE.md`, 14.11): кнопка
   несёт имя функции и аргументы данными (`data-on-click`, `data-args-click`), вызывает один слушатель на `document`
   — только функции из реестра (их кладёт туда `onAct` при отрисовке), имя из разметки в `window` не ищется.
@@ -58,17 +63,19 @@
   Несколько шагов, условие, присваивание — маленькая функция рядом со своим экраном (`salesDraftSet`,
   `salesListDrop`). Код строкой (`${go}`) не передают — передают функцию и аргументы. Переведены: PR 1 — Sales,
   фигуры, списки, общее; PR 2 — Optimization, Production, станции; PR 3 — Master Data, формы, Customers, прайсы;
-  PR 4 — Finance, Agents, Purchasing, Inventory, Shipping; осталось 212 в 4 файлах — Reports, Users, вход,
-  Overview (PR 5, `node tools/csp-handlers.js`). Имя действия, которое берёт функцию чужого раздела, —
+  PR 4 — Finance, Agents, Purchasing, Inventory, Shipping; PR 5 — Reports, Users, вход, Overview: встроенных
+  обработчиков не осталось (было 2095). Имя действия, которое берёт функцию чужого раздела, —
   тоже вызов снаружи: оно должно быть в `FIN_API` / `STOCK_API` / `SHIP_API` (`test/sections-api.js`).
-- **Как перевести раздел** (PR 2–5): `node tools/csp-handlers.js --write <файлы>` переводит простые формы и
-  печатает остальные «руками» с причиной; `git diff` прочитать по каждому файлу (что проверять — в шапке скрипта);
-  функция, которую подменяют на `window[name]`, должна сохранить имя; тесты, искавшие элемент по `[onclick…]`, —
-  на `[data-on-click="имя"]`; уменьшить числа в `INLINE_LEFT` (`tools/csp-handlers.js`) — `test/docs.js` сверяет
-  список с кодом, новый `onclick` в любом файле красный. Кнопку записи база узнаёт по имени действия
+- **Новый `onclick` в любом модуле или `src/shell.html` — красный `test/docs.js`** (`inlineProblems`,
+  `tools/csp-handlers.js`): в странице он молча не сработал бы. Ветка, начатая раньше, переводит свои обработчики
+  `node tools/csp-handlers.js --write <файлы>` (простые формы; остальные печатает «руками» с причиной), `git diff`
+  прочитать по каждому файлу (что проверять — в шапке скрипта). Функция, которую подменяют на `window[name]`, должна
+  сохранить имя (`Object.defineProperty(fn,'name',…)`, так в `sales-shape-ui.js` и `reports/archive-facts.js`); тесты
+  ищут элемент по `[data-on-click="имя"]`. Кнопку записи база узнаёт по имени действия
   (`storageLockButtons`): имя новой функции-обёртки должно так же подходить под `save*`, `*Save`, `*Create`, `del*`,
   как прежний текст `onclick`, и не подходить, если прежний не подходил.
-- Сторожа: `test/run.js` (все), `test/docs.js` (документы, карта, шапки модулей, `INLINE_LEFT`), `test/actions.js`,
+- Сторожа: `test/run.js` (все, `cspViolations` — ни одного запрета браузера), `test/csp.js` (политика, хеш, встроенный
+  код не выполняется), `test/docs.js` (документы, карта, шапки модулей, ни одного `on<событие>=`), `test/actions.js`,
   `test/design-tokens.js`, `test/motion.js`.
 
 ## Sales
@@ -468,7 +475,9 @@ PI-, PP- с сервера. Факты — `CLOUD_FACT`. Экраны — на �
 
 **Как устроено**: архив читается частями по 40 заказов (`archive-facts.js`, `archiveCalc`); месяц — диск → сервер
 (`erp_facts_get`) → расчёт; **PR, меняющий функции фактов, `ARCH_GENS` или расчёт части, поднимает `ARCH_RULES`
-руками**. Стартовые — `REP_SEED_VERSION`; долгий источник считается в фоне. Сторожа: `test/report-engine.js`,
+руками**. Стартовые — `REP_SEED_VERSION`; долгий источник считается в фоне. Экраны — на действиях `onAct` (PR 5
+задания CSP, 14.11): кнопки виджета и пункты меню листа — `[функция, …аргументы]` (`repIcoBtn`, `repPageMenuHTML`),
+вкладки «Now / отчёт» на Overview и Board — `repScreenTabs(reps, cur, функция)`. Сторожа: `test/report-engine.js`,
 `report-builder`, `report-fixture`, `reports`; `node tools/sim-shop.js --check` и `tools/perf-year.js --reports`.
 
 **Открыто**: Reports не на движке списков Sales; сквозная аналитика R-1, R-2, R-7, R-8 — решение владельца.
@@ -546,12 +555,16 @@ masterdata.*` и `forms.*`.
   отказ всей команды; команды цеха пишут таблицы разных разделов (Save и Verify заказа — `glassPiece`, отмена заказа переносит
   оплаты `receipt` через `finReleaseOrder`), поэтому новое
   закрытие — только с проверкой команд, которые эту таблицу пишут.
+- Экраны Users и вход — на действиях `onAct` (PR 5 задания CSP, 14.11): поля карточки — `uDraftSet`, номер и PIN —
+  `uDraftDigits`; Remove — `delUserSel`, Save access — `cloudRulesDraftSave` (имена `del…` / `…Save`, чтобы кнопки
+  оставались серыми без записи, `storageLockButtons`).
 - Сторожа: `test/cloud*.js`, `two-pcs` (на настоящем `schema.sql` через PGlite), `users-commands`, `csp`;
   `node tools/supabase/check-pglite.js`.
 
 **Открыто**: регистрация на Supabase открыта (`disable_signup`) — на решение; два настоящих ПК одновременно не
 проверены; переезд на новый домен — ближе к этапу 8 (владелец, 12.11: «есть ещё что в системе править»);
-`'unsafe-inline'` — хвост этапа 3, идёт по разделам (PR 1 из 5 — 14.11, см. Общее). HTTPS обязателен (Enforce HTTPS, 12.11). Обязательная проверка CI для `main` не
+`connect-src https://*.supabase.co` пускает на любой проект Supabase, не только наш (адрес вводят в Users → Cloud) —
+закрепить один адрес вместе с доменом, ближе к этапу 8. HTTPS обязателен (Enforce HTTPS, 12.11). Обязательная проверка CI для `main` не
 включена: автосборка пишет в `main` напрямую, правило её бы отклоняло.
 
 ## Overview
@@ -562,7 +575,8 @@ masterdata.*` и `forms.*`.
 - «Что сейчас», **без денег** («я бы не сильно сверкал деньгами», 09.10); блоки по галочкам; все станции — только
   здесь; To batch — всё стекло без батча (20.10). Факты работы — только за день, без архива (22.10).
 - Числа: Ready — `shippingHasReady`, Recut — `recutRowsOf`, цех — `prodQueueAll`. Сторожа: `test/screen-fixes.js`,
-  `station-polish`. **Открыто**: Overview на годе ×4 — 2,6 с при пороге 1 с.
+  `station-polish`. Плитки — `dashTile(…, [функция, аргумент], …)` (действия `onAct`, PR 5 задания CSP, 14.11).
+  **Открыто**: Overview на годе ×4 — 2,6 с при пороге 1 с.
 
 ## Хранение и архив
 
