@@ -1,6 +1,6 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 5.314 · 14 ноября 2026 — действия экрана без кода в разметке (`core/actions.js`): Sales, фигуры, списки, общее, Optimization, Production, станции, Master Data, формы, Customers и прайсы переведены, осталось 592 обработчика из 2095; Cancel order и Delete заказа — только с галочкой Finance; хендофф — «как устроено сейчас» по разделам, журнал решений — `docs/journal/`.
+Версия 5.315 · 14 ноября 2026 — действия экрана без кода в разметке (`core/actions.js`): Sales, фигуры, списки, общее, Optimization, Production, станции, Master Data, формы, Customers, прайсы, Finance, Agents, Purchasing, Inventory и Shipping переведены, осталось 212 обработчиков из 2095; Cancel order и Delete заказа — только с галочкой Finance; хендофф — «как устроено сейчас» по разделам, журнал решений — `docs/journal/`.
 
 ## Как читать
 
@@ -58,7 +58,8 @@
   Несколько шагов, условие, присваивание — маленькая функция рядом со своим экраном (`salesDraftSet`,
   `salesListDrop`). Код строкой (`${go}`) не передают — передают функцию и аргументы. Переведены: PR 1 — Sales,
   фигуры, списки, общее; PR 2 — Optimization, Production, станции; PR 3 — Master Data, формы, Customers, прайсы;
-  осталось 592 в 20 файлах (`node tools/csp-handlers.js`). Имя действия, которое берёт функцию чужого раздела, —
+  PR 4 — Finance, Agents, Purchasing, Inventory, Shipping; осталось 212 в 4 файлах — Reports, Users, вход,
+  Overview (PR 5, `node tools/csp-handlers.js`). Имя действия, которое берёт функцию чужого раздела, —
   тоже вызов снаружи: оно должно быть в `FIN_API` / `STOCK_API` / `SHIP_API` (`test/sections-api.js`).
 - **Как перевести раздел** (PR 2–5): `node tools/csp-handlers.js --write <файлы>` переводит простые формы и
   печатает остальные «руками» с причиной; `git diff` прочитать по каждому файлу (что проверять — в шапке скрипта);
@@ -287,6 +288,10 @@ Ready по скану, packing slip (PS), погрузка на SHIP, части
 - `shipping/commands.js` (`shippingOpen`, `shippingLoadPlan`, `shippingMarkShipped`, `shippingWithChecks`,
   `shippingCashFirst`), погрузка `loading.js`, рейсы `delivery.js`, скиды `skids.js`, км `trip-km.js`; Ready по
   остатку `shippingHasReady`. Юнит в две PS — сверка в `CLOUD_CHECK`.
+- Экраны Shipping, план доставки и поиск заказа — на действиях `onAct` (PR 4 задания CSP, 14.11): поля черновика PS —
+  `shippingDraftSet` / `shippingShipToSet`, кнопки окна PS берут функцию и аргументы (`[shippingUndo, id, 'cancel']`),
+  команды рейса — `deliveryRunMove` / `deliveryRunAssign` / `deliveryRunDriver` / `deliveryRunTime` (имя с
+  `delivery`, как прежний `onclick="deliveryRun(…)"`: кнопку записи база узнаёт по имени).
 - Сторожа: `test/shipping.js`, `shipping-loading`, `-skids`, `-restack`, `-delivery`, `-lookup`, `-audit`,
   `-walk-fixes`.
 
@@ -334,6 +339,9 @@ Ready по скану, packing slip (PS), погрузка на SHIP, части
 - `finance/ledger.js`: `finBillingDate`, `finPaymentDue`, `finAllocate` / `finUnallocate`, журнал
   `finJournalEntries`, `finExportPending`; итоги заказа `finOrderTotals` хранит `finTotalsKeep`; архивный заказ
   сначала возвращается в работу (`finBringBack`). Номера возврата RF- — с сервера.
+- Экраны Finance — на действиях `onAct` (PR 4 задания CSP, 14.11): поля прихода — `finDraftSet`, окна действия по
+  заказу — `finActionSet`; действия строки списка (`r.acts`) — `[label, [функция, …аргументы], атрибуты]`, меню
+  правой кнопки зовёт их через `finListMenuRun`; плитки сводки — так же функцией и аргументами.
 - Сторожа: `test/finance*.js`, `fin-journal`, `invoice`, `money`, `order-totals`.
 
 **Открыто**: формат QuickBooks Online / Desktop (IIF) — у бухгалтера; оплата датой в будущем принимается.
@@ -352,7 +360,8 @@ Ready по скану, packing slip (PS), погрузка на SHIP, части
   галочкой Commissions («продажникам их знать не надо», 27.10).
 
 **Как устроено**: `comOrders`, `comDue`, `comPayoutPlan`, `comRate` (`pct` с `from`); права — галочка `commissions`;
-таблицы — в `FIN_OWN`. Сторож `test/commissions.js`. **Открыто**: выплата на настоящем сервере не проверялась.
+таблицы — в `FIN_OWN`; экран — на действиях `onAct` (`comDraftSet`, `comCustomerSet`, PR 4 задания CSP, 14.11).
+Сторож `test/commissions.js`. **Открыто**: выплата на настоящем сервере не проверялась.
 
 ## Purchasing
 
@@ -379,7 +388,9 @@ Ready по скану, packing slip (PS), погрузка на SHIP, части
 
 **Как устроено**: `purchasing/suppliers.js` (`purPersist` → `storageCommand`), `orders.js`, `receiving.js` (приёмка
 двигает склад — см. Inventory), `invoices.js`, `documents.js` (бланк на конструкторе форм); номера PO-, GR-, DR-,
-PI-, PP- с сервера. Факты — `CLOUD_FACT`. Сторожа: `test/purchasing*.js`, `purchase-orders`, `supply-points`.
+PI-, PP- с сервера. Факты — `CLOUD_FACT`. Экраны — на действиях `onAct` (PR 4 задания CSP, 14.11): поля пишут в
+черновик `purSupplierSet` / `purOrderSet` / `purOrderLineSet` / `purFulfilSet` / `purFulfilLineSet` / `purMoneySet`;
+выбор поставщика и валюты берут функцию (`purCurrencyControl(d, id, set)`); `purArg` больше нет. Сторожа: `test/purchasing*.js`, `purchase-orders`, `supply-points`.
 
 ## Inventory
 
@@ -410,7 +421,9 @@ PI-, PP- с сервера. Факты — `CLOUD_FACT`. Сторожа: `test/p
 - Уход заказов в архив склад не меняет. Add / Remove и списание — факты без сверки двух ПК.
 
 **Как устроено**: `inventory/sheets.js` (`invSheetRows`), `offcuts.js`, `consumables.js` (`consRows`, упаковки
-`packs`), `stock-items.js`, `stock-reasons.js`; пересчёт сверяется в `CLOUD_CHECK` по карточке. Сторожа:
+`packs`), `stock-items.js`, `stock-reasons.js`; пересчёт сверяется в `CLOUD_CHECK` по карточке. Экраны — на действиях
+`onAct` (PR 4 задания CSP, 14.11): окно + / − / Count — `invMoveSet`, строка Stock items — `invStockSet` / `invStockKey`,
+причина разницы — `invWhySet(store, …)`, плитки — функцией и аргументами; `invArg` больше нет. Сторожа:
 `test/inventory*.js`, `consumables`, `stock-items`, `sim-inventory`.
 
 ## Customers

@@ -23,20 +23,34 @@ let invStockEdit=null,invView='sheets',invCountDraft={},invCountWhy={},invJourna
 const INV_VIEWS=[['sheets','Sheets'],['sizes','Sheet sizes'],['consumables','Consumables'],['stock','Stock items'],['offcuts','Offcuts'],['count','Count'],['journal','Journal']];
 const INV_OFFCUT_TONE={'On rack':'ok','In batch':'info','Coming':'','Used':'','Broken':'bad','Written off':'warn','Back to waste':''};
 const INV_TONE={'OK':'ok','Below minimum':'bad','Negative':'bad','Not counted':'','Size missing':'warn'};
-function invArg(v){return esc(JSON.stringify(String(v)));}
 /* Разделы склада кнопками в ряд (владелец, 23.10.2026): выпадашка
    прятала Count и Journal. */
 /* В том же ряду — статусы и дата раздела, как в Sales (владелец, 04.11.2026). */
-function invNav(extra){return '<div class="sl-filter-row"><div class="sl-quick inv-tabs" role="tablist" data-inv-sections>'+INV_VIEWS.map(([k,n])=>'<button type="button" role="tab" class="sl-quick-pill'+(k===invView?' on':'')+'" data-inv-section="'+k+'" onclick="invGo(\''+k+'\')">'+n+'</button>').join('')+'</div>'+(extra||'')+'</div>';}
+function invNav(extra){return '<div class="sl-filter-row"><div class="sl-quick inv-tabs" role="tablist" data-inv-sections>'+INV_VIEWS.map(([k,n])=>'<button type="button" role="tab" class="sl-quick-pill'+(k===invView?' on':'')+'" data-inv-section="'+k+'" '+onAct('click',invGo,String(k))+'>'+n+'</button>').join('')+'</div>'+(extra||'')+'</div>';}
 /* Отмеченная строка Sheets / Stock items: её + − Count — сверху в шапке
    (вид Sales, владелец 03.11.2026). */
 let invSel='';
 function invSelect(id,on=true){invSel=on?id:'';render();}
+function invRowMenu(e,id){e.preventDefault();invSelect(id);}
+/* Поля строки Stock items (+ − Count): Enter — Save, Esc — отмена. */
+function invStockKey(e){if(e.key==='Enter')invStockSave();if(e.key==='Escape'){invStockEdit=null;render();}}
+function invStockSet(key,v){invStockEdit[key]=v;}
+function invStockCancel(){invStockEdit=null;invNotice='';render();}
+/* Причина и заметка разницы пересчёта: store — имя черновика (invCountWhy, consCountWhy). */
+function invWhySet(store,key,k,v){const d=store==='consCountWhy'?consCountWhy:invCountWhy;d[key]=Object.assign(d[key]||{},{[k]:v});}
+/* Окно + / − / Count листов. */
+function invMovePickSet(k,v){invMoveDraft.pick[k]=v;}
+function invMoveSet(key,v){invMoveDraft[key]=v;}
+function invMoveCancel(){invMoveDraft=null;invNotice='';render();}
+function invJournalAll(){invJournalKey='';render();}
+/* Пересчёт расходников: число в строку и показать причину, когда есть разница. */
+function consCountInput(key,el){consCountDraft[key]=el.value;const b=el.parentNode.querySelector('[data-inv-why]');if(b)b.hidden=el.value.trim()==='';}
+function invOffcutAllSet(on){invOffcutAll=on;render();}
 function invSelActs(infos){
  const i=infos.find(x=>x.o.id===invSel);if(!i)return '';
- const b=(attr,label,fn,aria)=>'<button type="button" class="sl-quiet" '+attr+(aria?' aria-label="'+aria+'" title="'+aria+'"':'')+' onclick="'+fn+'">'+label+'</button>';
- if(invView==='sheets'){const r=i.r;if(r.sizeMissing)return '';const k=invArg(r.key);return '<b class="oq-sel" title="'+esc(r.code||'')+'">1 selected</b>'+b('data-inv-add','+ Add','invMoveOpen('+k+',\'add\')','Add sheets')+b('data-inv-remove','− Remove','invMoveOpen('+k+',\'writeoff\')','Remove sheets')+b('data-inv-count-one','Count','invMoveOpen('+k+',\'count\')');}
- if(invView==='stock'){const r=i.r,id=invArg(r.id);if(invStockEdit&&invStockEdit.id===r.id)return '';return '<b class="oq-sel" title="'+esc(r.name||r.code||'')+'">1 selected</b>'+b('data-inv-stock-add','+ Add','invStockOpen('+id+',\'add\')','Add')+b('data-inv-stock-remove','− Remove','invStockOpen('+id+',\'remove\')','Remove')+b('data-inv-stock-count','Count','invStockOpen('+id+',\'count\')');}
+ const b=(attr,label,fn,aria)=>'<button type="button" class="sl-quiet" '+attr+(aria?' aria-label="'+aria+'" title="'+aria+'"':'')+' '+onAct.apply(null,['click'].concat(fn))+'>'+label+'</button>';
+ if(invView==='sheets'){const r=i.r;if(r.sizeMissing)return '';const k=String(r.key);return '<b class="oq-sel" title="'+esc(r.code||'')+'">1 selected</b>'+b('data-inv-add','+ Add',[invMoveOpen,k,'add'],'Add sheets')+b('data-inv-remove','− Remove',[invMoveOpen,k,'writeoff'],'Remove sheets')+b('data-inv-count-one','Count',[invMoveOpen,k,'count']);}
+ if(invView==='stock'){const r=i.r,id=String(r.id);if(invStockEdit&&invStockEdit.id===r.id)return '';return '<b class="oq-sel" title="'+esc(r.name||r.code||'')+'">1 selected</b>'+b('data-inv-stock-add','+ Add',[invStockOpen,id,'add'],'Add')+b('data-inv-stock-remove','− Remove',[invStockOpen,id,'remove'],'Remove')+b('data-inv-stock-count','Count',[invStockOpen,id,'count']);}
  return '';
 }
 /* Раздел — с чистого листа: фильтр журнала по стеклу ставит только
@@ -76,10 +90,11 @@ function invPageState(rows){
  if(!invPages[scope]||invPages[scope].signature!==signature)invPages[scope]={signature,index:0};
  const s=invPages[scope];s.index=Math.max(0,Math.min(s.index,Math.ceil(rows.length/50)-1));return s;
 }
+function invPageStep(d){invPages[invListScope()].index+=d;render();}
 function invPageRows(rows){const p=invPageState(rows);return rows.slice(p.index*50,p.index*50+50);}
 function invPager(rows){
  if(!rows.length)return '';const p=invPageState(rows),from=p.index*50+1,to=Math.min(rows.length,(p.index+1)*50);
- const buttons=rows.length>50?'<button type="button" class="sl-quiet" aria-label="Previous page" '+(!p.index?'disabled':'')+' onclick="invPages[invListScope()].index--;render()">←</button><button type="button" class="sl-quiet" aria-label="Next page" '+(to>=rows.length?'disabled':'')+' onclick="invPages[invListScope()].index++;render()">→</button>':'';
+ const buttons=rows.length>50?'<button type="button" class="sl-quiet" aria-label="Previous page" '+(!p.index?'disabled':'')+' '+onAct('click',invPageStep,-1)+'>←</button><button type="button" class="sl-quiet" aria-label="Next page" '+(to>=rows.length?'disabled':'')+' '+onAct('click',invPageStep,1)+'>→</button>':'';
  return '<div class="pur-pagination"><span>'+from+'–'+to+' of '+rows.length+' rows</span><span class="sales-toolbar-sp"></span>'+buttons+'</div>';
 }
 function invListStatus(value){if(value)salesListSetFilter('status',{values:[value]});else salesListClearFilter('status');}
@@ -110,34 +125,34 @@ const INV_WIDTH={glass:160,item:180,code:100,mm:64,size:100,onRack:100,onOrder:1
 function invTable(cols,rows,cell,extraHead,extraCells,empty,lead){
  const head=cols.map(invHeader).join(''),body=i=>cols.map(c=>cell(i,c)).join(''),xh=extraHead||'',xc=i=>extraCells?extraCells(i):'';
  const cw=salesListCwTable(cols.map(c=>c.k),lead&&xh?[44,120]:[44],!lead&&xh?120:0,INV_WIDTH);
- return '<div class="sales-table-wrap"><table class="sl-table inv-table'+cw.cls+'"'+cw.attrs+'>'+cw.col+'<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button aria-label="Columns" onclick="salesListOpenColumns(event)">'+ico('settings')+'</button></span></th>'+(lead?xh+head:head+xh)+'</tr></thead><tbody>'+
-  (invPageRows(rows).map(i=>'<tr data-inv-row="'+esc(i.o.id)+'"'+(invSel===i.o.id?' class="oq-selected"':'')+' oncontextmenu="'+(invView==='sheets'||invView==='stock'?'event.preventDefault();invSelect(\''+esc(i.o.id)+'\')':'')+'">'+(invView==='sheets'||invView==='stock'?'<td class="sl-check"><input type="checkbox" data-inv-check aria-label="Select '+esc(i.o.id)+'" '+(invSel===i.o.id?'checked':'')+' onchange="invSelect(\''+esc(i.o.id)+'\',this.checked)"></td>':'<td></td>')+(lead?xc(i)+body(i):body(i)+xc(i))+'</tr>').join('')||'<tr><td colspan="'+(cols.length+1+(extraHead?1:0))+'" class="empty" data-inv-empty>'+empty+'</td></tr>')+'</tbody></table></div>'+invPager(rows);
+ return '<div class="sales-table-wrap"><table class="sl-table inv-table'+cw.cls+'"'+cw.attrs+'>'+cw.col+'<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button aria-label="Columns" '+onAct('click',salesListOpenColumns,EVENT)+'>'+ico('settings')+'</button></span></th>'+(lead?xh+head:head+xh)+'</tr></thead><tbody>'+
+  (invPageRows(rows).map(i=>'<tr data-inv-row="'+esc(i.o.id)+'"'+(invSel===i.o.id?' class="oq-selected"':'')+(invView==='sheets'||invView==='stock'?' '+onAct('contextmenu',invRowMenu,EVENT,String(i.o.id)):'')+'>'+(invView==='sheets'||invView==='stock'?'<td class="sl-check"><input type="checkbox" data-inv-check aria-label="Select '+esc(i.o.id)+'" '+(invSel===i.o.id?'checked':'')+' '+onAct('change',invSelect,String(i.o.id??''),EL_CHECKED)+'></td>':'<td></td>')+(lead?xc(i)+body(i):body(i)+xc(i))+'</tr>').join('')||'<tr><td colspan="'+(cols.length+1+(extraHead?1:0))+'" class="empty" data-inv-empty>'+empty+'</td></tr>')+'</tbody></table></div>'+invPager(rows);
 }
 function invNum(v){return v==null||v===''?'<span class="mut">—</span>':esc(v);}
 function invLastCount(r){return r.lastCount?esc(salesListShortDay(salesListIsoDay(r.lastCount.at)))+(r.lastCount.by?' <span class="mut">· '+esc(r.lastCount.by)+'</span>':''):'<span class="mut">—</span>';}
 
 /* ------------------------------ Sheets ------------------------------ */
 function invTile(label,n,opts){
- opts=opts||{};const tag=opts.click?'button type="button" onclick="'+opts.click+'"':'div';
+ opts=opts||{};const tag=opts.click?'button type="button" '+onAct.apply(null,['click'].concat(opts.click)):'div';
  return '<'+tag+' class="inv-tile'+(opts.tone?' '+opts.tone:'')+(opts.on?' on':'')+'" data-inv-tile="'+esc(label)+'"><b>'+esc(n)+'</b><span>'+esc(label)+'</span></'+(opts.click?'button':'div')+'>';
 }
 function invTiles(rows){
  const by=s=>rows.filter(r=>r.status===s).length,sum=k=>rows.reduce((a,r)=>a+r[k],0),f=salesListLoadPrefs().filters.status,sel=f&&f.values&&f.values.length===1?f.values[0]:'';
- const st=(s,tone)=>invTile(s,by(s),{click:'invListStatus('+invArg(sel===s?'':s)+')',tone:by(s)?tone:'',on:sel===s});
+ const st=(s,tone)=>invTile(s,by(s),{click:[invListStatus,String(sel===s?'':s)],tone:by(s)?tone:'',on:sel===s});
  const enter=rows.reduce((a,r)=>a+r.enterSheets,0);
  return '<div class="inv-tiles">'+invTile('Glass × size',rows.length)+invTile('On rack',sum('onRack'))+invTile('Free',sum('free'))+
   st('Below minimum','bad')+st('Negative','bad')+st('Not counted','')+st('Size missing','warn')+
-  invTile('Enter sheets',enter,{tone:enter?'warn':'',click:enter&&accessCan('purchasing')?'invOpenReceipts()':''})+'</div>';
+  invTile('Enter sheets',enter,{tone:enter?'warn':'',click:enter&&accessCan('purchasing')?[invOpenReceipts]:''})+'</div>';
 }
 function invOpenReceipts(){navGo('purchasing');if(tab==='purchasing')purGo('receipts');}
 function invSheetCell(i,c){
  const r=i.r,v=salesListValue(i,c.k),n=c.type==='number'?' class="n"':'';
- if(c.k==='glass')return '<td data-raw><button type="button" class="fin-link inv-glass" title="Journal" onclick="invOpenJournal('+invArg(r.key)+')">'+esc(v)+'</button></td>';
+ if(c.k==='glass')return '<td data-raw><button type="button" class="fin-link inv-glass" title="Journal" '+onAct('click',invOpenJournal,String(r.key))+'>'+esc(v)+'</button></td>';
  if(c.k==='size')return '<td class="nowrap"><b>'+esc(v)+'</b></td>';
  if(c.k==='onRack')return '<td class="n'+(r.onRack<0?' inv-neg':'')+'">'+esc(v)+(r.enterSheets?'<div class="inv-note warn">Enter sheets</div>':'')+'</td>';
  if(c.k==='reserved'){const b=[...r.batches.entries()];return '<td class="n">'+esc(v)+(b.length?'<div class="inv-note">'+esc(b.length>2?b.length+' batches':b.map(([n,k])=>n+(b.length>1?': '+k:'')).join(', '))+'</div>':'')+'</td>';}
  if(c.k==='free')return '<td class="n'+(r.free<0||r.min!=null&&r.free<r.min?' inv-neg':'')+'"><b>'+esc(v)+'</b></td>';
- if(c.k==='min')return '<td class="n">'+(r.sizeMissing?'<span class="mut">—</span>':'<input type="number" min="0" step="1" inputmode="numeric" class="inv-min" data-inv-min="'+esc(r.key)+'" aria-label="Minimum" value="'+(r.min==null?'':r.min)+'" onchange="invMinChange('+invArg(r.key)+',this.value)">')+'</td>';
+ if(c.k==='min')return '<td class="n">'+(r.sizeMissing?'<span class="mut">—</span>':'<input type="number" min="0" step="1" inputmode="numeric" class="inv-min" data-inv-min="'+esc(r.key)+'" aria-label="Minimum" value="'+(r.min==null?'':r.min)+'" '+onAct('change',invMinChange,String(r.key),EL_VALUE)+'>')+'</td>';
  if(c.k==='held'||c.k==='onOrder'){const blocks=c.k==='held'?r.heldBlocks:r.onOrderBlocks;return '<td class="n">'+(v||blocks?esc(v||0)+(blocks?'<div class="inv-note">+ '+esc(blocks)+' block'+(blocks===1?'':'s')+'</div>':''):'<span class="mut">—</span>')+'</td>';}
  if(c.k==='lastCount')return '<td class="nowrap">'+invLastCount(r)+'</td>';
  if(c.k==='status')return '<td><span class="pill '+(INV_TONE[v]||'')+'">'+esc(v)+'</span></td>';
@@ -159,7 +174,7 @@ function invStockInfos(){
 }
 function invStockTiles(rows){
  const sum=k=>rows.reduce((a,r)=>a+r[k],0),f=salesListLoadPrefs().filters.status,sel=f&&f.values&&f.values.length===1?f.values[0]:'',n=s=>rows.filter(r=>r.status===s).length;
- const st=(s,tone)=>invTile(s,n(s),{click:'invListStatus('+invArg(sel===s?'':s)+')',tone:n(s)?tone:'',on:sel===s});
+ const st=(s,tone)=>invTile(s,n(s),{click:[invListStatus,String(sel===s?'':s)],tone:n(s)?tone:'',on:sel===s});
  return '<div class="inv-tiles">'+invTile('Stock items',rows.length)+invTile('On hand, pcs',sum('onHand'))+invTile('Reserved',sum('reserved'))+invTile('Available',sum('available'))+st('Short','bad')+st('Not counted','')+'</div>';
 }
 function invStockCell(i,c){
@@ -171,7 +186,7 @@ function invStockCell(i,c){
   return '<td class="n inv-stock-edit">'+invStockQtyHTML(d)+(shown.has('status')?'':invStockReasonHTML(d))+(shown.has('lastCount')?'':invStockSaveHTML(d))+'</td>';}
  if(d&&c.k==='status')return '<td class="inv-stock-edit inv-stock-why">'+invStockReasonHTML(d)+'</td>';
  if(d&&c.k==='lastCount')return '<td class="inv-stock-edit">'+invStockSaveHTML(d)+'</td>';
- if(c.k==='item')return '<td data-raw><button type="button" class="fin-link inv-glass" title="Journal" onclick="invOpenJournal('+invArg(r.key)+')">'+esc(v)+'</button>'+(r.off?' <span class="pill warn">inactive</span>':'')+'</td>';
+ if(c.k==='item')return '<td data-raw><button type="button" class="fin-link inv-glass" title="Journal" '+onAct('click',invOpenJournal,String(r.key))+'>'+esc(v)+'</button>'+(r.off?' <span class="pill warn">inactive</span>':'')+'</td>';
  if(c.k==='measures')return '<td class="nowrap">'+(v?'<b>'+esc(v)+'</b>':'<span class="mut">—</span>')+'</td>';
  if(c.k==='onHand')return '<td class="n'+(r.onHand<0?' inv-neg':'')+'">'+esc(v)+'</td>';
  if(c.k==='reserved')return '<td class="n">'+esc(v)+(r.orders.length?'<div class="inv-note">'+esc(r.orders.length>2?r.orders.length+' orders':r.orders.map(o=>o.n+(r.orders.length>1?': '+o.qty:'')).join(', '))+'</div>':'')+'</td>';
@@ -197,18 +212,18 @@ function invStockSave(){
  invStockEdit=null;invNotice='';render();
 }
 function invStockQtyHTML(d){
- return '<input id="inv_stock_qty" type="number" min="'+(d.kind==='count'?0:1)+'" step="1" inputmode="numeric" aria-label="'+(d.kind==='count'?'Counted':d.kind==='add'?'Add':'Remove')+'" placeholder="'+(d.kind==='count'?'counted':d.kind==='add'?'+ pcs':'− pcs')+'" value="'+esc(d.qty)+'" oninput="invStockQty(this)" onkeydown="if(event.key===\'Enter\')invStockSave();if(event.key===\'Escape\'){invStockEdit=null;render();}"><span class="inv-diff" data-inv-stock-diff></span>';
+ return '<input id="inv_stock_qty" type="number" min="'+(d.kind==='count'?0:1)+'" step="1" inputmode="numeric" aria-label="'+(d.kind==='count'?'Counted':d.kind==='add'?'Add':'Remove')+'" placeholder="'+(d.kind==='count'?'counted':d.kind==='add'?'+ pcs':'− pcs')+'" value="'+esc(d.qty)+'" '+onAct('input',invStockQty,EL)+' '+onAct('keydown',invStockKey,EVENT)+'><span class="inv-diff" data-inv-stock-diff></span>';
 }
 function invStockReasonHTML(d){
  const reasons=d.kind==='add'?INV_ADD:d.kind==='remove'?SINV_REMOVE:stockReasonsActive();
- return '<select aria-label="Reason" data-inv-stock-reason onchange="invStockEdit.reason=this.value"><option value="">Reason…</option>'+reasons.map(x=>'<option'+(x===d.reason?' selected':'')+'>'+esc(x)+'</option>').join('')+'</select>'+
-  '<input type="text" maxlength="200" aria-label="Note" placeholder="Note" value="'+esc(d.note)+'" oninput="invStockEdit.note=this.value">';
+ return '<select aria-label="Reason" data-inv-stock-reason '+onAct('change',invStockSet,'reason',EL_VALUE)+'><option value="">Reason…</option>'+reasons.map(x=>'<option'+(x===d.reason?' selected':'')+'>'+esc(x)+'</option>').join('')+'</select>'+
+  '<input type="text" maxlength="200" aria-label="Note" placeholder="Note" value="'+esc(d.note)+'" '+onAct('input',invStockSet,'note',EL_VALUE)+'>';
 }
 function invStockSaveHTML(d){
- return '<button type="button" class="sm pri" data-inv-stock-save onclick="invStockSave()">Save</button><button type="button" class="sm" aria-label="Cancel" onclick="invStockEdit=null;invNotice=\'\';render()">×</button>';
+ return '<button type="button" class="sm pri" data-inv-stock-save '+onAct('click',invStockSave)+'>Save</button><button type="button" class="sm" aria-label="Cancel" '+onAct('click',invStockCancel)+'>×</button>';
 }
 function invStockActs(i){
- const r=i.r,id=invArg(r.id),d=invStockEdit&&invStockEdit.id===r.id?invStockEdit:null;
+ const r=i.r,d=invStockEdit&&invStockEdit.id===r.id?invStockEdit:null;
  if(d)return '<td class="inv-acts inv-stock-edit" data-inv-stock-edit="'+esc(d.kind)+'"><span class="inv-stock-label">'+(d.kind==='count'?'Count':d.kind==='add'?'Add':'Remove')+'</span></td>';
  return '<td></td>';
 }
@@ -216,7 +231,7 @@ function invStockActs(i){
 function invStockLog(rows){
  const today=salesListDay(new Date()),list=rows.flatMap(r=>r.moves.filter(m=>m.event&&salesListIsoDay(m.at)===today).map(m=>({r,m}))).sort((a,b)=>String(b.m.at).localeCompare(String(a.m.at)));
  const left=rows.filter(r=>r.status==='Not counted').length;
- return '<section class="inv-stock-log" data-inv-stock-log><div class="inv-stock-log-head"><b>Today</b><span class="mut">'+list.length+' count'+(list.length===1?'':'s')+' and changes</span>'+(left?'<button type="button" class="fin-link" onclick="invListStatus(\'Not counted\')">Not counted yet · '+left+'</button>':'')+'<span class="sales-toolbar-sp"></span><button type="button" class="sm" onclick="invGo(\'journal\')">Full journal</button></div>'+
+ return '<section class="inv-stock-log" data-inv-stock-log><div class="inv-stock-log-head"><b>Today</b><span class="mut">'+list.length+' count'+(list.length===1?'':'s')+' and changes</span>'+(left?'<button type="button" class="fin-link" '+onAct('click',invListStatus,'Not counted')+'>Not counted yet · '+left+'</button>':'')+'<span class="sales-toolbar-sp"></span><button type="button" class="sm" '+onAct('click',invGo,'journal')+'>Full journal</button></div>'+
   (list.length?slTable('invStockToday',{list,cls:'ncr-table',noun:l=>l.length+' changes',fill:'item',
    columns:()=>[{k:'time',label:'Time',type:'text',v:x=>new Date(x.m.event.at).toTimeString().slice(0,5),cell:x=>'<span class="nowrap">'+esc(new Date(x.m.event.at).toTimeString().slice(0,5))+'</span>'},
     {k:'item',label:'Item',type:'text',v:x=>x.r.name,cell:x=>'<span data-raw>'+esc(x.r.name)+'</span>'},{k:'what',label:'What',type:'list',v:x=>x.m.kind},
@@ -238,7 +253,7 @@ function invOffcutInfos(){
 }
 function invOffcutTiles(rows){
  const here=rows.filter(o=>INV_OFFCUT_HERE.includes(o.status)),n=s=>rows.filter(o=>o.status===s).length,f=salesListLoadPrefs().filters.status,sel=f&&f.values&&f.values.length===1?f.values[0]:'';
- const st=(label,s)=>invTile(label,n(s),{click:'invListStatus('+invArg(sel===s?'':s)+')',on:sel===s});
+ const st=(label,s)=>invTile(label,n(s),{click:[invListStatus,String(sel===s?'':s)],on:sel===s});
  const ft=Math.round(here.reduce((a,o)=>a+o.area,0)*10)/10,old=here.reduce((a,o)=>Math.max(a,o.age||0),0);
  return '<div class="inv-tiles">'+invTile('On rack, pcs',here.length)+invTile('On rack, ft²',cutNum(ft,1))+st('Coming','Coming')+st('In a batch','In batch')+invTile('Oldest, days',here.length?old:'—')+'</div>';
 }
@@ -254,17 +269,17 @@ function invOffcutCell(i,c){
  if(c.k==='id')return '<td><span class="pill '+(INV_OFFCUT_HERE.includes(o.status)?'ok':'')+'" data-raw>'+esc(v)+'</span></td>';
  if(c.k==='size')return '<td class="nowrap"><b>'+esc(v)+'</b></td>';
  if(c.k==='area')return '<td class="n">'+cutNum(v,2)+'</td>';
- if(c.k==='from')return '<td class="nowrap">'+(o.batch&&accessCan('optimization')?'<button type="button" class="fin-link" onclick="invOpenBatch('+invArg(o.batch)+')">'+esc(v)+'</button>':invNum(v))+'</td>';
+ if(c.k==='from')return '<td class="nowrap">'+(o.batch&&accessCan('optimization')?'<button type="button" class="fin-link" '+onAct('click',invOpenBatch,String(o.batch))+'>'+esc(v)+'</button>':invNum(v))+'</td>';
  if(c.k==='booked')return '<td class="nowrap">'+(v?esc(salesListShortDay(v)):'<span class="mut">—</span>')+'</td>';
  if(c.k==='status'){
   const label=o.status==='In batch'?'In '+o.claim:o.status==='Coming'?'Coming · '+o.batch:o.status==='Used'?'Used · '+o.used.batch:v;
-  return '<td class="nowrap"><span class="pill '+(INV_OFFCUT_TONE[o.status]||'')+'" data-inv-offcut-status>'+esc(label)+'</span>'+(o.lost?' <span class="mut">'+esc(salesListShortDay(salesListIsoDay(o.lost.at))+(o.lost.by?' · '+o.lost.by:''))+'</span> <button type="button" class="sl-quiet sm" data-inv-found="'+esc(o.id)+'" onclick="invOffcutFoundUi('+invArg(o.id)+')">Found</button>':'')+'</td>';
+  return '<td class="nowrap"><span class="pill '+(INV_OFFCUT_TONE[o.status]||'')+'" data-inv-offcut-status>'+esc(label)+'</span>'+(o.lost?' <span class="mut">'+esc(salesListShortDay(salesListIsoDay(o.lost.at))+(o.lost.by?' · '+o.lost.by:''))+'</span> <button type="button" class="sl-quiet sm" data-inv-found="'+esc(o.id)+'" '+onAct('click',invOffcutFoundUi,String(o.id))+'>Found</button>':'')+'</td>';
  }
  return '<td'+(c.type==='number'?' class="n"':'')+(c.k==='code'?' data-raw':'')+'>'+invNum(v)+'</td>';
 }
 function invOffcutExtra(i){
  const o=i.x;if(!INV_OFFCUT_HERE.includes(o.status))return '<td></td>';
- return '<td class="inv-lost-cell"><input type="checkbox" data-inv-lost="'+esc(o.id)+'" aria-label="Not found" '+(invOffcutLostDraft.has(o.id)?'checked':'')+' onchange="invOffcutTick('+invArg(o.id)+',this.checked)"></td>';
+ return '<td class="inv-lost-cell"><input type="checkbox" data-inv-lost="'+esc(o.id)+'" aria-label="Not found" '+(invOffcutLostDraft.has(o.id)?'checked':'')+' '+onAct('change',invOffcutTick,String(o.id),EL_CHECKED)+'></td>';
 }
 function invOffcutFooter(rows){
  const here=rows.filter(i=>INV_OFFCUT_HERE.includes(i.x.status));
@@ -287,9 +302,9 @@ function invCountInput(key,value,el){
    видны, когда в строке есть разница. */
 function invWhyHTML(drafts,store,key,hide){
  const w=drafts[key]||{},list=stockReasonsActive().concat(w.reason&&!stockReasonsActive().includes(w.reason)?[w.reason]:[]);
- const set=(k,el)=>store+'['+invArg(key)+']=Object.assign('+store+'['+invArg(key)+']||{},{'+k+':'+el+'.value})';
- return '<span class="inv-why" data-inv-why'+(hide?' hidden':'')+'><select aria-label="Reason" data-inv-why-reason onchange="'+set('reason','this')+'"><option value="">Reason…</option>'+list.map(x=>'<option'+(x===w.reason?' selected':'')+'>'+esc(x)+'</option>').join('')+'</select>'+
-  '<input type="text" maxlength="200" aria-label="Note" placeholder="Note" data-inv-why-note value="'+esc(w.note||'')+'" oninput="'+set('note','this')+'"></span>';
+ const set=(ev,k)=>onAct(ev,invWhySet,store,String(key),k,EL_VALUE);
+ return '<span class="inv-why" data-inv-why'+(hide?' hidden':'')+'><select aria-label="Reason" data-inv-why-reason '+set('change','reason')+'><option value="">Reason…</option>'+list.map(x=>'<option'+(x===w.reason?' selected':'')+'>'+esc(x)+'</option>').join('')+'</select>'+
+  '<input type="text" maxlength="200" aria-label="Note" placeholder="Note" data-inv-why-note value="'+esc(w.note||'')+'" '+set('input','note')+'></span>';
 }
 function invCountSaveUi(){
  const r=invCountSave(invCountDraft,invCountWhy);
@@ -306,8 +321,8 @@ function invCountCell(i,c){
 function invCountExtra(i){
  const r=i.r;if(r.sizeMissing)return '<td class="mut">Size missing</td>';
  const v=invCountDraft[r.key]==null?'':invCountDraft[r.key],n=Number(v),diff=v!==''&&Number.isFinite(n)&&n!==r.onRack?(n>r.onRack?'+':'−')+Math.abs(n-r.onRack):'';
- return '<td class="inv-count-cell"><input type="number" min="0" step="1" inputmode="numeric" class="inv-count" data-inv-count="'+esc(r.key)+'" data-rack="'+r.onRack+'" aria-label="Counted sheets" value="'+esc(v)+'" oninput="invCountInput('+invArg(r.key)+',this.value,this)"><span class="inv-diff" data-inv-diff>'+esc(diff)+'</span>'+
-  '<button type="button" class="sl-quiet sm" data-inv-writeoff onclick="invMoveOpen('+invArg(r.key)+',\'writeoff\')">Write off</button>'+
+ return '<td class="inv-count-cell"><input type="number" min="0" step="1" inputmode="numeric" class="inv-count" data-inv-count="'+esc(r.key)+'" data-rack="'+r.onRack+'" aria-label="Counted sheets" value="'+esc(v)+'" '+onAct('input',invCountInput,String(r.key),EL_VALUE,EL)+'><span class="inv-diff" data-inv-diff>'+esc(diff)+'</span>'+
+  '<button type="button" class="sl-quiet sm" data-inv-writeoff '+onAct('click',invMoveOpen,String(r.key),'writeoff')+'>Write off</button>'+
   invWhyHTML(invCountWhy,'invCountWhy',r.key,!diff)+'</td>';
 }
 /* Движение листов одной строки или новое стекло на пирамиде (владелец,
@@ -331,22 +346,22 @@ function invMovePick(k,v){
 }
 function invMovePickHTML(f){
  const opt=(v,label,on)=>'<option data-raw value="'+esc(v)+'"'+(v===on?' selected':'')+'>'+esc(label)+'</option>',uniq=a=>[...new Set(a.filter(x=>x!==''&&x!=null))];
- const sel=(k,label,any,list)=>'<label>'+label+'<select id="inv_mv_'+k+'" onchange="invMovePick(\''+k+'\',this.value)"><option value="">'+any+'</option>'+list.join('')+'</select></label>';
+ const sel=(k,label,any,list)=>'<label>'+label+'<select id="inv_mv_'+k+'" '+onAct('change',invMovePick,String(k),EL_VALUE)+'><option value="">'+any+'</option>'+list.join('')+'</select></label>';
  return sel('mfr','Manufacturer','Any',uniq(invPickGlass(f,'mfr').map(g=>g.manufacturer)).sort().map(m=>opt(m,m,f.mfr)))+
   sel('thick','Thickness','Any',uniq(invPickGlass(f,'thick').map(g=>g.thicknessMm)).sort((a,b)=>a-b).map(n=>opt(String(n),n+' mm',f.thick)))+
   sel('coat','Coating','Any',uniq(invPickGlass(f,'coat').map(glassCoatingName)).sort().map(c=>opt(c,c,f.coat)))+
-  '<label class="inv-wo-note">Glass *<select id="inv_mv_code" onchange="invMovePick(\'code\',this.value)"><option value="">— select —</option>'+invPickGlass(f).sort((a,b)=>a.code.localeCompare(b.code)).map(g=>opt(g.code,(f.coat?glassBaseName(g):g.name)+' · '+g.code,f.code)).join('')+'</select></label>'+
-  '<label>Sheet, in *<span class="inv-mv-size"><input id="inv_mv_w" type="number" min="0" step="any" placeholder="length" value="'+esc(f.w)+'" oninput="invMoveDraft.pick.w=this.value"> × <input id="inv_mv_h" type="number" min="0" step="any" placeholder="width" value="'+esc(f.h)+'" oninput="invMoveDraft.pick.h=this.value"></span></label>';
+  '<label class="inv-wo-note">Glass *<select id="inv_mv_code" '+onAct('change',invMovePick,'code',EL_VALUE)+'><option value="">— select —</option>'+invPickGlass(f).sort((a,b)=>a.code.localeCompare(b.code)).map(g=>opt(g.code,(f.coat?glassBaseName(g):g.name)+' · '+g.code,f.code)).join('')+'</select></label>'+
+  '<label>Sheet, in *<span class="inv-mv-size"><input id="inv_mv_w" type="number" min="0" step="any" placeholder="length" value="'+esc(f.w)+'" '+onAct('input',invMovePickSet,'w',EL_VALUE)+'> × <input id="inv_mv_h" type="number" min="0" step="any" placeholder="width" value="'+esc(f.h)+'" '+onAct('input',invMovePickSet,'h',EL_VALUE)+'></span></label>';
 }
 function invMoveHTML(){
  const d=invMoveDraft;if(!d)return '';const r=d.key?invRowFind(d.key):null;if(d.key&&!r)return '';
  const [title,btn]=INV_MOVE[d.kind],reasons=d.kind==='add'?INV_ADD:d.kind==='writeoff'?INV_WRITE_OFF:stockReasonsActive();
  return '<section class="card inv-writeoff" data-inv-writeoff-form data-inv-move="'+esc(d.kind)+'"><h3>'+(r?esc(title)+' · '+esc(r.code)+' '+esc(invSizeText(r))+' <span class="mut">· on rack '+esc(r.onRack)+'</span>':'Glass on rack')+'</h3><div class="inv-wo-fields">'+
   (r?'':invMovePickHTML(d.pick)+'</div><div class="inv-wo-fields inv-mv-row">')+
-  '<label>'+(d.kind==='count'?'On the rack':'Sheets')+'<input id="inv_wo_qty" type="number" min="'+(d.kind==='count'?0:1)+'" step="1" inputmode="numeric" value="'+esc(d.qty)+'" oninput="invMoveDraft.qty=this.value"></label>'+
-  (reasons?'<label>Reason<select id="inv_wo_reason" onchange="invMoveDraft.reason=this.value"><option value="">Choose…</option>'+reasons.map(x=>'<option'+(x===d.reason?' selected':'')+'>'+esc(x)+'</option>').join('')+'</select></label>'+
-   '<label class="inv-wo-note">Note<input id="inv_wo_note" type="text" maxlength="200" value="'+esc(d.note)+'" oninput="invMoveDraft.note=this.value"></label>':'')+
-  '<div class="inv-wo-actions"><button type="button" onclick="invMoveDraft=null;invNotice=\'\';render()">Cancel</button><button type="button" class="pri" data-inv-writeoff-save onclick="invMoveSave()">'+esc(btn)+'</button></div></div></section>';
+  '<label>'+(d.kind==='count'?'On the rack':'Sheets')+'<input id="inv_wo_qty" type="number" min="'+(d.kind==='count'?0:1)+'" step="1" inputmode="numeric" value="'+esc(d.qty)+'" '+onAct('input',invMoveSet,'qty',EL_VALUE)+'></label>'+
+  (reasons?'<label>Reason<select id="inv_wo_reason" '+onAct('change',invMoveSet,'reason',EL_VALUE)+'><option value="">Choose…</option>'+reasons.map(x=>'<option'+(x===d.reason?' selected':'')+'>'+esc(x)+'</option>').join('')+'</select></label>'+
+   '<label class="inv-wo-note">Note<input id="inv_wo_note" type="text" maxlength="200" value="'+esc(d.note)+'" '+onAct('input',invMoveSet,'note',EL_VALUE)+'></label>':'')+
+  '<div class="inv-wo-actions"><button type="button" '+onAct('click',invMoveCancel)+'>Cancel</button><button type="button" class="pri" data-inv-writeoff-save '+onAct('click',invMoveSave)+'>'+esc(btn)+'</button></div></div></section>';
 }
 function invMoveSave(){
  const d=invMoveDraft;if(!d)return;let key=d.key;
@@ -378,10 +393,10 @@ function invMoveCell(i,c){
  const m=i.m,v=salesListValue(i,c.k);
  if(c.k==='day')return '<td class="nowrap">'+(v?esc(salesListShortDay(v)):'<span class="mut">—</span>')+'</td>';
  if(c.k==='size')return '<td class="nowrap"><b>'+esc(v)+'</b></td>';
- if(c.k==='kind')return '<td class="nowrap">'+esc(v)+(m.breakId&&!m.undone?' <button type="button" class="sl-quiet sm" data-inv-undo="'+esc(m.breakId)+'" onclick="invUndoBreak('+invArg(m.breakId)+')">Undo</button>':'')+(m.breakId&&m.undone?' <span class="mut">· undone</span>':'')+'</td>';
+ if(c.k==='kind')return '<td class="nowrap">'+esc(v)+(m.breakId&&!m.undone?' <button type="button" class="sl-quiet sm" data-inv-undo="'+esc(m.breakId)+'" '+onAct('click',invUndoBreak,String(m.breakId))+'>Undo</button>':'')+(m.breakId&&m.undone?' <span class="mut">· undone</span>':'')+'</td>';
  if(c.k==='ref'){
-  if(m.receipt&&accessCan('purchasing'))return '<td><button type="button" class="fin-link" onclick="invOpenReceipt('+invArg(m.receipt)+')">'+esc(v)+'</button></td>';
-  if(m.batch&&!m.offcut&&accessCan('optimization'))return '<td class="nowrap"><button type="button" class="fin-link" onclick="invOpenBatch('+invArg(m.batch)+')">'+esc(v)+'</button></td>';
+  if(m.receipt&&accessCan('purchasing'))return '<td><button type="button" class="fin-link" '+onAct('click',invOpenReceipt,String(m.receipt))+'>'+esc(v)+'</button></td>';
+  if(m.batch&&!m.offcut&&accessCan('optimization'))return '<td class="nowrap"><button type="button" class="fin-link" '+onAct('click',invOpenBatch,String(m.batch))+'>'+esc(v)+'</button></td>';
   return '<td>'+invNum(v)+'</td>';
  }
  if(c.k==='rack')return '<td class="n'+(m.rack<0?' inv-neg':'')+'">'+(m.rack==null?'<span class="mut">—</span>':esc((m.rack>0?'+':'')+m.rack))+'</td>';
@@ -389,7 +404,7 @@ function invMoveCell(i,c){
 }
 function invJournalView(infos){
  const rows=salesListRows(infos),cols=salesListColumns(),r=invJournalKey&&invRowFind(invJournalKey);
- const key=invJournalKey?'<div class="sl-chips"><span class="sl-chips-label">Glass</span><span class="sl-chip" data-inv-journal-key>'+esc(r?r.code+' '+invSizeText(r):(String(invJournalKey).startsWith('stock:')&&sinvRowOf(invJournalKey.slice(6))||{}).name||invJournalKey)+'<button type="button" aria-label="Show all glass" onclick="invJournalKey=\'\';render()">×</button></span></div>':'';
+ const key=invJournalKey?'<div class="sl-chips"><span class="sl-chips-label">Glass</span><span class="sl-chip" data-inv-journal-key>'+esc(r?r.code+' '+invSizeText(r):(String(invJournalKey).startsWith('stock:')&&sinvRowOf(invJournalKey.slice(6))||{}).name||invJournalKey)+'<button type="button" aria-label="Show all glass" '+onAct('click',invJournalAll)+'>×</button></span></div>':'';
  return key+invListFilters(infos)+invTable(cols,rows,invMoveCell,'','',infos.length?'Nothing matches the filters.':'No movements yet.');
 }
 
@@ -398,7 +413,7 @@ function invJournalView(infos){
    чтения, их правят в точках поставки. Отступы листа — Data → Cutting. */
 let invSizeNotice='';
 function invSizesView(){
- const data=accessCan('masterdata'),link=(c,k)=>data?'<button type="button" class="fin-link" data-inv-size-supply="'+esc(c)+'" title="Supply row in Data" onclick="invSizeSupplyOpen('+invArg(c)+','+invArg(k)+')">'+esc(c)+'</button>':esc(c);
+ const data=accessCan('masterdata'),link=(c,k)=>data?'<button type="button" class="fin-link" data-inv-size-supply="'+esc(c)+'" title="Supply row in Data" '+onAct('click',invSizeSupplyOpen,String(c),String(k))+'>'+esc(c)+'</button>':esc(c);
  const sizes=cutSheetSizes(),whose=x=>[x.shop?'All glass':'',x.codes.slice(0,4).map(c=>link(c,x.key)).join(', ')+(x.codes.length>4?' +'+(x.codes.length-4):'')].filter(Boolean).join(' · ');
  return '<p class="mut">Supply sizes of a glass go first; shop sizes work for any glass. Trim and border — Data → Cutting.</p>'+
   '<div data-inv-sizes>'+slTable('invSizes',{list:sizes,id:x=>x.key,cls:'ncr-table',empty:'No sheet sizes yet — glass shows Size missing.',noun:l=>l.length+' sheet size'+(l.length===1?'':'s'),fill:'glass',acts:50,
@@ -406,8 +421,8 @@ function invSizesView(){
     {k:'glass',label:'Glass',type:'text',tokens:true,v:x=>[x.shop?'All glass':''].concat(x.codes).filter(Boolean).join(' · '),cell:x=>'<span class="mut">'+whose(x)+'</span>'},
     {k:'from',label:'From',type:'list',v:x=>x.codes.length?'Supply'+(x.shop?' · Shop':''):'Shop'},
     {k:'area',label:'ft²',type:'number',def:false,v:x=>Math.round(x.w*x.h/144*100)/100}],
-   row:i=>({attrs:' data-inv-size="'+esc(i.x.key)+'"',last:i.x.shop?'<button type="button" class="sm dl" data-inv-size-remove="'+esc(i.x.key)+'" aria-label="Remove '+esc(i.x.key)+'" onclick="invSizeRemoveUi('+invArg(i.x.key)+')">×</button>':''})})+'</div>'+
-  '<div class="cut-size-add" data-inv-size-add><input type="text" id="invSizeW" placeholder="length" aria-label="Sheet length, in"> × <input type="text" id="invSizeH" placeholder="width" aria-label="Sheet width, in"> <button type="button" onclick="invSizeAddUi()">+ Add sheet size</button>'+
+   row:i=>({attrs:' data-inv-size="'+esc(i.x.key)+'"',last:i.x.shop?'<button type="button" class="sm dl" data-inv-size-remove="'+esc(i.x.key)+'" aria-label="Remove '+esc(i.x.key)+'" '+onAct('click',invSizeRemoveUi,String(i.x.key))+'>×</button>':''})})+'</div>'+
+  '<div class="cut-size-add" data-inv-size-add><input type="text" id="invSizeW" placeholder="length" aria-label="Sheet length, in"> × <input type="text" id="invSizeH" placeholder="width" aria-label="Sheet width, in"> <button type="button" '+onAct('click',invSizeAddUi)+'>+ Add sheet size</button>'+
   (invSizeNotice?'<span class="cut-md-error" role="alert" data-inv-size-error>'+esc(invSizeNotice)+'</span>':'')+'</div>';
 }
 /* Размер из поставки правят в его строке поставки (Data → Supply points). */
@@ -433,7 +448,7 @@ function invConsumablesView(){
     {k:'packs',label:'Bought in',type:'text',v:r=>String(consPacksHTML(r)).replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim(),cell:r=>'<span class="cons-packs">'+consPacksHTML(r)+'</span>'}]
     .concat([['received','Received'],['used','Used'],['adjust','Count adj.'],['onHand','On hand'],['reserved','Reserved'],['free','Free']].map(([k,l])=>({k,label:l,type:'number',v:r=>r[k],cell:r=>'<span data-cons-'+k+'>'+esc(consQty(r[k],r.unit))+'</span>'})))
     .concat([{k:'status',label:'Status',type:'list',v:r=>r.status,cell:r=>'<span class="pill '+(tone[r.status]||'')+'">'+esc(r.status)+'</span>'},
-     {k:'counted',label:'Counted',type:'number',v:r=>consCountDraft[r.key]==null?'':consCountDraft[r.key],cell:r=>'<span class="inv-count-cell"><input type="number" min="0" step="any" class="inv-min" data-cons-count="'+esc(r.key)+'" value="'+(consCountDraft[r.key]==null?'':esc(consCountDraft[r.key]))+'" oninput="consCountDraft['+invArg(r.key)+']=this.value;const b=this.parentNode.querySelector(\'[data-inv-why]\');if(b)b.hidden=this.value.trim()===\'\'">'+invWhyHTML(consCountWhy,'consCountWhy',r.key,String(consCountDraft[r.key]==null?'':consCountDraft[r.key]).trim()==='')+'</span>'}]),
+     {k:'counted',label:'Counted',type:'number',v:r=>consCountDraft[r.key]==null?'':consCountDraft[r.key],cell:r=>'<span class="inv-count-cell"><input type="number" min="0" step="any" class="inv-min" data-cons-count="'+esc(r.key)+'" value="'+(consCountDraft[r.key]==null?'':esc(consCountDraft[r.key]))+'" '+onAct('input',consCountInput,String(r.key),EL)+'>'+invWhyHTML(consCountWhy,'consCountWhy',r.key,String(consCountDraft[r.key]==null?'':consCountDraft[r.key]).trim()==='')+'</span>'}]),
    row:i=>({attrs:' data-cons-row="'+esc(i.x.key)+'"'})})+'</div>';
 }
 function consPackUi(key,v){const r=consSetPack(key,v);consNotice=r.ok?'':r.error;render();}
@@ -441,12 +456,12 @@ function consPackUi(key,v){const r=consSetPack(key,v);consNotice=r.ok?'':r.error
    настрою в интерфейсе»): 1 единица закупки = N единиц склада. Первая
    строка — «в упаковке» карточки. Метры, дюймы, фунты переводятся сами. */
 function consPacksHTML(r){
- const draft=consPackNew&&consPackNew.key===r.key?consPackNew.packs:null,list=draft||(r.packs.length?r.packs:[{unit:'box',qty:null}]),arg=invArg(r.key),saved=!!(draft||r.packs.length);
+ const draft=consPackNew&&consPackNew.key===r.key?consPackNew.packs:null,list=draft||(r.packs.length?r.packs:[{unit:'box',qty:null}]),arg=String(r.key),saved=!!(draft||r.packs.length);
  const opts=u=>MD_UNITS.filter(m=>m.code!==r.unit).map(m=>'<option value="'+m.code+'"'+(m.code===u?' selected':'')+'>'+esc(m.nameEn)+'</option>').join('');
- return list.map((p,i)=>'<div class="cons-pack" data-cons-pack-row>1 <select aria-label="Bought in" data-cons-pack-unit onchange="consPackEdit('+arg+','+i+',\'unit\',this.value)">'+opts(p.unit)+'</select> = '+
-  '<input type="number" min="0" step="any" class="inv-min" '+(i===0?'data-cons-pack="'+esc(r.key)+'" ':'')+'data-cons-pack-qty value="'+(p.qty==null?'':p.qty)+'" placeholder="—" onchange="'+(saved?'consPackEdit('+arg+','+i+',\'qty\',this.value)':'consPackUi('+arg+',this.value)')+'"> <span class="mut">'+esc(r.unit)+'</span>'+
-  (i?' <button type="button" class="sm dl" aria-label="Remove" onclick="consPackEdit('+arg+','+i+',\'del\')">×</button>':'')+'</div>').join('')+
-  (saved?'<button type="button" class="sm" data-cons-pack-add onclick="consPackEdit('+arg+','+list.length+',\'add\')">+ Unit</button>':'');
+ return list.map((p,i)=>'<div class="cons-pack" data-cons-pack-row>1 <select aria-label="Bought in" data-cons-pack-unit '+onAct('change',consPackEdit,arg,i,'unit',EL_VALUE)+'>'+opts(p.unit)+'</select> = '+
+  '<input type="number" min="0" step="any" class="inv-min" '+(i===0?'data-cons-pack="'+esc(r.key)+'" ':'')+'data-cons-pack-qty value="'+(p.qty==null?'':p.qty)+'" placeholder="—" '+(saved?onAct('change',consPackEdit,arg,i,'qty',EL_VALUE):onAct('change',consPackUi,arg,EL_VALUE))+'> <span class="mut">'+esc(r.unit)+'</span>'+
+  (i?' <button type="button" class="sm dl" aria-label="Remove" '+onAct('click',consPackEdit,arg,i,'del')+'>×</button>':'')+'</div>').join('')+
+  (saved?'<button type="button" class="sm" data-cons-pack-add '+onAct('click',consPackEdit,arg,list.length,'add')+'>+ Unit</button>':'');
 }
 let consPackNew=null;/* новая строка «Bought in», пока у неё нет числа */
 function consPackEdit(key,i,what,v){
@@ -464,13 +479,13 @@ function consCountSaveUi(){
 
 function viewInventory(){
  if(!accessCan('inventory'))return '<div class="empty">Inventory access is required.</div>';
- if(invView==='consumables')return '<div class="inventory-workspace"><div class="card sales-list-card"><div class="sales-toolbar"><span class="sales-toolbar-sp"></span><button type="button" class="pri" data-cons-count-save onclick="consCountSaveUi()">Save count</button></div>'+invNav()+invConsumablesView()+salesListMenuHTML([])+'</div></div>';
+ if(invView==='consumables')return '<div class="inventory-workspace"><div class="card sales-list-card"><div class="sales-toolbar"><span class="sales-toolbar-sp"></span><button type="button" class="pri" data-cons-count-save '+onAct('click',consCountSaveUi)+'>Save count</button></div>'+invNav()+invConsumablesView()+salesListMenuHTML([])+'</div></div>';
  if(invView==='sizes')return '<div class="inventory-workspace"><div class="card sales-list-card"><div class="sales-toolbar"><span class="sales-toolbar-sp"></span></div>'+invNav()+invSizesView()+salesListMenuHTML([])+'</div></div>';
  const count=invView==='count',off=invView==='offcuts',stock=invView==='stock',infos=invView==='journal'?invMoveInfos():off?invOffcutInfos():stock?invStockInfos():invRowInfos(),body=invView==='journal'?invJournalView(infos):off?invOffcutsView(infos):stock?invStockView(infos):count?invCountView(infos):invSheetsView(infos);
  const n=Object.keys(invCountDraft).length;
  if(invSel&&!infos.some(i=>i.o.id===invSel))invSel='';
  return '<div class="inventory-workspace"><div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">'+invSelActs(infos)+'<span class="sales-toolbar-sp"></span>'+
-  (count||invView==='sheets'?'<button type="button" data-inv-glass-on-rack onclick="invMoveOpen(\'\',\'add\')">+ Glass on rack</button>':'')+(count?'<button type="button" class="pri" data-inv-count-save onclick="invCountSaveUi()">Save count · <span data-inv-count-n>'+n+'</span></button>':'')+
-  (off?'<label class="chk"><input type="checkbox" data-inv-offcut-all '+(invOffcutAll?'checked':'')+' onchange="invOffcutAll=this.checked;render()"> Show used and written off</label><button type="button" data-inv-lost-save onclick="invOffcutLostUi()">Write off <span data-inv-lost-n>'+invOffcutLostDraft.size+'</span> not found</button>':'')+'</div>'+invNav(invListFilterBits(infos))+
+  (count||invView==='sheets'?'<button type="button" data-inv-glass-on-rack '+onAct('click',invMoveOpen,'','add')+'>+ Glass on rack</button>':'')+(count?'<button type="button" class="pri" data-inv-count-save '+onAct('click',invCountSaveUi)+'>Save count · <span data-inv-count-n>'+n+'</span></button>':'')+
+  (off?'<label class="chk"><input type="checkbox" data-inv-offcut-all '+(invOffcutAll?'checked':'')+' '+onAct('change',invOffcutAllSet,EL_CHECKED)+'> Show used and written off</label><button type="button" data-inv-lost-save '+onAct('click',invOffcutLostUi)+'>Write off <span data-inv-lost-n>'+invOffcutLostDraft.size+'</span> not found</button>':'')+'</div>'+invNav(invListFilterBits(infos))+
   (invNotice?'<div class="ncr-error" role="alert">'+esc(invNotice)+'</div>':'')+body+salesListMenuHTML(infos)+'</div></div>';
 }

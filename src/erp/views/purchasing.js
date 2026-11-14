@@ -8,7 +8,6 @@
 let purSupplierDraft=null,purSupplierOriginal='',purNotice='';
 /* Начатая форма: новая версия ERP не перезагружает вкладку сама (erp/storage). */
 (window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!purSupplierDraft&&JSON.stringify(purSupplierDraft)!==purSupplierOriginal);
-function purArg(v){return esc(JSON.stringify(String(v)));}
 function purListScope(){if(['invoices','payments','payables'].includes(purView))return 'purchasing-'+purView;if(['receipts','requests','backorders','held'].includes(purView))return 'purchasing-'+purView;return purView==='suppliers'?'purchaseSuppliers':purView==='history'?'purchaseHistory':'purchaseOrders';}
 function purListColumns(){
  if(['invoices','payments','payables'].includes(purView))return purMoneyColumns();
@@ -36,13 +35,13 @@ function viewPurchasing(){
  const infos=purSupplierInfos(),rows=salesListRows(infos),cols=salesListColumns();
  const cell=(i,c)=>{
   const v=salesListValue(i,c.k);
-  if(c.k==='name')return `<td><button type="button" class="fin-link pur-supplier-name" data-pur-open="${esc(i.s.id)}" onclick="purSupplierEdit(${purArg(i.s.id)})" data-raw>${esc(v)||'Unnamed supplier'}</button></td>`;
+  if(c.k==='name')return `<td><button type="button" class="fin-link pur-supplier-name" data-pur-open="${esc(i.s.id)}" ${onAct('click',purSupplierEdit,String(i.s.id))} data-raw>${esc(v)||'Unnamed supplier'}</button></td>`;
   if(c.k==='status')return `<td><span class="pill ${i.s.active?'ok':''}">${esc(v)}</span></td>`;
   return `<td class="${c.type==='number'?'n':''}" data-raw>${v==null||v===''?'<span class="mut">—</span>':esc(v)}</td>`;
  };
- return `<div class="purchasing-workspace"><div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">${purNav()}<span class="sales-toolbar-sp"></span><button type="button" class="pri" data-pur-new onclick="purSupplierEdit('')">+ Supplier</button></div>
+ return `<div class="purchasing-workspace"><div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">${purNav()}<span class="sales-toolbar-sp"></span><button type="button" class="pri" data-pur-new ${onAct('click',purSupplierEdit,'')}>+ Supplier</button></div>
   ${purNotice?`<div class="ncr-error" role="alert">${esc(purNotice)}</div>`:''}
-  ${purListFilters(infos)}<div class="sales-table-wrap">${(cw=>`<table class="sl-table${cw.cls}"${cw.attrs} data-pur-suppliers>${cw.col}`)(salesListCwTable(cols.map(c=>c.k),[44],0))}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" title="Columns" aria-label="Columns" data-columns-button onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(purListHeader).join('')}</tr></thead>
+  ${purListFilters(infos)}<div class="sales-table-wrap">${(cw=>`<table class="sl-table${cw.cls}"${cw.attrs} data-pur-suppliers>${cw.col}`)(salesListCwTable(cols.map(c=>c.k),[44],0))}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" title="Columns" aria-label="Columns" data-columns-button ${onAct('click',salesListOpenColumns,EVENT)}>${ico('settings')}</button></span></th>${cols.map(purListHeader).join('')}</tr></thead>
   <tbody>${purPageRows(rows).map(i=>`<tr data-pur-supplier="${esc(i.s.id)}"><td></td>${cols.map(c=>cell(i,c)).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length+1}" class="empty">${infos.length?'Nothing matches the filters.':'No suppliers yet. Add a supplier when you need a reusable card.'}</td></tr>`}</tbody>
   </table></div>${purListPager(rows)}${salesListMenuHTML(infos)}</div></div>`;
 }
@@ -53,28 +52,35 @@ function purSupplierEdit(id){
  /* render is synchronous; a delayed focus can steal input from Email. */
  if(!id)document.getElementById('pur_supplier_name')?.focus();
 }
+/* Поля карточки поставщика: прямо в черновик; контакты и свои поля — строками. */
+function purSupplierSet(key,v){purSupplierDraft[key]=v;}
+function purSupplierRowSet(list,i,key,v){purSupplierDraft[list][i][key]=v;}
+function purSupplierRowRemove(list,i){purSupplierDraft[list].splice(i,1);render();}
+function purSupplierContactAdd(){purSupplierDraft.contacts.push({name:'',role:'',email:'',phone:''});render();}
+function purSupplierFieldAdd(){purSupplierDraft.customFields.push({id:salesUid('SF'),label:'',value:''});render();}
 function purSupplierInput(f){
+
  const d=purSupplierDraft,id='pur_supplier_'+f.k,v=d[f.k]==null?'':d[f.k];
- const attrs=`id="${id}" data-pur-field="${f.k}" value="${esc(v)}" oninput="purSupplierDraft.${f.k}=this.value"`;
- const input=f.type==='area'?`<textarea id="${id}" data-pur-field="${f.k}" rows="3" oninput="purSupplierDraft.${f.k}=this.value">${esc(v)}</textarea>`:
+ const attrs=`id="${id}" data-pur-field="${f.k}" value="${esc(v)}" ${onAct('input',purSupplierSet,f.k,EL_VALUE)}`;
+ const input=f.type==='area'?`<textarea id="${id}" data-pur-field="${f.k}" rows="3" ${onAct('input',purSupplierSet,f.k,EL_VALUE)}>${esc(v)}</textarea>`:
   `<input ${attrs} ${f.type==='days'?'type="number" step="1" min="0"':f.k==='currency'?'list="pur_currencies" maxlength="3"':'type="text"'}>`;
  return `<div class="${f.type==='area'?'pur-wide':''}"><label for="${id}">${esc(f.label)}${f.k==='name'?' *':''}</label>${input}</div>`;
 }
 function purSupplierForm(){
  const d=purSupplierDraft,groups=[...new Set(PUR_SUPPLIER_FIELDS.map(f=>f.group))];
  const extra=d.contacts.map((c,i)=>`<div class="pur-contact" data-pur-contact="${i}">
-  ${[['name','Name'],['role','Role / department'],['email','Email'],['phone','Phone']].map(([k,l])=>`<div><label for="pur_contact_${i}_${k}">${l}</label><input id="pur_contact_${i}_${k}" value="${esc(c[k])}" oninput="purSupplierDraft.contacts[${i}].${k}=this.value"></div>`).join('')}
-  <button type="button" class="sm dl" aria-label="Remove contact ${i+1}" onclick="purSupplierDraft.contacts.splice(${i},1);render()">×</button></div>`).join('');
- const custom=d.customFields.map((f,i)=>`<div class="pur-custom-row" data-pur-custom="${i}"><div><label for="pur_custom_label_${i}">Label</label><input id="pur_custom_label_${i}" value="${esc(f.label)}" oninput="purSupplierDraft.customFields[${i}].label=this.value"></div><div><label for="pur_custom_value_${i}">Value</label><input id="pur_custom_value_${i}" value="${esc(f.value)}" oninput="purSupplierDraft.customFields[${i}].value=this.value"></div><button type="button" class="sm dl" aria-label="Remove custom field ${i+1}" onclick="purSupplierDraft.customFields.splice(${i},1);render()">×</button></div>`).join('');
+  ${[['name','Name'],['role','Role / department'],['email','Email'],['phone','Phone']].map(([k,l])=>`<div><label for="pur_contact_${i}_${k}">${l}</label><input id="pur_contact_${i}_${k}" value="${esc(c[k])}" ${onAct('input',purSupplierRowSet,'contacts',i,k,EL_VALUE)}></div>`).join('')}
+  <button type="button" class="sm dl" aria-label="Remove contact ${i+1}" ${onAct('click',purSupplierRowRemove,'contacts',i)}>×</button></div>`).join('');
+ const custom=d.customFields.map((f,i)=>`<div class="pur-custom-row" data-pur-custom="${i}"><div><label for="pur_custom_label_${i}">Label</label><input id="pur_custom_label_${i}" value="${esc(f.label)}" ${onAct('input',purSupplierRowSet,'customFields',i,'label',EL_VALUE)}></div><div><label for="pur_custom_value_${i}">Value</label><input id="pur_custom_value_${i}" value="${esc(f.value)}" ${onAct('input',purSupplierRowSet,'customFields',i,'value',EL_VALUE)}></div><button type="button" class="sm dl" aria-label="Remove custom field ${i+1}" ${onAct('click',purSupplierRowRemove,'customFields',i)}>×</button></div>`).join('');
  const sheets=d.id?(DB.glassSheet||[]).filter(s=>s.supplierId===d.id):[];
- return `<div class="purchasing-workspace"><div class="sales-toolbar pur-toolbar"><button type="button" class="sl-btn" onclick="purSupplierCancel()">← Suppliers</button><h2 data-raw>${d.id?esc(d.name)||'Supplier':'New supplier'}</h2><span class="sales-toolbar-sp"></span><button type="button" class="pri" data-pur-save onclick="purSupplierFormSave()">Save</button><button type="button" onclick="purSupplierCancel()">Cancel</button></div>
+ return `<div class="purchasing-workspace"><div class="sales-toolbar pur-toolbar"><button type="button" class="sl-btn" ${onAct('click',purSupplierCancel)}>← Suppliers</button><h2 data-raw>${d.id?esc(d.name)||'Supplier':'New supplier'}</h2><span class="sales-toolbar-sp"></span><button type="button" class="pri" data-pur-save ${onAct('click',purSupplierFormSave)}>Save</button><button type="button" ${onAct('click',purSupplierCancel)}>Cancel</button></div>
   ${purNotice?`<div class="ncr-error" data-pur-error role="alert">${esc(purNotice)}</div>`:''}
   <div class="pur-form form" data-pur-form><datalist id="pur_currencies"><option value="USD"></option><option value="CAD"></option></datalist>
   ${groups.map(g=>`<section class="card pur-card"><h3>${g}</h3><div class="pur-fields">${PUR_SUPPLIER_FIELDS.filter(f=>f.group===g).map(purSupplierInput).join('')}</div></section>`).join('')}
-  <section class="card pur-card pur-wide"><div class="pur-section-head"><h3>Other contacts</h3><button type="button" class="sm" data-pur-add-contact onclick="purSupplierDraft.contacts.push({name:'',role:'',email:'',phone:''});render()">+ Contact</button></div>${extra||'<p class="mut">Add another person or department when needed.</p>'}</section>
-  <section class="card pur-card pur-wide"><div class="pur-section-head"><h3>Custom fields</h3><button type="button" class="sm" data-pur-add-field onclick="purSupplierDraft.customFields.push({id:salesUid('SF'),label:'',value:''});render()">+ Field</button></div>${custom||'<p class="mut">Your own labels and values.</p>'}</section>
+  <section class="card pur-card pur-wide"><div class="pur-section-head"><h3>Other contacts</h3><button type="button" class="sm" data-pur-add-contact ${onAct('click',purSupplierContactAdd)}>+ Contact</button></div>${extra||'<p class="mut">Add another person or department when needed.</p>'}</section>
+  <section class="card pur-card pur-wide"><div class="pur-section-head"><h3>Custom fields</h3><button type="button" class="sm" data-pur-add-field ${onAct('click',purSupplierFieldAdd)}>+ Field</button></div>${custom||'<p class="mut">Your own labels and values.</p>'}</section>
   ${sheets.length?`<section class="card pur-card pur-wide"><h3>Supply points · ${sheets.length}</h3><div class="sales-table-wrap">${slFromTable('purSupplyPoints',`<table class="sl-table"><thead><tr><th>Supply point</th><th>Glass</th><th>Sheet, in</th><th>Currency</th></tr></thead><tbody>${sheets.map(s=>`<tr><td data-raw>${esc(s.supplier)}</td><td data-raw>${esc(s.productCode)}</td><td>${s.sheetWIn==null?'—':esc(s.sheetWIn+' × '+s.sheetHIn)}</td><td>${esc(s.currency)}</td></tr>`).join('')}</tbody></table>`)}</div></section>`:''}
-  <section class="card pur-card pur-wide"><label class="pur-active"><input type="checkbox" data-pur-active ${d.active?'checked':''} onchange="purSupplierDraft.active=this.checked"> Active supplier</label><p class="mut">Archived cards keep their supply links and can be restored here.</p></section>
+  <section class="card pur-card pur-wide"><label class="pur-active"><input type="checkbox" data-pur-active ${d.active?'checked':''} ${onAct('change',purSupplierSet,'active',EL_CHECKED)}> Active supplier</label><p class="mut">Archived cards keep their supply links and can be restored here.</p></section>
   ${d.id?purHistoryHTML('supplier',d.id):''}
   </div></div>`;
 }
