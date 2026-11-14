@@ -347,7 +347,7 @@ module.exports=async function({page,eq,ok}){
  /* Р2: файлы и формы (проверка Codex, находки 2, 5, 6, 11). */
  const y=await page();
  await y.p.evaluate(()=>{window.srMark=1;navGo('customers');customerNew();});
- await y.p.locator('input[oninput^="cDraft.legalName"]').fill('Typed customer');
+ await y.p.locator('input[data-on-input="custSetLegal"]').fill('Typed customer');
  await y.p.evaluate(()=>storageOnMessage({type:'hello',build:'newer-build-2'}));await y.p.waitForTimeout(500);
  eq('новая версия ERP: набранный клиент остаётся, вкладка не перезагружается сама',await y.p.evaluate(()=>{afterRender();const bar=document.getElementById('storageAlert');
   return {kept:!!window.srMark,name:cDraft&&cDraft.legalName,bar:!bar.hidden&&/A newer version is open/.test(bar.textContent)};}),{kept:true,name:'Typed customer',bar:true});

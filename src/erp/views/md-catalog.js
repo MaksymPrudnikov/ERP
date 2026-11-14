@@ -31,6 +31,8 @@ function mdCatalogNode(){
  return mdMatView;
 }
 /* Другой раздел — поиск снова в разделе (P4-R2). */
+function mdPeekClose(){mdPeek='';render();}
+function mdCatalogMore(){mdCatalogLimit=(mdCatalogLimit||MD_PAGE)+MD_PAGE;render();}
 function mdCatalogGo(key){
  const hit=MD_CATALOG_TREE.flatMap(g=>g[1]).find(n=>n[0]===key);if(!hit)return;
  if(mdSetTab(hit[2])===false)return;
@@ -127,7 +129,7 @@ function mdPeekHTML(){
   <div class="md-peek-chips">${x.active===false?'<span class="pill warn">inactive</span>':''}${p.miss.map(m=>`<span class="pill warn">${esc(m)}</span>`).join('')}${!p.miss.length&&x.active!==false?'<span class="pill ok">complete</span>':''}</div>
   <dl class="md-kv">${p.facts.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${v==null||v===''?'<span class="mut">—</span>':raw(v)}</dd>`).join('')}</dl>
   <div class="md-peek-sec">Last change</div><div class="mut">${last?raw(last.what+(last.field?' · '+last.field:'')+' · '+(last.by||'—')+' · '+String(last.at).slice(0,10)):'No changes logged'}</div>
-  <div class="row"><button class="pri" onclick="mdCatalogOpen('${esc(t)}','${esc(id)}')">${t==='surroundRecipe'?'Open recipe':'Open card'}</button><button onclick="mdPeek='';render()">Close</button></div></aside>`;
+  <div class="row"><button class="pri" ${onAct('click',mdCatalogOpen,String(t??''),String(id??''))}>${t==='surroundRecipe'?'Open recipe':'Open card'}</button><button ${onAct('click',mdPeekClose)}>Close</button></div></aside>`;
 }
 /* Открыта карточка строки каталога (форма своего списка). */
 function mdRowFormOpen(){return mdEdit!==null||mdSheetEdit!==null||mdSpacerEdit!==null||mdCatEdit!==null||mdHwKindEdit!==null||mdHwModelEdit!==null;}
@@ -137,27 +139,27 @@ function mdRowFormOpen(){return mdEdit!==null||mdSheetEdit!==null||mdSpacerEdit!
    щелчком (mdPeek); её кнопки — в шапке (mdSyncBar). */
 function viewMdCatalog(pills){
  const node=mdCatalogNode(),open=mdRowFormOpen();
- const tree=MD_CATALOG_TREE.map(([g,nodes])=>`<div class="md-tree-group">${esc(g)}</div>`+nodes.map(([k,label])=>`<button type="button" class="${k===node?'on':''}" data-md-node="${k}" onclick="mdCatalogGo('${k}')">${esc(label)} <span class="mut">${mdCatalogCount(k)}</span></button>`).join('')).join('');
+ const tree=MD_CATALOG_TREE.map(([g,nodes])=>`<div class="md-tree-group">${esc(g)}</div>`+nodes.map(([k,label])=>`<button type="button" class="${k===node?'on':''}" data-md-node="${k}" ${onAct('click',mdCatalogGo,String(k))}>${esc(label)} <span class="mut">${mdCatalogCount(k)}</span></button>`).join('')).join('');
  const label=(MD_CATALOG_TREE.flatMap(g=>g[1]).find(n=>n[0]===node)||[])[1]||'';
  const health=mdCatalogQuery.trim()&&mdCatalogAll?'':mdCatalogHealth(node).map(([k,n])=>`<span class="pill ${n?'warn':'ok'}">${esc(k)} ${n}</span>`).join(' ');
  const q=mdCatalogQuery.trim(),own=q&&!mdCatalogAll&&MD_CATALOGUES.some(c=>c.k===node);
  const hits=q&&!own?mdCatalogSearch(mdCatalogQuery,mdCatalogAll?'':node):[];
- const newBtn=`<button class="pri" data-md-search-new onclick="mdCatalogNew('${esc(node)}')">+ New${mdCatalogAll?' · '+esc(label):''}</button>`;
+ const newBtn=`<button class="pri" data-md-search-new ${onAct('click',mdCatalogNew,String(node??''))}>+ New${mdCatalogAll?' · '+esc(label):''}</button>`;
  let body;
- if(q&&!own)body=`<div class="md-toolbar"><span class="mut" data-md-search-count>${hits.length} found${mdCatalogAll?' in all catalog':' in '+esc(label)}</span><span class="sp"></span>${newBtn}</div><div class="customer-table-wrap"><table data-md-search><thead><tr><th>Type</th><th>Name</th><th>Code</th><th></th></tr></thead><tbody>${hits.slice(0,mdCatalogLimit||MD_PAGE).map(h=>`<tr><td>${esc(h.label)}</td><td><b>${raw(h.x.name||h.x.id)}</b></td><td class="mono">${raw(h.x.code||h.x.productCode||'')}</td><td><button class="sm" onclick="mdCatalogOpen('${esc(h.t)}','${esc(h.x.id)}')">Open</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">Nothing found</td></tr>'}</tbody></table></div>${hits.length>(mdCatalogLimit||MD_PAGE)?`<div class="md-more"><button class="sm" data-md-more onclick="mdCatalogLimit=(mdCatalogLimit||MD_PAGE)+MD_PAGE;render()">Show ${Math.min(MD_PAGE,hits.length-(mdCatalogLimit||MD_PAGE))} more</button></div>`:''}`;
+ if(q&&!own)body=`<div class="md-toolbar"><span class="mut" data-md-search-count>${hits.length} found${mdCatalogAll?' in all catalog':' in '+esc(label)}</span><span class="sp"></span>${newBtn}</div><div class="customer-table-wrap"><table data-md-search><thead><tr><th>Type</th><th>Name</th><th>Code</th><th></th></tr></thead><tbody>${hits.slice(0,mdCatalogLimit||MD_PAGE).map(h=>`<tr><td>${esc(h.label)}</td><td><b>${raw(h.x.name||h.x.id)}</b></td><td class="mono">${raw(h.x.code||h.x.productCode||'')}</td><td><button class="sm" ${onAct('click',mdCatalogOpen,String(h.t??''),String(h.x.id??''))}>Open</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">Nothing found</td></tr>'}</tbody></table></div>${hits.length>(mdCatalogLimit||MD_PAGE)?`<div class="md-more"><button class="sm" data-md-more ${onAct('click',mdCatalogMore)}>Show ${Math.min(MD_PAGE,hits.length-(mdCatalogLimit||MD_PAGE))} more</button></div>`:''}`;
  else if(mdTab==='hardware')body=viewMdHardware();
  else if(mdTab==='works')body=viewMdCatalogues()+(mdCatEdit===null&&mdCatKind==='serviceRate'?viewMdAllowance():'');
  else{const hit=mdMatResolve(mdMatCategory,mdMatView).hit;body=hit.view?({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer,recipe:viewMdRecipes})[hit.view]():viewMdCatalogues();}
  /* Боковая карточка отмеченной строки (владельцу нравится, 03.11.2026); Hide preview в шапке прячет. */
  const peek=mdPeek&&mdPreview&&!open&&(!q||own)?mdPeekHTML():'';
  setTimeout(mdSyncBar,0);
- const scope=`<div class="stk-seg" data-md-scope><button type="button" class="${mdCatalogAll?'':'on'}" data-md-scope-node onclick="mdCatalogScope(false)">${esc(label)}</button><button type="button" class="${mdCatalogAll?'on':''}" data-md-scope-all onclick="mdCatalogScope(true)">All catalog</button></div><input id="mdCatalogSearch" class="md-bar-search" value="${esc(mdCatalogQuery)}" placeholder="${mdCatalogAll?'Search all catalog':'Search '+esc(label)}: name, code, supplier…" oninput="mdCatalogSearchChange(this)">`;
+ const scope=`<div class="stk-seg" data-md-scope><button type="button" class="${mdCatalogAll?'':'on'}" data-md-scope-node ${onAct('click',mdCatalogScope,false)}>${esc(label)}</button><button type="button" class="${mdCatalogAll?'on':''}" data-md-scope-all ${onAct('click',mdCatalogScope,true)}>All catalog</button></div><input id="mdCatalogSearch" class="md-bar-search" value="${esc(mdCatalogQuery)}" placeholder="${mdCatalogAll?'Search all catalog':'Search '+esc(label)}: name, code, supplier…" ${onAct('input',mdCatalogSearchChange,EL)}>`;
  const stocked=DB.glassProduct.filter(p=>p.stocked).length,orphans=glassOrphanSheets().length;
  return `<div class="md-shell${peek?' md-shell-peek':''}" data-md-catalog>
   <nav class="card md-tree" aria-label="Catalog">${tree}<div class="md-tree-foot mut small">${stocked} kept in stock · ${orphans} supply rows without a product</div></nav>
   <div class="card sales-list-card md-catalog-main">
    ${open?pills:`<div class="sales-toolbar md-bar"><span data-md-acts></span><span class="sales-toolbar-sp"></span>${scope}</div>${pills.replace(/<\/div>$/,`<span class="sales-toolbar-sp"></span><div class="md-catalog-health" data-md-health${node==='spacerVariant'?' data-spacer-health':''} title="${esc(q&&mdCatalogAll?'Search':label)}">${health}</div></div>`)}`}
-   <div class="md-catalog-body" onclick="mdCatalogRowClick(event)">${body}</div>
+   <div class="md-catalog-body" ${onAct('click',mdCatalogRowClick,EVENT)}>${body}</div>
   </div>${peek}</div>${mdPeek?`<style>[data-md-row="${esc(mdPeek).replace(/"/g,'')}"]>td{background:var(--accent-soft)}</style>`:''}`;
 }
 /* Кнопки отмеченной строки — в шапку: те же кнопки строки (Edit, Discontinue,

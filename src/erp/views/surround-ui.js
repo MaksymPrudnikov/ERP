@@ -19,27 +19,27 @@ function viewMdRecipes(){
  const recipes=DB.surroundRecipe||[];
  return `<div class="sub">Parts per cavity. Empty norm — unknown.</div>
   ${recipes.map(mdRecipeCard).join('')||'<div class="empty">No recipes yet</div>'}
-  <div class="row"><button class="pri" onclick="mdRecipeNew()">+ New recipe</button></div>`;
+  <div class="row"><button class="pri" ${onAct('click',mdRecipeNew)}>+ New recipe</button></div>`;
 }
 function mdRecipeCard(r){
  const users=mdRecipeUsers(r.id),fixed=p=>p==='spacer'||p==='gas';
  const missing=r.rows.filter(x=>!fixed(x.part)&&x.amount==null).length;
  const cell=(x,i)=>fixed(x.part)
   ?`<td colspan="2" class="mut">${x.part==='spacer'?'Weight from the spacer card':'Density from the gas card × cavity volume'}</td>`
-  :`<td><input type="number" min="0" step="any" style="width:90px" value="${x.amount==null?'':x.amount}" placeholder="unknown" onchange="mdRecipeRowSet('${esc(r.id)}',${i},'amount',this.value)"></td>
-    <td><select onchange="mdRecipeRowSet('${esc(r.id)}',${i},'per',this.value)">${Object.keys(SURROUND_PER).map(k=>`<option value="${k}" ${k===x.per?'selected':''}>${esc(SURROUND_PER[k])}</option>`).join('')}</select></td>`;
+  :`<td><input type="number" min="0" step="any" style="width:90px" value="${x.amount==null?'':x.amount}" placeholder="unknown" ${onAct('change',mdRecipeRowSet,String(r.id??''),i,'amount',EL_VALUE)}></td>
+    <td><select ${onAct('change',mdRecipeRowSet,String(r.id??''),i,'per',EL_VALUE)}>${Object.keys(SURROUND_PER).map(k=>`<option value="${k}" ${k===x.per?'selected':''}>${esc(SURROUND_PER[k])}</option>`).join('')}</select></td>`;
  return `<div class="card" data-recipe="${esc(r.id)}" data-md-row="surroundRecipe:${esc(r.id)}" style="margin:12px 0">
   <div class="grid">
-   <div><label>Recipe name</label><input value="${esc(r.name)}" onchange="mdRecipeSet('${esc(r.id)}','name',this.value)"></div>
-   <div><label>PIB per side, mm</label><input type="number" min="0" step="any" value="${r.pibPerSideMm==null?'':r.pibPerSideMm}" placeholder="unknown" onchange="mdRecipeSet('${esc(r.id)}','pibPerSideMm',this.value)"><div class="hint">Adds to unit thickness on both sides of the spacer.</div></div>
+   <div><label>Recipe name</label><input value="${esc(r.name)}" ${onAct('change',mdRecipeSet,String(r.id??''),'name',EL_VALUE)}></div>
+   <div><label>PIB per side, mm</label><input type="number" min="0" step="any" value="${r.pibPerSideMm==null?'':r.pibPerSideMm}" placeholder="unknown" ${onAct('change',mdRecipeSet,String(r.id??''),'pibPerSideMm',EL_VALUE)}><div class="hint">Adds to unit thickness on both sides of the spacer.</div></div>
    <div><label>Used by</label><div>${users.length} spacer${users.length===1?'':'s'}${missing?` <span class="pill warn">${missing} without norm</span>`:''}</div></div>
   </div>
   <div class="customer-table-wrap">${slFromTable('mdSurroundParts',`<table><thead><tr><th>Part</th><th>Norm, g</th><th>Per</th><th>Waste, %</th><th></th></tr></thead><tbody>
-  ${r.rows.map((x,i)=>`<tr><td><select onchange="mdRecipeRowSet('${esc(r.id)}',${i},'part',this.value)">${mdRecipePartOptions(x.part)}</select></td>${cell(x,i)}
-   <td><input type="number" min="0" step="any" style="width:70px" value="${x.wastePct==null?'':x.wastePct}" placeholder="0" onchange="mdRecipeRowSet('${esc(r.id)}',${i},'wastePct',this.value)"></td>
-   <td><button class="sm dl" onclick="mdRecipeRowDelete('${esc(r.id)}',${i})">×</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">no parts</td></tr>'}
+  ${r.rows.map((x,i)=>`<tr><td><select ${onAct('change',mdRecipeRowSet,String(r.id??''),i,'part',EL_VALUE)}>${mdRecipePartOptions(x.part)}</select></td>${cell(x,i)}
+   <td><input type="number" min="0" step="any" style="width:70px" value="${x.wastePct==null?'':x.wastePct}" placeholder="0" ${onAct('change',mdRecipeRowSet,String(r.id??''),i,'wastePct',EL_VALUE)}></td>
+   <td><button class="sm dl" ${onAct('click',mdRecipeRowDelete,String(r.id??''),i)}>×</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">no parts</td></tr>'}
   </tbody></table>`)}</div>
-  <div class="row"><button class="sm" onclick="mdRecipeRowAdd('${esc(r.id)}')">+ Part</button><button class="sm dl" onclick="mdRecipeDelete('${esc(r.id)}')">Delete recipe</button></div>
+  <div class="row"><button class="sm" ${onAct('click',mdRecipeRowAdd,String(r.id??''))}>+ Part</button><button class="sm dl" ${onAct('click',mdRecipeDelete,String(r.id??''))}>Delete recipe</button></div>
  </div>`;
 }
 function mdRecipeNew(){
@@ -83,12 +83,12 @@ function mdSpacerSystemsTable(){
  const rows=DB.spacerSystem||[],used=name=>(DB.spacerVariant||[]).filter(sp=>sp&&sp.system===name).length;
  return `<h4 style="margin-top:22px">Spacer systems</h4>
   <div class="customer-table-wrap">${slFromTable('mdSpacerSystems',`<table data-spacer-systems><thead><tr><th>Name</th><th>Code</th><th>Family</th><th>Spacers</th><th></th></tr></thead><tbody>
-  ${rows.map(x=>`<tr><td><input value="${esc(x.name)}" onchange="mdSpacerSystemSet('${esc(x.id)}','name',this.value)"></td>
-   <td><input style="width:80px" value="${esc(x.code)}" onchange="mdSpacerSystemSet('${esc(x.id)}','code',this.value)"></td>
-   <td><input value="${esc(x.family)}" onchange="mdSpacerSystemSet('${esc(x.id)}','family',this.value)"></td>
-   <td class="mono">${used(x.name)}</td><td><button class="sm dl" onclick="mdSpacerSystemDelete('${esc(x.id)}')">×</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">no systems</td></tr>'}
+  ${rows.map(x=>`<tr><td><input value="${esc(x.name)}" ${onAct('change',mdSpacerSystemSet,String(x.id??''),'name',EL_VALUE)}></td>
+   <td><input style="width:80px" value="${esc(x.code)}" ${onAct('change',mdSpacerSystemSet,String(x.id??''),'code',EL_VALUE)}></td>
+   <td><input value="${esc(x.family)}" ${onAct('change',mdSpacerSystemSet,String(x.id??''),'family',EL_VALUE)}></td>
+   <td class="mono">${used(x.name)}</td><td><button class="sm dl" ${onAct('click',mdSpacerSystemDelete,String(x.id??''))}>×</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">no systems</td></tr>'}
   </tbody></table>`)}</div>
-  <div class="row"><button class="sm" onclick="mdSpacerSystemNew()">+ New system</button></div>`;
+  <div class="row"><button class="sm" ${onAct('click',mdSpacerSystemNew)}>+ New system</button></div>`;
 }
 function mdSpacerSystemNew(){
  const id=mdCatIdFrom('SYS','','System',DB.spacerSystem||[]);

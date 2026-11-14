@@ -19,7 +19,7 @@ function mdCardHTML(o){
   ${o.status?`<span class="pill ${o.status[1]||''}">${esc(o.status[0])}</span>`:''}${o.code?`<span class="mono md-card-code">${raw(o.code)}</span>`:''}</div>`;
  /* Одна вкладка — маленькая карточка: без колонки вкладок. */
  if(tabs.length<2)return `<div class="md-card md-card-one" data-md-card="${o.form}">${head}<div class="md-card-panes">${tabs.length?tabs[0].html:''}</div><div class="md-card-foot">${o.foot||''}</div></div>`;
- const nav=tabs.map(t=>`<button type="button" role="tab" data-md-tab="${t.k}" class="${t.k===on?'on':''}" onclick="mdCardTab(this)">${esc(t.label)}${t.missing?'<span class="md-dot" title="Something missing"></span>':''}</button>`).join('');
+ const nav=tabs.map(t=>`<button type="button" role="tab" data-md-tab="${t.k}" class="${t.k===on?'on':''}" ${onAct('click',mdCardTab,EL)}>${esc(t.label)}${t.missing?'<span class="md-dot" title="Something missing"></span>':''}</button>`).join('');
  const panes=tabs.map(t=>`<div class="md-card-pane${t.k===on?' on':''}" role="tabpanel" data-md-pane="${t.k}">${t.html}</div>`).join('');
  return `<div class="md-card" data-md-card="${o.form}">${head}<div class="md-card-body"><div class="md-card-tabs" role="tablist">${nav}</div><div class="md-card-panes">${panes}</div></div><div class="md-card-foot">${o.foot||''}</div></div>`;
 }

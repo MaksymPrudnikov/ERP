@@ -45,6 +45,7 @@ const STOCK_API=new Set([
  'viewInventory', // Экран Inventory.
  'viewStockList', // Список стока в Optimization.
  'invGo', // Открыть Inventory на нужном месте.
+ 'invOpenStock', // Открыть Stock item в журнале Inventory (кнопка в Master Data).
  'invListScope', // Таблица склада в общем движке таблиц: какая.
  'invListColumns', // Колонки таблиц склада.
  'invListDefaults', // Колонки по умолчанию.

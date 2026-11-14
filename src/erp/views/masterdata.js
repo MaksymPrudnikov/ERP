@@ -92,8 +92,8 @@ let mdImportReport=null;
 function viewMasterData(){
  if(!MD_TABS.some(t=>t.k===mdTab))mdTab='materials';
  const sec=MD_SECTIONS.find(s=>s.tabs.includes(mdTab))||MD_SECTIONS[0];
- const pills=`<div class="sl-filter-row"><div class="sl-quick" role="tablist" data-md-sections>${MD_SECTIONS.map(s=>`<button type="button" role="tab" class="sl-quick-pill${s.tabs.includes(mdTab)?' on':''}" data-md-section="${s.k}" onclick="mdSetTab('${s.tabs[0]}')">${s.label}</button>`).join('')}</div></div>`;
- const subs=sec.k!=='catalog'&&sec.tabs.length>1?`<div class="sl-filter-row md-mat-subs" data-md-subtabs><div class="sl-quick">${sec.tabs.map(k=>`<button type="button" class="sl-quick-pill${mdTab===k?' on':''}" onclick="mdSetTab('${k}')">${esc(MD_TABS.find(t=>t.k===k).label)}</button>`).join('')}</div></div>`:'';
+ const pills=`<div class="sl-filter-row"><div class="sl-quick" role="tablist" data-md-sections>${MD_SECTIONS.map(s=>`<button type="button" role="tab" class="sl-quick-pill${s.tabs.includes(mdTab)?' on':''}" data-md-section="${s.k}" ${onAct('click',mdSetTab,String(s.tabs[0]))}>${s.label}</button>`).join('')}</div></div>`;
+ const subs=sec.k!=='catalog'&&sec.tabs.length>1?`<div class="sl-filter-row md-mat-subs" data-md-subtabs><div class="sl-quick">${sec.tabs.map(k=>`<button type="button" class="sl-quick-pill${mdTab===k?' on':''}" ${onAct('click',mdSetTab,String(k))}>${esc(MD_TABS.find(t=>t.k===k).label)}</button>`).join('')}</div></div>`:'';
  /* Каталог — своя раскладка (viewMdCatalog); остальные разделы — карточка с таблетками. */
  return `${sec.k==='catalog'?viewMdCatalog(pills):`<div class="card md-card">${pills}${subs}
    ${({prices:viewMdPrices,stations:viewMdStations,setup:viewMdSetup,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,forms:viewMdForms,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,stockreasons:viewMdStockReasons,overview:viewMdOverview})[mdTab]()}
@@ -135,8 +135,8 @@ function mdStationTreeHTML(){
    erp/sales/order-setup. Сохранённые заказы держат свой снимок. */
 function viewMdSetup(){
  const s=orderSetup(),cur='CAD';
- const on=k=>`<input type="checkbox" data-setup="${k}" ${s[k]?'checked':''} onchange="orderSetupSet('${k}',this.checked)">`;
- const num=(k,unit)=>`<input type="number" min="0" step="0.01" data-setup="${k}" value="${s[k]}" onchange="orderSetupSet('${k}',this.value)"> <span class="mut">${unit}</span>`;
+ const on=k=>`<input type="checkbox" data-setup="${k}" ${s[k]?'checked':''} ${onAct('change',orderSetupSet,String(k),EL_CHECKED)}>`;
+ const num=(k,unit)=>`<input type="number" min="0" step="0.01" data-setup="${k}" value="${s[k]}" ${onAct('change',orderSetupSet,String(k),EL_VALUE)}> <span class="mut">${unit}</span>`;
  const inBase=(k,label)=>`<label class="md-setup-base">${on(k)} ${label}</label>`;
  /* Таблицы вида Sales (владелец 07.11.2026): фильтр, сортировка, ширина, порядок. */
  const charges=[['Energy surcharge (ES)','energyOn',num('energyRate','%'),'<span class="mut">—</span>',s.energyRate+' %','—'],
@@ -147,21 +147,21 @@ function viewMdSetup(){
  const chargeTable=slTable('mdSetupCharges',{list:charges,id:x=>x[1],cls:'ncr-table',fill:'charge',noun:l=>l.length+' charges',
   columns:()=>[{k:'charge',label:'Charge',type:'text',v:x=>x[0],cell:x=>`<b>${x[0]}</b>`},{k:'on',label:'On',type:'list',v:x=>s[x[1]]?'Yes':'No',cell:x=>on(x[1])},{k:'value',label:'Value',type:'text',v:x=>x[4],cell:x=>x[2]},{k:'base',label:'Base besides Subtotal',type:'text',v:x=>x[5],cell:x=>x[3]}]});
  const cardTable=slTable('mdSetupCards',{list:s.cardNetworks,id:n=>n.id,cls:'ncr-table',acts:50,empty:'No cards',noun:l=>l.length+' card'+(l.length===1?'':'s'),
-  columns:()=>[{k:'name',label:'Name on order',type:'text',v:n=>n.name,cell:(n,v,i)=>`<input type="text" maxlength="60" value="${esc(n.name)}" onchange="orderSetupCardSet(${i.i},'name',this.value)">`},{k:'rate',label:'Rate',type:'number',v:n=>n.rate,cell:(n,v,i)=>`<input type="number" min="0" step="0.01" value="${n.rate}" onchange="orderSetupCardSet(${i.i},'rate',this.value)"> <span class="mut">%</span>`}],
-  row:i=>({attrs:` data-setup-card="${esc(i.x.id)}"`,last:`<button type="button" class="sm dl" aria-label="Remove" title="Remove" onclick="orderSetupCardRemove(${i.i})">×</button>`})});
+  columns:()=>[{k:'name',label:'Name on order',type:'text',v:n=>n.name,cell:(n,v,i)=>`<input type="text" maxlength="60" value="${esc(n.name)}" ${onAct('change',orderSetupCardSet,i.i,'name',EL_VALUE)}>`},{k:'rate',label:'Rate',type:'number',v:n=>n.rate,cell:(n,v,i)=>`<input type="number" min="0" step="0.01" value="${n.rate}" ${onAct('change',orderSetupCardSet,i.i,'rate',EL_VALUE)}> <span class="mut">%</span>`}],
+  row:i=>({attrs:` data-setup-card="${esc(i.x.id)}"`,last:`<button type="button" class="sm dl" aria-label="Remove" title="Remove" ${onAct('click',orderSetupCardRemove,i.i)}>×</button>`})});
  return `<div class="md-setup" data-md-setup>
   <h3>Order charges</h3><p class="mut">Defaults for new orders.</p>
   ${chargeTable}
   <h4>Cards</h4><p class="mut">The first card is the default.</p>
   <div data-setup-cards>${cardTable}</div>
-  <button type="button" data-setup-card-add onclick="orderSetupCardAdd()">+ Card</button>
+  <button type="button" data-setup-card-add ${onAct('click',orderSetupCardAdd)}>+ Card</button>
   <h3>Weights</h3><p class="mut">Unit weight on orders and stickers.</p>
-  <div class="grid">${(()=>{const g=(DB.materialWeightRates||[]).find(r=>r.key==='glass');return `<div><label>Glass density, kg/m³</label><input type="number" min="0" step="any" data-setup-density value="${g&&g.rate!=null?g.rate:''}" placeholder="unknown" onchange="mdWeightSet('glass',this.value,1)"></div>`;})()}</div>
+  <div class="grid">${(()=>{const g=(DB.materialWeightRates||[]).find(r=>r.key==='glass');return `<div><label>Glass density, kg/m³</label><input type="number" min="0" step="any" data-setup-density value="${g&&g.rate!=null?g.rate:''}" placeholder="unknown" ${onAct('change',mdWeightSet,'glass',EL_VALUE,1)}></div>`;})()}</div>
   <h3>Frit</h3><p class="mut">Prefilled on a new frit lite.</p>
   <div class="grid">
-   <div><label>Dot, mm</label><input type="number" min="0.1" step="0.1" data-setup="fritDotMm" value="${s.fritDotMm}" onchange="orderSetupSet('fritDotMm',this.value)"></div>
-   <div><label>Margin</label><input type="text" data-setup="fritMargin16" value="${esc(salesMarginFrom16(s.fritMargin16))}" onchange="orderSetupSet('fritMargin16',this.value)"></div>
-   <div><label>From corner</label><select data-setup="fritCorner" onchange="orderSetupSet('fritCorner',this.value)">${FRIT_MARGIN_CORNERS.map(c=>`<option ${s.fritCorner===c?'selected':''}>${esc(c)}</option>`).join('')}</select></div>
+   <div><label>Dot, mm</label><input type="number" min="0.1" step="0.1" data-setup="fritDotMm" value="${s.fritDotMm}" ${onAct('change',orderSetupSet,'fritDotMm',EL_VALUE)}></div>
+   <div><label>Margin</label><input type="text" data-setup="fritMargin16" value="${esc(salesMarginFrom16(s.fritMargin16))}" ${onAct('change',orderSetupSet,'fritMargin16',EL_VALUE)}></div>
+   <div><label>From corner</label><select data-setup="fritCorner" ${onAct('change',orderSetupSet,'fritCorner',EL_VALUE)}>${FRIT_MARGIN_CORNERS.map(c=>`<option ${s.fritCorner===c?'selected':''}>${esc(c)}</option>`).join('')}</select></div>
   </div></div>`;
 }
 /* Предупреждать, а не запрещать: ноль законен, отрицательное и не число —
@@ -263,6 +263,22 @@ function mdSearchChange(el){
    код плюс подсветка, чтобы я видел, что заполнить»). Снятое с производства
    не считается — его не заказывают. */
 function mdGlassNoShort(p){return p.active!==false&&!p.shortName;}
+/* Фильтр списка стекла: поле фильтра и первая страница. */
+function mdGlassFilter(key,v){if(key==='mdMfr')mdMfr=v;else if(key==='mdThick')mdThick=v;else if(key==='mdCoating')mdCoating=v;else mdStatus=v;mdGlassLimit=MD_PAGE;render();}
+function mdGlassMore(){mdGlassLimit+=MD_PAGE;render();}
+function mdGlassPeek(id,on){mdPeek=on?'glassProduct:'+id:'';render();}
+function mdGlassCancel(){mdEdit=null;mdDraft=null;render();}
+function mdSheetCancel(){mdSheetEdit=null;mdSheetDraft=null;mdSheetPick={mfr:'',thick:'',coat:''};render();}
+function mdSpacerCancel(){mdSpacerEdit=null;mdSpacerDraft=null;render();}
+function mdHwFilterSet(v){mdHwFilter=v;render();}
+function mdHwKindCancel(){mdHwKindEdit=null;mdHwKindDraft=null;render();}
+function mdHwModelCancel(){mdHwModelEdit=null;mdHwModelDraft=null;render();}
+function mdOverviewSet(k){mdOverviewView=k;render();}
+function mdLogSearch(v){mdLogQuery=v;mdLogShown=200;render();}
+function mdLogFilterSet(v){mdLogFilter=v;mdLogShown=200;render();}
+function mdLogMore(){mdLogShown+=200;render();}
+function mdTransferCancel(){mdTransfer=null;render();}
+function mdTransferChoose(){document.getElementById('mdTransferFile').click();}
 function viewMdGlass(){
  if(mdEdit!==null)return mdGlassForm();
  const rows=mdVisibleProducts(),shown=rows.slice(0,mdGlassLimit),noShort=DB.glassProduct.filter(mdGlassNoShort).length;
@@ -270,15 +286,15 @@ function viewMdGlass(){
  const thicks=[...new Set(DB.glassProduct.map(p=>p.thicknessMm).filter(x=>x!=null))].sort((a,b)=>a-b);
  /* Одна строка инструментов, как у остальных списков (аудит D-4). */
  return `<div class="md-toolbar" data-md-toolbar>
-   <input id="mdSearch" class="md-toolbar-search" value="${esc(mdSearch)}" placeholder="Search glass: code, name, note…" oninput="mdSearchChange(this)">
-   <select aria-label="Manufacturer" onchange="mdMfr=this.value;mdGlassLimit=MD_PAGE;render()"><option value="">All manufacturers</option>${mfrs.map(m=>`<option data-raw value="${esc(m)}" ${mdMfr===m?'selected':''}>${esc(m)}</option>`).join('')}</select>
-   <select aria-label="Thickness" onchange="mdThick=this.value;mdGlassLimit=MD_PAGE;render()"><option value="">Any thickness</option>${thicks.map(t=>`<option data-raw value="${t}" ${mdThick===String(t)?'selected':''}>${t} mm</option>`).join('')}</select>
-   <select aria-label="Coating" onchange="mdCoating=this.value;mdGlassLimit=MD_PAGE;render()"><option value="">Any coating</option>${mdVocabOptions('coatingFamily',mdCoating,'')}</select>
-   <select aria-label="Status" data-md-status onchange="mdStatus=this.value;mdGlassLimit=MD_PAGE;render()">${[['all','Any status'],['stocked','In stock'],['preorder','Pre-order'],['noshort','No short name · '+noShort],['inactive','Discontinued']].map(x=>`<option value="${x[0]}" ${mdStatus===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select>
-   <button class="pri" onclick="mdGlassNew()">+ New item</button>
+   <input id="mdSearch" class="md-toolbar-search" value="${esc(mdSearch)}" placeholder="Search glass: code, name, note…" ${onAct('input',mdSearchChange,EL)}>
+   <select aria-label="Manufacturer" ${onAct('change',mdGlassFilter,'mdMfr',EL_VALUE)}><option value="">All manufacturers</option>${mfrs.map(m=>`<option data-raw value="${esc(m)}" ${mdMfr===m?'selected':''}>${esc(m)}</option>`).join('')}</select>
+   <select aria-label="Thickness" ${onAct('change',mdGlassFilter,'mdThick',EL_VALUE)}><option value="">Any thickness</option>${thicks.map(t=>`<option data-raw value="${t}" ${mdThick===String(t)?'selected':''}>${t} mm</option>`).join('')}</select>
+   <select aria-label="Coating" ${onAct('change',mdGlassFilter,'mdCoating',EL_VALUE)}><option value="">Any coating</option>${mdVocabOptions('coatingFamily',mdCoating,'')}</select>
+   <select aria-label="Status" data-md-status ${onAct('change',mdGlassFilter,'mdStatus',EL_VALUE)}>${[['all','Any status'],['stocked','In stock'],['preorder','Pre-order'],['noshort','No short name · '+noShort],['inactive','Discontinued']].map(x=>`<option value="${x[0]}" ${mdStatus===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select>
+   <button class="pri" ${onAct('click',mdGlassNew)}>+ New item</button>
   </div>
   ${mdGlassTable(shown)}
-  <div class="md-more"><span class="mut" data-md-shown>${shown.length} of ${rows.length}</span>${rows.length>shown.length?` <button class="sm" data-md-more onclick="mdGlassLimit+=MD_PAGE;render()">Show ${Math.min(MD_PAGE,rows.length-shown.length)} more</button>`:''}</div>`;
+  <div class="md-more"><span class="mut" data-md-shown>${shown.length} of ${rows.length}</span>${rows.length>shown.length?` <button class="sm" data-md-more ${onAct('click',mdGlassMore)}>Show ${Math.min(MD_PAGE,rows.length-shown.length)} more</button>`:''}</div>`;
 }
 let mdGlassLimit=MD_PAGE;
 /* Цена продажи правится прямо в строке каталога: заполнять её придётся по многим
@@ -286,7 +302,7 @@ let mdGlassLimit=MD_PAGE;
    значит «в прайсе цены нет» — ровно как «no price» в присланном листе. */
 function mdGlassPriceInput(p,field){
  const v=p[field];
- return `<input class="md-mm" type="number" step="0.01" min="0" style="width:82px" value="${v==null?'':v}" placeholder="—" onchange="mdGlassSetPrice('${esc(p.id)}','${field}',this.value)">`;
+ return `<input class="md-mm" type="number" step="0.01" min="0" style="width:82px" value="${v==null?'':v}" placeholder="—" ${onAct('change',mdGlassSetPrice,String(p.id??''),String(field),EL_VALUE)}>`;
 }
 function mdGlassSetPrice(id,field,v){
  const p=(DB.glassProduct||[]).find(x=>x.id===id);if(!p)return;
@@ -302,7 +318,7 @@ function mdGlassTable(list){
  return slTable('mdGlass',{list,id:p=>p.id,empty:'no items found',noun:l=>l.length+' glass',fill:'name',acts:230,
   columns:()=>[
    {k:'code',label:'Code',type:'text',v:p=>p.code,cell:p=>`<span class="mono"><b>${raw(p.code)}</b></span>${p.active===false?' <span class="pill warn">discontinued</span>':''}`},
-   {k:'short',label:'Short name',type:'text',v:p=>p.shortName||'',cell:p=>`<span data-md-short>${p.shortName?`<b>${raw(p.shortName)}</b>`:`<button type="button" class="gb-link md-short-add" onclick="mdGlassEdit('${esc(p.id)}','short')">add</button>`}</span>`},
+   {k:'short',label:'Short name',type:'text',v:p=>p.shortName||'',cell:p=>`<span data-md-short>${p.shortName?`<b>${raw(p.shortName)}</b>`:`<button type="button" class="gb-link md-short-add" ${onAct('click',mdGlassEdit,String(p.id??''),'short')}>add</button>`}</span>`},
    {k:'name',label:'Name',type:'text',v:p=>p.name,cell:p=>`<b>${raw(p.name)}</b><div class="mut">${raw(p.manufacturer)}</div>`},
    {k:'mfr',label:'Manufacturer',type:'list',def:false,v:p=>p.manufacturer||''},
    {k:'mm',label:'Thickness',type:'number',v:p=>p.thicknessMm==null?'':p.thicknessMm,cell:p=>`<span class="mono">${p.thicknessMm==null?'—':p.thicknessMm+' mm'}</span>`},
@@ -318,8 +334,8 @@ function mdGlassTable(list){
    {k:'legacy',label:'Legacy code',type:'text',def:false,v:p=>p.legacyCode||''},
    {k:'note',label:'Note',type:'text',def:false,v:p=>p.note||''}],
   row:i=>{const p=i.x;return {attrs:` class="${p.active===false?'md-row-off':mdGlassNoShort(p)?'md-row-noshort':''}" data-md-row="glassProduct:${esc(p.id)}"`,
-   first:`<td class="sl-check"><input type="checkbox" aria-label="Select ${esc(p.code)}" ${mdPeek==='glassProduct:'+p.id?'checked':''} onclick="event.stopPropagation();mdPeek=this.checked?'glassProduct:${esc(p.id)}':'';render()"></td>`,
-   last:`<span style="white-space:nowrap"><button class="sm" onclick="mdGlassEdit('${esc(p.id)}')">Edit</button> <button class="sm" onclick="mdGlassToggle('${esc(p.id)}')">${p.active===false?'Restore':'Discontinue'}</button> <button class="sm dl" onclick="mdGlassDelete('${esc(p.id)}')">×</button></span>`};}});
+   first:`<td class="sl-check"><input type="checkbox" aria-label="Select ${esc(p.code)}" ${mdPeek==='glassProduct:'+p.id?'checked':''} ${onActStop('click',mdGlassPeek,String(p.id??''),EL_CHECKED)}></td>`,
+   last:`<span style="white-space:nowrap"><button class="sm" ${onAct('click',mdGlassEdit,String(p.id??''))}>Edit</button> <button class="sm" ${onAct('click',mdGlassToggle,String(p.id??''))}>${p.active===false?'Restore':'Discontinue'}</button> <button class="sm dl" ${onAct('click',mdGlassDelete,String(p.id??''))}>×</button></span>`};}});
 }
 function mdGlassNew(){
  mdEdit='new';
@@ -370,18 +386,18 @@ function mdGlassForm(){
  const measure=`<div class="grid">${mdSaleRulesFields(r,['minAreaFt2','minWidthIn','minHeightIn','maxWidthIn','maxHeightIn'])}</div>`;
  const sheets=isNew?[]:glassSheetsFor(r.code);
  const cost=accessCost();
- const purchase=sheets.length?`<div class="sales-table-wrap">${slFromTable('mdGlassSupply',`<table class="ncr-table" data-md-glass-supply><thead><tr><th>Supplier</th><th>Sheet</th>${cost?'<th class="n">Price</th>':''}<th>Unit</th><th>Date</th><th class="n">Lead, days</th></tr></thead><tbody>${sheets.map(x=>`<tr><td>${raw(x.supplier||'—')}</td><td class="mono">${x.sheetWIn!=null&&x.sheetHIn!=null?esc(x.sheetWIn+' × '+x.sheetHIn+' in'):'—'}</td>${cost?`<td class="n mono">${money(x.purchasePrice)} <span class="mut">${esc(x.currency||'')}</span></td>`:''}<td>${esc(mdUnitName(x.purchaseUnit))}</td><td class="mono">${esc(x.priceDate||'—')}</td><td class="n mono">${x.leadTimeDays==null?'—':esc(String(x.leadTimeDays))}</td></tr>`).join('')}</tbody></table>`)}</div><p class="mut">Edited in Supply points.</p>`:`<p class="mut" data-md-glass-supply>No supply rows.</p>${isNew?'':`<button type="button" class="sm" data-md-glass-supply-add onclick="mdSheetNewFor('${esc(r.code)}')">+ Supply row</button>`}`;
+ const purchase=sheets.length?`<div class="sales-table-wrap">${slFromTable('mdGlassSupply',`<table class="ncr-table" data-md-glass-supply><thead><tr><th>Supplier</th><th>Sheet</th>${cost?'<th class="n">Price</th>':''}<th>Unit</th><th>Date</th><th class="n">Lead, days</th></tr></thead><tbody>${sheets.map(x=>`<tr><td>${raw(x.supplier||'—')}</td><td class="mono">${x.sheetWIn!=null&&x.sheetHIn!=null?esc(x.sheetWIn+' × '+x.sheetHIn+' in'):'—'}</td>${cost?`<td class="n mono">${money(x.purchasePrice)} <span class="mut">${esc(x.currency||'')}</span></td>`:''}<td>${esc(mdUnitName(x.purchaseUnit))}</td><td class="mono">${esc(x.priceDate||'—')}</td><td class="n mono">${x.leadTimeDays==null?'—':esc(String(x.leadTimeDays))}</td></tr>`).join('')}</tbody></table>`)}</div><p class="mut">Edited in Supply points.</p>`:`<p class="mut" data-md-glass-supply>No supply rows.</p>${isNew?'':`<button type="button" class="sm" data-md-glass-supply-add ${onAct('click',mdSheetNewFor,String(r.code??''))}>+ Supply row</button>`}`;
  const price=(id,k,label)=>mdField(label,`<input id="${id}" type="number" step="0.01" min="0" value="${r[k]==null?'':r[k]}" placeholder="—">`,'Empty — no price.');
  const prices=`<div class="grid">${price('md_priceAN','salePriceAnnealed','Price annealed, CAD')}${price('md_priceFT','salePriceTempered','Price tempered, CAD')}${mdSaleRulesFields(r,['minCharge'])}</div>
   ${isNew?'':mdPriceListsHTML('glass:'+r.id+':salePriceAnnealed').replace('<h4>Customer price lists</h4>','<h4>Customer price lists · annealed</h4>')+mdPriceListsHTML('glass:'+r.id+':salePriceTempered').replace('<h4>Customer price lists</h4>','<h4>Customer price lists · tempered</h4>')}`;
  const racks=isNew||r.cut===false?[]:invSheetRows().filter(x=>x.code.toUpperCase()===String(r.code).toUpperCase());
  const stock=`<div class="row"><label class="chk"><input type="checkbox" id="md_stocked" ${r.stocked?'checked':''}> Kept in stock</label></div>
-  ${racks.length?`<div class="sales-table-wrap">${slFromTable('mdGlassStock',`<table class="ncr-table" data-md-glass-stock><thead><tr><th>Sheet</th><th class="n">On rack</th><th class="n">Reserved</th><th class="n">Free</th><th class="n">Min</th><th>Status</th></tr></thead><tbody>${racks.map(x=>`<tr><td class="mono">${esc(invSizeText(x))}</td><td class="n mono">${x.onRack}</td><td class="n mono">${x.reserved}</td><td class="n mono">${x.free}</td><td class="n mono">${x.min==null?'—':x.min}</td><td>${esc(x.status)}</td></tr>`).join('')}</tbody></table>`)}</div><p class="mut">Sizes and counts: Inventory.</p>`:`<p class="mut">No sheet size. Add a supply row.</p>${isNew?'':`<button type="button" class="sm" onclick="mdSheetNewFor('${esc(r.code)}')">+ Supply row</button>`}`}`;
+  ${racks.length?`<div class="sales-table-wrap">${slFromTable('mdGlassStock',`<table class="ncr-table" data-md-glass-stock><thead><tr><th>Sheet</th><th class="n">On rack</th><th class="n">Reserved</th><th class="n">Free</th><th class="n">Min</th><th>Status</th></tr></thead><tbody>${racks.map(x=>`<tr><td class="mono">${esc(invSizeText(x))}</td><td class="n mono">${x.onRack}</td><td class="n mono">${x.reserved}</td><td class="n mono">${x.free}</td><td class="n mono">${x.min==null?'—':x.min}</td><td>${esc(x.status)}</td></tr>`).join('')}</tbody></table>`)}</div><p class="mut">Sizes and counts: Inventory.</p>`:`<p class="mut">No sheet size. Add a supply row.</p>${isNew?'':`<button type="button" class="sm" ${onAct('click',mdSheetNewFor,String(r.code??''))}>+ Supply row</button>`}`}`;
  return mdCardHTML({form:'glass',crumb:['Materials','Glass'].concat(r.manufacturer?[r.manufacturer]:[]),
   title:isNew?'New catalog item':raw(r.name||r.code),status:isNew?null:r.active===false?['discontinued','warn']:r.stocked?[glassLabel('stock','stocked'),'ok']:[glassLabel('stock','preorder'),'info'],code:isNew?'':r.code,
   tabs:[{k:'general',label:'General',html:general},{k:'production',label:'Production',html:prod},{k:'units',label:'Units',html:units},{k:'measure',label:'Measurements',html:measure},
    {k:'purchase',label:'Purchase',html:purchase,missing:!isNew&&!sheets.length},{k:'prices',label:'Prices',html:prices,missing:r.salePriceAnnealed==null&&r.salePriceTempered==null},{k:'stock',label:'Stock',html:stock,missing:racks.some(x=>x.sizeMissing)}],
-  foot:`<div class="err" id="e_mdGlass"></div><div class="row"><button class="pri" onclick="mdGlassSave()">Save</button><button onclick="mdEdit=null;mdDraft=null;render()">Cancel</button></div>`});
+  foot:`<div class="err" id="e_mdGlass"></div><div class="row"><button class="pri" ${onAct('click',mdGlassSave)}>Save</button><button ${onAct('click',mdGlassCancel)}>Cancel</button></div>`});
 }
 /* Минимумы и размеры продажи в карточке (erp/masterdata/glass mdSaleRulesOf). */
 const MD_SALE_RULES=[['md_minArea','minAreaFt2','Min area, ft²','Bills at least this area.'],['md_minCharge','minCharge','Min charge, CAD','Bills at least this per lite.'],
@@ -471,7 +487,7 @@ function mdSupplyInfos(){
  return (DB.glassSheet||[]).map(s=>{const p=glassProductByCode(s.productCode);return {o:{createdAt:s.priceDate||''},s,p,memo:{product:s.productCode,glass:p?p.name:'no product',supplier:s.supplier,
   sheet:s.sheetWIn!=null&&s.sheetHIn!=null?s.sheetWIn+' × '+s.sheetHIn+' in':'',unit:mdUnitName(s.purchaseUnit),price:s.purchasePrice,currency:s.currency,date:s.priceDate||'',freight:s.freightPct,lead:s.leadTimeDays,availability:glassLabel('availability',s.availability)}};});
 }
-function mdSupplyHeader(c){const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);return `<th class="${c.type==='number'?'n':''}"><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;}
+function mdSupplyHeader(c){const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);return `<th class="${c.type==='number'?'n':''}"><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" ${onAct('click',salesListOpenFilter,EVENT,String(c.k))}></button></span></th>`;}
 function mdSupplyCell(i,c){
  const s=i.s,v=salesListValue(i,c.k);
  if(c.k==='product')return `<td class="mono"><b>${raw(s.productCode)}</b></td>`;
@@ -486,12 +502,12 @@ function mdSupplyCell(i,c){
 function viewMdSupply(){
  if(mdSheetEdit!==null)return mdSheetForm();
  const infos=mdSupplyInfos(),rows=salesListRows(infos),cost=accessCost(),cols=salesListColumns().filter(c=>cost||!MD_SUPPLY_COST_COLS.includes(c.k)),orphans=glassOrphanSheets().length;
- const settings=`<button type="button" class="gb-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button>`;
- return `<div class="md-supply-head"><span class="mut">Glass · supplier · sheet size.</span><span class="sp"></span><button class="pri" onclick="mdSheetNew()">+ New supply row</button></div>
+ const settings=`<button type="button" class="gb-settings" data-columns-button title="Columns" aria-label="Columns" ${onAct('click',salesListOpenColumns,EVENT)}>${ico('settings')}</button>`;
+ return `<div class="md-supply-head"><span class="mut">Glass · supplier · sheet size.</span><span class="sp"></span><button class="pri" ${onAct('click',mdSheetNew)}>+ New supply row</button></div>
   ${orphans?`<div class="note">Supply rows without a product: <b>${orphans}</b> — give them a product back.</div>`:''}
   ${salesListFilterChips()}
   <div class="sales-table-wrap"><table class="sl-table md-supply-table"><thead><tr><th><span class="sl-header-tools">${settings}</span></th>${cols.map(mdSupplyHeader).join('')}<th></th></tr></thead>
-  <tbody>${rows.map(i=>`<tr data-supply-row="${esc(i.s.id)}" data-md-row="glassSheet:${esc(i.s.id)}"><td></td>${cols.map(c=>mdSupplyCell(i,c)).join('')}<td style="white-space:nowrap"><button class="sm" onclick="mdSheetEditRow('${esc(i.s.id)}')">Edit</button> <button class="sm dl" onclick="mdSheetDelete('${esc(i.s.id)}')">×</button></td></tr>`).join('')||`<tr><td colspan="${cols.length+2}" class="empty">${infos.length?'Nothing matches the filters.':'No supply rows yet — load GLASS_SHEETS.csv or add a row'}</td></tr>`}</tbody></table></div>
+  <tbody>${rows.map(i=>`<tr data-supply-row="${esc(i.s.id)}" data-md-row="glassSheet:${esc(i.s.id)}"><td></td>${cols.map(c=>mdSupplyCell(i,c)).join('')}<td style="white-space:nowrap"><button class="sm" ${onAct('click',mdSheetEditRow,String(i.s.id??''))}>Edit</button> <button class="sm dl" ${onAct('click',mdSheetDelete,String(i.s.id??''))}>×</button></td></tr>`).join('')||`<tr><td colspan="${cols.length+2}" class="empty">${infos.length?'Nothing matches the filters.':'No supply rows yet — load GLASS_SHEETS.csv or add a row'}</td></tr>`}</tbody></table></div>
   <div class="mut md-supply-foot">${rows.length} of ${infos.length} rows</div>${salesListMenuHTML(infos)}`;
 }
 function mdSheetNew(){
@@ -554,14 +570,14 @@ function mdSheetForm(){
     карточки Data (аудит D-5): путь, имя, наличие, Save внизу. */
  const blocks=`<div class="md-sheet-form"><div class="md-sheet-grid">
   <div class="md-sheet-box"><h4>Glass</h4><div class="md-sheet-fields">
-   <div><label>Manufacturer</label><select id="md_sheetMfr" onchange="mdSheetPickSet('mfr',this.value)"><option value="">All manufacturers</option>${mfrs.map(m=>`<option data-raw value="${esc(m)}" ${m===mdSheetPick.mfr?'selected':''}>${esc(m)}</option>`).join('')}</select></div>
-   <div><label>Thickness</label><select id="md_sheetThick" onchange="mdSheetPickSet('thick',this.value)">${mdSheetThickOptions()}</select></div>
-   <div class="md-sheet-wide"><label>Coating</label><select id="md_sheetCoat" onchange="mdSheetPickSet('coat',this.value)">${mdSheetCoatOptions()}</select></div>
-   <div class="md-sheet-wide"><label>Glass *</label><select id="md_sheetCode" onchange="mdSheetGlassPicked()">${mdSheetProductOptions(r.productCode)}</select><div id="md_sheetMeta">${salesGlassMetaFor(p&&p.id)}</div></div>
+   <div><label>Manufacturer</label><select id="md_sheetMfr" ${onAct('change',mdSheetPickSet,'mfr',EL_VALUE)}><option value="">All manufacturers</option>${mfrs.map(m=>`<option data-raw value="${esc(m)}" ${m===mdSheetPick.mfr?'selected':''}>${esc(m)}</option>`).join('')}</select></div>
+   <div><label>Thickness</label><select id="md_sheetThick" ${onAct('change',mdSheetPickSet,'thick',EL_VALUE)}>${mdSheetThickOptions()}</select></div>
+   <div class="md-sheet-wide"><label>Coating</label><select id="md_sheetCoat" ${onAct('change',mdSheetPickSet,'coat',EL_VALUE)}>${mdSheetCoatOptions()}</select></div>
+   <div class="md-sheet-wide"><label>Glass *</label><select id="md_sheetCode" ${onAct('change',mdSheetGlassPicked)}>${mdSheetProductOptions(r.productCode)}</select><div id="md_sheetMeta">${salesGlassMetaFor(p&&p.id)}</div></div>
   </div></div>
   <div class="md-sheet-box"><h4>Supply</h4><div class="md-sheet-fields md-sheet-3">
-   <div class="md-sheet-wide"><label>Supplier card</label><select id="md_sheetSupplierId" onchange="mdSheetSupplierPicked(this.value)"><option value="">Match by supply point</option>${(DB.supplier||[]).slice().sort((a,b)=>a.name.localeCompare(b.name)).map(s=>`<option value="${esc(s.id)}" ${s.id===r.supplierId?'selected':''} data-raw>${esc(s.name)}${s.active?'':' · Archived'}</option>`).join('')}</select></div>
-   <div><label>Supply point *</label><input id="md_sheetSupplier" list="md_sheetPoints" autocomplete="off" value="${esc(r.supplier)}" placeholder="Vitro Barrie" onchange="mdSheetPointPicked(this.value)"><datalist id="md_sheetPoints">${[...points.keys()].map(n=>`<option value="${esc(n)}"></option>`).join('')}</datalist></div>
+   <div class="md-sheet-wide"><label>Supplier card</label><select id="md_sheetSupplierId" ${onAct('change',mdSheetSupplierPicked,EL_VALUE)}><option value="">Match by supply point</option>${(DB.supplier||[]).slice().sort((a,b)=>a.name.localeCompare(b.name)).map(s=>`<option value="${esc(s.id)}" ${s.id===r.supplierId?'selected':''} data-raw>${esc(s.name)}${s.active?'':' · Archived'}</option>`).join('')}</select></div>
+   <div><label>Supply point *</label><input id="md_sheetSupplier" list="md_sheetPoints" autocomplete="off" value="${esc(r.supplier)}" placeholder="Vitro Barrie" ${onAct('change',mdSheetPointPicked,EL_VALUE)}><datalist id="md_sheetPoints">${[...points.keys()].map(n=>`<option value="${esc(n)}"></option>`).join('')}</datalist></div>
    ${mdCostOnly(`<div><label>Currency</label><input id="md_sheetCurrency" value="${esc(r.currency)}" maxlength="3" title="Filled from the supply point"></div>`)}
    <div><label>Availability</label><select id="md_sheetAvail">${mdVocabOptions('availability',r.availability)}</select></div>
    <div><label>Sheet, in</label><div class="md-sheet-pair"><input id="md_sheetW" type="number" step="0.1" min="0" placeholder="W" value="${r.sheetWIn==null?'':r.sheetWIn}"><span>×</span><input id="md_sheetH" type="number" step="0.1" min="0" placeholder="H" value="${r.sheetHIn==null?'':r.sheetHIn}"></div></div>
@@ -576,7 +592,7 @@ function mdSheetForm(){
  return mdCardHTML({form:'sheet',crumb:['Materials','Supply points'],title:isNew?'New supply row':raw((r.productCode||'—')+' · '+(r.supplier||'—')),
   status:isNew?null:[r.availability,r.availability==='stock'?'ok':r.availability==='inactive'?'warn':'info'],code:isNew||!r.sheetWIn?'':r.sheetWIn+' × '+r.sheetHIn,
   tabs:[{k:'supply',label:'Supply',html:blocks}],
-  foot:`<div class="err" id="e_mdSheet"></div><div class="row"><button class="pri" onclick="mdSheetSave()">Save</button><button onclick="mdSheetEdit=null;mdSheetDraft=null;mdSheetPick={mfr:'',thick:'',coat:''};render()">Cancel</button></div>`});
+  foot:`<div class="err" id="e_mdSheet"></div><div class="row"><button class="pri" ${onAct('click',mdSheetSave)}>Save</button><button ${onAct('click',mdSheetCancel)}>Cancel</button></div>`});
 }
 function mdSheetSave(){
  const e=document.getElementById('e_mdSheet');e.style.display='none';
@@ -639,7 +655,7 @@ function mdSurchargeTable(){
   <tbody>${rows.map(r=>`<tr>
    <td><b>${raw(r.x.name)}</b><div class="mut mono">${raw(r.x.code||r.x.id)}</div></td>
    <td>${esc(r.group)}</td>
-   <td><input class="md-mm" type="number" step="0.01" min="0" style="width:88px" value="${r.x.salePrice==null?'':r.x.salePrice}" placeholder="—" onchange="mdSurchargeSet('${esc(r.kind)}','${esc(r.x.id)}',this.value)"></td>
+   <td><input class="md-mm" type="number" step="0.01" min="0" style="width:88px" value="${r.x.salePrice==null?'':r.x.salePrice}" placeholder="—" ${onAct('change',mdSurchargeSet,String(r.kind??''),String(r.x.id??''),EL_VALUE)}></td>
    <td>${r.x.active===false?'<span class="pill warn">off</span>':'<span class="pill ok">active</span>'}</td>
   </tr>`).join('')}</tbody></table>`)}</div>`;
 }
@@ -664,7 +680,7 @@ function viewMdSpacer(){
   return (qa?qa.value:0)-(qb?qb.value:0);
  });
  /* Счётчики этого списка — в шапке каталога (mdCatalogHealth), здесь их нет. */
- return `<div class="md-toolbar"><span class="mut">Price, weight and recipe per spacer.</span><span class="sp"></span><button class="pri" onclick="mdSpacerNew()">+ New spacer</button></div>
+ return `<div class="md-toolbar"><span class="mut">Price, weight and recipe per spacer.</span><span class="sp"></span><button class="pri" ${onAct('click',mdSpacerNew)}>+ New spacer</button></div>
   <div class="customer-table-wrap">${slFromTable('mdSystems',`<table><thead><tr><th>System</th><th>Nominal</th><th>Actual, mm</th><th>Price</th><th>Weight</th><th>Recipe</th><th>Availability</th><th></th></tr></thead>
   <tbody>${all.map(mdSpacerRow).join('')||'<tr><td colspan="8" class="empty">no spacers</td></tr>'}</tbody></table>`)}</div>
   ${mdSpacerSystemsTable()}
@@ -675,13 +691,13 @@ function mdSpacerRow(sp){
  return `<tr data-spacer="${esc(sp.id)}" data-md-row="spacerVariant:${esc(sp.id)}">
   <td><b>${raw(sp.system)}</b>${sys?'':' <span class="pill warn">no system</span>'}<div class="mut mono">${raw(sp.id)}${sys&&sys.family?' · '+esc(sys.family):''}</div></td>
   <td class="mono"><b>${raw(sp.size)}″</b><div class="mut">${nominal==null?'—':esc(nominal.toFixed(1))} mm</div></td>
-  <td><input class="md-mm" type="number" step="0.1" min="0" style="width:88px" value="${fact==null?'':fact}" placeholder="${nominal==null?'':esc(nominal.toFixed(1))}" onchange="mdSpacerSetThickness('${esc(sp.id)}',this.value)"></td>
+  <td><input class="md-mm" type="number" step="0.1" min="0" style="width:88px" value="${fact==null?'':fact}" placeholder="${nominal==null?'':esc(nominal.toFixed(1))}" ${onAct('change',mdSpacerSetThickness,String(sp.id??''),EL_VALUE)}></td>
   <td class="mono">${sp.salePrice==null?'<span class="pill warn">no price</span>':esc(Number(sp.salePrice).toFixed(2))+' <span class="mut">/ '+esc(salesPriceUnitLabel(sp.salesUnit))+'</span>'}</td>
   <td class="mono">${sp.weightG==null?'<span class="pill warn">no weight</span>':esc(String(sp.weightG))+' <span class="mut">'+esc(SPACER_WEIGHT_PER[sp.weightPer])+'</span>'+(sp.weightMeasured?'':' <span class="pill info">not measured</span>')}</td>
   <td>${rec?raw(rec.name):'<span class="pill warn">no recipe</span>'}</td>
   <td><span class="pill ${sp.availability==='stock'?'ok':sp.availability==='inactive'?'warn':'info'}">${esc(glassLabel('availability',sp.availability))}</span></td>
-  <td style="white-space:nowrap"><button class="sm" onclick="mdSpacerEditRow('${esc(sp.id)}')">Edit</button>
-   <button class="sm dl" onclick="mdSpacerDelete('${esc(sp.id)}')">×</button></td></tr>`;
+  <td style="white-space:nowrap"><button class="sm" ${onAct('click',mdSpacerEditRow,String(sp.id??''))}>Edit</button>
+   <button class="sm dl" ${onAct('click',mdSpacerDelete,String(sp.id??''))}>×</button></td></tr>`;
 }
 function mdSpacerSetThickness(id,v){
  const sp=(DB.spacerVariant||[]).find(x=>x.id===id);if(!sp)return;
@@ -746,7 +762,7 @@ function mdSpacerForm(){
   title:isNew?'New spacer':raw(r.name||r.id),status:isNew?null:[glassLabel('availability',r.availability),r.availability==='stock'?'ok':r.availability==='inactive'?'warn':'info'],code:isNew?'':(r.code||r.id),
   tabs:[{k:'general',label:'General',html:general,missing:!sys},{k:'units',label:'Units',html:units},{k:'measure',label:'Measurements',html:measure,missing:r.weightG==null},
    {k:'purchase',label:'Purchase',html:purchase},{k:'prices',label:'Prices',html:prices,missing:r.salePrice==null},{k:'stock',label:'Stock',html:stock},{k:'use',label:'Consumption',html:use,missing:!rec}],
-  foot:`<div class="err" id="e_mdSpacer"></div><div class="row"><button class="pri" onclick="mdSpacerSave()">Save</button><button onclick="mdSpacerEdit=null;mdSpacerDraft=null;render()">Cancel</button></div>`})
+  foot:`<div class="err" id="e_mdSpacer"></div><div class="row"><button class="pri" ${onAct('click',mdSpacerSave)}>Save</button><button ${onAct('click',mdSpacerCancel)}>Cancel</button></div>`})
   .replace('data-md-card="spacer"','data-md-card="spacer" data-spacer-card');
 }
 function mdSpacerSave(){
@@ -826,7 +842,7 @@ function mdHwTreeHTML(){
  const kinds=DB.hardwareKind||[],models=DB.hardwareModel||[];
  const node=k=>{const list=models.filter(m=>m.kind===k.code),series=[...new Set(list.map(m=>m.series||''))].sort();
   return `<li class="md-st-node" data-md-hw-kind="${esc(k.code)}"><div><b data-raw>${esc(hardwareKindName(k.code))}</b> <span class="mono" data-raw>${esc(k.code)}</span> <span class="mut">${list.length} models</span>${k.active===false?' <span class="pill warn">inactive</span>':''}</div>
-   ${series.map(sr=>`<div class="md-st-kids"><span class="mut">${sr?esc(sr):'No series'} ·</span> ${list.filter(m=>(m.series||'')===sr).sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(m=>`<button type="button" class="pill${m.active===false?' warn':''}" data-raw onclick="mdHwModelEditRow('${esc(m.id)}')">${esc(m.name)}</button>`).join(' ')}</div>`).join('')}</li>`;};
+   ${series.map(sr=>`<div class="md-st-kids"><span class="mut">${sr?esc(sr):'No series'} ·</span> ${list.filter(m=>(m.series||'')===sr).sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(m=>`<button type="button" class="pill${m.active===false?' warn':''}" data-raw ${onAct('click',mdHwModelEditRow,String(m.id??''))}>${esc(m.name)}</button>`).join(' ')}</div>`).join('')}</li>`;};
  return `<div class="md-st-tree" data-md-hw-tree><ol><li class="md-st-step"><ul>${kinds.map(node).join('')||'<li class="mut">No kinds</li>'}</ul></li></ol></div>`;
 }
 /* Дерево, потом модели — их правят чаще; виды ниже (аудит D-4). */
@@ -841,7 +857,7 @@ function viewMdHardware(){
   ${mdHwTreeHTML()}
   ${orphans?`<div class="note">Models without a kind: <b>${orphans}</b>. Give them a kind.</div>`:''}
   <div class="section-title"><h3>Models</h3><span class="pill info">as on the shop template</span></div>
-  <div class="md-toolbar" data-md-hw-models><select aria-label="Kind" onchange="mdHwFilter=this.value;render()"><option value="">All kinds</option>${kinds.map(k=>`<option value="${esc(k.code)}" ${mdHwFilter===k.code?'selected':''} data-raw>${esc(hardwareKindName(k.code))}</option>`).join('')}</select><span class="sp"></span><button class="pri" onclick="mdHwModelNew()">+ New model</button></div>
+  <div class="md-toolbar" data-md-hw-models><select aria-label="Kind" ${onAct('change',mdHwFilterSet,EL_VALUE)}><option value="">All kinds</option>${kinds.map(k=>`<option value="${esc(k.code)}" ${mdHwFilter===k.code?'selected':''} data-raw>${esc(hardwareKindName(k.code))}</option>`).join('')}</select><span class="sp"></span><button class="pri" ${onAct('click',mdHwModelNew)}>+ New model</button></div>
 ${slTable('mdHwModels',{list:sorted,id:m=>m.id,rowHTML:m=>{
    const used=mdHwModelUsage(m.id),kind=hardwareKindRow(m.kind);
    return `<tr data-md-row="hardwareModel:${esc(m.id)}"><td><b>${raw(m.name)}</b>${m.note?`<div class="mut">${raw(m.note)}</div>`:''}</td>
@@ -852,7 +868,7 @@ ${slTable('mdHwModels',{list:sorted,id:m=>m.id,rowHTML:m=>{
     <td class="mono">${m.supplierCode?raw(m.supplierCode):'<span class="mut">—</span>'}</td>
     <td class="mono">${used}</td>
     <td><span class="pill ${m.active===false?'warn':'ok'}">${m.active===false?'inactive':'active'}</span></td>
-    <td style="white-space:nowrap"><button class="sm" onclick="mdHwModelEditRow('${esc(m.id)}')">Edit</button><button class="sm dl" onclick="mdHwModelDelete('${esc(m.id)}')">×</button></td></tr>`;
+    <td style="white-space:nowrap"><button class="sm" ${onAct('click',mdHwModelEditRow,String(m.id??''))}>Edit</button><button class="sm dl" ${onAct('click',mdHwModelDelete,String(m.id??''))}>×</button></td></tr>`;
   },lastTd:-1,acts:110,empty:'no models',noun:l=>l.length+' models',fill:'name',
    columns:()=>[{k:'name',label:'Model',type:'text',td:0,v:m=>m.name},{k:'kind',label:'Kind',type:'list',td:1,v:m=>hardwareKindRow(m.kind)?hardwareKindName(m.kind):'no kind'},{k:'series',label:'Series',type:'list',td:2,v:m=>m.series||''},{k:'short',label:'On the drawing',type:'text',td:3,v:m=>hardwareModelShort(m)},{k:'mm',label:'Glass thickness',type:'text',td:4,v:m=>m.thickness||''},{k:'supplierCode',label:'Supplier code',type:'text',td:5,v:m=>m.supplierCode||''},{k:'used',label:'On drawings',type:'number',td:6,v:m=>mdHwModelUsage(m.id)},{k:'status',label:'Status',type:'list',td:7,v:m=>m.active===false?'inactive':'active'},{k:'note',label:'Note',type:'text',def:false,v:m=>m.note||''}]})}
   <div class="section-title"><h3>Kinds</h3><span class="pill info">code goes on the drawing</span></div>
@@ -864,10 +880,10 @@ ${slTable('mdHwKinds',{list:kinds,id:k=>k.code,rowHTML:k=>{
     <td class="mono">${hardwareModelsFor(k.code,true).length}</td>
     <td class="mono">${used}</td>
     <td><span class="pill ${k.active===false?'warn':'ok'}">${k.active===false?'inactive':'active'}</span></td>
-    <td style="white-space:nowrap"><button class="sm" onclick="mdHwKindEditRow('${esc(k.code)}')">Edit</button><button class="sm dl" onclick="mdHwKindDelete('${esc(k.code)}')">×</button></td></tr>`;
+    <td style="white-space:nowrap"><button class="sm" ${onAct('click',mdHwKindEditRow,String(k.code??''))}>Edit</button><button class="sm dl" ${onAct('click',mdHwKindDelete,String(k.code??''))}>×</button></td></tr>`;
   },lastTd:-1,acts:110,empty:'no kinds',noun:l=>l.length+' kinds',fill:'name',
    columns:()=>[{k:'name',label:'Kind',type:'text',td:0,v:k=>hardwareKindName(k.code)},{k:'code',label:'Code',type:'text',td:1,v:k=>k.code},{k:'short',label:'On the drawing',type:'text',td:2,v:k=>k.short},{k:'models',label:'Models',type:'number',sum:true,td:3,v:k=>hardwareModelsFor(k.code,true).length},{k:'used',label:'On drawings',type:'number',td:4,v:k=>mdHwKindUsage(k.code)},{k:'status',label:'Status',type:'list',td:5,v:k=>k.active===false?'inactive':'active'},{k:'note',label:'Note',type:'text',def:false,v:k=>k.note||''}]})}
-  <div class="row"><button onclick="mdHwKindNew()">+ New kind</button></div>`;
+  <div class="row"><button ${onAct('click',mdHwKindNew)}>+ New kind</button></div>`;
 }
 function mdHwKindNew(){mdHwKindEdit='new';mdHwKindDraft={code:'',name:'',nameEn:'',short:'',active:true,note:''};render();}
 function mdHwKindEditRow(code){const k=hardwareKindRow(code);if(!k)return;mdHwKindEdit=code;mdHwKindDraft=JSON.parse(JSON.stringify(k));mdSeen.hwKind=JSON.stringify(k);render();}
@@ -883,7 +899,7 @@ function mdHwKindForm(){
   </div>
   <div style="margin-top:12px"><label>Note</label><input id="md_hwKindNote" value="${esc(r.note||'')}"></div>
   <div class="err" id="e_mdHwKind"></div>
-  <div class="row"><button class="pri" onclick="mdHwKindSave()">Save</button><button onclick="mdHwKindEdit=null;mdHwKindDraft=null;render()">Cancel</button></div></div>`;
+  <div class="row"><button class="pri" ${onAct('click',mdHwKindSave)}>Save</button><button ${onAct('click',mdHwKindCancel)}>Cancel</button></div></div>`;
 }
 function mdHwKindSave(){
  const e=document.getElementById('e_mdHwKind');e.style.display='none';
@@ -926,7 +942,7 @@ function mdHwModelForm(){
  return mdCardHTML({form:'hwModel',crumb:['Hardware'].concat(r.kind&&hardwareKindRow(r.kind)?[hardwareKindName(r.kind)]:[]),title:isNew?'New model':raw(r.name),
   status:isNew?null:r.active===false?['inactive','warn']:['active','ok'],code:isNew?'':hardwareModelShort(r),
   tabs:[{k:'general',label:'General',html:fields}],
-  foot:`<div class="err" id="e_mdHwModel"></div><div class="row"><button class="pri" onclick="mdHwModelSave()">Save</button><button onclick="mdHwModelEdit=null;mdHwModelDraft=null;render()">Cancel</button></div>`});
+  foot:`<div class="err" id="e_mdHwModel"></div><div class="row"><button class="pri" ${onAct('click',mdHwModelSave)}>Save</button><button ${onAct('click',mdHwModelCancel)}>Cancel</button></div>`});
 }
 function mdHwModelSave(){
  const e=document.getElementById('e_mdHwModel'),isNew=mdHwModelEdit==='new';e.style.display='none';
@@ -1017,15 +1033,15 @@ function viewMdAllowance(){
  return `<div class="sub" style="margin-top:6px">Stock removal per side. Narrowest row wins.</div>
   <div class="customer-table-wrap">${slFromTable('mdOperations',`<table><thead><tr><th>Operation</th><th>Measured by</th><th>From, mm</th><th>To, mm</th><th>Allowance</th><th>Preview</th><th></th></tr></thead>
   <tbody>${rows.map(r=>`<tr>
-   <td><select onchange="mdAllowanceSet('${esc(r.id)}','op',this.value)">${SHAPE_EDGE_OPS.map(o=>`<option value="${esc(o)}" ${o===r.op?'selected':''}>${esc(o)}</option>`).join('')}</select></td>
-   <td><select onchange="mdAllowanceSet('${esc(r.id)}','scope',this.value)">${MD_ALLOWANCE_SCOPES.map(s=>`<option value="${s.k}" ${s.k===r.scope?'selected':''}>${esc(s.label)}</option>`).join('')}</select></td>
-   <td><input class="md-mm" type="number" step="0.1" min="0" style="width:78px" value="${esc(String(r.minMm))}" onchange="mdAllowanceSet('${esc(r.id)}','minMm',this.value)"></td>
-   <td><input class="md-mm" type="number" step="0.1" min="0" style="width:78px" value="${esc(String(r.maxMm))}" onchange="mdAllowanceSet('${esc(r.id)}','maxMm',this.value)"></td>
-   <td><input style="width:92px" value="${esc(String(r.allowance))}" placeholder="1/16" onchange="mdAllowanceSet('${esc(r.id)}','allowance',this.value)"></td>
+   <td><select ${onAct('change',mdAllowanceSet,String(r.id??''),'op',EL_VALUE)}>${SHAPE_EDGE_OPS.map(o=>`<option value="${esc(o)}" ${o===r.op?'selected':''}>${esc(o)}</option>`).join('')}</select></td>
+   <td><select ${onAct('change',mdAllowanceSet,String(r.id??''),'scope',EL_VALUE)}>${MD_ALLOWANCE_SCOPES.map(s=>`<option value="${s.k}" ${s.k===r.scope?'selected':''}>${esc(s.label)}</option>`).join('')}</select></td>
+   <td><input class="md-mm" type="number" step="0.1" min="0" style="width:78px" value="${esc(String(r.minMm))}" ${onAct('change',mdAllowanceSet,String(r.id??''),'minMm',EL_VALUE)}></td>
+   <td><input class="md-mm" type="number" step="0.1" min="0" style="width:78px" value="${esc(String(r.maxMm))}" ${onAct('change',mdAllowanceSet,String(r.id??''),'maxMm',EL_VALUE)}></td>
+   <td><input style="width:92px" value="${esc(String(r.allowance))}" placeholder="1/16" ${onAct('change',mdAllowanceSet,String(r.id??''),'allowance',EL_VALUE)}></td>
    <td>${mdAllowanceShow(r.allowance)}${r.note?`<div class="mut">${esc(r.note)}</div>`:''}</td>
-   <td><button class="btn-ghost" onclick="mdAllowanceRemove('${esc(r.id)}')">×</button></td>
+   <td><button class="btn-ghost" ${onAct('click',mdAllowanceRemove,String(r.id??''))}>×</button></td>
   </tr>`).join('')}</tbody></table>`)}</div>
-  <div style="margin-top:10px"><button class="btn-ghost" onclick="mdAllowanceAdd()">+ row</button></div>
+  <div style="margin-top:10px"><button class="btn-ghost" ${onAct('click',mdAllowanceAdd)}>+ row</button></div>
   <div class="sub" style="margin-top:22px">What the current values produce</div>
   <div class="customer-table-wrap">${slFromTable('mdAllowance',`<table><thead><tr><th>Case</th><th>Allowance per side</th></tr></thead>
   <tbody>${MD_ALLOWANCE_SAMPLES.map(s=>{
@@ -1072,7 +1088,7 @@ function mdAllowanceRemove(id){
 let mdOverviewView='collections';
 function viewMdOverview(){
  const views=[['collections','Collections'],['log','Change log'],['file','Master Data file']];
- const subs=`<div class="md-mat-subs" data-md-overview-subs>${views.map(([k,label])=>`<button class="sm ${k===mdOverviewView?'on':''}" onclick="mdOverviewView='${k}';render()">${label}</button>`).join('')}</div>`;
+ const subs=`<div class="md-mat-subs" data-md-overview-subs>${views.map(([k,label])=>`<button class="sm ${k===mdOverviewView?'on':''}" ${onAct('click',mdOverviewSet,String(k))}>${label}</button>`).join('')}</div>`;
  /* Файл Master Data несёт закупочные цены — с галочкой Cost & margin. */
  return subs+(mdOverviewView==='log'?viewMdLog():mdOverviewView==='file'?(accessCost()?mdTransferCard():'<div class="mut">Needs Cost &amp; margin.</div>'):viewMdCollections());
 }
@@ -1108,11 +1124,11 @@ function viewMdLog(){
    {k:'was',label:'Was',type:'text',v:e=>cost(e)?'':e.was,cell:e=>cost(e)?'<span class="mut">Cost &amp; margin</span>':`<span class="mono" data-raw>${esc(e.was)}</span>`},
    {k:'now',label:'Now',type:'text',v:e=>cost(e)?'':e.now,cell:e=>cost(e)?'<span class="mut">Cost &amp; margin</span>':`<span class="mono" data-raw>${esc(e.now)}</span>`}],
   row:()=>({attrs:' data-md-log-row'})});
- return `<div class="row" style="gap:8px;margin-bottom:10px"><input aria-label="Search the log" placeholder="Search" value="${esc(mdLogQuery)}" oninput="mdLogQuery=this.value;mdLogShown=200;render()" style="max-width:260px">
-  <select aria-label="Section" style="max-width:220px" onchange="mdLogFilter=this.value;mdLogShown=200;render()"><option value="">All sections</option>${places.map(k=>`<option value="${esc(k)}"${k===mdLogFilter?' selected':''}>${esc(mdLogWhere(k))}</option>`).join('')}</select>
+ return `<div class="row" style="gap:8px;margin-bottom:10px"><input aria-label="Search the log" placeholder="Search" value="${esc(mdLogQuery)}" ${onAct('input',mdLogSearch,EL_VALUE)} style="max-width:260px">
+  <select aria-label="Section" style="max-width:220px" ${onAct('change',mdLogFilterSet,EL_VALUE)}><option value="">All sections</option>${places.map(k=>`<option value="${esc(k)}"${k===mdLogFilter?' selected':''}>${esc(mdLogWhere(k))}</option>`).join('')}</select>
   <span class="mut" data-md-log-count>${rows.length} changes</span></div>
   ${table}
-  ${rows.length>mdLogShown?`<button type="button" onclick="mdLogShown+=200;render()">Show ${Math.min(200,rows.length-mdLogShown)} more</button>`:''}`;
+  ${rows.length>mdLogShown?`<button type="button" ${onAct('click',mdLogMore)}>Show ${Math.min(200,rows.length-mdLogShown)} more</button>`:''}`;
 }
 function mdTransferCard(){
  const p=mdTransfer;
@@ -1120,11 +1136,11 @@ function mdTransferCard(){
   columns:()=>[{k:'label',label:'Section',type:'text',v:t=>t.label},{k:'added',label:'New',type:'number',v:t=>t.added},{k:'changed',label:'Changed',type:'text',v:t=>t.changed},{k:'same',label:'Same',type:'number',v:t=>t.same},{k:'rejected',label:'Rejected',type:'number',v:t=>t.rejected}]})}</div>
   <div class="mut">${p.plan.tables.filter(t=>!t.added&&!t.changed&&!t.rejected).length+p.plan.settings.filter(x=>!x.changed).length} sections without changes</div>
   ${p.plan.errors.length?`<div class="hint" data-md-import-errors>${p.plan.errors.slice(0,20).map(esc).join('<br>')}</div>`:''}
-  <div class="row" style="gap:8px"><button class="pri" type="button" onclick="mdTransferApply()">Import ${esc(p.name)}</button><button type="button" onclick="mdTransfer=null;render()">Cancel</button></div>`:'';
+  <div class="row" style="gap:8px"><button class="pri" type="button" ${onAct('click',mdTransferApply)}>Import ${esc(p.name)}</button><button type="button" ${onAct('click',mdTransferCancel)}>Cancel</button></div>`:'';
  return `<div data-md-transfer>
   <div class="sub">Master Data only; orders untouched.</div>
-  <div class="row" style="gap:8px"><button type="button" onclick="mdTransferExport()">Export Master Data</button><button type="button" onclick="document.getElementById('mdTransferFile').click()">Import Master Data</button>
-  <input type="file" id="mdTransferFile" accept=".json,application/json" style="display:none" onchange="mdTransferPick(this)"></div>
+  <div class="row" style="gap:8px"><button type="button" ${onAct('click',mdTransferExport)}>Export Master Data</button><button type="button" ${onAct('click',mdTransferChoose)}>Import Master Data</button>
+  <input type="file" id="mdTransferFile" accept=".json,application/json" style="display:none" ${onAct('change',mdTransferPick,EL)}></div>
   ${p&&p.error?`<div class="hint" data-md-import-error>${esc(p.error)}</div>`:''}${p&&p.done?`<div class="hint" data-md-import-done>Imported.</div>`:''}${plan}</div>`;
 }
 function mdTransferExport(){storageDownload('master-data-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(mdExportData(),null,1));}
@@ -1145,6 +1161,7 @@ function mdTransferApply(){
 /* Каталог стекла и точки поставки — подвиды Materials → Glass; файл идёт в
    парсер открытого подвида (аудит 05.10.2026: после переезда в Materials
    проверка mdTab==='glass' не срабатывала, GLASS_PRODUCTS.csv не грузился). */
+function mdCsvChoose(){document.getElementById('mdCsv').click();}
 function mdImportCard(){
  const isGlass=mdMatView==='glassProduct',kind=isGlass?'glass':'sheets';
  const which=isGlass?'GLASS_PRODUCTS.csv':'GLASS_SHEETS.csv';
@@ -1153,8 +1170,8 @@ function mdImportCard(){
   <div class="sub">${isGlass
    ?'Same code — updated; new — added.'
    :'Unknown codes are rejected.'}</div>
-  <div class="row"><button onclick="document.getElementById('mdCsv').click()">Choose file</button>
-   <input type="file" id="mdCsv" accept=".csv,.txt" style="display:none" onchange="mdImportCsv(this,'${kind}')"></div>
+  <div class="row"><button ${onAct('click',mdCsvChoose)}>Choose file</button>
+   <input type="file" id="mdCsv" accept=".csv,.txt" style="display:none" ${onAct('change',mdImportCsv,EL,String(kind))}></div>
   ${mdImportReport&&mdImportReport.which===kind?sfReportHTML(mdImportReport.rep):''}</div>`;
 }
 function mdImportCsv(inp,which){
@@ -1246,7 +1263,7 @@ function viewMdCatalogues(){
  if(mdCatEdit!==null)return mdCatForm();
  const def=mdCatDef(),all=mdCatRows(),rows=mdCatalogFilterRows(all),colour=mdCatIsColour(),rate=mdCatIsRate();
  const found=rows!==all;
- return `<div class="md-toolbar"><span class="mut"${found?' data-md-search-count':''}>${found?rows.length+' of '+all.length+' '+esc(def.label.toLowerCase()):esc(def.what.charAt(0).toUpperCase()+def.what.slice(1))+' · used rows: switch off, don\'t delete.'}</span><span class="sp"></span><button class="pri" onclick="mdCatNew()">+ New</button></div>
+ return `<div class="md-toolbar"><span class="mut"${found?' data-md-search-count':''}>${found?rows.length+' of '+all.length+' '+esc(def.label.toLowerCase()):esc(def.what.charAt(0).toUpperCase()+def.what.slice(1))+' · used rows: switch off, don\'t delete.'}</span><span class="sp"></span><button class="pri" ${onAct('click',mdCatNew)}>+ New</button></div>
   ${slTable('mdCat-'+mdCatKind,{list:rows,id:x=>x.id,rowHTML:x=>mdCatRowHTML(x),lastTd:-1,empty:found?'Nothing found':'empty',noun:l=>l.length+' rows',fill:'name',acts:110,
    /* Вид Sales (владелец 07.11.2026): ячейки — из mdCatRowHTML, движок даёт фильтр, сортировку, ширину, порядок. */
    columns:()=>[{k:'name',label:'Name',type:'text',td:0,v:x=>x.name}].concat(rate?[
@@ -1265,7 +1282,7 @@ function mdCatRowHTML(x){
   <td class="mono">${esc(x.unit)}</td>
   <td class="mono">${esc(mdWorkTiersText(x))}${warn.length?` <span class="pill warn" title="${esc(warn.join('; '))}">${warn.length} warning${warn.length===1?'':'s'}</span>`:''}</td>
   <td><span class="pill ${x.active===false?'warn':'ok'}">${x.active===false?'no rate':'active'}</span></td>
-  <td style="white-space:nowrap"><button class="sm" onclick="mdCatEditRow('${esc(x.id)}')">Edit</button></td></tr>`;}
+  <td style="white-space:nowrap"><button class="sm" ${onAct('click',mdCatEditRow,String(x.id??''))}>Edit</button></td></tr>`;}
  const scope=colour?(x.productId?((DB.spandrelProduct||[]).find(p=>p.id===x.productId)||{}).name||x.productId:'any'):'';
  return `<tr data-md-row="${esc(mdCatKind)}:${esc(x.id)}">
   <td><b>${raw(x.name)}</b><div class="mut mono">${raw(x.id)}${x.subcategory?' · '+esc(x.subcategory):''}${mdCatKind==='stockItem'&&stockMeasureText(x)?' · '+esc(stockMeasureText(x)):''}</div>${x.sellsAsOwnLine?'<span class="pill info">own order line</span>':''}${MD_CAT_WORK.includes(mdCatKind)?`<div class="mut">Work: ${x.workId?esc((salesServiceRateRow(x.workId)||{}).name||x.workId):'—'}</div>`:''}</td>
@@ -1274,7 +1291,7 @@ function mdCatRowHTML(x){
           :`<td>${x.supplier?raw(x.supplier):'<span class="mut">—</span>'}</td>
             <td class="mono">${x.salePrice==null?'<span class="mut">—</span>':esc(Number(x.salePrice).toFixed(2))}</td>`}
   <td><span class="pill ${x.active===false?'warn':'ok'}">${x.active===false?'inactive':'active'}</span></td>
-  <td style="white-space:nowrap"><button class="sm" onclick="mdCatEditRow('${esc(x.id)}')">Edit</button><button class="sm dl" onclick="mdCatDelete('${esc(x.id)}')">×</button></td></tr>`;
+  <td style="white-space:nowrap"><button class="sm" ${onAct('click',mdCatEditRow,String(x.id??''))}>Edit</button><button class="sm dl" ${onAct('click',mdCatDelete,String(x.id??''))}>×</button></td></tr>`;
 }
 function mdCatNew(){
  mdCatEdit='new';
@@ -1310,13 +1327,13 @@ function mdCatForm(){
     <div><label>Status</label><select id="md_catActive"><option value="1" ${r.active!==false?'selected':''}>active</option><option value="0" ${r.active===false?'selected':''}>no rate</option></select></div>
    </div>`;
   const applies=`<div class="grid">
-    ${r.rule?'':`<div><label>Applies by</label><select id="md_catAppliesBy" onchange="mdWorkDraftRead(true);render()"><option value="" ${r.appliesBy?'':'selected'}>always</option><option value="diameter" ${r.appliesBy==='diameter'?'selected':''}>hole diameter, inches</option></select></div>
+    ${r.rule?'':`<div><label>Applies by</label><select id="md_catAppliesBy" ${onAct('change',mdWorkDraftRedraw)}><option value="" ${r.appliesBy?'':'selected'}>always</option><option value="diameter" ${r.appliesBy==='diameter'?'selected':''}>hole diameter, inches</option></select></div>
     ${r.appliesBy?`<div><label>Family</label><input id="md_catFamily" value="${esc(r.family||'')}"><div class="hint">Shared by all hole rows</div></div>
     <div><label>Diameter from</label><input id="md_catFrom" type="number" step="any" min="0" value="${v(r.appliesFrom)}" placeholder="no limit"></div>
     <div><label>Diameter to</label><input id="md_catTo" type="number" step="any" min="0" value="${v(r.appliesTo)}" placeholder="no limit"></div>`:''}`}
    </div>
    <div class="grid" data-md-rule>
-    <div><label>Surcharge</label><select id="md_ruleKind" onchange="mdWorkDraftRead(true);render()">${[['','no — a work'],['percent','percent of unit price'],['minArea','minimum billed area']].map(([k,t])=>`<option value="${k}" ${(r.rule?r.rule.kind:'')===k?'selected':''}>${t}</option>`).join('')}</select><div class="hint">Changes the unit price</div></div>
+    <div><label>Surcharge</label><select id="md_ruleKind" ${onAct('change',mdWorkDraftRedraw)}>${[['','no — a work'],['percent','percent of unit price'],['minArea','minimum billed area']].map(([k,t])=>`<option value="${k}" ${(r.rule?r.rule.kind:'')===k?'selected':''}>${t}</option>`).join('')}</select><div class="hint">Changes the unit price</div></div>
     ${r.rule?`<div><label>${r.rule.kind==='percent'?'Percent':'Minimum, ft²'}</label><input id="md_tierPrice0" type="number" step="any" min="0" value="${v(r.tiers&&r.tiers[0]?r.tiers[0].price:null)}" placeholder="no value"></div>
     <div><label>Unit types</label><div>${SERVICE_RULE_UNIT_TYPES.map(t=>`<label class="chk"><input type="checkbox" id="md_ruleT_${t}" ${r.rule.unitTypes.includes(t)?'checked':''}> ${t}</label>`).join(' ')}</div><div class="hint">None: any unit</div></div>
     <div><label>Unit area over, ft²</label><input id="md_ruleOver" type="number" step="any" min="0" value="${v(r.rule.areaOver)}" placeholder="no limit"></div>
@@ -1326,9 +1343,9 @@ function mdCatForm(){
    </div>`;
   const prices=`${r.rule?'<p class="mut">Value: Applies tab.</p>':`<label>Price by glass thickness</label>
    ${slFromTable('mdTiers',`<table class="md-work-tiers" data-md-tiers><thead><tr><th>From, mm</th><th>To, mm</th><th>Price, CAD</th><th></th></tr></thead><tbody>
-    ${(r.tiers||[]).map((t,i)=>`<tr data-md-tier="${esc(t.id)}"><td><input id="md_tierFrom${i}" type="number" step="any" min="0" value="${v(t.from)}" placeholder="no limit" style="width:90px"></td><td><input id="md_tierTo${i}" type="number" step="any" min="0" value="${v(t.to)}" placeholder="no limit" style="width:90px"></td><td><input id="md_tierPrice${i}" type="number" step="0.01" min="0" value="${v(t.price)}" placeholder="no price" style="width:90px"></td><td><button class="sm dl" title="Remove row" onclick="mdWorkTierRemove(${i})">×</button></td></tr>`).join('')}
+    ${(r.tiers||[]).map((t,i)=>`<tr data-md-tier="${esc(t.id)}"><td><input id="md_tierFrom${i}" type="number" step="any" min="0" value="${v(t.from)}" placeholder="no limit" style="width:90px"></td><td><input id="md_tierTo${i}" type="number" step="any" min="0" value="${v(t.to)}" placeholder="no limit" style="width:90px"></td><td><input id="md_tierPrice${i}" type="number" step="0.01" min="0" value="${v(t.price)}" placeholder="no price" style="width:90px"></td><td><button class="sm dl" title="Remove row" ${onAct('click',mdWorkTierRemove,i)}>×</button></td></tr>`).join('')}
    </tbody></table>`)}
-   <div class="row"><button class="sm" data-md-tier-add onclick="mdWorkTierAdd()">+ Row</button><span class="hint">From and to included. Empty: no limit.</span></div>
+   <div class="row"><button class="sm" data-md-tier-add ${onAct('click',mdWorkTierAdd)}>+ Row</button><span class="hint">From and to included. Empty: no limit.</span></div>
    <div class="grid">
     <div><label>Round quantity up to</label><input id="md_catRoundTo" type="number" step="any" min="0" value="${v(r.roundTo)}" placeholder="no rounding"><div class="hint">In the work's unit</div></div>
     <div><label>Min charge, CAD</label><input id="md_catMinCharge" type="number" step="0.01" min="0" value="${v(r.minCharge)}" placeholder="no minimum"><div class="hint">Per unit</div></div>
@@ -1338,14 +1355,14 @@ function mdCatForm(){
    status:isNew?null:r.active===false?['no rate','warn']:['active','ok'],code:isNew?'':r.id,
    tabs:[{k:'general',label:'General',html:general},{k:'applies',label:'Applies',html:applies},{k:'prices',label:'Prices',html:prices,missing:warn.length>0}],
    foot:`${warn.length?`<div class="sales-pricing-warning" data-md-work-warn><b>Check</b><span>${warn.map(esc).join('<br>')}</span></div>`:''}<div class="err" id="e_mdCat"></div>
-   <div class="row"><button class="pri" onclick="mdCatSave()">Save</button><button onclick="mdCatEdit=null;mdCatDraft=null;render()">Cancel</button></div>`})
+   <div class="row"><button class="pri" ${onAct('click',mdCatSave)}>Save</button><button ${onAct('click',mdCatCancel)}>Cancel</button></div>`})
    .replace('data-md-card="work"','data-md-card="work" data-md-work-form');
  }
  const f={
   name:mdField('Name *',`<input id="md_catName" value="${esc(r.name)}">`).replace('<div>','<div class="md-wide">'),
   code:mdField('Code',`<input id="md_catCode" value="${esc(r.code)}">`,'Manufacturer\'s code.'),
   status:mdField('Status',`<select id="md_catActive"><option value="1" ${r.active!==false?'selected':''}>active</option><option value="0" ${r.active===false?'selected':''}>inactive</option></select>`)};
- const foot=`<div class="err" id="e_mdCat"></div><div class="row"><button class="pri" onclick="mdCatSave()">Save</button><button onclick="mdCatEdit=null;mdCatDraft=null;render()">Cancel</button></div>`;
+ const foot=`<div class="err" id="e_mdCat"></div><div class="row"><button class="pri" ${onAct('click',mdCatSave)}>Save</button><button ${onAct('click',mdCatCancel)}>Cancel</button></div>`;
  const card=tabs=>mdCardHTML({form:'cat-'+mdCatKind,crumb:[MD_WORK_CATALOGUES.includes(mdCatKind)?'Works':'Materials',def.label],title:isNew?'New':raw(r.name||r.id),
   status:isNew?null:r.active===false?['inactive','warn']:['active','ok'],code:isNew?'':(r.code||r.id),tabs,foot});
  if(colour)return card([{k:'general',label:'General',html:`<div class="grid">${f.name}${f.code}
@@ -1389,15 +1406,19 @@ function mdCatForm(){
 /* Плёнка (этап 5): слой, разрешённые толщины и строки поставки. Строки
    поставки добавляются и убираются без перерисовки — введённое в форме не
    пропадает; Save читает их с экрана. */
+/* Строки поставки плёнки и измерений склада: добавить / убрать без перерисовки. */
+function mdRowRemove(el){el.closest('tr').remove();}
+function mdFilmSupplyAdd(el){el.previousElementSibling.querySelector('tbody').insertAdjacentHTML('beforeend',mdFilmSupplyRow().replace('>','><td class="sl-check"></td>'));}
+function mdStockMeasureAdd(){document.querySelector('[data-md-measures] tbody').insertAdjacentHTML('beforeend',mdStockMeasureRow());}
 function mdFilmSupplyRow(x){x=x||{};const v=k=>x[k]==null?'':esc(x[k]);
- return `<tr data-md-film-supply><td><input data-k="supplier" value="${v('supplier')}"></td><td><input data-k="widthIn" type="number" min="0" step="any" value="${v('widthIn')}"></td><td><input data-k="thicknessMm" type="number" min="0" step="any" value="${v('thicknessMm')}"></td><td${accessCost()?'':' hidden'}><input data-k="price" type="number" min="0" step="any" value="${v('price')}"></td><td${accessCost()?'':' hidden'}><input data-k="per" value="${v('per')}" placeholder="roll"></td><td><button type="button" class="sm dl" onclick="this.closest('tr').remove()">×</button></td></tr>`;}
+ return `<tr data-md-film-supply><td><input data-k="supplier" value="${v('supplier')}"></td><td><input data-k="widthIn" type="number" min="0" step="any" value="${v('widthIn')}"></td><td><input data-k="thicknessMm" type="number" min="0" step="any" value="${v('thicknessMm')}"></td><td${accessCost()?'':' hidden'}><input data-k="price" type="number" min="0" step="any" value="${v('price')}"></td><td${accessCost()?'':' hidden'}><input data-k="per" value="${v('per')}" placeholder="roll"></td><td><button type="button" class="sm dl" ${onAct('click',mdRowRemove,EL)}>×</button></td></tr>`;}
 function mdFilmFields(r){
  return `<div><label>Ply, mm</label><input id="md_filmPly" type="number" min="0" step="any" value="${r.plyMm==null?'':r.plyMm}"><div class="hint">One layer; price is per layer</div></div>
   <div><label>Thicknesses, mm</label><input id="md_filmThick" value="${esc((r.thicknessesMm||[]).join(', '))}"><div class="hint">Offered in the order</div></div>`;
 }
 function mdFilmSupplyHTML(r){
  return `<div data-md-film-supplies><label>Supply</label><div class="sales-table-wrap">${slFromTable('mdFilmSupply',`<table class="ncr-table"><thead><tr><th>Supplier</th><th>Roll width, in</th><th>Thickness, mm</th>${accessCost()?'<th>Price, CAD</th><th>Per</th>':''}<th></th></tr></thead><tbody>${(r.supply||[]).map(mdFilmSupplyRow).join('')}</tbody></table>`)}</div>
-   <button type="button" data-md-film-add onclick="this.previousElementSibling.querySelector('tbody').insertAdjacentHTML('beforeend',mdFilmSupplyRow().replace('>','><td class=&quot;sl-check&quot;></td>'))">+ Supply row</button></div>`;
+   <button type="button" data-md-film-add ${onAct('click',mdFilmSupplyAdd,EL)}>+ Supply row</button></div>`;
 }
 function mdFilmRead(){
  const ply=mdVal('md_filmPly');if(!(+ply>0))return {error:'Ply must be a positive number'};
@@ -1411,9 +1432,11 @@ function mdFilmRead(){
    кнопки меняют его без перерисовки — набранное в форме не пропадает. */
 function mdStockKindHTML(r,hints){
  const cur=r.subcategory||'',list=hints.includes(cur)||!cur?hints:hints.concat([cur]),cap=v=>v.charAt(0).toUpperCase()+v.slice(1);
- return `<div class="md-stock-kind" data-md-stock-kind><label>Kind</label><div class="md-stock-kind-row"><div class="stk-seg">${list.map(v=>`<button type="button" class="${v===cur?'on':''}" data-md-kind="${esc(v)}" onclick="mdStockKindPick(this)">${esc(cap(v))}</button>`).join('')}</div>
-  <input id="md_catSubcategory" list="md_catSubcategoryList" value="${esc(cur)}" placeholder="New kind" ${list.includes(cur)?'hidden':''} oninput="mdStockKindPick(null)"><datalist id="md_catSubcategoryList">${hints.map(x=>`<option value="${esc(x)}">`).join('')}</datalist><button type="button" class="sm" data-md-kind-new onclick="const i=document.getElementById('md_catSubcategory');i.hidden=false;i.value='';i.focus();mdStockKindPick(null)">+ New kind</button></div><div class="hint">Kind sets the measurements of a new item.</div></div>`;
+ return `<div class="md-stock-kind" data-md-stock-kind><label>Kind</label><div class="md-stock-kind-row"><div class="stk-seg">${list.map(v=>`<button type="button" class="${v===cur?'on':''}" data-md-kind="${esc(v)}" ${onAct('click',mdStockKindPick,EL)}>${esc(cap(v))}</button>`).join('')}</div>
+  <input id="md_catSubcategory" list="md_catSubcategoryList" value="${esc(cur)}" placeholder="New kind" ${list.includes(cur)?'hidden':''} ${onAct('input',mdStockKindPick,null)}><datalist id="md_catSubcategoryList">${hints.map(x=>`<option value="${esc(x)}">`).join('')}</datalist><button type="button" class="sm" data-md-kind-new ${onAct('click',mdStockKindNew)}>+ New kind</button></div><div class="hint">Kind sets the measurements of a new item.</div></div>`;
 }
+/* + New kind: пустое поле нового вида, выбранный вид снят. */
+function mdStockKindNew(){const i=document.getElementById('md_catSubcategory');i.hidden=false;i.value='';i.focus();mdStockKindPick(null);}
 function mdStockKindPick(btn){
  const box=document.querySelector('[data-md-stock-kind]'),inp=document.getElementById('md_catSubcategory');if(!box||!inp)return;
  if(btn){inp.value=btn.getAttribute('data-md-kind');inp.hidden=true;}
@@ -1424,12 +1447,12 @@ function mdStockKindPick(btn){
 }
 const MD_STOCK_UNITS=['in','mm','ft','m','L','gal','kg','lb'];
 function mdStockMeasureRow(m){m=m||{};
- return `<tr data-md-measure><td><input data-k="name" aria-label="Measurement" value="${esc(m.name||'')}"></td><td><input data-k="value" aria-label="Value" type="number" min="0" step="any" value="${m.value==null?'':esc(m.value)}"></td><td><input data-k="unit" aria-label="Unit" list="md_stockUnits" value="${esc(m.unit||'')}"></td><td><button type="button" class="sm dl" aria-label="Remove" onclick="this.closest('tr').remove()">×</button></td></tr>`;}
+ return `<tr data-md-measure><td><input data-k="name" aria-label="Measurement" value="${esc(m.name||'')}"></td><td><input data-k="value" aria-label="Value" type="number" min="0" step="any" value="${m.value==null?'':esc(m.value)}"></td><td><input data-k="unit" aria-label="Unit" list="md_stockUnits" value="${esc(m.unit||'')}"></td><td><button type="button" class="sm dl" aria-label="Remove" ${onAct('click',mdRowRemove,EL)}>×</button></td></tr>`;}
 function mdStockMeasuresHTML(r,isNew){
  const preset=isNew&&!(r.measures||[]).length?(STOCK_MEASURE_PRESET[String(r.subcategory||'').toLowerCase()]||[]).map(([name,unit])=>({name,unit})):(r.measures||[]);
  return `<div data-md-measures><div class="sales-table-wrap md-stock-measures">${slFromTable('mdMeasures',`<table class="ncr-table"><thead><tr><th>Measurement</th><th>Value</th><th>Unit</th><th></th></tr></thead><tbody>${preset.map(mdStockMeasureRow).join('')}</tbody></table>`)}</div>
   <datalist id="md_stockUnits">${MD_STOCK_UNITS.map(u=>`<option value="${u}">`).join('')}</datalist>
-  <div class="row"><button type="button" class="sm" data-md-measure-add onclick="document.querySelector('[data-md-measures] tbody').insertAdjacentHTML('beforeend',mdStockMeasureRow())">+ Measurement</button><button type="button" class="sm" data-md-measure-name onclick="mdStockNameFromMeasures()">Name from measurements</button><span class="hint">Another value — another stock item.</span></div></div>`;
+  <div class="row"><button type="button" class="sm" data-md-measure-add ${onAct('click',mdStockMeasureAdd)}>+ Measurement</button><button type="button" class="sm" data-md-measure-name ${onAct('click',mdStockNameFromMeasures)}>Name from measurements</button><span class="hint">Another value — another stock item.</span></div></div>`;
 }
 function mdStockMeasuresRead(){
  const rows=[...document.querySelectorAll('[data-md-measure]')].map(tr=>{const o={};tr.querySelectorAll('[data-k]').forEach(i=>{o[i.dataset.k]=i.value.trim();});return o;}).filter(o=>o.name||o.value);
@@ -1448,12 +1471,13 @@ function mdStockTabHTML(r){
  const moves=s.moves.slice(0,5);
  return `<div class="inv-tiles md-stock-tiles" data-md-stock-tab><div class="inv-tile"><b>${s.onHand}</b><span>On hand, pcs</span></div><div class="inv-tile"><b>${s.reserved}</b><span>Reserved</span></div><div class="inv-tile${s.available<0?' bad':''}"><b>${s.available}</b><span>Available</span></div></div>
   <h4>Last movements</h4>${moves.length?`<div class="sales-table-wrap"><table class="ncr-table"><tbody>${moves.map(m=>`<tr><td class="nowrap">${esc(salesListShortDay(m.day))}</td><td>${esc(m.kind)}${m.ref?' · '+esc(m.ref):''}${m.note?' <span class="mut">· '+esc(m.note)+'</span>':''}</td><td class="n${m.rack<0?' inv-neg':''}">${m.rack>0?'+':''}${esc(m.rack)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="mut">No movements yet.</p>'}
-  ${accessCan('inventory')?`<div class="row"><button type="button" onclick="invOpenStock('${esc(r.id)}')">Open in Inventory</button></div>`:''}`;
+  ${accessCan('inventory')?`<div class="row"><button type="button" ${onAct('click',invOpenStock,String(r.id??''))}>Open in Inventory</button></div>`:''}`;
 }
 /* Форма работы → запись. Поля читаются с экрана: строка таблицы
    добавляется и убирается перерисовкой, и введённое не должно пропасть.
    keep — записать прочитанное в черновик. Нахлёст и пропуск строк таблицы не
    запрещаются: карточка о них предупреждает. */
+function mdWorkDraftRedraw(){mdWorkDraftRead(true);render();}
 function mdWorkDraftRead(keep){
  const r=mdCatDraft;if(!r||!document.getElementById('md_catName'))return null;
  const num=id=>{const el=document.getElementById(id);if(!el)return undefined;const t=el.value.trim();return t===''?null:+t;};
@@ -1500,6 +1524,7 @@ function mdCatIdFrom(prefix,code,name,taken){
  while(taken.some(x=>x.id===id)){id=prefix+'-'+(base||'NEW')+'-'+n;n++;}
  return id;
 }
+function mdCatCancel(){mdCatEdit=null;mdCatDraft=null;render();}
 function mdCatSave(){
  const e=document.getElementById('e_mdCat');if(e)e.style.display='none';
  if(mdCatEdit!=='new'){const stale=mdStale('cat',mdCatRows().find(r=>r.id===mdCatEdit));if(stale)return fail(e,stale);}
