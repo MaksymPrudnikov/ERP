@@ -19,13 +19,13 @@ function carrierTilesHTML(b){
   <div class="cb-tile" data-carrier-tile="shop"><b>${shopN}</b><span>in the shop · ${s.shop.loaded} loaded${s.shop.items.length?' · '+esc(carrierCountText(carrierItems(s.shop.items))):''} · ${s.shop.empty} empty</span></div>
   <div class="cb-tile" data-carrier-tile="out"><b>${s.outN}</b><span>at customers${s.outN?' · oldest '+stationPlural(days,'day','days'):''}</span></div>
   <div class="cb-tile${b.looseN?' warn':''}" data-carrier-loose-tile><b>${b.looseN}</b><span>glass with no dolly or skid</span></div>
-  <${s.last?'button type="button" onclick="carrierCountView(\''+esc(s.last.id)+'\')"':'div'} class="cb-tile${s.missing.length?' warn':''}" data-carrier-tile="missing"><b>${s.last?s.missing.length:'—'}</b><span>${s.last?'not found at last count · '+esc(last):'no count yet'}</span></${s.last?'button':'div'}>
-  <${s.last?'button type="button" onclick="carrierCountView(\''+esc(s.last.id)+'\')"':'div'} class="cb-tile${s.nolabel?' warn':''}" data-carrier-tile="nolabel"><b>${s.last?s.nolabel:'—'}</b><span>found without a label</span></${s.last?'button':'div'}>
+  <${s.last?'button type="button" '+onAct('click',carrierCountView,String(s.last.id??''))+'':'div'} class="cb-tile${s.missing.length?' warn':''}" data-carrier-tile="missing"><b>${s.last?s.missing.length:'—'}</b><span>${s.last?'not found at last count · '+esc(last):'no count yet'}</span></${s.last?'button':'div'}>
+  <${s.last?'button type="button" '+onAct('click',carrierCountView,String(s.last.id??''))+'':'div'} class="cb-tile${s.nolabel?' warn':''}" data-carrier-tile="nolabel"><b>${s.last?s.nolabel:'—'}</b><span>found without a label</span></${s.last?'button':'div'}>
   <div class="cb-tile" data-carrier-tile="unconfirmed"><b>${s.unconfirmed}</b><span>not confirmed yet${s.retired?' · '+s.retired+' retired':''}</span></div></div>`;
 }
 function carrierCountButton(){
  const n=carrierCountOpen();
- return `<button type="button" class="b cb-count-btn" data-carrier-count-open onclick="carrierCountGo()">${n?'Count in progress · '+carrierCountCounted(n).size+' scanned':'Count dollies &amp; skids'}</button>`;
+ return `<button type="button" class="b cb-count-btn" data-carrier-count-open ${onAct('click',carrierCountGo)}>${n?'Count in progress · '+carrierCountCounted(n).size+' scanned':'Count dollies &amp; skids'}</button>`;
 }
 function carrierCountGo(){
  const n=carrierCountOpen();if(n){carrierCountView(n.id);return;}
@@ -45,6 +45,9 @@ function carrierCountNoLabelAsk(){
  salesDialogOpen({title:'Found without a label',sub:'Office checks it later. No code is given now.',input:{label:'Where and how it looks',value:''},buttons:[{label:'Back'},{label:'Dolly',run:go('dolly')},{label:'Skid',kind:'pri',run:go('skid')}]});
 }
 function carrierCountAct(fn){const out=fn();carrierCountNotice=out.ok?'':out.error;render();}
+function carrierCountTwinClick(id,i){carrierCountAct(()=>carrierCountTwin(id,i));}
+function carrierCountBackClick(id,i){carrierCountAct(()=>carrierCountBack(id,i,carrierMe()));}
+function carrierCountPlaceSet(p){carrierCountPlace=p;render();}
 function carrierCountEnd(finish){
  const n=carrierCountFind(carrierCountShow);if(!n)return;
  if(finish){carrierCountAct(()=>carrierCountFinish(n.id));return;}
@@ -54,11 +57,11 @@ function carrierCountResult(o,n,i,open){
  const when=x=>stationTime(x);
  switch(o.res){
   case 'ok':return '✓ Counted'+(o.place?' · '+esc(o.place):'');
-  case 'dup':return `<span class="mut">Already counted at ${esc(when(o.info))} — not added again</span>${open?` <button type="button" class="sm" data-count-twin="${i}" onclick="carrierCountAct(()=>carrierCountTwin('${esc(n.id)}',${i}))">Another one with this label</button>`:''}`;
+  case 'dup':return `<span class="mut">Already counted at ${esc(when(o.info))} — not added again</span>${open?` <button type="button" class="sm" data-count-twin="${i}" ${onAct('click',carrierCountTwinClick,String(n.id??''),i)}>Another one with this label</button>`:''}`;
   case 'twin':return `<b class="cc-warn">Two with one label</b> — office checks`;
   case 'unknown':return `<b class="cc-bad">Unknown code</b> — not in the list, nothing created`;
   case 'retired':return `<b class="cc-warn">Retired — found here</b> — office checks`;
-  case 'out':return o.fixed?`✓ Back from <span data-raw>${esc(salesCustomerDisplay(o.customerId))}</span>`:`<b class="cc-warn">⚠ Found here · records say at <span data-raw>${esc(salesCustomerDisplay(o.customerId))}</span> (${esc(o.info)})</b> <button type="button" class="sm" data-count-back="${i}" onclick="carrierCountAct(()=>carrierCountBack('${esc(n.id)}',${i},carrierMe()))">Back from customer</button>`;
+  case 'out':return o.fixed?`✓ Back from <span data-raw>${esc(salesCustomerDisplay(o.customerId))}</span>`:`<b class="cc-warn">⚠ Found here · records say at <span data-raw>${esc(salesCustomerDisplay(o.customerId))}</span> (${esc(o.info)})</b> <button type="button" class="sm" data-count-back="${i}" ${onAct('click',carrierCountBackClick,String(n.id??''),i)}>Back from customer</button>`;
   case 'nolabel':return `<b>Unidentified ${esc(o.kind)}</b>${o.place?' · '+esc(o.place):''}${o.note?' · “'+esc(o.note)+'”':''} — office checks`;
  }
  return '';
@@ -77,13 +80,13 @@ function carrierCountScreen(){
  const rows=n.obs.map((o,i)=>({o,i})).reverse().map(({o,i})=>`<tr data-count-obs="${esc(o.res)}"><td>${o.code?`<span class="cw-code sm">${esc(o.code)}</span>`:'<span class="cw-code sm none">no label</span>'}</td><td>${carrierCountResult(o,n,i,open)}</td><td class="mut">${esc(o.by)}</td><td class="mut">${esc(stationTime(o.at))}</td></tr>`).join('');
  if(open)setTimeout(carrierCountFocus,0);
  return `<div class="cc" data-carrier-count="${esc(n.id)}"><div class="cc-head"><h2>Count · ${esc(docDate(finLocalDate(n.startedAt)))}</h2><span class="mut">${open?'started '+esc(stationTime(n.startedAt)):'finished '+esc(stationTime(n.finishedAt))}${n.by?' · '+esc(n.by):''}</span><span class="cw-sp"></span>
-  ${open?'<button type="button" class="b" data-count-cancel onclick="carrierCountEnd(false)">Cancel count</button><button type="button" class="b pri" data-count-finish onclick="carrierCountEnd(true)">Finish count</button>':'<button type="button" class="b" onclick="carrierCountView(\'\')">Back to dollies &amp; skids</button>'}</div>
+  ${open?'<button type="button" class="b" data-count-cancel '+onAct('click',carrierCountEnd,false)+'>Cancel count</button><button type="button" class="b pri" data-count-finish '+onAct('click',carrierCountEnd,true)+'>Finish count</button>':'<button type="button" class="b" '+onAct('click',carrierCountView,'')+'>Back to dollies &amp; skids</button>'}</div>
   ${carrierCountNotice?`<div class="shipping-notice bad" role="alert">${esc(carrierCountNotice)}</div>`:''}
   <div class="cc-grid"><div class="cc-left">
-  ${open?`<div class="cc-top"><div class="cc-scan" onclick="carrierCountFocus()">${ico('scan')}<div class="cc-scan-t"><b>SCAN EVERY DOLLY AND SKID</b><input data-carrier-count-scan autocomplete="off" spellcheck="false" placeholder="Label or code: DL-2" onkeydown="carrierCountKey(event,this)"></div></div>
-   <div class="cc-place"><span class="mut">Place</span><span class="cb-seg">${CARRIER_COUNT_PLACES.map(p=>`<button type="button" class="${carrierCountPlace===p?'on':''}" data-count-place="${p}" onclick="carrierCountPlace='${p}';render()">${p}</button>`).join('')}</span></div>
+  ${open?`<div class="cc-top"><div class="cc-scan" ${onAct('click',carrierCountFocus)}>${ico('scan')}<div class="cc-scan-t"><b>SCAN EVERY DOLLY AND SKID</b><input data-carrier-count-scan autocomplete="off" spellcheck="false" placeholder="Label or code: DL-2" ${onAct('keydown',carrierCountKey,EVENT,EL)}></div></div>
+   <div class="cc-place"><span class="mut">Place</span><span class="cb-seg">${CARRIER_COUNT_PLACES.map(p=>`<button type="button" class="${carrierCountPlace===p?'on':''}" data-count-place="${p}" ${onAct('click',carrierCountPlaceSet,String(p))}>${p}</button>`).join('')}</span></div>
    <div class="cb-tile cc-found" data-count-found><b>${found} of ${exp.length}</b><span>in the shop found</span></div></div>`:''}
-  <div class="card cc-card"><div class="cc-sec"><h3>Scanned · ${got.size}</h3><span class="cw-sp"></span>${open?'<button type="button" class="sm" data-count-nolabel onclick="carrierCountNoLabelAsk()">+ No label</button>':''}</div>
+  <div class="card cc-card"><div class="cc-sec"><h3>Scanned · ${got.size}</h3><span class="cw-sp"></span>${open?'<button type="button" class="sm" data-count-nolabel '+onAct('click',carrierCountNoLabelAsk)+'>+ No label</button>':''}</div>
    ${rows?`${slFromTable('carrierCount',`<table class="cc-table"><thead><tr><th>Code</th><th>Result</th><th>By</th><th>Time</th></tr></thead><tbody>${rows}</tbody></table>`)}`:'<div class="empty">Scan the first dolly or skid</div>'}</div></div>
   <div class="card cc-card cc-right"><div class="cc-sec"><h3>${open?'Not seen yet':'Not found'} · ${missing.length}</h3></div>${cap(missing,c=>ns(c,desc(c)))||'<div class="mut">All found</div>'}
    ${open&&atCust.length?`<div class="cc-sec"><h3>At customers · ${atCust.length}</h3></div>${cap(atCust,x=>ns(x.code,salesCustomerDisplay(x.customerId)+' · '+x.ps+' · '+stationPlural(skidDays(x.since),'day','days')))}`:''}

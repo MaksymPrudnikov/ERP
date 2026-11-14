@@ -44,6 +44,8 @@ function stationDrawOpen(orderId,lineId,unit,lite){
 /* Кнопка в шапке: без заказа — выбор заказа. */
 function stationDrawPick(){stationMenu=null;stationDrawer={kind:'draw',orderId:'',lineId:'',error:''};render();}
 /* Номер заказа или стикер стекла: стекло открывает свою строку. */
+function stationDrawFindKey(ev,raw){if(ev.key==='Enter'){ev.preventDefault();stationDrawFind(raw);}}
+function stationDrawLine(id){stationDrawer.lineId=id;render();}
 function stationDrawFind(raw){
  const v=String(raw==null?'':raw).trim();if(!v)return false;
  const code=stationCodeOf(v),g=glassPieceValid(code)?stationGlass(code):null;
@@ -71,28 +73,28 @@ function stationDrawOrders(){
 }
 function stationDrawHTML(){
  const x=stationDrawer,o=x.orderId?salesRecord(x.orderId):null;
- const find='<label class="st-draw-find">'+ico('scan')+'<input data-station-keep data-station-draw-find autocomplete="off" spellcheck="false" placeholder="Order # or glass sticker" onkeydown="if(event.key===\'Enter\'){event.preventDefault();stationDrawFind(this.value);}"></label>';
- const head=(title,print)=>'<div class="st-draw-h"><h2>'+title+'</h2><span class="sp"></span>'+find+(print||'')+'<button type="button" class="b st-draw-close" onclick="stationCloseDrawer()">× Close</button></div>'+(x.error?'<div class="st-pin-err">'+esc(x.error)+'</div>':'');
+ const find='<label class="st-draw-find">'+ico('scan')+'<input data-station-keep data-station-draw-find autocomplete="off" spellcheck="false" placeholder="Order # or glass sticker" '+onAct('keydown',stationDrawFindKey,EVENT,EL_VALUE)+'></label>';
+ const head=(title,print)=>'<div class="st-draw-h"><h2>'+title+'</h2><span class="sp"></span>'+find+(print||'')+'<button type="button" class="b st-draw-close" '+onAct('click',stationCloseDrawer)+'>× Close</button></div>'+(x.error?'<div class="st-pin-err">'+esc(x.error)+'</div>':'');
  if(!o){
   /* Окно выбора (владелец, 2 октября 2026: «провалился в окно и не понял,
      куда попал и зачем»): настоящее окно поверх станции, одна строка о том,
      что здесь делают, крупная Close; в плитке — клиент и число чертежей. */
   const list=stationDrawOrders();
-  return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer st-drawer-draw st-draw-pick" role="dialog" aria-label="Drawings" data-station-draw>'+head('Drawings · '+esc(stationCode))+
+  return '<div class="st-dim" '+onAct('click',stationCloseDrawer)+'></div><div class="st-drawer st-drawer-draw st-draw-pick" role="dialog" aria-label="Drawings" data-station-draw>'+head('Drawings · '+esc(stationCode))+
    '<p class="st-draw-hint">Open any order\'s drawing: tap an order, type its number or scan a glass sticker.</p>'+
-   '<div class="st-rgroup">Orders with glass at '+esc(stationCode)+'</div><div class="st-draw-orders">'+(list.length?list.map(r=>{const n=stationDrawItems(r).length;return '<button type="button" class="st-draw-order" data-station-draw-order="'+esc(r.businessNumber||'')+'" onclick="stationDrawOpen(\''+esc(r.id)+'\',\'\')"><b>'+esc(r.businessNumber||'')+'</b><span data-raw>'+esc(salesCustomerDisplay(r.customerId))+'</span><small>'+n+' drawing'+(n===1?'':'s')+'</small></button>';}).join(''):'<div class="mut">No orders here yet — type the order number or scan a glass sticker</div>')+'</div></div>';
+   '<div class="st-rgroup">Orders with glass at '+esc(stationCode)+'</div><div class="st-draw-orders">'+(list.length?list.map(r=>{const n=stationDrawItems(r).length;return '<button type="button" class="st-draw-order" data-station-draw-order="'+esc(r.businessNumber||'')+'" '+onAct('click',stationDrawOpen,String(r.id??''),'')+'><b>'+esc(r.businessNumber||'')+'</b><span data-raw>'+esc(salesCustomerDisplay(r.customerId))+'</span><small>'+n+' drawing'+(n===1?'':'s')+'</small></button>';}).join(''):'<div class="mut">No orders here yet — type the order number or scan a glass sticker</div>')+'</div></div>';
  }
  const lines=stationDrawItems(o),it=stationDrawCurrent(o,lines),at=lines.indexOf(it),l=it&&it.l,rc=it&&it.r;
  const title='Drawings · <b>'+esc(o.businessNumber||'')+'</b> <span class="mut" data-raw>'+esc(salesCustomerDisplay(o.customerId))+'</span>';
- if(!l)return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer st-drawer-draw" role="dialog" aria-label="Drawings" data-station-draw>'+head(title)+'<div class="empty">No drawings in this order</div></div>';
+ if(!l)return '<div class="st-dim" '+onAct('click',stationCloseDrawer)+'></div><div class="st-drawer st-drawer-draw" role="dialog" aria-label="Drawings" data-station-draw>'+head(title)+'<div class="empty">No drawings in this order</div></div>';
  setTimeout(stationDrawFit,0);
  const li=(o.lines||[]).indexOf(l)+1,many=lines.length>1,geo=rc?recutLine(rc,l):l,sheet=stationDrawItemSheet(o,it);
- const step=(sign,off)=>many?'<button type="button" class="doc-step" '+(off?'disabled':'')+' onclick="stationDrawStep('+sign+')">'+(sign<0?'‹':'›')+'</button>':'';
+ const step=(sign,off)=>many?'<button type="button" class="doc-step" '+(off?'disabled':'')+' '+onAct('click',stationDrawStep,sign)+'>'+(sign<0?'‹':'›')+'</button>':'';
  /* Print drawing — только у листа, который построился: пустой печати нет. */
- const print=sheet&&sheet.html?'<button type="button" class="b st-draw-close st-draw-print" data-station-draw-print onclick="stationDrawPrint()">'+ico('printer')+'Print drawing</button>':'';
- return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer st-drawer-draw" role="dialog" aria-label="Drawings" data-station-draw="'+esc(l.id)+'">'+head(title,print)+
+ const print=sheet&&sheet.html?'<button type="button" class="b st-draw-close st-draw-print" data-station-draw-print '+onAct('click',stationDrawPrint)+'>'+ico('printer')+'Print drawing</button>':'';
+ return '<div class="st-dim" '+onAct('click',stationCloseDrawer)+'></div><div class="st-drawer st-drawer-draw" role="dialog" aria-label="Drawings" data-station-draw="'+esc(l.id)+'">'+head(title,print)+
   '<div class="st-draw-stage">'+step(-1,at<=0)+'<figure class="doc-drawing" style="zoom:'+stationDrawZoom().toFixed(3)+'">'+stationDrawSheet(sheet)+'</figure>'+step(1,at>=lines.length-1)+'</div>'+
-  (many?'<div class="st-draw-film">'+lines.map(y=>{const n=(o.lines||[]).indexOf(y.l)+1,g=y.r?recutLine(y.r,y.l):y.l;return '<button type="button" class="st-draw-chip'+(y===it?' on':'')+(y.r?' st-draw-recut':'')+'" data-station-draw-line="'+(y.r?'R'+y.r.no:n)+'" onclick="stationDrawer.lineId=\''+esc(y.id)+'\';render()"><b>'+(y.r?'Recut '+y.r.no+' · ':'')+'Line '+n+(y.lite!=null?' · Lite '+(y.lite+1):'')+'</b><span>'+esc(frac16(g.width16/16)+' × '+frac16(g.height16/16))+(y.l.mark?' · '+esc(y.l.mark):'')+'</span></button>';}).join('')+'</div>':'')+
+  (many?'<div class="st-draw-film">'+lines.map(y=>{const n=(o.lines||[]).indexOf(y.l)+1,g=y.r?recutLine(y.r,y.l):y.l;return '<button type="button" class="st-draw-chip'+(y===it?' on':'')+(y.r?' st-draw-recut':'')+'" data-station-draw-line="'+(y.r?'R'+y.r.no:n)+'" '+onAct('click',stationDrawLine,String(y.id??''))+'><b>'+(y.r?'Recut '+y.r.no+' · ':'')+'Line '+n+(y.lite!=null?' · Lite '+(y.lite+1):'')+'</b><span>'+esc(frac16(g.width16/16)+' × '+frac16(g.height16/16))+(y.l.mark?' · '+esc(y.l.mark):'')+'</span></button>';}).join('')+'</div>':'')+
   '<div class="st-draw-foot mut">'+stationDrawName(o,it)+' · '+(at+1)+' of '+lines.length+(many?' · ← → to flip':'')+'</div></div>';
 }
 /* Открытый в окне лист: строка, Lite или Recut, выбранные стрелками и плитками. */
@@ -114,7 +116,7 @@ function stationDrawThumb(g,d){
  if(!g||!d||!d.shape||!g.l.shapeRef&&!stationDrawRecut(g.o,g.l,g.unit))return '';
  const lite=g.c&&g.c.index!=null?g.c.index:null,sheet=stationDrawingOf(g.o,g.l,g.unit,lite);if(!sheet||!sheet.html)return '';
  setTimeout(stationDrawFit,0);
- return '<button type="button" class="st-drawthumb" data-station-drawthumb onclick="stationDrawOpen(\''+esc(g.o.id)+'\',\''+esc(g.l.id)+'\',\''+esc(String(g.unit))+'\','+(lite==null?'null':lite)+')" title="Open the drawing"><span class="st-drawthumb-paper"><span class="st-drawthumb-sheet">'+stationDrawSheet(sheet)+'</span></span><span class="st-drawthumb-t">Drawing</span></button>';
+ return '<button type="button" class="st-drawthumb" data-station-drawthumb '+onAct('click',stationDrawOpen,String(g.o.id??''),String(g.l.id??''),String(g.unit),lite==null?null:lite)+' title="Open the drawing"><span class="st-drawthumb-paper"><span class="st-drawthumb-sheet">'+stationDrawSheet(sheet)+'</span></span><span class="st-drawthumb-t">Drawing</span></button>';
 }
 /* Прямоугольник под плашкой NEXT (владелец, 1 октября 2026): у фигуры там
    миниатюра чертежа, у прямоугольника было пусто. Стекло в пропорциях, тем же
@@ -122,7 +124,7 @@ function stationDrawThumb(g,d){
    форму и ориентацию (30 × 20 не перепутать с 20 × 30). Нажатие — чертёж. */
 function stationGlassPreview(g,size){
  if(!g||!size||!(size.w>0)||!(size.h>0))return '';
- const k=Math.min(196/size.w,130/size.h),W=Math.round(size.w*k),H=Math.round(size.h*k),open=g.l.shapeRef||stationDrawRecut(g.o,g.l,g.unit)?' onclick="stationDrawOpen(\''+esc(g.o.id)+'\',\''+esc(g.l.id)+'\',\''+esc(String(g.unit))+'\')"':'';
+ const k=Math.min(196/size.w,130/size.h),W=Math.round(size.w*k),H=Math.round(size.h*k),open=g.l.shapeRef||stationDrawRecut(g.o,g.l,g.unit)?' '+onAct('click',stationDrawOpen,String(g.o.id??''),String(g.l.id??''),String((String(g.unit))??''))+'':'';
  const svg='<svg width="'+(W+34)+'" height="'+(H+30)+'" viewBox="-28 -4 '+(W+34)+' '+(H+30)+'" aria-hidden="true">'+
   '<defs><linearGradient id="st-glass-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--cut-glass-a)"/><stop offset="1" style="stop-color:var(--cut-glass-c)"/></linearGradient></defs>'+
   '<rect x="0" y="0" width="'+W+'" height="'+H+'" rx="2" class="st-glassprev-glass"/>'+

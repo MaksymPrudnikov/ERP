@@ -92,21 +92,21 @@ function carrierFormSheetHTML(tpl,code,view){
  if(!m||!(m.items.length||m.gone.length))return '<div class="fm-note fm-dnote">No dolly or skid with glass yet.</div>';
  const s=formsState(),keep=carrierFormPreview,edit=view?null:{sel:s.sel};carrierFormPreview={tpl,edit};
  let h;try{h=carrierSheetHTML(m,carrierColsOn(carrierStationCols(carrierLoaderOf(m))||[]),{id:'',name:'Office'});}finally{carrierFormPreview=keep;}
- if(!view)[['cs-strip','strip'],['cs-table','table'],['cs-total','total']].forEach(([c,p])=>{h=h.replace('class="'+c+'"','data-forms-part-hit="'+p+'"'+(!s.sel&&s.part===p?' data-forms-sel':'')+' onpointerdown="formsSelect(\''+p+'\',\'\')" class="'+c+'"');});
+ if(!view)[['cs-strip','strip'],['cs-table','table'],['cs-total','total']].forEach(([c,p])=>{h=h.replace('class="'+c+'"','data-forms-part-hit="'+p+'"'+(!s.sel&&s.part===p?' data-forms-sel':'')+' '+onAct('pointerdown',formsSelect,String(p),'')+' class="'+c+'"');});
  return '<div class="print-sheet gf-light cs-stage">'+h+(view?'':carrierFootPreview(tpl,carrierFormContext(),edit))+'</div>';
 }
 /* Правая панель частей, которые рисует программа, и вида листа. */
 function carrierFormPanelHTML(part,tpl){
- const st=carrierFormStyle(tpl),set=(k,v)=>`formsStyle('${k}',${v})`;
+ const st=carrierFormStyle(tpl),set=(type,k,v)=>onAct(type,formsStyle,String(k),v);
  if(part==='table')return `<div class="fm-h">Part · Table</div><p class="fm-note">Drawn by the program. Columns — per station in Production → Stations, or ⚙ Columns in the dolly window.</p>${carrierFormLookHTML(st,set)}`;
  const list=CS_SHOW.filter(x=>x[2]===part);if(!list.length)return '';
  const lab={strip:'Strip',customer:'Customer',total:'Total'}[part];
  return `<div class="fm-h">Part · ${lab}</div><p class="fm-note">Drawn by the program. Show on the sheet:</p>
-  ${list.map(([k,l])=>`<label class="fm-check fm-dshow"><input type="checkbox" data-cs-show="${k}" ${st[k]?'checked':''} onchange="${set(k,'this.checked')}"><span>${l}</span></label>`).join('')}${carrierFormLookHTML(st,set)}`;
+  ${list.map(([k,l])=>`<label class="fm-check fm-dshow"><input type="checkbox" data-cs-show="${k}" ${st[k]?'checked':''} ${set('change',k,EL_CHECKED)}><span>${l}</span></label>`).join('')}${carrierFormLookHTML(st,set)}`;
 }
 function carrierFormLookHTML(st,set){
- return `<div class="fm-dsec"><b>Colors</b><div class="fm-seg"><button type="button" class="${CS_LOOK.every(([k])=>!st[k])?'on':''}" onclick="formsCarrierColors('')">As now</button><button type="button" class="${['csInk','csMut','csNavy'].every(k=>st[k]==='#000000')?'on':''}" onclick="formsCarrierColors('black')">Black text</button></div>
-  ${CS_LOOK.map(([k,l,tok])=>`<div class="fm-drow"><span>${l}</span><input type="color" class="fm-in fm-color" data-cs-color="${k}" value="${st[k]||DOC_COLOR[tok]}" title="Pick a color" onchange="${set(k,'this.value')}">${st[k]?`<button type="button" class="fm-dreset" title="As now" onclick="${set(k,"''")}">×</button>`:'<i></i>'}</div>`).join('')}</div>`;
+ return `<div class="fm-dsec"><b>Colors</b><div class="fm-seg"><button type="button" class="${CS_LOOK.every(([k])=>!st[k])?'on':''}" ${onAct('click',formsCarrierColors,'')}>As now</button><button type="button" class="${['csInk','csMut','csNavy'].every(k=>st[k]==='#000000')?'on':''}" ${onAct('click',formsCarrierColors,'black')}>Black text</button></div>
+  ${CS_LOOK.map(([k,l,tok])=>`<div class="fm-drow"><span>${l}</span><input type="color" class="fm-in fm-color" data-cs-color="${k}" value="${st[k]||DOC_COLOR[tok]}" title="Pick a color" ${set('change',k,EL_VALUE)}>${st[k]?`<button type="button" class="fm-dreset" title="As now" ${set('click',k,'')}>×</button>`:'<i></i>'}</div>`).join('')}</div>`;
 }
 function formsCarrierColors(c){formsEdit(t=>{t.style=Object.assign({},carrierFormDefault().style,t.style);CS_LOOK.forEach(([k])=>{t.style[k]=c==='black'&&['csInk','csMut','csNavy'].includes(k)?'#000000':'';});});}
 /* ===================== Наклейка долли / скида 4 × 6 ==================== */
@@ -150,7 +150,7 @@ function carrierLabelCtx(code){
 function carrierLabelSVGOf(tpl,code,edit){
  const Z=CL_SIZES[carrierLabelSize(tpl)],CL_W=Z.w,CL_H=Z.h,part=Z.part;
  const ctx=carrierLabelCtx(code),blocks=((tpl.parts[part]||{}).blocks||[]).filter(b=>formShow(b,ctx)).map((b,i)=>({b,i})).sort((a,c)=>(a.b.z||0)-(c.b.z||0)||a.i-c.i).map(x=>x.b);
- const hit=b=>edit?' data-forms-hit="'+part+'|'+esc(b.id)+'" onpointerdown="formsPointerStart(event,\''+part+'\',\''+esc(b.id)+'\')"'+(edit.sel&&edit.sel.part===part&&edit.sel.id===b.id?' data-forms-sel':''):'';
+ const hit=b=>edit?' data-forms-hit="'+part+'|'+esc(b.id)+'" '+onAct('pointerdown',formsPointerStart,EVENT,String(part),String(b.id??''))+''+(edit.sel&&edit.sel.part===part&&edit.sel.id===b.id?' data-forms-sel':''):'';
  const at=(b,w)=>b.place==='free'?{x:b.x||0,a:'start'}:b.place==='left'?{x:CL_MARGIN,a:'start'}:b.place==='right'?{x:CL_W-CL_MARGIN-(w||0),a:'end'}:{x:CL_W/2,a:'middle'};
  const out=blocks.map(b=>{
   if(b.type==='barcode'){const v=String(ctx.field(b.field||'code')||'');if(!v)return '';const mod=b.module||2.4,h=b.h||110,bars=barcode128Items(v,0,0,h,mod),bw=barcode128Width(v)*mod;
@@ -179,7 +179,7 @@ function carrierLabelPage(tpl){const Z=CL_SIZES[carrierLabelSize(tpl)];return {w
 /* Панель части: размер наклейки — на экране и на печати. */
 function carrierLabelPanelHTML(part,tpl){
  const cur=carrierLabelSize(tpl);
- return `<div class="fm-h">Label size</div><div class="fm-seg" data-cl-size>${Object.keys(CL_SIZES).map(k=>`<button type="button" class="${cur===k?'on':''}" onclick="formsLabelSize('${k}')">${CL_SIZES[k].label}${k==='3x4'?' (landscape)':''}</button>`).join('')}</div>
+ return `<div class="fm-h">Label size</div><div class="fm-seg" data-cl-size>${Object.keys(CL_SIZES).map(k=>`<button type="button" class="${cur===k?'on':''}" ${onAct('click',formsLabelSize,String(k))}>${CL_SIZES[k].label}${k==='3x4'?' (landscape)':''}</button>`).join('')}</div>
   <p class="fm-note">Prints on this size. Each size keeps its own layout.</p>`;
 }
 function formsLabelSize(k){if(!CL_SIZES[k])return;formsStyle('size',k);const s=formsState();s.sel=null;s.part=CL_SIZES[k].part;render();}

@@ -75,6 +75,21 @@ module.exports=async function({page,eq,ok}){
  eq('долг при самовывозе: подтверждение; выданный заказ Sales без Users / Finance / Optimization не удаляет',await t.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer({paymentMode:'cash'}));oqThrough(id,'ready');oqQueue('ready');oqAdvance(id,'done','pickup');const title=salesDialog.title,buttons=salesDialog.buttons.map(b=>b.label);oqChoose('Create anyway');const o=salesRecord(id),prev=window.alert,ac=window.accessCan;let blocked=false;window.alert=()=>blocked=true;window.accessCan=k=>k==='sales';try{salesOrderDelete(id);}finally{window.alert=prev;window.accessCan=ac;}return {title:/has a balance due$/.test(title),buttons,status:o.status,label:salesStatusLabel(o),blocked};
  }),{title:true,buttons:['Back','Create anyway','Take payment'],status:'done',label:'Picked up',blocked:true});
+ /* Владелец 13.11.2026: Cancel order — только с галочкой Finance; без неё — On Hold.
+    Проверка в команде: экран прячет кнопку, но и прямой вызов не отменяет. */
+ eq('Cancel order без Finance: команда не отменяет, Sales говорит к кому идти, On Hold можно; черновик — как раньше; с Finance — отменяет',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer()),draft=oqOrder(oqCustomer());salesDraftDrop();
+  const ac=window.accessCan,al=window.alert,said=[];window.alert=m=>said.push(m);
+  try{
+   window.accessCan=k=>k==='sales'||k==='optimization'||k==='users';
+   const cmd=salesSetRecordStatus(id,'cancelled');salesCancelOrder(id);const after=salesRecord(id).status;
+   salesHoldOpen([id]);const hold=!!salesHoldDialog;salesHoldClose();
+   salesRecord(draft).isDraft=true;const draftOk=salesRecordTransitionAllowed(salesRecord(draft),'cancelled');
+   window.accessCan=k=>k==='finance';
+   const fin=salesSetRecordStatus(id,'cancelled');
+   return {cmd,after,said,hold,draftOk,fin,status:salesRecord(id).status};
+  }finally{window.accessCan=ac;window.alert=al;}
+ }),{cmd:false,after:'new',said:['Ask Finance to cancel or delete this order.'],hold:true,draftOk:true,fin:true,status:'cancelled'});
  eq('Delivered выбирается отдельно, сохраняется после нормализации и не закрывает заказ автоматически',await t.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer({paymentMode:'cash'}),{delivery:'pickup'});oqThrough(id,'ready');oqQueue('ready');oqAdvance(id,'done','delivery');const buttons=salesDialog.buttons.map(b=>b.label);oqChoose('Create anyway');normalizeSalesData();const o=salesRecord(id);oqAdvance(id,'closed');const close=salesDialog.buttons.map(b=>b.label);oqChoose('Back');return {buttons,status:o.status,label:salesStatusLabel(o),planned:o.delivery,actual:o.fulfilledVia,queue:optimizationMatches(o,'done'),close};
  }),{buttons:['Back','Create anyway','Take payment'],status:'done',label:'Delivered',planned:'pickup',actual:'delivery',queue:true,close:['Back','Close anyway']});

@@ -13,6 +13,8 @@
    сохранения. Депозит cash-клиента проверяется перед верификацией —
    сохранить можно, программа предупреждает. Выдача с долгом — предупреждение
    с подтверждением. Отдельного «In production» нет: батч и есть цех.
+   Cancel order и Delete заказа — только с галочкой Finance, без неё On Hold
+   (владелец, 13.11.2026); квоту и черновик Sales удаляет как раньше.
    ===================================================================== */
 
 const SALES_ORDER_FLOW=['new','verified','batched','ready','shipping','done','closed'];
@@ -191,9 +193,18 @@ function salesDeleteTouched(o){
   ||['batched','ready','shipping','done','closed'].includes(o.status)||(o.lines||[]).some(l=>salesLineLocked(l)||typeof glassLineScanned==='function'&&glassLineScanned(o.id,l));
 }
 function salesDeleteAllowed(){return accessCan('users')||accessCan('finance')||accessCan('optimization');}
+/* Cancel order и Delete заказа — только с галочкой Finance (владелец,
+   13.11.2026: «отменять заказы могут только те, у кого есть Finance; если нет —
+   можно только отправить на On Hold»). Квота и черновик (Draft) — не заказ: ни
+   стекла, ни денег; их удаляют и отменяют как раньше. Проверка — в командах
+   (salesRecordTransitionAllowed, salesDeleteBlocked), экран только прячет кнопку. */
+const SALES_FINANCE_ONLY='Ask Finance to cancel or delete this order.';
+function salesFinanceOnly(o){return !!o&&!salesIsQuote(o)&&!salesIsDraft(o);}
+function salesCancelDeleteAllowed(o){return !salesFinanceOnly(o)||typeof accessCan!=='function'||accessCan('finance');}
 function salesDeleteBlocked(o){
  if(!o)return false;
  if(salesIsQuote(o)&&salesQuoteWonMember(o)){alert('This quote became an order and is kept for the win history.');return true;}
+ if(!salesCancelDeleteAllowed(o)){alert(SALES_FINANCE_ONLY);return true;}
  if(salesDeleteTouched(o)&&!salesDeleteAllowed()){alert('Ask Finance, Optimization or Users to delete this order.');return true;}
  return false;
 }
@@ -327,7 +338,7 @@ function salesRecordTransitionAllowed(o,next,opts){
  if(!o||salesIsQuote(o)||!SALES_ORDER_STATE_LIST.includes(next))return false;
  if(opts.restore)return o.status==='cancelled'&&next==='new';
  if(opts.back)return !['cancelled','batched','ready','shipping','done'].includes(o.status)&&salesPrevStatus(o)===next&&!shippingHasCommitment(o);
- if(next==='cancelled')return !['closed','cancelled'].includes(o.status)&&!shippingHasSent(o)&&!shippingHasCommitment(o);
+ if(next==='cancelled')return !['closed','cancelled'].includes(o.status)&&!shippingHasSent(o)&&!shippingHasCommitment(o)&&salesCancelDeleteAllowed(o);
  if(next==='ready'){const q=shippingSummary(o);return !o.onHold&&o.status!=='new'&&q.glass>0&&q.physicalReady===q.glass&&!q.shipped;}
  if(next==='done'||next==='shipping')return false;
  if(o.onHold&&(next==='verified'||next==='batched'))return false;
@@ -406,7 +417,11 @@ function salesUnbatchRecord(orderId,lineIds,opts){
  o.status='new';o.statusDates={new:now};o.fulfilledVia='';o.updatedAt=now;
  salesSyncRecordLifecycle(o);if(!opts.deferTouch)touch();return true;
 }
-function salesCancelOrder(orderId){const id=orderId||(soDraft&&soDraft.id);if(id)optimizationRunOrders([id],'cancelled');}
+function salesCancelOrder(orderId){
+ const id=orderId||(soDraft&&soDraft.id);if(!id)return;
+ if(!salesCancelDeleteAllowed(salesRecord(id))){alert(SALES_FINANCE_ONLY);return;}
+ optimizationRunOrders([id],'cancelled');
+}
 function salesRestoreOrder(orderId){
  const id=orderId||(soDraft&&soDraft.id),o=salesRecord(id);
  if(!o||o.status!=='cancelled'||!confirm('Restore order '+o.businessNumber+' as New? Batched lines stay locked.'))return;

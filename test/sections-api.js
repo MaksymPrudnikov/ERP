@@ -98,7 +98,8 @@ module.exports = async function ({ page, eq }) {
     }
   }), { money: ['finance receipt'], stock: ['stock inventoryEvent'], ship: ['shipping truck'], pay: true, truck: true, cancel: true, quiet: [] });
 
-  eq('без галочки Finance: оплату, возврат, разнесение и условия команда не пишет; отмена заказа переносит оплату на депозит', await t.p.evaluate(() => {
+  /* Отменить заказ без Finance нельзя (владелец 13.11.2026); с Finance отмена переносит оплату на депозит. */
+  eq('без галочки Finance: оплату, возврат, разнесение, условия и отмену заказа команда не пишет; с Finance отмена переносит оплату на депозит', await t.p.evaluate(() => {
     oqReset();const c = oqCustomer({ paymentMode: 'cash' }), id = oqOrder(c);
     const d = { customerId: c.id, currency: 'CAD', date: finToday(), method: 'etransfer', reference: 'FA-2', amount: 20, note: '', allocations: [{ orderId: id, amount: 20 }] };
     const paid = finPersist(() => finSaveReceiptRecord(d, null, ''), finReceiptScope(d, null)).value;
@@ -109,10 +110,12 @@ module.exports = async function ({ page, eq }) {
       const voidIt = finPersist(() => finVoidReceipt(paid.id, 'Wrong'));
       const unalloc = finPersist(() => finUnallocate(c.id, [{ receiptId: paid.id, orderId: id }]));
       const terms = finPersist(() => finSaveTerms(id, { paymentMode: 'credit', depositPercent: 0, creditDays: 30 }, 'Test'));
+      const refused = !salesSetRecordStatus(id, 'cancelled'), kept = finCustomerDeposit(c.id, 'CAD');
+      signinUser = () => ({ name: 'Anna', viewProfileId: 'U-ANNA', access: ['sales', 'finance'] });
       const cancel = salesSetRecordStatus(id, 'cancelled');
-      return { pay: pay.error, voidIt: voidIt.error, unalloc: unalloc.error, terms: terms.error, cancel: !!cancel, deposit: finCustomerDeposit(c.id, 'CAD'), receipts: DB.receipt.filter(r => r.customerId === c.id).length };
+      return { pay: pay.error, voidIt: voidIt.error, unalloc: unalloc.error, terms: terms.error, refused, kept, cancel: !!cancel, deposit: finCustomerDeposit(c.id, 'CAD'), receipts: DB.receipt.filter(r => r.customerId === c.id).length };
     } finally { window.GF_NO_SIGNIN = was;signinUser = user; }
-  }), { pay: 'Finance access is required to record money.', voidIt: 'Finance access is required to record money.', unalloc: 'Finance access is required to record money.', terms: 'Finance access is required to record money.', cancel: true, deposit: 20, receipts: 1 });
+  }), { pay: 'Finance access is required to record money.', voidIt: 'Finance access is required to record money.', unalloc: 'Finance access is required to record money.', terms: 'Finance access is required to record money.', refused: true, kept: 0, cancel: true, deposit: 20, receipts: 1 });
 
   eq('PS, Shipped, машины: Sales или Shipping — можно, только Optimization — отказ; станция и команда внутри чужой — без галочек', await t.p.evaluate(() => {
     oqReset();const c = oqCustomer({ paymentMode: 'credit' });

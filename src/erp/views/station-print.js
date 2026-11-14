@@ -54,20 +54,20 @@ function stationPrintStickers(){
  stkLogPrinted(x.selected,'Stickers',d.batch);return true;
 }
 function stationPrintHTML(){
- const d=stationDrawer,b=glassBatchFind(d.batch),close='<button type="button" class="b" onclick="stationCloseDrawer()">Close</button>';
- const shell=body=>'<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer st-drawer-sm st-print" role="dialog" aria-label="Print" data-station-print-window>'+body+'</div>';
+ const d=stationDrawer,b=glassBatchFind(d.batch),close='<button type="button" class="b" '+onAct('click',stationCloseDrawer)+'>Close</button>';
+ const shell=body=>'<div class="st-dim" '+onAct('click',stationCloseDrawer)+'></div><div class="st-drawer st-drawer-sm st-print" role="dialog" aria-label="Print" data-station-print-window>'+body+'</div>';
  if(!b)return shell('<h2>Print</h2><div class="st-pin-err" data-station-print-error>Batch '+esc(d.batch)+' not found</div><div class="st-drawer-foot"><span class="mut"></span>'+close+'</div>');
  const cur=stationPrintView(d,'sheet'),all=stationPrintView(d,'all'),laid=!!all.laid,hasSheet=laid&&cur.scope.length>0;
  if(!hasSheet)d.area='all';
  const x=d.area==='sheet'?cur:all,glassOf=v=>v.selected.filter(j=>j.type!=='stock').length,stockOf=v=>v.selected.length-glassOf(v);
  d.shown=stationPrintSig(x);
  const what=v=>[glassOf(v)+' glass',stockOf(v)?stockOf(v)+' stock':''].filter(Boolean).join(' · ');
- const tile=(a,on,off,t,sub)=>'<button type="button" class="st-gbtn'+(on?' on':'')+'" data-print-area="'+a+'"'+(off?' disabled':'')+' onclick="stationPrintArea(\''+a+'\')"><b>'+t+'</b><span>'+esc(sub)+'</span></button>';
+ const tile=(a,on,off,t,sub)=>'<button type="button" class="st-gbtn'+(on?' on':'')+'" data-print-area="'+a+'"'+(off?' disabled':'')+' '+onAct('click',stationPrintArea,String(a))+'><b>'+t+'</b><span>'+esc(sub)+'</span></button>';
  const area='<div class="st-print-area">'+
   tile('sheet',d.area==='sheet',!hasSheet,'Current sheet',hasSheet?stkSheetLabel(d.glass,d.no,true)+' · '+what(cur):'No sheet')+
   tile('all',d.area==='all',false,'Whole batch',[laid?stationPrintCount(all.keys.length,'sheet'):'Not built · in order',what(all),all.away?all.away+' not on a sheet':''].filter(Boolean).join(' · '))+'</div>';
  const glassN=glassOf(x),size=stkSizeDef(stkPrefSize());
- const act=(k,t,meta,off)=>'<button type="button" class="b st-print-act" data-station-print-'+k+(off?' disabled':'')+' onclick="stationPrint'+k.charAt(0).toUpperCase()+k.slice(1)+'()">'+ico('printer')+'<b>'+t+'</b><em>'+esc(meta)+'</em></button>';
+ const act=(k,t,meta,off)=>'<button type="button" class="b st-print-act" data-station-print-'+k+(off?' disabled':'')+' '+onAct('click',{layouts:stationPrintLayouts,drawings:stationPrintDrawings,stickers:stationPrintStickers}[k])+'>'+ico('printer')+'<b>'+t+'</b><em>'+esc(meta)+'</em></button>';
  const acts='<div class="st-print-acts">'+
   act('layouts',d.area==='sheet'?'Print layout':'Print layouts',laid?stationPrintCount(x.sheets.length,'sheet'):'Not built',!laid||!x.sheets.length)+
   act('drawings','Print drawings',stationPrintCount(glassN,'drawing'),!glassN)+

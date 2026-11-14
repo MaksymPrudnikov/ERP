@@ -31,6 +31,10 @@ function stationDollyScan(raw){
  const code=carrierCode(raw);if(!CARRIER_RE.test(code))return null;
  return stationDollyPick(code)?'dollyPick':'dollyUnknown';
 }
+function stationDollyWarnClose(){stationDollyWarn=null;render();}
+function stationDollyRegClose(){stationDollyReg=null;render();}
+function stationDollyRegPick(code){stationDollyReg=null;stationDollyPick(code);}
+function stationDollyShowSet(k){stationDollyShow=k;render();}
 function stationDollyPick(code){
  const c=carrierFind(code);stationDollyAsk='';stationDollyWarn=null;stationDollyReg=null;stationDollyEmptied=null;
  if(!c){stationDollyCode='';stationDollyNote=carrierCode(code)+' not found · nothing created';stationBeep('error');render();return false;}
@@ -81,7 +85,7 @@ function stationDollyRegSave(){
 }
 
 function stationDollyRowsHTML(list){
- return list.map(i=>'<div class="st-dl st-dly-row'+(i.code===stationDollyCode?' now':'')+'" data-station-dolly-row="'+esc(i.code)+'" onclick="stationDollyPick(\''+esc(i.code)+'\')"><span class="st-dchip'+(/^S/.test(i.code)?' skid':'')+'">'+esc(i.code)+'</span>'+
+ return list.map(i=>'<div class="st-dl st-dly-row'+(i.code===stationDollyCode?' now':'')+'" data-station-dolly-row="'+esc(i.code)+'" '+onAct('click',stationDollyPick,String(i.code??''))+'><span class="st-dchip'+(/^S/.test(i.code)?' skid':'')+'">'+esc(i.code)+'</span>'+
   '<span class="st-src-t"><b>'+(i.st==='loaded'?esc(i.n):i.st==='out'?'At customer':'Empty')+'</b> <span class="mut">'+esc(i.where.replace(/^waiting /,''))+'</span></span>'+
   '<span>'+(i.st==='loaded'?'<span class="pill warn">loaded</span>':i.st==='out'?'<span class="pill bad">at customer</span>':'<span class="pill ok">empty</span>')+'</span></div>').join('');
 }
@@ -89,11 +93,11 @@ function stationDollyCardHTML(i){
  const c=carrierFind(i.code),t=carrierType(i.code),word=t.kind==='Skid'?'skid':'dolly',ask=stationDollyAsk===i.code,warn=stationDollyWarn&&stationDollyWarn.code===i.code;
  const reg=c&&c.regAt?'<div class="mut">Registered '+esc(docDate(finLocalDate(c.regAt)))+(c.regBy?' · '+esc(c.regBy):'')+(c.regStation?' · '+esc(c.regStation):'')+'</div>':'';
  const done=stationDollyEmptied&&stationDollyEmptied.code===i.code;
- const acts=warn?'<button type="button" class="b" data-dolly-warn-back onclick="stationDollyWarn=null;render()">Back</button><button type="button" class="b st-yes" data-dolly-reprint onclick="stationDollyPrint(true)">'+ico('printer')+'Reprint label</button>':
-  '<button type="button" class="b" data-dolly-print onclick="stationDollyPrint()">'+ico('printer')+'Print label</button>'+
-  (i.st==='loaded'&&!(stationIsShip()&&/^S[LA]-/.test(i.code))?'<button type="button" class="b'+(ask?' st-red-b':'')+'" data-dolly-empty onclick="stationDollyEmpty()">'+(ask?'Empty '+esc(i.n)+' — tap again':'Empty '+esc(i.code))+'</button>':'')+
-  (done?'<button type="button" class="b" data-dolly-empty-undo onclick="stationDollyEmptyUndo()">Undo</button>':'')+
-  '<span class="sp"></span><button type="button" class="b" onclick="stationDollyClose()">Close</button>';
+ const acts=warn?'<button type="button" class="b" data-dolly-warn-back '+onAct('click',stationDollyWarnClose)+'>Back</button><button type="button" class="b st-yes" data-dolly-reprint '+onAct('click',stationDollyPrint,true)+'>'+ico('printer')+'Reprint label</button>':
+  '<button type="button" class="b" data-dolly-print '+onAct('click',stationDollyPrint)+'>'+ico('printer')+'Print label</button>'+
+  (i.st==='loaded'&&!(stationIsShip()&&/^S[LA]-/.test(i.code))?'<button type="button" class="b'+(ask?' st-red-b':'')+'" data-dolly-empty '+onAct('click',stationDollyEmpty)+'>'+(ask?'Empty '+esc(i.n)+' — tap again':'Empty '+esc(i.code))+'</button>':'')+
+  (done?'<button type="button" class="b" data-dolly-empty-undo '+onAct('click',stationDollyEmptyUndo)+'>Undo</button>':'')+
+  '<span class="sp"></span><button type="button" class="b" '+onAct('click',stationDollyClose)+'>Close</button>';
  return '<div class="st-res st-dly-card'+(warn?' warn':done?' st-ok':'')+'" data-station-dolly-card="'+esc(i.code)+'"><div class="st-res-h">'+(done?'✓ '+esc(i.code)+' emptied · '+esc(stationDollyEmptied.what||stationDollyEmptied.count+' glass')+' without a '+word:esc(i.code)+' · '+esc(t.label))+'<span>'+esc(i.n)+'</span></div>'+
   '<div class="st-res-b"><div class="st-big st-dark"><small>'+({loaded:'ON IT NOW',out:'AT CUSTOMER',empty:'EMPTY'})[i.st]+'</small><b>'+esc(i.code)+'</b><span>'+esc(t.label)+'</span></div>'+
   '<div class="st-info"><div class="st-gid">'+(i.st==='loaded'?'<b>'+esc(i.n)+'</b> · ':'')+esc(i.where||'Nothing on it')+'</div>'+(i.orders.length?'<div class="mut">Orders '+esc(i.orders.slice(0,6).join(' · ')+(i.orders.length>6?' +'+(i.orders.length-6):''))+'</div>':'')+reg+
@@ -105,21 +109,21 @@ function stationDollyRegHTML(){
  const g=stationDollyReg;
  if(g.done){const t=carrierType(g.done),c=carrierFind(g.done);
   return '<div class="st-res st-ok" data-station-dolly-reg-done="'+esc(g.done)+'"><div class="st-res-h">✓ '+esc(g.done)+' registered<span>'+esc((c&&c.regBy||'')+' · '+stationCode+' · '+stationTime(c&&c.regAt))+'</span></div><div class="st-res-b"><div class="st-dly-label">'+carrierLabelSVG(g.done).replace('width="4in" height="6in"','width="100%"')+'</div>'+
-   '<div class="st-info"><div class="st-gid">New '+esc(t.label)+' · <b>'+esc(g.done)+'</b></div><div class="mut">Print the label and stick it on this '+(t.kind==='Skid'?'skid':'dolly')+'.</div><div class="st-acts st-dly-acts"><button type="button" class="b st-yes" data-dolly-reg-print onclick="stationDollyLabel(\''+esc(g.done)+'\')">'+ico('printer')+'Print label</button><button type="button" class="b" onclick="stationDollyReg=null;stationDollyPick(\''+esc(g.done)+'\')">Done</button></div></div></div></div>';}
+   '<div class="st-info"><div class="st-gid">New '+esc(t.label)+' · <b>'+esc(g.done)+'</b></div><div class="mut">Print the label and stick it on this '+(t.kind==='Skid'?'skid':'dolly')+'.</div><div class="st-acts st-dly-acts"><button type="button" class="b st-yes" data-dolly-reg-print '+onAct('click',stationDollyLabel,String(g.done??''))+'>'+ico('printer')+'Print label</button><button type="button" class="b" '+onAct('click',stationDollyRegPick,String(g.done??''))+'>Done</button></div></div></div></div>';}
  return '<div class="card st-dly-reg" data-station-dolly-reg><div class="st-sec"><h3>Register a new dolly or skid</h3></div><div class="st-dly-types">'+
-  CARRIER_TYPES.map(t=>'<button type="button" class="st-gbtn'+(g.type===t.k?' on':'')+'" data-dolly-reg-type="'+t.k+'" onclick="stationDollyRegType(\''+t.k+'\')"><b>'+esc(t.label)+'</b><span>next number '+t.k+'-'+carrierNextNo(t.k)+'</span></button>').join('')+'</div>'+
+  CARRIER_TYPES.map(t=>'<button type="button" class="st-gbtn'+(g.type===t.k?' on':'')+'" data-dolly-reg-type="'+t.k+'" '+onAct('click',stationDollyRegType,String(t.k))+'><b>'+esc(t.label)+'</b><span>next number '+t.k+'-'+carrierNextNo(t.k)+'</span></button>').join('')+'</div>'+
   '<div class="mut">Only a new dolly or skid that came to the shop. The number is given by the system.</div>'+(g.error?'<div class="st-pin-err" role="alert">'+esc(g.error)+'</div>':'')+
-  '<div class="st-acts st-dly-acts"><button type="button" class="b" onclick="stationDollyReg=null;render()">Back</button>'+(g.type?'<button type="button" class="b st-yes" data-dolly-reg-save onclick="stationDollyRegSave()">Register '+g.type+'-'+carrierNextNo(g.type)+'</button>':'')+'</div></div>';
+  '<div class="st-acts st-dly-acts"><button type="button" class="b" '+onAct('click',stationDollyRegClose)+'>Back</button>'+(g.type?'<button type="button" class="b st-yes" data-dolly-reg-save '+onAct('click',stationDollyRegSave)+'>Register '+g.type+'-'+carrierNextNo(g.type)+'</button>':'')+'</div></div>';
 }
 function stationDolliesView(){
  const contents=carrierContents(),out=typeof skidsOut==='function'?skidsOut():new Map();
  const all=(DB.carrier||[]).filter(c=>c.active).sort((a,b)=>{const x=CARRIER_RE.exec(a.code),y=CARRIER_RE.exec(b.code);return CARRIER_TYPES.findIndex(t=>t.k===x[1])-CARRIER_TYPES.findIndex(t=>t.k===y[1])||(+x[2])-(+y[2]);}).map(c=>stationDollyInfo(c.code,contents,out));
  const n=k=>k==='all'?all.length:all.filter(i=>i.st===k).length,list=all.filter(i=>stationDollyShow==='all'||i.st===stationDollyShow);
  const sel=stationDollyCode&&carrierFind(stationDollyCode)?stationDollyInfo(stationDollyCode,contents,out):null;
- return '<div class="st-body st-dly" data-station-dollies><div class="st-col"><div class="card"><div class="st-sec"><h3>Dollies &amp; skids</h3><span class="mut">'+all.length+' · tap or scan one</span><span class="sp"></span><button type="button" class="b" data-dolly-reg-open onclick="stationDollyRegOpen()">+ Register new</button></div>'+
-  '<div class="cb-seg st-dly-seg">'+[['all','All'],['loaded','Loaded'],['empty','Empty'],['out','At customers']].map(([k,l])=>'<button type="button" class="'+(stationDollyShow===k?'on':'')+'" data-dolly-show="'+k+'" onclick="stationDollyShow=\''+k+'\';render()">'+l+' <b>'+n(k)+'</b></button>').join('')+'</div>'+
+ return '<div class="st-body st-dly" data-station-dollies><div class="st-col"><div class="card"><div class="st-sec"><h3>Dollies &amp; skids</h3><span class="mut">'+all.length+' · tap or scan one</span><span class="sp"></span><button type="button" class="b" data-dolly-reg-open '+onAct('click',stationDollyRegOpen)+'>+ Register new</button></div>'+
+  '<div class="cb-seg st-dly-seg">'+[['all','All'],['loaded','Loaded'],['empty','Empty'],['out','At customers']].map(([k,l])=>'<button type="button" class="'+(stationDollyShow===k?'on':'')+'" data-dolly-show="'+k+'" '+onAct('click',stationDollyShowSet,String(k))+'>'+l+' <b>'+n(k)+'</b></button>').join('')+'</div>'+
   (list.length?stationDollyRowsHTML(list):'<div class="empty">'+(all.length?'None here':'No dollies or skids yet')+'</div>')+'</div></div>'+
-  '<div class="st-col"><label class="st-scan st-dly-find"><span class="st-scan-ico">'+ico('scan')+'</span><span class="st-scan-lab"><b>DOLLY OR SKID</b><input id="stationScanField" data-station-scan autocomplete="off" spellcheck="false" placeholder="Scan or type: DL-2" onkeydown="stationKey(event,this)"></span></label>'+
+  '<div class="st-col"><label class="st-scan st-dly-find"><span class="st-scan-ico">'+ico('scan')+'</span><span class="st-scan-lab"><b>DOLLY OR SKID</b><input id="stationScanField" data-station-scan autocomplete="off" spellcheck="false" placeholder="Scan or type: DL-2" '+onAct('keydown',stationKey,EVENT,EL)+'></span></label>'+
   (stationDollyNote?'<div class="st-note" data-dolly-note>'+esc(stationDollyNote)+'</div>':'')+
   (stationDollyReg?stationDollyRegHTML():sel?stationDollyCardHTML(sel):'<div class="st-idle">Scan a dolly or skid, or tap one in the list. Nothing is put on it.</div>')+'</div></div>';
 }

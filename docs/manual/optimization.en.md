@@ -12,7 +12,9 @@ Same look as Sales: one card with a row of actions, a row of pills with counts, 
 - **Actions over the ticked orders** appear in the same row once you tick at least one order ("2 selected"):
   Verify, Select glass (All only), Unbatch, **Move back** (one status back, locks stay), **On Hold** (asks for a
   reason; **Release** when all ticked are held), **Cancel order** (payments go to the customer deposit), Delete.
-  A button that does not fit the ticked orders is grey.
+  A button that does not fit the ticked orders is grey. **Cancel order** and **Delete** need the Finance box (owner,
+  13.11.2026): without it both are grey with the hint "Ask Finance to cancel or delete this order.", the right-click
+  menu does not show them; On Hold stays.
 - **Right click** on an order gives the same actions for the ticked orders (the order under the mouse is ticked
   first). A held order has **Release** in its row.
 - **Navigation** is its own card with the pills above the table, in the same place on every tab; the gear is left of

@@ -148,7 +148,8 @@ module.exports=async function({page,eq,ok}){
  eq('Hold заказа и строки, Cancel / Restore — отдельными строками',await t.p.evaluate(async()=>{
   oqReset();DB.orderEvent=[];const id=oqOrder(oqCustomer());salesDraftDrop();
   salesHoldApply([id],'Waiting for customer');salesReleaseHold([id]);
-  salesSetRecordStatus(id,'cancelled');salesRestoreOrder(id);
+  /* Отменяет только Finance (владелец 13.11.2026). */
+  const ac=window.accessCan;window.accessCan=()=>true;try{salesSetRecordStatus(id,'cancelled');}finally{window.accessCan=ac;}salesRestoreOrder(id);
   return orderLogFor(id).map(r=>r.what+(r.note?' · '+r.note:''));
  }),['Created','On Hold · Waiting for customer','Hold released','Cancelled','Restored · New']);
 

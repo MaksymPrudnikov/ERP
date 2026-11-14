@@ -45,6 +45,7 @@ function optimizationRunOrders(ids,action,opts){
  const allowed=o=>salesRecordTransitionAllowed(o,next(o),{back:action==='back'});
  const held=orders.find(o=>o&&o.onHold&&['verified','batched'].includes(action));
  if(held){salesHoldBlocked(held.id);return;}
+ if(action==='cancelled'&&orders.some(o=>o&&!salesCancelDeleteAllowed(o))){alert(SALES_FINANCE_ONLY);return;}
  if(orders.some(o=>!o||!allowed(o))){salesDialogOpen({title:'Selection has changed',note:'Some orders are not ready for this.',buttons:[{label:'Back'}]});return;}
  if(['verified','batched'].includes(action)){
   const invalid=orders.find(o=>!salesFindCustomer(o.customerId)||(o.lines||[]).some(l=>!l.width16||!l.height16));
@@ -101,16 +102,19 @@ function viewOptimization(){return ['batch','production'].includes(optimizationT
    меню правой кнопки (владелец, 03.11.2026). */
 function optimizationCan(selected,act){return selected.length>0&&selected.every(o=>salesRecordTransitionAllowed(o,act==='back'?salesPrevStatus(o):act,{back:act==='back'}));}
 function optimizationActions(shipping,key,selected){
- const n=selected.length,item=(act,label,enabled,cls)=>({act,label,enabled,cls});
+ const n=selected.length,item=(act,label,enabled,cls,title)=>({act,label,enabled,cls,title});
+ /* Cancel и Delete заказа — только Finance (salesCancelDeleteAllowed): без неё
+    кнопка неактивна и говорит, к кому идти. */
+ const fin=selected.every(salesCancelDeleteAllowed),finTitle=fin?'':SALES_FINANCE_ONLY;
  const held=n>0&&selected.every(o=>o.onHold),out=[];
- if(shipping)return (key==='done'?[item('closed','Close order',optimizationCan(selected,'closed'))]:[]).concat([item('hold',held?'Release':'On Hold',n>0),item('cancelled','Cancel order',optimizationCan(selected,'cancelled'),'sl-delete-quiet')]);
+ if(shipping)return (key==='done'?[item('closed','Close order',optimizationCan(selected,'closed'))]:[]).concat([item('hold',held?'Release':'On Hold',n>0),item('cancelled','Cancel order',optimizationCan(selected,'cancelled'),'sl-delete-quiet',finTitle)]);
  if(key==='all'||key==='new')out.push(item('verified','Verify',optimizationCan(selected,'verified')));
  if(key==='all')out.push(item('select-glass','Select glass',true));
  out.push(item('unbatch','Unbatch',n>0&&selected.every(salesCanUnbatch)));
  out.push(item('back','Move back',optimizationCan(selected,'back')));
  out.push(item('hold',held?'Release':'On Hold',n>0));
- out.push(item('cancelled','Cancel order',optimizationCan(selected,'cancelled'),'sl-delete-quiet'));
- out.push(item('delete','Delete',n===1&&salesDeleteAllowed(),'sl-delete-quiet'));
+ out.push(item('cancelled','Cancel order',optimizationCan(selected,'cancelled'),'sl-delete-quiet',finTitle));
+ out.push(item('delete','Delete',n===1&&fin&&(salesFinanceOnly(selected[0])||salesDeleteAllowed()),'sl-delete-quiet',finTitle));
  return out;
 }
 function optimizationContext(e,id){
@@ -122,7 +126,7 @@ function optimizationContext(e,id){
 function optimizationContextHTML(m,style){
  const o=salesRecord(m.id);if(!o)return '';
  const selected=optimizationRows().filter(x=>optimizationSel.has(x.id)),shipping=tab==='shipping',key=orderQueueKey();
- const item=(act,label,cls)=>`<button type="button" role="menuitem" class="${cls||''}" data-menu="${act}" onclick="optimizationContextRun('${act}')">${label}</button>`;
+ const item=(act,label,cls)=>`<button type="button" role="menuitem" class="${cls||''}" data-menu="${act}" ${onAct('click',optimizationContextRun,String(act))}>${label}</button>`;
  const list=optimizationActions(shipping,key,selected).filter(x=>x.enabled).map(x=>item(x.act,x.label,x.cls?'dl':''));
  return `<div class="sl-ctx" style="${style}" role="menu">${item('open-one','Open')}${list.length?'<hr>'+list.join(''):''}</div>`;
 }
@@ -133,27 +137,28 @@ function optimizationContextRun(act){
  else optimizationAction(act);
  render();
 }
+function optimizationNoticeClose(){optimizationNotice=null;render();}
 function viewOrderQueue(shipping){
  if(optimizationScope!==tab){optimizationScope=tab;optimizationSel.clear();optimizationNotice=null;salesListMenu=null;}
  const key=orderQueueKey(),infos=optimizationBase(),filtered=salesListRows(infos),rows=filtered.map(i=>i.o),cols=salesListColumns(),selectable=rows.filter(o=>!optimizationBlocked(o));
  optimizationSel=new Set([...optimizationSel].filter(id=>rows.some(o=>o.id===id)));
  const selected=rows.filter(o=>optimizationSel.has(o.id)),n=selected.length,all=selectable.length>0&&n===selectable.length;
  const acts=optimizationActions(shipping,key,selected);
- const bar=acts.map(x=>`<button type="button" class="sl-quiet${x.cls?' '+x.cls:''}" data-queue-action="${x.delivery||x.act}" ${x.enabled?'':'disabled'} onclick="optimizationAction('${x.act}'${x.delivery?",'"+x.delivery+"'":''})">${x.label}</button>`).join('');
- const tabs=orderQueueTabs().map(t=>`<button type="button" role="tab" aria-selected="${key===t[0]}" data-queue-tab="${t[0]}" class="sl-quick-pill${key===t[0]?' on':''}" onclick="optimizationSetTab('${t[0]}')">${t[1]} <b>${optimizationTabCount(t[0])}</b></button>`).join('');
+ const bar=acts.map(x=>`<button type="button" class="sl-quiet${x.cls?' '+x.cls:''}" data-queue-action="${x.delivery||x.act}" ${x.enabled?'':'disabled'}${x.title?` title="${esc(x.title)}"`:''} ${x.delivery?onAct('click',optimizationAction,String(x.act),String(x.delivery)):onAct('click',optimizationAction,String(x.act))}>${x.label}</button>`).join('');
+ const tabs=orderQueueTabs().map(t=>`<button type="button" role="tab" aria-selected="${key===t[0]}" data-queue-tab="${t[0]}" class="sl-quick-pill${key===t[0]?' on':''}" ${onAct('click',optimizationSetTab,String(t[0]))}>${t[1]} <b>${optimizationTabCount(t[0])}</b></button>`).join('');
  const cwId=salesListCwId(),keys=cols.map(c=>c.k);
- const th=c=>{const f=salesListLoadPrefs().filters[c.k],active=salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th"><span data-cw-label>${esc(c.label)}</span><button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span>${cwGrip()}</th>`;};
+ const th=c=>{const f=salesListLoadPrefs().filters[c.k],active=salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th"><span data-cw-label>${esc(c.label)}</span><button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" ${onAct('click',salesListOpenFilter,EVENT,String(c.k))}></button></span>${cwGrip()}</th>`;};
  const body=filtered.map(info=>{
   const o=info.o,chosen=optimizationSel.has(o.id);
   const cell=c=>c.k==='readyQty'?`<td>${shippingSummary(o).physicalReady} / ${shippingSummary(o).glass}</td>`:c.k==='batch'?`<td class="oq-batches">${salesOrderBatchNumbers(o).map(v=>`<span class="pill">${esc(v)}</span>`).join(' ')||'—'}</td>`:c.k==='newLines'?`<td class="n">${salesUnbatchedLines(o).length}</td>`:salesListCell(info,c);
-  return `<tr data-queue-order="${esc(o.id)}" class="${o.onHold?'oq-hold':chosen?'oq-selected':''}" oncontextmenu="optimizationContext(event,'${esc(o.id)}')"><td class="sl-check"><input type="checkbox" data-queue-check aria-label="Select order ${esc(o.businessNumber)}" ${chosen?'checked':''} onchange="optimizationToggle('${esc(o.id)}',this.checked)"></td>${cols.map(cell).join('')}
+  return `<tr data-queue-order="${esc(o.id)}" class="${o.onHold?'oq-hold':chosen?'oq-selected':''}" ${onAct('contextmenu',optimizationContext,EVENT,String(o.id??''))}><td class="sl-check"><input type="checkbox" data-queue-check aria-label="Select order ${esc(o.businessNumber)}" ${chosen?'checked':''} ${onAct('change',optimizationToggle,String(o.id??''),EL_CHECKED)}></td>${cols.map(cell).join('')}
    <td></td></tr>`;
  }).join('');
  return `<section class="optimization-queue ${shipping?'shipping-queue':''}">
-  <div class="card sales-list-card oq-card sl-foot-pin"><div class="sales-toolbar">${shipping?`<button type="button" class="sl-quiet" data-queue-open-order ${n===1?'':'disabled'} onclick="optimizationOpenOrder('${n===1?esc(selected[0].id):''}')">Open</button>`:''}${n?`<b class="oq-sel" data-queue-selection>${n} selected</b>${bar}`:`<b class="oq-sel" data-queue-selection hidden>0 selected</b>`}${shipping&&typeof shippingBarRight==='function'?'<span class="sales-toolbar-sp"></span>'+shippingBarRight():''}</div>
+  <div class="card sales-list-card oq-card sl-foot-pin"><div class="sales-toolbar">${shipping?`<button type="button" class="sl-quiet" data-queue-open-order ${n===1?'':'disabled'} ${onAct('click',optimizationOpenOrder,String(n===1?esc(selected[0].id):''))}>Open</button>`:''}${n?`<b class="oq-sel" data-queue-selection>${n} selected</b>${bar}`:`<b class="oq-sel" data-queue-selection hidden>0 selected</b>`}${shipping&&typeof shippingBarRight==='function'?'<span class="sales-toolbar-sp"></span>'+shippingBarRight():''}</div>
   ${shipping?shippingTabs():`<div class="sl-filter-row"><div class="sl-quick" role="tablist" aria-label="Order queues">${tabs}</div></div>`}
-   ${salesListFilterChips()}<div class="oq-table-wrap sales-table-wrap"><table class="sl-table${cwTableClass(cwId)}"${cwTableAttrs(cwId,keys)}>${cwColgroup(cwId,keys)}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-queue-all aria-label="Select all eligible orders" ${all?'checked':''} ${selectable.length?'':'disabled'} onchange="optimizationSelectAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">No orders match this queue and its filters.</td></tr>`}</tbody>${rows.length?salesListFooter(filtered,cols):''}</table></div>
-   ${optimizationNotice?`<div class="oq-notice${optimizationNotice.error?' bad':''}" role="${optimizationNotice.error?'alert':'status'}"><b>${esc(optimizationNotice.title)}</b><span>${esc(optimizationNotice.detail)}</span><button type="button" class="sm" aria-label="Dismiss update" onclick="optimizationNotice=null;render()">×</button></div>`:''}
+   ${salesListFilterChips()}<div class="oq-table-wrap sales-table-wrap"><table class="sl-table${cwTableClass(cwId)}"${cwTableAttrs(cwId,keys)}>${cwColgroup(cwId,keys)}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-queue-all aria-label="Select all eligible orders" ${all?'checked':''} ${selectable.length?'':'disabled'} ${onAct('change',optimizationSelectAll,EL_CHECKED)}><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" ${onAct('click',salesListOpenColumns,EVENT)}>${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">No orders match this queue and its filters.</td></tr>`}</tbody>${rows.length?salesListFooter(filtered,cols):''}</table></div>
+   ${optimizationNotice?`<div class="oq-notice${optimizationNotice.error?' bad':''}" role="${optimizationNotice.error?'alert':'status'}"><b>${esc(optimizationNotice.title)}</b><span>${esc(optimizationNotice.detail)}</span><button type="button" class="sm" aria-label="Dismiss update" ${onAct('click',optimizationNoticeClose)}>×</button></div>`:''}
   </div>
   ${salesListMenuHTML(infos)}${salesHoldDialogHTML()}</section>`;
 }

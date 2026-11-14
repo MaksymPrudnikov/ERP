@@ -40,17 +40,14 @@ const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.resolve(__dirname, '..');
 
 /* Файл → сколько встроенных обработчиков осталось. Только уменьшать.
-   PR 1 (13.11.2026): Sales, фигуры, списки, общее — переведены (их тут нет). */
+   PR 1 (13.11.2026): Sales, фигуры, списки, общее; PR 2 (14.11.2026): Optimization,
+   Production, станции — переведены (их тут нет). */
 const INLINE_LEFT = {
   'src/erp/views/dashboard.js': 3,
   'src/erp/views/users.js': 43,
   'src/erp/signin.js': 10,
   'src/erp/views/customers.js': 80,
-  'src/erp/documents/drawing-form.js': 17,
-  'src/erp/documents/carrier-form.js': 8,
-  'src/erp/views/optimization.js': 10,
   'src/erp/views/shipping.js': 30,
-  'src/erp/views/production.js': 24,
   'src/erp/views/md-card.js': 1,
   'src/erp/views/md-catalog.js': 10,
   'src/erp/views/masterdata.js': 100,
@@ -69,29 +66,11 @@ const INLINE_LEFT = {
   'src/erp/views/purchasing-receiving.js': 28,
   'src/erp/views/purchasing-delivery-documents.js': 7,
   'src/erp/views/purchasing-invoices.js': 20,
-  'src/erp/views/glass-batches.js': 18,
   'src/erp/views/ncr-reasons-ui.js': 11,
-  'src/erp/views/stickers-ui.js': 77,
   'src/erp/views/forms-ui.js': 91,
-  'src/erp/views/cut-layout-ui.js': 93,
-  'src/erp/views/stock-list.js': 5,
-  'src/erp/views/sheet-usage.js': 3,
   'src/erp/views/inventory.js': 52,
-  'src/erp/views/station.js': 64,
-  'src/erp/views/station-drawings.js': 11,
-  'src/erp/views/station-print.js': 4,
-  'src/erp/views/station-shipping.js': 7,
-  'src/erp/views/station-from-igu.js': 17,
-  'src/erp/views/station-dollies.js': 15,
   'src/erp/views/shipping-lookup.js': 9,
   'src/erp/views/delivery.js': 18,
-  'src/erp/views/skids.js': 10,
-  'src/erp/views/production-board.js': 7,
-  'src/erp/views/carriers-ui.js': 10,
-  'src/erp/views/carriers-board.js': 43,
-  'src/erp/views/carrier-count.js': 12,
-  'src/erp/views/skip-ui.js': 13,
-  'src/erp/views/production-unbatch-ui.js': 9,
   'src/erp/views/reports.js': 156,
 };
 

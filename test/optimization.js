@@ -44,6 +44,12 @@ module.exports=async function({page,eq,ok}){
  eq('массовая отмена показывает депозиты по заказам и возвращает оплаты нужным клиентам',await t.p.evaluate(()=>{
   oqReset();const a=oqOrder(oqCustomer()),b=oqOrder(oqCustomer({legalName:'City Glazing'}));oqPay(a);oqPay(b);oqQueue();optimizationRunOrders([a,b],'cancelled');const rows=salesDialog.rows.length;oqChoose('Cancel orders');return {rows,statuses:[salesRecord(a).status,salesRecord(b).status],deposits:[a,b].map(id=>finCustomerDeposit(salesRecord(id).customerId)),allocations:DB.receipt.map(r=>r.allocations.length)};
  }),{rows:2,statuses:['cancelled','cancelled'],deposits:[810.91,810.91],allocations:[0,0]});
+ eq('массовая отмена без Finance: окна нет, ни один заказ не отменён, оплаты на месте',await t.p.evaluate(()=>{
+  oqReset();const a=oqOrder(oqCustomer()),b=oqOrder(oqCustomer({legalName:'City Glazing'}));oqPay(a);oqPay(b);oqQueue();
+  const ac=window.accessCan,al=window.alert,said=[];window.accessCan=k=>k!=='finance';window.alert=m=>said.push(m);
+  try{salesDialog=null;optimizationRunOrders([a,b],'cancelled');return {dialog:!!salesDialog,said,statuses:[salesRecord(a).status,salesRecord(b).status],allocations:DB.receipt.map(r=>r.allocations.length)};}
+  finally{window.accessCan=ac;window.alert=al;}
+ }),{dialog:false,said:['Ask Finance to cancel or delete this order.'],statuses:['new','new'],allocations:[1,1]});
  eq('Очередь Optimization как Sales: действия появляются над отмеченным, Move back и On Hold, правая кнопка даёт те же действия',await t.p.evaluate(()=>{
   oqReset();const a=oqOrder(oqCustomer());oqQueue();const none=[...document.querySelectorAll('[data-queue-action]')].length,pills=document.querySelectorAll('.sl-quick-pill[data-queue-tab]').length;
   optimizationSel=new Set([a]);render();const bar=[...document.querySelectorAll('.sales-toolbar [data-queue-action]')].map(b=>b.textContent);
