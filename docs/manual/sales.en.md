@@ -121,6 +121,7 @@ Owner, 13.11.2026: only people with Finance cancel orders; without it — only O
   for a user with the **Finance** box ticked in Users. Others get "Ask Finance to cancel or delete this order." and
   the order stays as it was.
 - Without Finance there is **On Hold** / **Release** — put the order on hold and ask Finance to cancel it.
+- **Cancel units** is an action inside the order and does not need Finance (owner, 14.11.2026).
 - A **quote** and a **draft** are not orders: no glass, no money. Sales deletes them as before.
 - The command checks the rule, not only the screen: an order cannot be cancelled or deleted without Finance from
   Optimization, Shipping or a second tab either.

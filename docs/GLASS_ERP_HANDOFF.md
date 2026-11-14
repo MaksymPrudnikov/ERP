@@ -1,6 +1,6 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 5.313 · 14 ноября 2026 — действия экрана без кода в разметке (`core/actions.js`): Sales, фигуры, списки, общее, Optimization, Production и станции переведены, осталось 958 обработчиков из 2095; Cancel order и Delete заказа — только с галочкой Finance; хендофф — «как устроено сейчас» по разделам, журнал решений — `docs/journal/`.
+Версия 5.314 · 14 ноября 2026 — действия экрана без кода в разметке (`core/actions.js`): Sales, фигуры, списки, общее, Optimization, Production, станции, Master Data, формы, Customers и прайсы переведены, осталось 592 обработчика из 2095; Cancel order и Delete заказа — только с галочкой Finance; хендофф — «как устроено сейчас» по разделам, журнал решений — `docs/journal/`.
 
 ## Как читать
 
@@ -57,8 +57,9 @@
   `onActSelf`; в строке через `'+'` — `'<b '+onAct('click',f)+'>'`. Аргументы — данные, `esc` для них не нужен.
   Несколько шагов, условие, присваивание — маленькая функция рядом со своим экраном (`salesDraftSet`,
   `salesListDrop`). Код строкой (`${go}`) не передают — передают функцию и аргументы. Переведены: PR 1 — Sales,
-  фигуры, списки, общее; PR 2 — Optimization, Production, станции; осталось 958 в 29 файлах
-  (`node tools/csp-handlers.js`).
+  фигуры, списки, общее; PR 2 — Optimization, Production, станции; PR 3 — Master Data, формы, Customers, прайсы;
+  осталось 592 в 20 файлах (`node tools/csp-handlers.js`). Имя действия, которое берёт функцию чужого раздела, —
+  тоже вызов снаружи: оно должно быть в `FIN_API` / `STOCK_API` / `SHIP_API` (`test/sections-api.js`).
 - **Как перевести раздел** (PR 2–5): `node tools/csp-handlers.js --write <файлы>` переводит простые формы и
   печатает остальные «руками» с причиной; `git diff` прочитать по каждому файлу (что проверять — в шапке скрипта);
   функция, которую подменяют на `window[name]`, должна сохранить имя; тесты, искавшие элемент по `[onclick…]`, —
@@ -106,7 +107,7 @@
   Finance to cancel or delete this order.». Квоту и черновик (Draft) Sales удаляет как раньше (тронутый черновик —
   Users / Finance / Optimization). Проверка в командах — `salesCancelDeleteAllowed` в `salesDeleteBlocked` и
   `salesRecordTransitionAllowed` (`erp/sales/lifecycle.js`); в Sales кнопка отвечает этим текстом, в Optimization
-  и Shipping — серая.
+  и Shipping — серая. **Отмена юнитов** (Cancel units) — действие внутри заказа, Finance не нужен (владелец, 14.11).
 - **Hold / Cancel units**: юниты выбирает система (непорезанные → меньше работ → закалённые → IGU); цена отмены — по
   работе до Hold (не порезан $0, порезан — отожжённое, после печи — цена лайта, собран — полная); всё отменено:
   $0 → Cancelled, есть сумма → Closed днём отмены (06.10). Решения 12–18 Shipping в `решения-из-заданий.md`.
@@ -429,7 +430,8 @@ PI-, PP- с сервера. Факты — `CLOUD_FACT`. Сторожа: `test/p
   не создаём (30.10).
 
 **Как устроено**: `normalizeCustomers`, `customerHasReferences` (видит архив); прайсы `priceFilePlan`,
-`priceFileApply`. Сторожа: `test/customers.js`, `customer-search`, `price-lists`, `order-contact`.
+`priceFileApply`. Поля карточки пишут в черновик через `custSet` / `custSetRow` (контакты, адреса) /
+`custSetLegacy`, массовая цена — `plBulkSet` (действия `onAct`, PR 3 задания CSP, 14.11). Сторожа: `test/customers.js`, `customer-search`, `price-lists`, `order-contact`.
 
 ## Reports
 
@@ -490,7 +492,9 @@ masterdata.*` и `forms.*`.
 `masterdata/md-log.js`; формы `documents/forms.js` (шаблон `{page, parts}`), бланки `order-form.js`,
 `drawing-form.js`, `carrier-form.js`; каталог-засев `glass-catalog.js` из `templates/GLASS_PRODUCTS.csv`
 (`python3 tools/catalog-to-js.py`). Сторожа: `test/md-*.js`, `glass-short-name`, `glass-no-cut`, `units`,
-`forms*`, `documents`, `order-forms`, `drawing-*`.
+`forms*`, `documents`, `order-forms`, `drawing-*`. Экраны Master Data, редактор форм, окно документов, причины NCR
+и склада — на действиях `onAct` (PR 3 задания CSP, 14.11); строки поставки плёнки и измерений склада добавляются и
+убираются без перерисовки (`mdFilmSupplyAdd`, `mdStockMeasureAdd`, `mdRowRemove`).
 
 **Открыто**: цвета и узоры frit в коде (`FRIT_COLORS`); Cost & margin скрыт только на экране, сервер поля не режет.
 
