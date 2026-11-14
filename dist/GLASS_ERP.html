@@ -8,7 +8,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-/7DwzAgkuwFcxm/KsRBieRjfNrrEtamJCwmI6N5V240=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GLASS ERP — Glazing System</title>
 <style>
@@ -4337,7 +4337,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='aa936e0365b6';
+var ERP_BUILD='53b6d9753ea8';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -17974,8 +17974,9 @@ function dashStation(code){
   salesListSavePrefs();render();
  });
 }
+/* Плитка: go — [функция, …аргументы] (было кодом строкой, задание «CSP без inline»). */
 function dashTile(label,n,sub,go,attr,warn){
- return `<button type="button" class="ch-stat ch-go${warn&&n?' warn':''}" data-dash-tile="${attr}" onclick="${go}">${'<span>'+esc(label)+'</span><b>'+chNum(n)+'</b>'}${sub?`<small>${esc(sub)}</small>`:''}</button>`;
+ return `<button type="button" class="ch-stat ch-go${warn&&n?' warn':''}" data-dash-tile="${attr}" ${onAct.apply(null,['click'].concat(go))}>${'<span>'+esc(label)+'</span><b>'+chNum(n)+'</b>'}${sub?`<small>${esc(sub)}</small>`:''}</button>`;
 }
 
 /* 1. Заказы: быстрые виды Sales и очередь Optimization — число заказов. */
@@ -17983,16 +17984,17 @@ function dashOrders(){
  const tiles=[];
  if(accessCan('sales')){
   const orders=(DB.salesOrder||[]).filter(o=>o&&!salesIsQuote(o)).map(o=>({o})),n=k=>orders.filter(x=>salesQuickTest(k,x)).length;
-  tiles.push(dashTile('Due today',n('today'),'orders',"dashSalesQuick('today')",'today'),
-   dashTile('Due this week',n('week'),'orders',"dashSalesQuick('week')",'week'),
-   dashTile('Needs attention',n('attention'),'on hold · overdue',"dashSalesQuick('attention')",'attention',true));
+  tiles.push(dashTile('Due today',n('today'),'orders',[dashSalesQuick,'today'],'today'),
+   dashTile('Due this week',n('week'),'orders',[dashSalesQuick,'week'],'week'),
+   dashTile('Needs attention',n('attention'),'on hold · overdue',[dashSalesQuick,'attention'],'attention',true));
  }
- if(accessCan('optimization'))tiles.push(dashTile('To verify',optimizationTabCount('new'),'orders',"dashQueue('new')",'verify'),dashTile('To batch',optimizationTabCount('batch'),'orders',"dashQueue('batch')",'batch'));
+ if(accessCan('optimization'))tiles.push(dashTile('To verify',optimizationTabCount('new'),'orders',[dashQueue,'new'],'verify'),dashTile('To batch',optimizationTabCount('batch'),'orders',[dashQueue,'batch'],'batch'));
  return tiles.length?`<div class="card dash-card" data-dash-orders><div class="section-title"><h3>Orders</h3></div><div class="ch-stats">${tiles.join('')}</div></div>`:'';
 }
 /* 2. Цех: ждёт сейчас и прошло сегодня по каждой станции — две полосы со
    своим масштабом. Все станции вместе — только здесь, у офиса и менеджера:
    на Board станция видит только себя (владелец, 9 октября 2026). */
+function dashStationKey(ev,code){if(ev.key==='Enter')dashStation(code);}
 function dashShopRows(d){
  const waiting={},tare={},done={},cut=stationCutCode();
  d.orders.forEach(x=>{
@@ -18001,8 +18003,8 @@ function dashShopRows(d){
  });
  d.facts.forEach(f=>{done[f.station]=(done[f.station]||0)+1;});
  return [{label:'To batch',cells:{w:prodQueueAll(),d:null},notes:{w:'in queue'}}].concat((DB.station||[]).map(s=>{
-  const t=tare[s.code],n=t?t.size:0,word=t&&[...t].every(c=>/^S/.test(c))?(n===1?'skid':'skids'):(n===1?'dolly':'dollies'),go=`dashStation('${esc(s.code)}')`;
-  return {label:s.code,labelHTML:`<b>${esc(s.code)}</b>`,attrs:` data-board-station="${esc(s.code)}" role="button" tabindex="0" onclick="${go}" onkeydown="if(event.key==='Enter')${go}"`,
+  const t=tare[s.code],n=t?t.size:0,word=t&&[...t].every(c=>/^S/.test(c))?(n===1?'skid':'skids'):(n===1?'dolly':'dollies'),go=[dashStation,String(s.code??'')];
+  return {label:s.code,labelHTML:`<b>${esc(s.code)}</b>`,attrs:` data-board-station="${esc(s.code)}" role="button" tabindex="0" ${onAct.apply(null,['click'].concat(go))} ${onAct('keydown',dashStationKey,EVENT,go[1])}`,
    cells:{w:waiting[s.code]||0,d:done[s.code]||0},notes:{w:s.code===cut&&waiting[s.code]?'in batches':n?n+' '+word:''}};
  }));
 }
@@ -18011,10 +18013,10 @@ function dashShop(d){
 }
 /* 3. Отгрузки: те же счётчики, что на вкладках Shipping, и PS на сегодня. */
 function dashShip(d){
- const tiles=[dashTile('Ready',shippingTabCount('ready'),'orders to ship',"dashShipping('ready')",'ready'),
-  dashTile('Deliveries today',shippingTabCount('delivery'),'packing slips',"dashShipping('delivery')",'delivery'),
-  dashTile('Open packing slips',shippingTabCount('shipments'),'planned · shipped',"dashShipping('shipments')",'shipments'),
-  dashTile('Backorders',shippingTabCount('backorders'),'orders',"dashShipping('backorders')",'backorders')];
+ const tiles=[dashTile('Ready',shippingTabCount('ready'),'orders to ship',[dashShipping,'ready'],'ready'),
+  dashTile('Deliveries today',shippingTabCount('delivery'),'packing slips',[dashShipping,'delivery'],'delivery'),
+  dashTile('Open packing slips',shippingTabCount('shipments'),'planned · shipped',[dashShipping,'shipments'],'shipments'),
+  dashTile('Backorders',shippingTabCount('backorders'),'orders',[dashShipping,'backorders'],'backorders')];
  const rows=stationBoardShipRows(d);
  return `<div class="card dash-card" data-dash-ship><div class="section-title"><h3>Shipping</h3></div><div class="ch-stats">${tiles.join('')}</div><div class="dash-sub">Today</div>${rows||'<div class="mut">No packing slips today.</div>'}</div>`;
 }
@@ -18032,7 +18034,7 @@ let dashShow='';
 function dashShowSet(id){dashShow=id||'';render();}
 function dashReports(){const u=typeof signinUser==='function'?signinUser():null;return u&&typeof repScreensFor==='function'?{u,reps:repScreensFor('people',u.viewProfileId)}:{u,reps:[]};}
 function viewDashboard(){
- const {u,reps}=dashReports(),cur=reps.some(r=>r.id===dashShow)?dashShow:'',tabs=reps.length?repScreenTabs(reps,cur,'dashShowSet'):'';
+ const {u,reps}=dashReports(),cur=reps.some(r=>r.id===dashShow)?dashShow:'',tabs=reps.length?repScreenTabs(reps,cur,dashShowSet):'';
  if(cur)return tabs+repScreenHTML(reps.find(r=>r.id===cur),{person:u.name,station:''});
  return tabs+viewDashboardNow();
 }
@@ -18862,12 +18864,12 @@ function viewUsers(){
       {k:'password',label:'Password',type:'list',v:x=>pw(x.u),cell:x=>pw(x.u)==='set'?'<span class="pill ok">set</span>':pw(x.u)==='server'?'<span class="pill ok" title="Server login">server</span>':'<span class="pill warn" title="Cannot sign in">not set</span>'}])
    .concat(srv&&!prod?[{k:'server',label:'Server',type:'text',v:x=>x.u.email||'',cell:x=>userServerHTML(x.u).replace(/^<td/,'<span').replace(/<\/td>$/,'</span>')}]:[])
    .concat([{k:'email',label:'Email',type:'text',def:false,v:x=>x.u.email||''}]),
-  row:info=>{const u=info.x.u,on=uSel===u.viewProfileId;return {attrs:` data-user-row="${esc(u.viewProfileId)}"${on?' class="oq-selected"':''} ondblclick="userEditOpen(${info.x.i})"`,first:`<td class="sl-check"><input type="checkbox" aria-label="Select ${esc(u.name)}" ${on?'checked':''} onchange="uSel=this.checked?'${esc(u.viewProfileId)}':'';render()"></td>`};}});
+  row:info=>{const u=info.x.u,on=uSel===u.viewProfileId;return {attrs:` data-user-row="${esc(u.viewProfileId)}"${on?' class="oq-selected"':''} ${onAct('dblclick',userEditOpen,info.x.i)}`,first:`<td class="sl-check"><input type="checkbox" aria-label="Select ${esc(u.name)}" ${on?'checked':''} ${onAct('change',usersSelTick,String(u.viewProfileId??''),EL_CHECKED)}></td>`};}});
  /* Вход ещё выключен (signinOn): пароля нет ни у кого с разделом Users. */
  const off=DB.user.some(userOffice)&&!signinOn()?'<span class="pill warn" data-signin-off>Sign-in is off — set a password for someone with Users</span>':'';
- const tabs=`<div class="sl-filter-row"><div class="sl-quick" role="tablist">${[['office','Office'],['production','Production'],['log','Sign-in log'],['cloud','Cloud']].map(([k,l])=>`<button type="button" role="tab" class="sl-quick-pill${side===k?' on':''}" data-users-side="${k}" onclick="usersTab('${k}')">${l} <b>${count(k)}</b></button>`).join('')}</div></div>`;
+ const tabs=`<div class="sl-filter-row"><div class="sl-quick" role="tablist">${[['office','Office'],['production','Production'],['log','Sign-in log'],['cloud','Cloud']].map(([k,l])=>`<button type="button" role="tab" class="sl-quick-pill${side===k?' on':''}" data-users-side="${k}" ${onAct('click',usersTab,String(k))}>${l} <b>${count(k)}</b></button>`).join('')}</div></div>`;
  const selI=list.findIndex(x=>x.u.viewProfileId===uSel),sel=selI<0?null:list[selI];
- const bar=`<div class="sales-toolbar">${sel?`<b class="oq-sel" title="${esc(sel.u.name)}">1 selected</b>`:''}<button type="button" class="sl-quiet" data-user-edit ${sel?'':'disabled'} onclick="userEditOpen(${sel?sel.i:-1})">Edit</button><button type="button" class="sl-quiet sl-delete-quiet" data-user-remove ${sel?'':'disabled'} title="${prod?'Remove from production':'Remove from office'}" onclick="delUser(${sel?sel.i:-1},'${side}');uSel=''">Remove</button><span class="sales-toolbar-sp"></span>${off}${uEdit!==null||log||cloud?'':`<button class="pri" data-user-add onclick="userEditOpen('new')">Add user</button>`}</div>`;
+ const bar=`<div class="sales-toolbar">${sel?`<b class="oq-sel" title="${esc(sel.u.name)}">1 selected</b>`:''}<button type="button" class="sl-quiet" data-user-edit ${sel?'':'disabled'} ${onAct('click',userEditOpen,sel?sel.i:-1)}>Edit</button><button type="button" class="sl-quiet sl-delete-quiet" data-user-remove ${sel?'':'disabled'} title="${prod?'Remove from production':'Remove from office'}" ${onAct('click',delUserSel,sel?sel.i:-1,String(side))}>Remove</button><span class="sales-toolbar-sp"></span>${off}${uEdit!==null||log||cloud?'':`<button class="pri" data-user-add ${onAct('click',userEditOpen,'new')}>Add user</button>`}</div>`;
  return `${cloud?`<div class="card sales-list-card"><div class="sales-toolbar"><span class="sales-toolbar-sp"></span>${off}</div>${tabs}<div style="padding:0 20px 16px">${usersCloudHTML()}</div></div>`:log?`<div class="card sales-list-card users-log-card">${tabs}${authLogTable()}</div>`:`<div class="card sales-list-card sl-foot-pin">${bar}${tabs}
   ${uEdit!==null?userForm():''}
   ${table}
@@ -18898,15 +18900,15 @@ function usersCloudHTML(){
    <div><label>Password</label>${pwInput('id="cl_pass" autocomplete="current-password"')}</div>
   </div>
   <div class="row">${status}
-   <button class="pri" data-cloud-connect ${st.busy?'disabled':''} onclick="usersCloudConnect()">Connect</button>
-   ${s?`<button data-cloud-check onclick="cloudCheck()">Check</button><button data-cloud-out onclick="cloudSignOut()">Sign out</button>`:''}</div>
+   <button class="pri" data-cloud-connect ${st.busy?'disabled':''} ${onAct('click',usersCloudConnect)}>Connect</button>
+   ${s?`<button data-cloud-check ${onAct('click',cloudCheck)}>Check</button><button data-cloud-out ${onAct('click',cloudSignOut)}>Sign out</button>`:''}</div>
   ${s?usersCloudSyncHTML():''}${s&&Array.isArray(cloudAccess.members)?usersCloudAccessHTML()+usersCloudJournalHTML():''}${usersDataHTML()}</div>`;
 }
 /* Вся база файлом — только здесь, не на каждом экране (владелец, 02.11.2026).
    С сервером замена базы ушла бы всем: Import, Restore и Clear не показаны. */
 function usersDataHTML(){
  const on=typeof cloudSync!=='undefined'&&cloudSync.on;
- return `<h3>Data</h3><div class="row" data-users-data><button onclick="doExport()">Export JSON</button>${on?'':`<button onclick="document.getElementById('imp').click()">Import JSON</button>${storageBackupPresent?'<button onclick="storageRestoreBackup()">Restore pre-import backup</button>':''}<button onclick="storageClear()">Clear database</button>`}</div>`;
+ return `<h3>Data</h3><div class="row" data-users-data><button ${onAct('click',doExport)}>Export JSON</button>${on?'':`<button ${onAct('click',usersImportPick)}>Import JSON</button>${storageBackupPresent?'<button '+onAct('click',storageRestoreBackup)+'>Restore pre-import backup</button>':''}<button ${onAct('click',storageClear)}>Clear database</button>`}</div>`;
 }
 function usersCloudSyncHTML(){
  const y=cloudSync,text=cloudSyncText(),busy=!!y.busy;
@@ -18914,8 +18916,8 @@ function usersCloudSyncHTML(){
  const warn=y.warn?`<div class="hint warn" data-cloud-warn>${esc(y.warn)}</div>`:'';
  const err=!y.on&&y.error?`<div class="hint warn" data-cloud-sync-error>${esc(y.error)}</div>`:'';
  return `<h3>Sync</h3>${warn}${err}<div class="row">${pill}
-  ${y.on?`<button data-cloud-stop ${busy?'disabled':''} onclick="cloudSyncStop()">Stop sync</button>`
-   :`<button class="pri" data-cloud-upload ${busy?'disabled':''} onclick="cloudUpload()">Upload this database</button><button data-cloud-download ${busy?'disabled':''} onclick="cloudDownload()">Download from server</button>`}</div>`;
+  ${y.on?`<button data-cloud-stop ${busy?'disabled':''} ${onAct('click',cloudSyncStop)}>Stop sync</button>`
+   :`<button class="pri" data-cloud-upload ${busy?'disabled':''} ${onAct('click',cloudUpload)}>Upload this database</button><button data-cloud-download ${busy?'disabled':''} ${onAct('click',cloudDownload)}>Download from server</button>`}</div>`;
 }
 /* Access — правила таблиц на сервере (erp_table_rule): кто читает и кто
    пишет. Нет раздела — все. Видит и меняет администратор сервера. */
@@ -18926,19 +18928,19 @@ function usersRuleText(v){
 function usersCloudAccessHTML(){
  const a=cloudAccess,d=a.draft,list=d||a.rules||[],busy=a.busy;
  const ticks=(r,side)=>{const on=String(r[side]||'').split(',');
-  return `<div class="user-secs" data-rule-side="${side}">${USER_SECTIONS.map(k=>`<label class="user-sec${on.includes(k)?' on':''}" data-rule-sec="${k}"><input type="checkbox" ${on.includes(k)?'checked':''} onchange="usersRuleTick('${esc(r.tbl)}','${side}','${k}',this.checked)">${esc(userSectionNav(k).label)}</label>`).join('')}</div>`;};
+  return `<div class="user-secs" data-rule-side="${side}">${USER_SECTIONS.map(k=>`<label class="user-sec${on.includes(k)?' on':''}" data-rule-sec="${k}"><input type="checkbox" ${on.includes(k)?'checked':''} ${onAct('change',usersRuleTick,String(r.tbl??''),String(side),String(k),EL_CHECKED)}>${esc(userSectionNav(k).label)}</label>`).join('')}</div>`;};
  const rows=list.map(r=>{
   const open=d&&a.open===r.tbl;
   return `<tr data-rule-row="${esc(r.tbl)}"><td class="mono">${esc(r.tbl)}</td><td>${usersRuleText(r.read)}</td><td>${usersRuleText(r.write)}</td>
-   <td style="white-space:nowrap"><button class="sm" data-rule-open ${busy?'disabled':''} onclick="usersRuleOpen('${esc(r.tbl)}')">${open?'Done':'Edit'}</button><button class="sm dl" data-rule-drop title="Remove rule" ${busy?'disabled':''} onclick="usersRuleDrop('${esc(r.tbl)}')">×</button></td></tr>`
+   <td style="white-space:nowrap"><button class="sm" data-rule-open ${busy?'disabled':''} ${onAct('click',usersRuleOpen,String(r.tbl??''))}>${open?'Done':'Edit'}</button><button class="sm dl" data-rule-drop title="Remove rule" ${busy?'disabled':''} ${onAct('click',usersRuleDrop,String(r.tbl??''))}>×</button></td></tr>`
    +(open?`<tr data-rule-edit><td></td><td>${ticks(r,'read')}</td><td>${ticks(r,'write')}</td><td></td></tr>`:'');
  }).join('');
  const used=new Set(list.map(r=>r.tbl)),free=Object.keys(DB).filter(t=>Array.isArray(DB[t])&&/^[A-Za-z]/.test(t)&&!used.has(t)).sort();
- const add=`<select id="cl_rule_tbl" ${busy?'disabled':''}>${free.map(t=>`<option>${esc(t)}</option>`).join('')}</select><button class="sm" data-rule-add ${busy?'disabled':''} onclick="usersRuleAdd()">Add rule</button>`;
+ const add=`<select id="cl_rule_tbl" ${busy?'disabled':''}>${free.map(t=>`<option>${esc(t)}</option>`).join('')}</select><button class="sm" data-rule-add ${busy?'disabled':''} ${onAct('click',usersRuleAdd)}>Add rule</button>`;
  return `<h3>Access</h3><div class="hint">No rule — everyone.</div>
   ${a.error?`<div class="hint warn" data-cloud-access-error>${esc(a.error)}</div>`:''}
   ${slFromTable('cloudRules',`<table data-cloud-rules><thead><tr><th>Table</th><th>Read</th><th>Write</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="empty">No rules</td></tr>'}</tbody></table>`)}
-  <div class="row">${add}${d?`<button class="pri" data-rule-save ${busy?'disabled':''} onclick="cloudRulesSave(cloudAccess.draft)">Save access</button><button ${busy?'disabled':''} onclick="cloudAccess.draft=null;cloudAccess.open='';render()">Cancel</button>`:`<button class="sm" ${busy?'disabled':''} onclick="cloudAccessLoad()">Refresh</button>`}</div>`;
+  <div class="row">${add}${d?`<button class="pri" data-rule-save ${busy?'disabled':''} ${onAct('click',cloudRulesDraftSave)}>Save access</button><button ${busy?'disabled':''} ${onAct('click',cloudRulesCancel)}>Cancel</button>`:`<button class="sm" ${busy?'disabled':''} ${onAct('click',cloudAccessLoad)}>Refresh</button>`}</div>`;
 }
 /* Journal — кто что записал на сервере (erp_journal): только администратор,
    по кнопке — журнал не грузится сам при каждом заходе в Users. */
@@ -18957,7 +18959,7 @@ function usersCloudJournalHTML(){
  return `<h3>Journal</h3><div class="hint">Who wrote what on the server.</div>
   ${j.error?`<div class="hint warn" data-journal-error>${esc(j.error)}</div>`:''}
   ${j.rows?slFromTable('cloudJournal',`<table data-cloud-journal><thead><tr><th>When</th><th>Who</th><th>Computer</th><th>Result</th><th>What</th></tr></thead><tbody>${body||'<tr><td colspan="5" class="empty">No records</td></tr>'}</tbody></table>`):''}
-  <div class="row"><button class="sm" data-journal-load ${busy?'disabled':''} onclick="cloudJournalLoad()">${j.rows?'Refresh':'Show journal'}</button>${j.more?`<button class="sm" data-journal-older ${busy?'disabled':''} onclick="cloudJournalLoad(true)">Older</button>`:''}</div>`;
+  <div class="row"><button class="sm" data-journal-load ${busy?'disabled':''} ${onAct('click',cloudJournalLoad)}>${j.rows?'Refresh':'Show journal'}</button>${j.more?`<button class="sm" data-journal-older ${busy?'disabled':''} ${onAct('click',cloudJournalLoad,true)}>Older</button>`:''}</div>`;
 }
 function usersRuleDraft(){if(!cloudAccess.draft)cloudAccess.draft=(cloudAccess.rules||[]).map(r=>({tbl:r.tbl,read:r.read||'',write:r.write||''}));return cloudAccess.draft;}
 function usersRuleOpen(t){usersRuleDraft();cloudAccess.open=cloudAccess.open===t?'':t;render();}
@@ -18980,7 +18982,7 @@ function usersRuleTick(t,side,k,on){
 let cloudJoin=null;
 function cloudJoinButton(){
  const c=cloudConfig();let host='';try{host=c.url?new URL(c.url).host.split('.')[0]:'';}catch(e){}
- return `<button type="button" class="signin-server" data-cloud-join onclick="cloudJoinOpen()">${host?'Server · '+esc(host):'Connect to server'}</button>`;
+ return `<button type="button" class="signin-server" data-cloud-join ${onAct('click',cloudJoinOpen)}>${host?'Server · '+esc(host):'Connect to server'}</button>`;
 }
 /* render синхронный; фокус позже уводил набранное в Server (как в Purchasing, v5.261). */
 function cloudJoinOpen(){cloudJoin={busy:false,error:''};render();const el=document.getElementById(cloudConfig().url?'cj_email':'cj_url');if(el)el.focus();}
@@ -18988,15 +18990,15 @@ function cloudJoinClose(){if(cloudJoin&&cloudJoin.busy)return;cloudJoin=null;ren
 function cloudJoinHTML(){
  if(!cloudJoin)return '';
  const c=cloudConfig(),b=cloudJoin.busy?'disabled':'';
- return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)cloudJoinClose()"><div class="sales-service-modal sales-dialog" role="dialog" aria-modal="true" aria-label="Server" data-cloud-join-dialog>
-  <div class="sales-service-modal-head"><div><span>This computer</span><h3>Server</h3></div><button type="button" aria-label="Close" onclick="cloudJoinClose()">×</button></div>
-  <form class="sales-dialog-body form" onsubmit="event.preventDefault();cloudJoinGo()">
+ return `<div class="sales-service-modal-back sales-dialog-back" ${onActSelf('click',cloudJoinClose)}><div class="sales-service-modal sales-dialog" role="dialog" aria-modal="true" aria-label="Server" data-cloud-join-dialog>
+  <div class="sales-service-modal-head"><div><span>This computer</span><h3>Server</h3></div><button type="button" aria-label="Close" ${onAct('click',cloudJoinClose)}>×</button></div>
+  <form class="sales-dialog-body form" ${onAct('submit',cloudJoinSubmit,EVENT)}>
    <label>Server</label><input id="cj_url" autocomplete="off" placeholder="https://xxxx.supabase.co" value="${esc(c.url||'')}" ${b}>
    <label>Publishable key</label><input id="cj_key" autocomplete="off" placeholder="sb_publishable_…" value="${esc(c.key||'')}" ${b}>
    <label>Email</label><input id="cj_email" autocomplete="username" value="${esc(c.session&&c.session.email||'')}" ${b}>
    <label>Password</label>${pwInput('id="cj_pass" autocomplete="current-password" '+b)}
    <div class="signin-err" role="alert" data-cloud-join-error>${esc(cloudJoin.error||'')}</div>
-   <div class="row"><button type="submit" class="pri" data-cloud-join-go ${b}>${cloudJoin.busy?esc(cloudJoin.busy):'Connect'}</button><button type="button" onclick="cloudJoinClose()" ${b}>Cancel</button></div>
+   <div class="row"><button type="submit" class="pri" data-cloud-join-go ${b}>${cloudJoin.busy?esc(cloudJoin.busy):'Connect'}</button><button type="button" ${onAct('click',cloudJoinClose)} ${b}>Cancel</button></div>
   </form></div></div>`;
 }
 (window.APP_OVERLAYS=window.APP_OVERLAYS||[]).push(()=>tab==='station'?'':cloudJoinHTML());
@@ -19036,7 +19038,7 @@ function authLogTable(){
  const head=c=>salesListHead(c),cw=salesListCwTable(cols.map(c=>c.k),[44],0);
  const cell=(i,c)=>c.k==='when'?`<td>${esc(salesListShortDay(i.memo.when))} · ${esc(new Date(i.e.at).toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit',hour12:false}))}</td>`:c.k==='what'?`<td><span class="pill ${i.e.what==='Sign in'?'ok':''}">${esc(i.e.what)}</span></td>`:`<td>${i.memo[c.k]?raw(String(i.memo[c.k])):'<span class="mut">—</span>'}</td>`;
  return `<div class="sales-toolbar">${salesListDateButton('when')}</div>${salesListFilterChips()}
-  <div class="sales-table-wrap"><table class="sl-table users-log${cw.cls}"${cw.attrs}>${cw.col}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(head).join('')}</tr></thead>
+  <div class="sales-table-wrap"><table class="sl-table users-log${cw.cls}"${cw.attrs}>${cw.col}<thead><tr><th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" ${onAct('click',salesListOpenColumns,EVENT)}>${ico('settings')}</button></span></th>${cols.map(head).join('')}</tr></thead>
   <tbody>${rows.map(i=>`<tr data-auth-row><td class="sl-check"></td>${cols.map(c=>cell(i,c)).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length+1}" class="empty">${infos.length?'Nothing matches the filters.':'No sign-ins yet'}</td></tr>`}</tbody></table></div>
   <div class="mut cust-foot">${rows.length} of ${infos.length} records · this computer only</div>${salesListMenuHTML(infos)}`;
 }
@@ -19062,24 +19064,24 @@ function userEditOpen(i){
 function userForm(){
  const r=uDraft;
  const sections=USER_SECTIONS.map(k=>{const n=userSectionNav(k),on=r.access.includes(k);
-  return `<label class="user-sec${on?' on':''}" data-user-sec="${k}"><input type="checkbox" ${on?'checked':''} onchange="userToggleSection('${k}',this.checked)">${ico(n.icon,'icon-inline')}${esc(n.label)}</label>`;}).join('');
+  return `<label class="user-sec${on?' on':''}" data-user-sec="${k}"><input type="checkbox" ${on?'checked':''} ${onAct('change',userToggleSection,String(k),EL_CHECKED)}>${ico(n.icon,'icon-inline')}${esc(n.label)}</label>`;}).join('');
  const office=r.onOffice?`<div class="user-block-body">
-   <div class="grid"><div><label>Password</label>${pwInput(`id="u_password" autocomplete="new-password" placeholder="${r.hasPassword?'set · type to change':USER_PASSWORD_MIN+'+ characters'}" value="${esc(r.newPassword||'')}" oninput="uDraft.newPassword=this.value"`)}</div>
-    <div><label>Server login</label><input id="u_email" autocomplete="off" placeholder="email" value="${esc(r.email||'')}" oninput="uDraft.email=this.value"></div></div>
-   <div class="user-sec-head"><label>Sections</label><button type="button" class="sm" onclick="userSetSections(true)">All</button><button type="button" class="sm" onclick="userSetSections(false)">None</button></div>
+   <div class="grid"><div><label>Password</label>${pwInput(`id="u_password" autocomplete="new-password" placeholder="${r.hasPassword?'set · type to change':USER_PASSWORD_MIN+'+ characters'}" value="${esc(r.newPassword||'')}" ${onAct('input',uDraftSet,'newPassword',EL_VALUE)}`)}</div>
+    <div><label>Server login</label><input id="u_email" autocomplete="off" placeholder="email" value="${esc(r.email||'')}" ${onAct('input',uDraftSet,'email',EL_VALUE)}></div></div>
+   <div class="user-sec-head"><label>Sections</label><button type="button" class="sm" ${onAct('click',userSetSections,true)}>All</button><button type="button" class="sm" ${onAct('click',userSetSections,false)}>None</button></div>
    <div class="user-secs">${sections}</div></div>`:'';
  const station=r.onStation?`<div class="user-block-body"><div class="grid">
-   <div><label>No.</label><input id="u_no" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="auto" value="${esc(r.no||'')}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,4);uDraft.no=this.value"></div>
-   <div><label>PIN</label>${pwInput(`id="u_pin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="${r.hasPin?'set · type to change':'4 digits'}" value="${esc(r.newPin||'')}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,4);uDraft.newPin=this.value"`)}</div>
+   <div><label>No.</label><input id="u_no" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="auto" value="${esc(r.no||'')}" ${onAct('input',uDraftDigits,'no',EL)}></div>
+   <div><label>PIN</label>${pwInput(`id="u_pin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="${r.hasPin?'set · type to change':'4 digits'}" value="${esc(r.newPin||'')}" ${onAct('input',uDraftDigits,'newPin',EL)}`)}</div>
   </div><div class="hint">Any station. The office gives the PIN.</div></div>`:'';
  return `<div class="form user-form"><h3>${uEdit==='new'?'New user':'Edit'}</h3>
-  <div class="grid"><div><label>Name *</label><input id="u_name" value="${esc(r.name||'')}" oninput="uDraft.name=this.value"></div></div>
+  <div class="grid"><div><label>Name *</label><input id="u_name" value="${esc(r.name||'')}" ${onAct('input',uDraftSet,'name',EL_VALUE)}></div></div>
   <div class="user-blocks">
-   <div class="user-block${r.onOffice?' on':''}"><label class="user-block-head"><input type="checkbox" id="u_office" ${r.onOffice?'checked':''} onchange="uDraft.onOffice=this.checked;render()"><b>Office sign-in</b><span class="mut">password · sections</span></label>${office}</div>
-   <div class="user-block${r.onStation?' on':''}"><label class="user-block-head"><input type="checkbox" id="u_station" ${r.onStation?'checked':''} onchange="uDraft.onStation=this.checked;render()"><b>Station sign-in</b><span class="mut">number · PIN</span></label>${station}</div>
+   <div class="user-block${r.onOffice?' on':''}"><label class="user-block-head"><input type="checkbox" id="u_office" ${r.onOffice?'checked':''} ${onAct('change',uDraftSet,'onOffice',EL_CHECKED,true)}><b>Office sign-in</b><span class="mut">password · sections</span></label>${office}</div>
+   <div class="user-block${r.onStation?' on':''}"><label class="user-block-head"><input type="checkbox" id="u_station" ${r.onStation?'checked':''} ${onAct('change',uDraftSet,'onStation',EL_CHECKED,true)}><b>Station sign-in</b><span class="mut">number · PIN</span></label>${station}</div>
   </div>
   <div class="err" id="e_user"></div>
-  <div class="row"><button class="pri" data-user-save onclick="saveUser()">Save</button><button onclick="uEdit=null;uDraft=null;render()">Cancel</button></div></div>`;
+  <div class="row"><button class="pri" data-user-save ${onAct('click',saveUser)}>Save</button><button ${onAct('click',userEditCancel)}>Cancel</button></div></div>`;
 }
 function userToggleSection(k,on){
  const set=new Set(uDraft.access);if(on)set.add(k);else set.delete(k);
@@ -19111,6 +19113,18 @@ function saveUser(){
  });
 }
 function userSaveButton(busy){const b=document.querySelector('[data-user-save]');if(b){b.disabled=busy;b.textContent=busy?'Saving…':'Save';}}
+/* Действия экрана Users (были кодом в разметке, задание «CSP без inline»). */
+function usersSelTick(id,checked){uSel=checked?id:'';render();}
+/* Имя del… — кнопка серая без записи (storageLockButtons), как прежний onclick="delUser(…)". */
+function delUserSel(i,side){delUser(i,side);uSel='';}
+function usersImportPick(){document.getElementById('imp').click();}
+/* Имя …Save — так же: прежний onclick="cloudRulesSave(…)". */
+function cloudRulesDraftSave(){return cloudRulesSave(cloudAccess.draft);}
+function cloudRulesCancel(){cloudAccess.draft=null;cloudAccess.open='';render();}
+function cloudJoinSubmit(ev){ev.preventDefault();cloudJoinGo();}
+function uDraftSet(key,v,redraw){uDraft[key]=v;if(redraw)render();}
+function uDraftDigits(key,el){el.value=el.value.replace(/\D/g,'').slice(0,4);uDraft[key]=el.value;}
+function userEditCancel(){uEdit=null;uDraft=null;render();}
 function delUser(i,side){
  const u=DB.user[i];if(!u)return Promise.resolve(null);
  const rev=u.rev,err=usersDropError(u.viewProfileId,side,rev);if(err){alert(err);return Promise.resolve(usersFail(err));}
@@ -19229,7 +19243,7 @@ function signinChoose(id){
    но базово не видеть»). Нажатие меняет только тип поля — экран не
    перерисовывается, набранное остаётся; после перерисовки поле снова скрыто. */
 function pwInput(attrs){
- return `<span class="pw-wrap"><input type="password" ${attrs}><button type="button" class="pw-eye" data-pw-eye aria-label="Show" aria-pressed="false" onclick="pwToggle(this)">${ico('eye')}${ico('eyeOff')}</button></span>`;
+ return `<span class="pw-wrap"><input type="password" ${attrs}><button type="button" class="pw-eye" data-pw-eye aria-label="Show" aria-pressed="false" ${onAct('click',pwToggle,EL)}>${ico('eye')}${ico('eyeOff')}</button></span>`;
 }
 function pwToggle(btn){
  const inp=btn.previousElementSibling;if(!inp)return;const show=inp.type==='password';
@@ -19283,21 +19297,21 @@ function signinSetSide(v){try{localStorage.setItem(SIGNIN_SIDE_KEY,v==='producti
 function signinStation(code){try{localStorage.setItem(SIGNIN_SIDE_KEY,'production');}catch(e){}location.hash='station='+code;}
 function signinView(){
  const side=signinSide();
- const sw=`<div class="signin-side" role="tablist">${[['office','Office'],['production','Production']].map(([k,l])=>`<button type="button" role="tab" aria-selected="${side===k}" class="${side===k?'on':''}" data-signin-side="${k}" onclick="signinSetSide('${k}')">${l}</button>`).join('')}</div>`;
+ const sw=`<div class="signin-side" role="tablist">${[['office','Office'],['production','Production']].map(([k,l])=>`<button type="button" role="tab" aria-selected="${side===k}" class="${side===k?'on':''}" data-signin-side="${k}" ${onAct('click',signinSetSide,String(k))}>${l}</button>`).join('')}</div>`;
  let body;
  if(side==='production'){
   body=`<p class="signin-sub">Choose your station</p>
-  <div class="signin-names signin-stations">${(DB.station||[]).map(s=>`<button type="button" class="signin-name" data-signin-station="${esc(s.code)}" onclick="signinStation('${esc(s.code)}')"><span class="signin-code" data-raw>${esc(s.code)}</span><span class="signin-who"><b>${sfLabel(s)}</b></span></button>`).join('')}</div>`;
+  <div class="signin-names signin-stations">${(DB.station||[]).map(s=>`<button type="button" class="signin-name" data-signin-station="${esc(s.code)}" ${onAct('click',signinStation,String(s.code??''))}><span class="signin-code" data-raw>${esc(s.code)}</span><span class="signin-who"><b>${sfLabel(s)}</b></span></button>`).join('')}</div>`;
  }else{
   const users=signinOfficeUsers(),pick=users.find(u=>u.viewProfileId===signinPick);
   const hi=pick?esc(String(pick.name).trim().split(/\s+/)[0]):'';
-  const pad=pick?`<form class="signin-pin" onsubmit="signinSubmit(event)" data-signin-form="enter">
+  const pad=pick?`<form class="signin-pin" ${onAct('submit',signinSubmit,EVENT)} data-signin-form="enter">
    <label for="signinPass">Hi, <span data-raw>${hi}</span> — your password</label>
    ${pwInput('id="signinPass" autocomplete="current-password" aria-label="Password" placeholder="Password"')}
    <button type="submit" class="pri" ${signinBusy?'disabled':''}>${signinBusy?'Checking…':'Sign in'}</button>
    <div class="signin-err" role="alert">${esc(signinError)}</div></form>`:'';
   body=`<p class="signin-sub">Who is working?</p>
-  <div class="signin-names">${users.map(u=>`<button type="button" class="signin-name${u.viewProfileId===signinPick?' on':''}" data-signin-user="${esc(u.viewProfileId)}" onclick="signinChoose('${esc(u.viewProfileId)}')"><span class="signin-av ${signinTone(u.name)}" data-raw>${esc(signinInitials(u.name))}</span><span class="signin-who"><b data-raw>${esc(u.name)}</b></span></button>`).join('')}</div>${pad}`;
+  <div class="signin-names">${users.map(u=>`<button type="button" class="signin-name${u.viewProfileId===signinPick?' on':''}" data-signin-user="${esc(u.viewProfileId)}" ${onAct('click',signinChoose,String(u.viewProfileId??''))}><span class="signin-av ${signinTone(u.name)}" data-raw>${esc(signinInitials(u.name))}</span><span class="signin-who"><b data-raw>${esc(u.name)}</b></span></button>`).join('')}</div>${pad}`;
  }
  return `<div class="signin"><div class="signin-glass" aria-hidden="true"><i></i><i class="g-bronze"></i><i class="g-blue"></i><i class="g-gray"></i><i class="g-frost"></i><i></i></div><div class="signin-wrap">
   <div class="signin-card">${signinBrandHTML()}${sw}<h2>${esc(signinGreeting())}</h2>${body}${side==='office'?cloudJoinButton():''}</div></div></div>${cloudJoinHTML()}`;
@@ -19306,7 +19320,7 @@ function signinView(){
 function signinNavHTML(){
  const u=signinUser();if(!u)return '';
  const name=String(u.name||'').trim(),ini=name.split(/\s+/).map(w=>w[0]||'').join('').slice(0,2).toUpperCase()||'?';
- return `<button type="button" class="nav-item nav-extra nav-user" data-signin-who title="${esc(name)}" onclick="signinMeOpen()"><span class="nav-user-ini" data-raw>${esc(ini)}</span><span data-raw>${esc(name.split(/\s+/)[0]||name)}</span></button>`;
+ return `<button type="button" class="nav-item nav-extra nav-user" data-signin-who title="${esc(name)}" ${onAct('click',signinMeOpen)}><span class="nav-user-ini" data-raw>${esc(ini)}</span><span data-raw>${esc(name.split(/\s+/)[0]||name)}</span></button>`;
 }
 /* Своё имя внизу меню → окно: сменить свой пароль или выйти (владелец,
    3 октября 2026: «свой пароль — только для офиса; продакшн — то, что даст
@@ -19316,15 +19330,15 @@ function signinMeOpen(){if(!signinUser())return;signinMe={error:''};render();set
 function signinMeClose(){signinMe=null;render();}
 function signinMeHTML(){
  const u=signinUser();if(!signinMe||!u)return '';
- return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)signinMeClose()"><div class="sales-service-modal sales-dialog signin-me" role="dialog" aria-modal="true" aria-label="Your account" data-signin-me>
-  <div class="sales-service-modal-head"><div><span>Signed in</span><h3 data-raw>${esc(u.name)}</h3></div><button type="button" aria-label="Close" onclick="signinMeClose()">×</button></div>
-  <form class="sales-dialog-body signin-me-form" onsubmit="signinMeSave(event)">${signinServer()?'<div class="hint">Server password</div>':''}
+ return `<div class="sales-service-modal-back sales-dialog-back" ${onActSelf('click',signinMeClose)}><div class="sales-service-modal sales-dialog signin-me" role="dialog" aria-modal="true" aria-label="Your account" data-signin-me>
+  <div class="sales-service-modal-head"><div><span>Signed in</span><h3 data-raw>${esc(u.name)}</h3></div><button type="button" aria-label="Close" ${onAct('click',signinMeClose)}>×</button></div>
+  <form class="sales-dialog-body signin-me-form" ${onAct('submit',signinMeSave,EVENT)}>${signinServer()?'<div class="hint">Server password</div>':''}
    <label>Change password</label>
    ${pwInput('id="meOld" autocomplete="current-password" placeholder="Current password"')}
    ${pwInput(`id="meNew" autocomplete="new-password" placeholder="New · ${USER_PASSWORD_MIN}+ characters"`)}
    ${pwInput('id="meNew2" autocomplete="new-password" placeholder="Repeat new"')}
    <div class="signin-err" role="alert">${esc(signinMe.error)}</div>
-   <div class="row"><button type="submit" class="pri">Change password</button><span class="sp"></span><button type="button" data-signin-out onclick="signinOutSafe()">Sign out</button></div>
+   <div class="row"><button type="submit" class="pri">Change password</button><span class="sp"></span><button type="button" data-signin-out ${onAct('click',signinOutSafe)}>Sign out</button></div>
   </form></div></div>`;
 }
 function signinMeSave(e){
@@ -57342,7 +57356,7 @@ let stationBoardShow='';
 function stationBoardSet(id){stationBoardShow=id||'';render();}
 function stationBoardView(who){
  const reps=typeof repScreensFor==='function'?repScreensFor('stations',stationCode):[],cur=reps.some(r=>r.id===stationBoardShow)?stationBoardShow:'';
- const tabs=reps.length?'<div class="sb-tabs">'+repScreenTabs(reps,cur,'stationBoardSet')+'</div>':'';
+ const tabs=reps.length?'<div class="sb-tabs">'+repScreenTabs(reps,cur,stationBoardSet)+'</div>':'';
  if(cur)return tabs+'<div class="sb-report">'+repScreenHTML(reps.find(r=>r.id===cur),{station:stationCode,person:who.name})+'</div>';
  const d=stationBoardData(),ship=stationIsShip()||stationIsReady();
  return tabs+'<div class="st-body sb"><div class="st-col">'+stationBoardHere(d)+stationBoardMine(d,who)+'</div><div class="st-col">'+stationBoardHot(d)+(ship?stationBoardShipping(d):'')+'</div></div>';
@@ -57421,21 +57435,24 @@ function repCatHide(on){repUiSet(v=>{v.hidden=!!on;});render();}
 /* Путь папки: «Production / Cutting» — папка и подпапка; глубже — к подпапке. */
 function repFolderPath(r){const p=String(r&&r.folder||'').split('/').map(x=>x.trim()).filter(Boolean);return p.length?[p[0],p.slice(1).join(' / ')]:['Unfiled',''];}
 function repCatRow(r){
- return `<button type="button" class="rep-item${r.id===repOpenId?' on':''}" data-rep-item="${esc(r.id)}" onclick="repOpen(this.dataset.repItem)" title="${esc(r.name)}"><span data-raw>${esc(r.name)}</span>${repPinned(r.id)?'<i aria-label="Pinned">★</i>':''}</button>`;
+ return `<button type="button" class="rep-item${r.id===repOpenId?' on':''}" data-rep-item="${esc(r.id)}" ${onAct('click',repOpen,elData('repItem'))} title="${esc(r.name)}"><span data-raw>${esc(r.name)}</span>${repPinned(r.id)?'<i aria-label="Pinned">★</i>':''}</button>`;
 }
+/* Действия экранов Reports (были кодом в разметке, задание «CSP без inline», 14.11.2026). */
+function repFolderAllShow(el){repFolderAll.add(el.dataset.repAll);render();}
+function repQSet(v){repQ=v;render();}
 function repCatList(list,key){
  const all=repFolderAll.has(key),shown=all?list:list.slice(0,REP_FOLDER_SHOW);
- return shown.map(repCatRow).join('')+(list.length>shown.length?`<button type="button" class="rep-more" data-rep-all="${esc(key)}" onclick="repFolderAll.add(this.dataset.repAll);render()">All ${list.length} →</button>`:'');
+ return shown.map(repCatRow).join('')+(list.length>shown.length?`<button type="button" class="rep-more" data-rep-all="${esc(key)}" ${onAct('click',repFolderAllShow,EL)}>All ${list.length} →</button>`:'');
 }
 function repCatalog(){
  const list=(DB.report||[]).filter(repVisible).sort((a,b)=>a.name.localeCompare(b.name)),q=repQ.trim().toLowerCase();
- const head=`<div class="rep-cat-head"><h3>Reports</h3><span class="rep-cat-acts"><button type="button" class="pri sm" data-rep-new onclick="repNew()">+ New</button><button type="button" class="sm" data-rep-hide title="Hide list" aria-label="Hide list" onclick="repCatHide(true)">‹</button></span></div>
-  <input type="search" class="rep-search" data-rep-search placeholder="Search ${list.length} reports…" value="${esc(repQ)}" oninput="repQ=this.value;render()">`;
+ const head=`<div class="rep-cat-head"><h3>Reports</h3><span class="rep-cat-acts"><button type="button" class="pri sm" data-rep-new ${onAct('click',repNew)}>+ New</button><button type="button" class="sm" data-rep-hide title="Hide list" aria-label="Hide list" ${onAct('click',repCatHide,true)}>‹</button></span></div>
+  <input type="search" class="rep-search" data-rep-search placeholder="Search ${list.length} reports…" value="${esc(repQ)}" ${onAct('input',repQSet,EL_VALUE)}>`;
  let body='';
  if(q){
   /* Поиск — по имени и папке, найденное строками с папкой. */
   const hit=list.filter(r=>(r.name+' '+r.folder).toLowerCase().includes(q));
-  body=hit.slice(0,REP_FIND_SHOW).map(r=>`<button type="button" class="rep-item${r.id===repOpenId?' on':''}" data-rep-item="${esc(r.id)}" onclick="repOpen(this.dataset.repItem)"><span data-raw>${esc(r.name)}</span><small data-raw>${esc(repFolderPath(r).filter(Boolean).join(' / '))}</small></button>`).join('')
+  body=hit.slice(0,REP_FIND_SHOW).map(r=>`<button type="button" class="rep-item${r.id===repOpenId?' on':''}" data-rep-item="${esc(r.id)}" ${onAct('click',repOpen,elData('repItem'))}><span data-raw>${esc(r.name)}</span><small data-raw>${esc(repFolderPath(r).filter(Boolean).join(' / '))}</small></button>`).join('')
    +(hit.length>REP_FIND_SHOW?`<div class="mut small">First ${REP_FIND_SHOW} of ${hit.length}</div>`:'')||'<div class="mut">Nothing found.</div>';
  }else{
   const pins=repUiList('pins'),recent=repUiList('recent').filter(r=>!pins.includes(r)).slice(0,5);
@@ -57444,11 +57461,11 @@ function repCatalog(){
   const tops=[...new Set(list.map(r=>repFolderPath(r)[0]))].sort((a,b)=>(a==='Unfiled')-(b==='Unfiled')||a.localeCompare(b));
   body+=`<div class="rep-sec">Folders</div>`+tops.map(t=>{
    const inTop=list.filter(r=>repFolderPath(r)[0]===t),open=repFolderOpen===t;
-   let h=`<button type="button" class="rep-folder${open?' on':''}" data-rep-folder="${esc(t)}" aria-expanded="${open}" onclick="repToggleFolder(this.dataset.repFolder)"><i>${open?'▾':'▸'}</i><span data-raw>${esc(t)}</span><span class="n">${inTop.length}</span></button>`;
+   let h=`<button type="button" class="rep-folder${open?' on':''}" data-rep-folder="${esc(t)}" aria-expanded="${open}" ${onAct('click',repToggleFolder,elData('repFolder'))}><i>${open?'▾':'▸'}</i><span data-raw>${esc(t)}</span><span class="n">${inTop.length}</span></button>`;
    if(!open)return h;
    const subs=[...new Set(inTop.map(r=>repFolderPath(r)[1]).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
    h+=`<div class="rep-tree">`+subs.map(sub=>{const inSub=inTop.filter(r=>repFolderPath(r)[1]===sub),so=repSubOpen===t+' / '+sub;
-    return `<button type="button" class="rep-folder sub${so?' on':''}" data-rep-folder="${esc(t+' / '+sub)}" aria-expanded="${so}" onclick="repToggleSub(this.dataset.repFolder)"><i>${so?'▾':'▸'}</i><span data-raw>${esc(sub)}</span><span class="n">${inSub.length}</span></button>`
+    return `<button type="button" class="rep-folder sub${so?' on':''}" data-rep-folder="${esc(t+' / '+sub)}" aria-expanded="${so}" ${onAct('click',repToggleSub,elData('repFolder'))}><i>${so?'▾':'▸'}</i><span data-raw>${esc(sub)}</span><span class="n">${inSub.length}</span></button>`
      +(so?`<div class="rep-tree">${repCatList(inSub,t+' / '+sub)}</div>`:'');}).join('')+repCatList(inTop.filter(r=>!repFolderPath(r)[1]),t)+`</div>`;
    return h;
   }).join('');
@@ -57460,8 +57477,8 @@ function repToggleSub(p){repSubOpen=repSubOpen===p?'':p;render();}
 /* Панель спрятана: путь к отчёту и быстрые ссылки — избранное и недавние. */
 function repCatBar(r){
  const path=r?repFolderPath(r).filter(Boolean):[],chips=repUiList('pins').concat(repUiList('recent')).filter((x,i,a)=>a.indexOf(x)===i&&(!r||x.id!==r.id)).slice(0,6);
- return `<div class="card rep-bar" data-rep-bar><button type="button" class="sm" data-rep-show onclick="repCatHide(false)">☰ Reports</button><span class="rep-crumb" data-raw>${['Reports'].concat(path).map(esc).join(' › ')}${r?' › <b>'+esc(r.name)+'</b>':''}</span>
-  <span class="rep-chips">${chips.map(x=>`<button type="button" class="rep-chip" data-rep-item="${esc(x.id)}" onclick="repOpen(this.dataset.repItem)">${repPinned(x.id)?'★ ':''}<span data-raw>${esc(x.name)}</span></button>`).join('')}</span></div>`;
+ return `<div class="card rep-bar" data-rep-bar><button type="button" class="sm" data-rep-show ${onAct('click',repCatHide,false)}>☰ Reports</button><span class="rep-crumb" data-raw>${['Reports'].concat(path).map(esc).join(' › ')}${r?' › <b>'+esc(r.name)+'</b>':''}</span>
+  <span class="rep-chips">${chips.map(x=>`<button type="button" class="rep-chip" data-rep-item="${esc(x.id)}" ${onAct('click',repOpen,elData('repItem'))}>${repPinned(x.id)?'★ ':''}<span data-raw>${esc(x.name)}</span></button>`).join('')}</span></div>`;
 }
 
 /* ------------------------------ Графики ------------------------------ */
@@ -57477,9 +57494,10 @@ function repSeriesCls(S,d,keys){
  const p=repDimParse(d),all=repIsTime(S,d)?keys:repFieldValues(S,p.f),rank=k=>{const i=all.indexOf(k);return i<0?9999:i;};
  const own=repColorsCur[p.f]||{},order=keys.filter(k=>k!=='__other').slice().sort((a,b)=>rank(a)-rank(b)),m=new Map();order.forEach((k,i)=>m.set(k,own[k]?'ch-s'+own[k]:repSeriesClass(i)));m.set('__other','ch-so');return m;
 }
+function repPickKey(ev,i){if(ev.key==='Enter')repPickAt(i);}
 function repPickAttrs(r,S,d,k){
  const p=repDimParse(d),f=repField(S,p.f);if(!f||f.type==='date'||k==='__other'||k==='—')return '';
- repPicks.push([r.id,p.f,k]);const i=repPicks.length-1;return ` role="button" tabindex="0" data-rep-pick="${esc(p.f)}" onclick="repPickAt(${i})" onkeydown="if(event.key==='Enter')repPickAt(${i})"`;
+ repPicks.push([r.id,p.f,k]);const i=repPicks.length-1;return ` role="button" tabindex="0" data-rep-pick="${esc(p.f)}" ${onAct('click',repPickAt,i)} ${onAct('keydown',repPickKey,EVENT,i)}`;
 }
 function repPickAt(i){const x=repPicks[i],r=x&&(repOpenReport()&&repOpenReport().id===x[0]?repOpenReport():repFind(x[0]));if(!x||!r)return;const base=Object.assign({},repViewFilters(r));repViewSet(x[0],v=>{v.f=Object.assign(base,{[x[1]]:[x[2]]});});repMenu=null;render();}
 function repNumbers(res){
@@ -57524,7 +57542,7 @@ function repTableHTML(r,S,res,w){
  const ms=res.metrics,d1=res.dims[0],d2=res.dims[1],cmp=res.compare&&!d2;
  /* Измерения строк: первое и ещё (res.more) — каждое своей колонкой. */
  /* Клик по заголовку — порядок строк (как в Looker): свой у зрителя, в этом браузере. */
- const so=repWidgetQuery(r,w).sort,fb=(by,i,key,on)=>`<button type="button" class="sl-fbtn${on?' on':''}" data-rep-colmenu="${key}" aria-label="Sort and columns" onclick="event.stopPropagation();repColMenuOpen(event,'${esc(w.id)}','${by}',${i},'${key}')"></button>`,sortTh=(text,by,i,cls,at,j,key)=>{const on=!!so&&so.by===by&&(by==='label'?!j:so.i===i);return `<th${at||''} class="${cls||''} rep-sortable${on?' rep-sort-on':''}" data-rep-sort="${by}:${i}"${key?` data-cw-key="${key}"`:''} onclick="repSortClick('${esc(w.id)}','${by}',${i})"><span class="sl-th"><span data-cw-label>${esc(text)}${on?(so.dir==='asc'?' ▲':' ▼'):''}</span>${key&&!j||key&&by==='metric'?fb(by,i,key,on):''}</span>${key?cwGrip():''}</th>`;};
+ const so=repWidgetQuery(r,w).sort,fb=(by,i,key,on)=>`<button type="button" class="sl-fbtn${on?' on':''}" data-rep-colmenu="${key}" aria-label="Sort and columns" ${onActStop('click',repColMenuOpen,EVENT,String(w.id??''),String(by),i,String(key))}></button>`,sortTh=(text,by,i,cls,at,j,key)=>{const on=!!so&&so.by===by&&(by==='label'?!j:so.i===i);return `<th${at||''} class="${cls||''} rep-sortable${on?' rep-sort-on':''}" data-rep-sort="${by}:${i}"${key?` data-cw-key="${key}"`:''} ${onAct('click',repSortClick,String(w.id??''),String(by),i)}><span class="sl-th"><span data-cw-label>${esc(text)}${on?(so.dir==='asc'?' ▲':' ▼'):''}</span>${key&&!j||key&&by==='metric'?fb(by,i,key,on):''}</span>${key?cwGrip():''}</th>`;};
  const rowDims=[d1].concat(res.more||[]);
  /* Значение, как в строке выше, — бледно: группа видна, «6 mm · 6CLEAR» и батчи под ней. */
  const rowCells=(k,i,arr)=>{const parts=String(k).split('\u0002'),prev=i>0&&arr?String(arr[i-1]).split('\u0002'):[];let same=rowDims.length>1;
@@ -57552,27 +57570,29 @@ function repTableHTML(r,S,res,w){
   cwRegister(id,{widths:()=>tv.cw,save:x=>repTableViewSet(w.id,v=>{v.cw=x;}),def:k=>k.startsWith('d')?170:110,min:()=>CW_MIN,
    move:(from,to,after)=>{if(from.startsWith('d')||to.startsWith('d'))return;repTableViewSet(w.id,v=>{const ord=list.map(c=>c.k).sort((a,b)=>pos(a)-pos(b)).filter(k=>k!==from);let at=ord.indexOf(to);if(at<0)return;if(after)at++;ord.splice(at,0,from);v.order=ord;});},lead:[44],trail:0,fill:''});
   cw={id,keys:allKeys};
-  const gear=repPrintBusy?'<th class="sl-check"></th>':`<th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-rep-cols title="Columns" aria-label="Columns" onclick="repTableColsOpen(event,'${esc(w.id)}')">${ico('settings')}</button></span></th>`;
+  const gear=repPrintBusy?'<th class="sl-check"></th>':`<th class="sl-check"><span class="sl-header-tools"><button type="button" class="sl-settings" data-rep-cols title="Columns" aria-label="Columns" ${onAct('click',repTableColsOpen,EVENT,String(w.id??''))}>${ico('settings')}</button></span></th>`;
   head=gear+rowDims.map((d,j)=>sortTh(repDimLabel(S,d),'label',0,'','',j,'d'+j)).join('')+cols.map(c=>c.th).join('');
   body=repTableBody(w,keys,(k,n,arr)=>`<tr><td class="sl-check"></td>${rowCells(k,n,arr)}${cols.map(c=>c.cell(k)).join('')}</tr>`);
   if(w.opts.totals)foot=`<tr class="sl-foot"><td class="sl-check"></td>${totalCell}${cols.map(c=>c.foot()).join('')}</tr>`;
  }
  const tcls=cw?cwTableClass(cw.id):'',tattrs=cw?cwTableAttrs(cw.id,cw.keys):'',tcol=cw?cwColgroup(cw.id,cw.keys):'';
- return `<div class="sales-table-wrap rep-scroll" data-rep-scroll="${esc(w.id)}" onscroll="repTableMore(this)"><table class="sl-table rep-table${tcls}"${tattrs} data-rep-rows="${keys.length}">${tcol}<thead><tr>${head}</tr></thead><tbody>${body}</tbody>${foot?`<tfoot>${foot}</tfoot>`:''}</table></div>${keys.length>REP_TABLE_STEP?`<div class="mut small" data-rep-rows>${chNum(keys.length)} rows</div>`:''}`;
+ return `<div class="sales-table-wrap rep-scroll" data-rep-scroll="${esc(w.id)}" ${onAct('scroll',repTableMore,EL)}><table class="sl-table rep-table${tcls}"${tattrs} data-rep-rows="${keys.length}">${tcol}<thead><tr>${head}</tr></thead><tbody>${body}</tbody>${foot?`<tfoot>${foot}</tfoot>`:''}</table></div>${keys.length>REP_TABLE_STEP?`<div class="mut small" data-rep-rows>${chNum(keys.length)} rows</div>`:''}`;
 }
 /* Columns у таблицы отчёта: галочка — колонка видна; Standard view — вид отчёта. */
 const repTableColsCur=new Map();
 function repTableColsOpen(e,wid){if(e)e.stopPropagation();repMenu=Object.assign({kind:'tcols',wid},repAt(e));render();}
+function repTableViewReset(wid){repTableViewSet(wid,v=>{v.hide=[];v.order=[];v.cw={};});}
+function repColHide(wid,key){repMenu=null;repTableColToggle(wid,key,false);}
 function repTableColsHTML(r,m,style){
  const w=r.pages.flatMap(p=>p.widgets).find(x=>x.id===m.wid),list=repTableColsCur.get(m.wid)||[];if(!w)return '';
  const tv=repTableView(r,w),own=!repEditOn&&!!(repView(r.id).tv||{})[w.id];
- return `<div class="sl-menu sl-cols" style="${style}" role="dialog" aria-label="Columns" data-rep-cols-menu><h5>Columns · drag a header to reorder</h5>${list.map(([k,l])=>`<label class="sl-cols-row"><input type="checkbox" data-rep-col="${k}" ${tv.hide.includes(k)?'':'checked'} onchange="repTableColToggle('${esc(w.id)}','${k}',this.checked)"> <span data-raw>${esc(l)}</span></label>`).join('')||'<div class="mut">No columns to choose.</div>'}
-  <div class="sl-actions">${repEditOn?`<button type="button" class="sl-btn" onclick="repTableViewSet('${esc(w.id)}',v=>{v.hide=[];v.order=[];v.cw={};})">Reset</button>`:`<button type="button" class="sl-btn" data-rep-cols-std ${own?'':'disabled'} onclick="repTableStd('${esc(w.id)}')">Standard view</button>`}</div></div>`;
+ return `<div class="sl-menu sl-cols" style="${style}" role="dialog" aria-label="Columns" data-rep-cols-menu><h5>Columns · drag a header to reorder</h5>${list.map(([k,l])=>`<label class="sl-cols-row"><input type="checkbox" data-rep-col="${k}" ${tv.hide.includes(k)?'':'checked'} ${onAct('change',repTableColToggle,String(w.id??''),String(k),EL_CHECKED)}> <span data-raw>${esc(l)}</span></label>`).join('')||'<div class="mut">No columns to choose.</div>'}
+  <div class="sl-actions">${repEditOn?`<button type="button" class="sl-btn" ${onAct('click',repTableViewReset,String(w.id??''))}>Reset</button>`:`<button type="button" class="sl-btn" data-rep-cols-std ${own?'':'disabled'} ${onAct('click',repTableStd,String(w.id??''))}>Standard view</button>`}</div></div>`;
 }
 function repColMenuOpen(e,wid,by,i,key){repMenu=Object.assign({kind:'colmenu',wid,by,i,key},repAt(e));render();}
 function repColMenuHTML(r,m,style){
  const hide=m.key&&!m.key.startsWith('d'),sort=m.by!=='col';
- return `<div class="sl-menu rep-colmenu" style="${style}" role="menu" data-rep-colmenu-open>${sort?`<button type="button" class="sl-btn" data-rep-sort-asc onclick="repSortSet('${esc(m.wid)}','${m.by}',${m.i},'asc')">Sort A → Z / low → high</button><button type="button" class="sl-btn" data-rep-sort-desc onclick="repSortSet('${esc(m.wid)}','${m.by}',${m.i},'desc')">Sort Z → A / high → low</button>`:''}${hide?`<button type="button" class="sl-btn" data-rep-col-hide onclick="repMenu=null;repTableColToggle('${esc(m.wid)}','${m.key}',false)">Hide column</button>`:''}</div>`;
+ return `<div class="sl-menu rep-colmenu" style="${style}" role="menu" data-rep-colmenu-open>${sort?`<button type="button" class="sl-btn" data-rep-sort-asc ${onAct('click',repSortSet,String(m.wid??''),String(m.by),m.i,'asc')}>Sort A → Z / low → high</button><button type="button" class="sl-btn" data-rep-sort-desc ${onAct('click',repSortSet,String(m.wid??''),String(m.by),m.i,'desc')}>Sort Z → A / high → low</button>`:''}${hide?`<button type="button" class="sl-btn" data-rep-col-hide ${onAct('click',repColHide,String(m.wid??''),String(m.key))}>Hide column</button>`:''}</div>`;
 }
 function repSortSet(wid,by,i,dir){const r=repOpenReport();repMenu=null;if(!r)return;repViewSet(r.id,v=>{v.s=v.s&&typeof v.s==='object'?v.s:{};v.s[wid]={by,i,dir};});render();}
 function repTableColToggle(wid,k,on){repTableViewSet(wid,v=>{v.hide=v.hide.filter(x=>x!==k);if(!on)v.hide.push(k);});}
@@ -57580,7 +57600,7 @@ function repTableStd(wid){const r=repOpenReport();if(!r)return;repViewSet(r.id,v
 function repParts(res,cls,k){return res.keys2.map(b=>({value:(res.cells.get(k+'\u0001'+b)||[])[0]||0,cls:cls.get(b)}));}
 function repLegend(S,res,cls){const d2=res.dims[1];return chartLegend(res.keys2.filter(b=>(res.colTotals.get(b)||[])[0]).map(b=>({label:repKeyText(S,d2,b),cls:cls.get(b),attrs:repColorAttrs(S,d2,b)})));}
 /* В Edit значение в легенде — выбор цвета квадратиком (два ряда по 12, как в Looker). */
-function repColorAttrs(S,d,k){if(!repEditOn||k==='__other'||repIsTime(S,d))return '';return ` role="button" data-rep-color data-f="${esc(repDimParse(d).f)}" data-v="${esc(k)}" title="Colour" onclick="repColorOpen(event,this.dataset.f,this.dataset.v)"`;}
+function repColorAttrs(S,d,k){if(!repEditOn||k==='__other'||repIsTime(S,d))return '';return ` role="button" data-rep-color data-f="${esc(repDimParse(d).f)}" data-v="${esc(k)}" title="Colour" ${onAct('click',repColorOpen,EVENT,elData('f'),elData('v'))}`;}
 function repColorOpen(e,f,v){if(e)e.stopPropagation();repMenu=Object.assign({kind:'color',f,v},repAt(e));render();}
 function repColorSet(n){const m=repMenu;repMenu=null;if(!m)return;repEditCur(r=>{r.colors=r.colors||{};const x=r.colors[m.f]=r.colors[m.f]||{};if(n)x[m.v]=n;else delete x[m.v];});}
 /* ------------------------------ Расчёт графиков ------------------------------ */
@@ -57682,13 +57702,15 @@ function repWidgetTitle(w){
 /* Кнопки блока — значками в строке заголовка (владелец, 04.11.2026): в
    просмотре Columns у таблицы и CSV; правка, копия, порядок и × — только в Edit.
    Уголок справа внизу (Edit) — высота и ширина блока руками. */
-function repIcoBtn(icon,title,on,attrs,cls){return `<button type="button" class="rep-ib${cls?' '+cls:''}" title="${title}" aria-label="${title}" ${attrs||''} onclick="${on}">${ico(icon)}</button>`;}
+/* on — [функция, …аргументы]. */
+function repWidgetClick(ev,id){if(!ev.target.closest('button,[role=button],input,select,[data-rep-corner]'))repSelectWidget(id);}
+function repIcoBtn(icon,title,on,attrs,cls){return `<button type="button" class="rep-ib${cls?' '+cls:''}" title="${title}" aria-label="${title}" ${attrs||''} ${onAct.apply(null,['click'].concat(on))}>${ico(icon)}</button>`;}
 function repWidgetCard(r,w,i,n){
- const sel=repEditOn&&w.id===repSelW,id=esc(w.id),tools=repEditOn?`<span class="rep-wtools">${repIcoBtn('edge','Edit',`repSelectWidget('${id}')`,'data-rep-wedit')}${repIcoBtn('copy','Duplicate',`repDupWidget('${id}')`)}${repIcoBtn('up','Move up',`repMoveWidget('${id}',-1)`,i?'':'disabled')}${repIcoBtn('down','Move down',`repMoveWidget('${id}',1)`,i<n-1?'':'disabled')}${repIcoBtn('close','Remove',`repDelWidget('${id}')`,'','dl')}</span>`:'';
+ const sel=repEditOn&&w.id===repSelW,id=esc(w.id),tools=repEditOn?`<span class="rep-wtools">${repIcoBtn('edge','Edit',[repSelectWidget,String(w.id??'')],'data-rep-wedit')}${repIcoBtn('copy','Duplicate',[repDupWidget,String(w.id??'')])}${repIcoBtn('up','Move up',[repMoveWidget,String(w.id??''),-1],i?'':'disabled')}${repIcoBtn('down','Move down',[repMoveWidget,String(w.id??''),1],i<n-1?'':'disabled')}${repIcoBtn('close','Remove',[repDelWidget,String(w.id??'')],'','dl')}</span>`:'';
  const src=REP_SRC[w.q.source],own=w.q.date.use==='own'?' · '+repDateText(w.q.date):'';
  /* Выгрузка — Excel (владелец, 08.11.2026: «а зачем тогда мне CSV»); repCsvText остаётся для проверки строк. */
- const csv=w.type!=='number'||!repEditOn?repIcoBtn('download','Export all rows to Excel',`repExcel('${id}')`,'data-rep-excel','rep-csv'):'';
- return `<div class="card rep-w${w.width==='half'?' half':''}${sel?' sel':''}" data-rep-widget="${id}" data-rep-type="${w.type}"${w.h?` style="--rep-h:${w.h}px"`:''}${repEditOn&&!sel?` onclick="if(!event.target.closest('button,[role=button],input,select,[data-rep-corner]'))repSelectWidget('${id}')"`:''}><div class="rep-wh"><h3 data-raw>${esc(repWidgetTitle(w))}</h3><span class="mut">${esc(src?src.label:'')}${esc(own)}</span><span class="rep-wbtns">${tools}${csv}</span></div>${repChart(r,w)}${repSkipHTML(r,w)}${repEditOn?`<span class="rep-corner" data-rep-corner="${id}" title="Drag to resize" aria-hidden="true"></span>`:''}</div>`;
+ const csv=w.type!=='number'||!repEditOn?repIcoBtn('download','Export all rows to Excel',[repExcel,String(w.id??'')],'data-rep-excel','rep-csv'):'';
+ return `<div class="card rep-w${w.width==='half'?' half':''}${sel?' sel':''}" data-rep-widget="${id}" data-rep-type="${w.type}"${w.h?` style="--rep-h:${w.h}px"`:''}${repEditOn&&!sel?` ${onAct('click',repWidgetClick,EVENT,String(w.id??''))}`:''}><div class="rep-wh"><h3 data-raw>${esc(repWidgetTitle(w))}</h3><span class="mut">${esc(src?src.label:'')}${esc(own)}</span><span class="rep-wbtns">${tools}${csv}</span></div>${repChart(r,w)}${repSkipHTML(r,w)}${repEditOn?`<span class="rep-corner" data-rep-corner="${id}" title="Drag to resize" aria-hidden="true"></span>`:''}</div>`;
 }
 
 function repSkipHTML(r,w){
@@ -57703,13 +57725,17 @@ function repControlValues(r,f){const set=new Set();repSources(r).forEach(S=>{if(
 function repControls(r){
  const v=repView(r.id),vf=repViewFilters(r),labels=repControlFields(r),active=Object.keys(vf).filter(f=>(vf[f]||[]).length);
  const keys=[...new Set(r.controls.filter(f=>labels.has(f)).concat(active))];
- const btn=f=>{const vals=vf[f]||[],on=vals.length>0;return `<span class="rep-ctl${on?' on':''}"><button type="button" class="sl-quiet" data-rep-ctl="${esc(f)}" onclick="repOpenCtl(event,'${esc(f)}')">${esc(labels.get(f)||f)}${on?': '+esc(vals.length>2?vals.length+' values':vals.join(', ')):''}<span class="sl-disclosure">▾</span></button>${on?`<button type="button" class="rep-x" aria-label="Clear" onclick="repClearCtl('${esc(f)}')">×</button>`:''}${repEditOn&&r.controls.includes(f)&&!on?`<button type="button" class="rep-x" title="Remove filter" aria-label="Remove filter" data-rep-del-ctl="${esc(f)}" onclick="repDelControl('${esc(f)}')">×</button>`:''}</span>`;};
+ const btn=f=>{const vals=vf[f]||[],on=vals.length>0;return `<span class="rep-ctl${on?' on':''}"><button type="button" class="sl-quiet" data-rep-ctl="${esc(f)}" ${onAct('click',repOpenCtl,EVENT,String(f??''))}>${esc(labels.get(f)||f)}${on?': '+esc(vals.length>2?vals.length+' values':vals.join(', ')):''}<span class="sl-disclosure">▾</span></button>${on?`<button type="button" class="rep-x" aria-label="Clear" ${onAct('click',repClearCtl,String(f??''))}>×</button>`:''}${repEditOn&&r.controls.includes(f)&&!on?`<button type="button" class="rep-x" title="Remove filter" aria-label="Remove filter" data-rep-del-ctl="${esc(f)}" ${onAct('click',repDelControl,String(f??''))}>×</button>`:''}</span>`;};
  const free=[...labels.keys()].filter(f=>!keys.includes(f));
- return `<div class="rep-bar"><button type="button" class="sl-quiet rep-ctl-date" data-rep-date onclick="repOpenDate(event)">Date: ${esc(repDateText(repEditOn?r.date:v.date||r.date))}<span class="sl-disclosure">▾</span></button>${keys.map(btn).join('')}${repEditOn&&free.length?`<button type="button" class="sl-quiet rep-add-ctl" data-rep-add-ctl onclick="repAddCtlOpen(event)">+ Filter</button>`:''}${v.date||v.f!==undefined||v.s?`<button type="button" class="sm" data-rep-reset onclick="repResetView()" title="Back to the report's own period and filters">Reset</button>${!repEditOn&&repCanEdit(repFind(r.id))?`<button type="button" class="sm" data-rep-save-view onclick="repSaveDefaults()" title="Keep this period and these filters in the report">Save as default</button>`:''}`:''}</div>`;
+ return `<div class="rep-bar"><button type="button" class="sl-quiet rep-ctl-date" data-rep-date ${onAct('click',repOpenDate,EVENT)}>Date: ${esc(repDateText(repEditOn?r.date:v.date||r.date))}<span class="sl-disclosure">▾</span></button>${keys.map(btn).join('')}${repEditOn&&free.length?`<button type="button" class="sl-quiet rep-add-ctl" data-rep-add-ctl ${onAct('click',repAddCtlOpen,EVENT)}>+ Filter</button>`:''}${v.date||v.f!==undefined||v.s?`<button type="button" class="sm" data-rep-reset ${onAct('click',repResetView)} title="Back to the report's own period and filters">Reset</button>${!repEditOn&&repCanEdit(repFind(r.id))?`<button type="button" class="sm" data-rep-save-view ${onAct('click',repSaveDefaults)} title="Keep this period and these filters in the report">Save as default</button>`:''}`:''}</div>`;
 }
+function repMenuClose(){repMenu=null;render();}
+function repSetViewDateCustom(){repSetViewDate({from:document.getElementById('repFrom').value,to:document.getElementById('repTo').value});}
+function repCtlSearchSet(v){repMenu.search=v;render();setTimeout(()=>{const e=document.getElementById('repCtlSearch');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},0);}
+function repCtlClear(){repMenu.draft=[];repCtlApply();}
 function repMenuHTML(r){
  const m=repMenu;if(!m||!r)return '';
- const style=`left:${Math.max(8,Math.min(m.x,window.innerWidth-320))}px;top:${Math.max(8,m.y)}px`,back='<div class="sl-backdrop" onclick="repMenu=null;render()"></div>';
+ const style=`left:${Math.max(8,Math.min(m.x,window.innerWidth-320))}px;top:${Math.max(8,m.y)}px`,back='<div class="sl-backdrop" '+onAct('click',repMenuClose)+'></div>';
  if(m.kind==='tcols')return back+repTableColsHTML(r,m,style);
  if(m.kind==='settings')return repSettingsHTML(r);
  if(m.kind==='page')return back+repPageMenuHTML(r,m,style);
@@ -57717,25 +57743,25 @@ function repMenuHTML(r){
  if(m.kind==='colmenu')return back+repColMenuHTML(r,m,style);
  if(m.kind==='date'){
   const cur=repEditOn?r.date:repView(r.id).date||r.date;
-  return back+`<div class="sl-menu rep-menu" style="${style}" data-rep-date-menu><h5>Period</h5><div class="sl-presets">${REP_PRESETS.map(([k,l])=>`<button type="button" class="sl-btn${!cur.from&&!cur.to&&cur.preset===k?' on':''}" onclick="repSetViewDate({preset:'${k}'})">${l}</button>`).join('')}</div>
-   <h5>Custom</h5><div class="sl-row"><input type="date" id="repFrom" value="${esc(cur.from||'')}"><input type="date" id="repTo" value="${esc(cur.to||'')}"></div><div class="sl-actions"><button type="button" class="pri" onclick="repSetViewDate({from:document.getElementById('repFrom').value,to:document.getElementById('repTo').value})">Apply</button></div></div>`;
+  return back+`<div class="sl-menu rep-menu" style="${style}" data-rep-date-menu><h5>Period</h5><div class="sl-presets">${REP_PRESETS.map(([k,l])=>`<button type="button" class="sl-btn${!cur.from&&!cur.to&&cur.preset===k?' on':''}" ${onAct('click',repSetViewDate,{preset:String(k)})}>${l}</button>`).join('')}</div>
+   <h5>Custom</h5><div class="sl-row"><input type="date" id="repFrom" value="${esc(cur.from||'')}"><input type="date" id="repTo" value="${esc(cur.to||'')}"></div><div class="sl-actions"><button type="button" class="pri" ${onAct('click',repSetViewDateCustom)}>Apply</button></div></div>`;
  }
  if(m.kind==='screens'){
   const sc=r.screens||{stations:[],people:[]},people=(DB.user||[]).filter(u=>u&&u.name&&(typeof userOffice!=='function'||userOffice(u)));
-  const box=(kind,id,label)=>`<label><input type="checkbox" ${(m.draft[kind]||[]).includes(id)?'checked':''} onchange="repScreensToggle('${kind}',this.dataset.id,this.checked)" data-id="${esc(id)}" data-rep-screen-box="${kind}"> <span data-raw>${esc(label)}</span></label>`;
+  const box=(kind,id,label)=>`<label><input type="checkbox" ${(m.draft[kind]||[]).includes(id)?'checked':''} ${onAct('change',repScreensToggle,String(kind),elData('id'),EL_CHECKED)} data-id="${esc(id)}" data-rep-screen-box="${kind}"> <span data-raw>${esc(label)}</span></label>`;
   return back+`<div class="sl-menu rep-menu" style="${style}" data-rep-screens-menu><h5>Board of stations</h5><div class="sl-vals">${(DB.station||[]).map(s=>box('stations',s.code,s.code+' · '+sfName(s))).join('')}</div>
    <h5>Overview of people</h5><div class="sl-vals">${people.map(u=>box('people',u.viewProfileId,u.name)).join('')||'<div class="mut">No office users</div>'}</div>
-   <div class="hint">Filters “This station” and “Me” follow the screen.</div><div class="sl-actions"><button type="button" class="pri" data-rep-screens-apply onclick="repScreensApply()">Apply</button></div></div>`;
+   <div class="hint">Filters “This station” and “Me” follow the screen.</div><div class="sl-actions"><button type="button" class="pri" data-rep-screens-apply ${onAct('click',repScreensApply)}>Apply</button></div></div>`;
  }
  if(m.kind==='color'){
   const cur=((repColorsCur[m.f]||{})[m.v])||0;
-  return back+`<div class="sl-menu rep-menu" style="${style}" data-rep-color-menu><h5 data-raw>${esc(m.v)}</h5><div class="rep-swatches">${Array.from({length:24},(_,i)=>`<button type="button" class="ch-s${i+1}${cur===i+1?' on':''}" aria-label="Colour ${i+1}" data-rep-swatch="${i+1}" onclick="repColorSet(${i+1})"></button>`).join('')}</div><div class="sl-actions"><button type="button" class="sl-btn" onclick="repColorSet(0)">Automatic</button></div></div>`;
+  return back+`<div class="sl-menu rep-menu" style="${style}" data-rep-color-menu><h5 data-raw>${esc(m.v)}</h5><div class="rep-swatches">${Array.from({length:24},(_,i)=>`<button type="button" class="ch-s${i+1}${cur===i+1?' on':''}" aria-label="Colour ${i+1}" data-rep-swatch="${i+1}" ${onAct('click',repColorSet,i+1)}></button>`).join('')}</div><div class="sl-actions"><button type="button" class="sl-btn" ${onAct('click',repColorSet,0)}>Automatic</button></div></div>`;
  }
  if(m.kind==='ctl'){
   const all=repControlValues(r,m.f),q=String(m.search||'').toLowerCase(),shown=all.filter(x=>!q||x.toLowerCase().includes(q));
-  return back+`<div class="sl-menu rep-menu" style="${style}" data-rep-ctl-menu="${esc(m.f)}"><input type="text" class="sl-search" id="repCtlSearch" placeholder="Search values…" value="${esc(m.search||'')}" oninput="repMenu.search=this.value;render();setTimeout(()=>{const e=document.getElementById('repCtlSearch');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},0)">
-   <div class="sl-vals">${shown.map(x=>`<label><input type="checkbox" ${m.draft.includes(x)?'checked':''} onchange="repCtlToggle(this.dataset.v,this.checked)" data-v="${esc(x)}"> <span data-raw>${esc(x)}</span></label>`).join('')||'<div class="mut">No values</div>'}</div>
-   <div class="sl-actions"><button type="button" class="sl-btn" onclick="repMenu.draft=[];repCtlApply()">Clear</button><button type="button" class="pri" data-rep-ctl-apply onclick="repCtlApply()">Apply</button></div></div>`;
+  return back+`<div class="sl-menu rep-menu" style="${style}" data-rep-ctl-menu="${esc(m.f)}"><input type="text" class="sl-search" id="repCtlSearch" placeholder="Search values…" value="${esc(m.search||'')}" ${onAct('input',repCtlSearchSet,EL_VALUE)}>
+   <div class="sl-vals">${shown.map(x=>`<label><input type="checkbox" ${m.draft.includes(x)?'checked':''} ${onAct('change',repCtlToggle,elData('v'),EL_CHECKED)} data-v="${esc(x)}"> <span data-raw>${esc(x)}</span></label>`).join('')||'<div class="mut">No values</div>'}</div>
+   <div class="sl-actions"><button type="button" class="sl-btn" ${onAct('click',repCtlClear)}>Clear</button><button type="button" class="pri" data-rep-ctl-apply ${onAct('click',repCtlApply)}>Apply</button></div></div>`;
  }
  return '';
 }
@@ -57799,45 +57825,49 @@ function repOpt(list,cur,none){return (none?`<option value="">${esc(none)}</opti
 /* Что выбрано — одной строкой под списком. */
 function repNoteOf(list,cur){const o=list.find(x=>x[0]===cur);return o&&o[2]?`<div class="hint" data-rep-note>${esc(o[2])}</div>`:'';}
 function repSrcOptions(cur){return REP_GROUPS.map(g=>`<optgroup label="${esc(g)}">${Object.keys(REP_SRC).filter(k=>REP_SRC[k].group===g&&(repSourceAllowed(k)||k===cur)).map(k=>`<option value="${k}"${k===cur?' selected':''}>${esc(REP_SRC[k].label)}</option>`).join('')}</optgroup>`).join('');}
+function repFilterAddPick(i,v){if(v)repFilterAddVal(i,v);}
 function repFilterRow(S,f,i){
  const fd=repField(S,f.f),ops=fd?REP_OPS[fd.type]||REP_OPS.text:REP_OPS.text,fields=repFields(S).map(x=>[x.k,x.label]);
  let val='';
  if(fd&&fd.type==='dim'&&(f.op==='in'||f.op==='notIn')){
   const sub={'@me':'Me (signed in)','@station':'This station'},left=['@me','@station'].concat(repFieldValues(S,f.f)).filter(x=>!f.v.includes(x));
-  val=`<div class="rep-chips">${f.v.map((x,j)=>`<span class="rep-chip"><span data-raw>${esc(sub[x]||x)}</span><button type="button" onclick="repFilterDelVal(${i},${j})">×</button></span>`).join('')}<select aria-label="Add value" onchange="if(this.value)repFilterAddVal(${i},this.value)"><option value="">+ value</option>${left.map(x=>`<option value="${esc(x)}">${esc(sub[x]||x)}</option>`).join('')}</select></div>`;
- }else if(f.op==='between')val=`<div class="sl-row"><input type="${fd&&fd.type==='date'?'date':'number'}" value="${esc(f.v[0]||'')}" onchange="repSetFilter(${i},'v0',this.value)"><input type="${fd&&fd.type==='date'?'date':'number'}" value="${esc(f.v[1]||'')}" onchange="repSetFilter(${i},'v1',this.value)"></div>`;
- else val=`<input type="${fd&&fd.type==='num'?'number':'text'}" value="${esc(f.v[0]||'')}" onchange="repSetFilter(${i},'v0',this.value)">`;
- return `<div class="rep-filter-row"><div class="sl-row"><select aria-label="Field" onchange="repSetFilter(${i},'f',this.value)">${repOpt(fields,f.f)}</select><select aria-label="Condition" onchange="repSetFilter(${i},'op',this.value)">${repOpt(ops,f.op)}</select><button type="button" class="sm dl" onclick="repDelFilter(${i})">×</button></div>${val}</div>`;
+  val=`<div class="rep-chips">${f.v.map((x,j)=>`<span class="rep-chip"><span data-raw>${esc(sub[x]||x)}</span><button type="button" ${onAct('click',repFilterDelVal,i,j)}>×</button></span>`).join('')}<select aria-label="Add value" ${onAct('change',repFilterAddPick,i,EL_VALUE)}><option value="">+ value</option>${left.map(x=>`<option value="${esc(x)}">${esc(sub[x]||x)}</option>`).join('')}</select></div>`;
+ }else if(f.op==='between')val=`<div class="sl-row"><input type="${fd&&fd.type==='date'?'date':'number'}" value="${esc(f.v[0]||'')}" ${onAct('change',repSetFilter,i,'v0',EL_VALUE)}><input type="${fd&&fd.type==='date'?'date':'number'}" value="${esc(f.v[1]||'')}" ${onAct('change',repSetFilter,i,'v1',EL_VALUE)}></div>`;
+ else val=`<input type="${fd&&fd.type==='num'?'number':'text'}" value="${esc(f.v[0]||'')}" ${onAct('change',repSetFilter,i,'v0',EL_VALUE)}>`;
+ return `<div class="rep-filter-row"><div class="sl-row"><select aria-label="Field" ${onAct('change',repSetFilter,i,'f',EL_VALUE)}>${repOpt(fields,f.f)}</select><select aria-label="Condition" ${onAct('change',repSetFilter,i,'op',EL_VALUE)}>${repOpt(ops,f.op)}</select><button type="button" class="sm dl" ${onAct('click',repDelFilter,i)}>×</button></div>${val}</div>`;
 }
+function repSetupClose(){repSelW='';render();}
+function repPropTabSet(t){repPropTab=t;render();}
+function repDropLeave(el){el.classList.remove('over');}
 function repSetup(r){
- const w=repSelWidget(r);if(!w)return `<div class="card rep-setup"><h3>Chart setup</h3><p class="mut">Click a chart to set it up, or add a new one.</p><button type="button" class="pri" onclick="repAddWidget()">+ Add chart</button></div>`;
+ const w=repSelWidget(r);if(!w)return `<div class="card rep-setup"><h3>Chart setup</h3><p class="mut">Click a chart to set it up, or add a new one.</p><button type="button" class="pri" ${onAct('click',repAddWidget)}>+ Add chart</button></div>`;
  const S=REP_SRC[w.q.source],q=w.q,dims=repDimOptions(S),mets=repMetricOptions(S),dates=repDates(S),cmp=[['','No comparison'],['prev','Previous period'],['year','Same period last year']];
  const sortOpts=[['','Default']].concat([['label:asc','Name A → Z'],['label:desc','Name Z → A']]).concat(q.metrics.flatMap((k,i)=>{const m=repMetric(S,k);return m?[['metric:'+i+':desc',m.label+' · high → low'],['metric:'+i+':asc',m.label+' · low → high']]:[];}));
  const sortCur=!q.sort?'':q.sort.by==='label'?'label:'+q.sort.dir:'metric:'+q.sort.i+':'+q.sort.dir;
  const dateCur=q.date.use!=='own'?'report':q.date.from||q.date.to?'custom':q.date.preset||'all';
  const tab=repPropTab==='style'?'style':'setup',label=(REP_TYPES.find(t=>t[0]===w.type)||[0,'Chart'])[1];
- const top=`<div class="card rep-setup" data-rep-setup><div class="rep-setup-head"><h3>${esc(label)}</h3><button type="button" class="rep-ib" title="Close" aria-label="Close" onclick="repSelW='';render()">${ico('close')}</button></div>
-  <div class="rep-types">${REP_TYPES.map(([k,l])=>`<button type="button" class="${w.type===k?'on':''}" data-rep-type-btn="${k}" title="${l}" onclick="repSetW('type','${k}')">${REP_TYPE_ICO[k]||''}<span>${l}</span></button>`).join('')}</div>
-  <div class="rep-ptabs" role="tablist"><button type="button" class="${tab==='setup'?'on':''}" data-rep-ptab="setup" onclick="repPropTab='setup';render()">Setup</button><button type="button" class="${tab==='style'?'on':''}" data-rep-ptab="style" onclick="repPropTab='style';render()">Style</button></div>`;
+ const top=`<div class="card rep-setup" data-rep-setup><div class="rep-setup-head"><h3>${esc(label)}</h3><button type="button" class="rep-ib" title="Close" aria-label="Close" ${onAct('click',repSetupClose)}>${ico('close')}</button></div>
+  <div class="rep-types">${REP_TYPES.map(([k,l])=>`<button type="button" class="${w.type===k?'on':''}" data-rep-type-btn="${k}" title="${l}" ${onAct('click',repSetW,'type',String(k))}>${REP_TYPE_ICO[k]||''}<span>${l}</span></button>`).join('')}</div>
+  <div class="rep-ptabs" role="tablist"><button type="button" class="${tab==='setup'?'on':''}" data-rep-ptab="setup" ${onAct('click',repPropTabSet,'setup')}>Setup</button><button type="button" class="${tab==='style'?'on':''}" data-rep-ptab="style" ${onAct('click',repPropTabSet,'style')}>Style</button></div>`;
  if(tab==='style')return top+repStyleHTML(w)+'</div>';
  return top+`
-  <h5>Data source</h5><select data-rep-source onchange="repSetSource(this.value)">${repSrcOptions(q.source)}</select><div class="hint">${esc(S.hint||'')}</div>
-  <h5>Dimension</h5><div class="rep-drop" data-rep-drop="dim0" ondragover="repDragOver(event)" ondragleave="this.classList.remove('over')" ondrop="repDropField(event,'dim0')"><select data-rep-dim="0" onchange="repSetDim(0,this.value)">${repOpt(dims,q.dims[0]||'','None — totals only')}</select></div>${repNoteOf(dims,q.dims[0]||'')}${repMoreHTML(w,S)}
-  ${w.type==='combo'?'<div class="hint" data-rep-combo>First metric — column; second — inner column.</div>':''}${w.type!=='number'&&w.type!=='pie'&&w.type!=='combo'?`<h5>Breakdown</h5><div class="rep-drop" data-rep-drop="dim1" ondragover="repDragOver(event)" ondragleave="this.classList.remove('over')" ondrop="repDropField(event,'dim1')"><select data-rep-dim="1" onchange="repSetDim(1,this.value)">${repOpt(dims.filter(d=>d[0]!==q.dims[0]),q.dims[1]||'','None')}</select></div>${q.dims[1]&&w.type!=='table'&&q.metrics.length>1?'<div class="hint" data-rep-first-metric>Chart shows the first metric; Table shows all.</div>':''}`:''}
-  <h5>Metrics</h5><div class="rep-drop" data-rep-drop="metric" ondragover="repDragOver(event)" ondragleave="this.classList.remove('over')" ondrop="repDropField(event,'metric')">${(q.metrics.length?q.metrics:[S.metrics[0].k]).map((k,i)=>{const c=repCalcParse(k),del=q.metrics.length>1?`<button type="button" class="sm dl" onclick="repDelMetric(${i})">×</button>`:'';
-   if(!c)return `<div class="sl-row"><select data-rep-metric="${i}" onchange="repSetMetric(${i},this.value)">${repOpt(mets,k)}</select>${del}</div>${repNoteOf(mets,k)}`;
+  <h5>Data source</h5><select data-rep-source ${onAct('change',repSetSource,EL_VALUE)}>${repSrcOptions(q.source)}</select><div class="hint">${esc(S.hint||'')}</div>
+  <h5>Dimension</h5><div class="rep-drop" data-rep-drop="dim0" ${onAct('dragover',repDragOver,EVENT)} ${onAct('dragleave',repDropLeave,EL)} ${onAct('drop',repDropField,EVENT,'dim0')}><select data-rep-dim="0" ${onAct('change',repSetDim,0,EL_VALUE)}>${repOpt(dims,q.dims[0]||'','None — totals only')}</select></div>${repNoteOf(dims,q.dims[0]||'')}${repMoreHTML(w,S)}
+  ${w.type==='combo'?'<div class="hint" data-rep-combo>First metric — column; second — inner column.</div>':''}${w.type!=='number'&&w.type!=='pie'&&w.type!=='combo'?`<h5>Breakdown</h5><div class="rep-drop" data-rep-drop="dim1" ${onAct('dragover',repDragOver,EVENT)} ${onAct('dragleave',repDropLeave,EL)} ${onAct('drop',repDropField,EVENT,'dim1')}><select data-rep-dim="1" ${onAct('change',repSetDim,1,EL_VALUE)}>${repOpt(dims.filter(d=>d[0]!==q.dims[0]),q.dims[1]||'','None')}</select></div>${q.dims[1]&&w.type!=='table'&&q.metrics.length>1?'<div class="hint" data-rep-first-metric>Chart shows the first metric; Table shows all.</div>':''}`:''}
+  <h5>Metrics</h5><div class="rep-drop" data-rep-drop="metric" ${onAct('dragover',repDragOver,EVENT)} ${onAct('dragleave',repDropLeave,EL)} ${onAct('drop',repDropField,EVENT,'metric')}>${(q.metrics.length?q.metrics:[S.metrics[0].k]).map((k,i)=>{const c=repCalcParse(k),del=q.metrics.length>1?`<button type="button" class="sm dl" ${onAct('click',repDelMetric,i)}>×</button>`:'';
+   if(!c)return `<div class="sl-row"><select data-rep-metric="${i}" ${onAct('change',repSetMetric,i,EL_VALUE)}>${repOpt(mets,k)}</select>${del}</div>${repNoteOf(mets,k)}`;
    const num=/^n:/.test(c.b);
-   return `<div class="rep-calc" data-rep-calc="${i}"><div class="sl-row"><select aria-label="First metric" onchange="repSetCalc(${i},'a',this.value)">${repOpt(mets,c.a)}</select>${del}</div><div class="sl-row"><select aria-label="Operation" onchange="repSetCalc(${i},'op',this.value)">${repOpt(REP_CALC_OPS,c.op)}</select><select aria-label="Second metric or number" onchange="repSetCalc(${i},'b',this.value)">${repOpt([['n:','Number']].concat(mets),num?'n:':c.b)}</select>${num?`<input type="number" step="any" aria-label="Number" value="${esc(c.b.slice(2))}" onchange="repSetCalc(${i},'n',this.value)">`:''}</div></div>`;}).join('')}
-  </div><div class="sl-row"><button type="button" class="sl-btn" data-rep-add-metric onclick="repAddMetric()">+ Add metric</button><button type="button" class="sl-btn" data-rep-add-calc onclick="repAddCalc()" title="Metric ÷ × + − another metric or a number">+ Calculated</button></div>
+   return `<div class="rep-calc" data-rep-calc="${i}"><div class="sl-row"><select aria-label="First metric" ${onAct('change',repSetCalc,i,'a',EL_VALUE)}>${repOpt(mets,c.a)}</select>${del}</div><div class="sl-row"><select aria-label="Operation" ${onAct('change',repSetCalc,i,'op',EL_VALUE)}>${repOpt(REP_CALC_OPS,c.op)}</select><select aria-label="Second metric or number" ${onAct('change',repSetCalc,i,'b',EL_VALUE)}>${repOpt([['n:','Number']].concat(mets),num?'n:':c.b)}</select>${num?`<input type="number" step="any" aria-label="Number" value="${esc(c.b.slice(2))}" ${onAct('change',repSetCalc,i,'n',EL_VALUE)}>`:''}</div></div>`;}).join('')}
+  </div><div class="sl-row"><button type="button" class="sl-btn" data-rep-add-metric ${onAct('click',repAddMetric)}>+ Add metric</button><button type="button" class="sl-btn" data-rep-add-calc ${onAct('click',repAddCalc)} title="Metric ÷ × + − another metric or a number">+ Calculated</button></div>
   ${repCustomHTML(r,S,q)}
-  <h5>Filter on this chart</h5><div class="rep-drop" data-rep-drop="filter" ondragover="repDragOver(event)" ondragleave="this.classList.remove('over')" ondrop="repDropField(event,'filter')">${q.filters.map((f,i)=>repFilterRow(S,f,i)).join('')}<button type="button" class="sl-btn" data-rep-add-filter onclick="repAddFilter()">+ Add filter</button></div>
-  ${(q.having||[]).map((h,i)=>repHavingRow(mets,h,i)).join('')}<button type="button" class="sl-btn" data-rep-add-having onclick="repAddHaving()" title="Keep rows whose value fits">+ Metric filter</button>
-  <h5>Date range</h5>${dates.length>1?`<select aria-label="Date field" onchange="repSetW('date.f',this.value)">${repOpt(dates.map(k=>[k,repField(S,k).label]),q.date.f||dates[0])}</select>`:''}
-  <select data-rep-date-use onchange="repSetDateUse(this.value)">${repOpt([['report','Report period']].concat(REP_PRESETS).concat([['custom','Custom dates']]),dateCur)}</select>
-  ${dateCur==='custom'?`<div class="sl-row"><input type="date" value="${esc(q.date.from)}" onchange="repSetW('date.from',this.value)"><input type="date" value="${esc(q.date.to)}" onchange="repSetW('date.to',this.value)"></div>`:''}
-  <select data-rep-compare onchange="repSetW('compare',this.value)">${repOpt(cmp,q.compare||'')}</select>
-  <h5>Sort · rows</h5><select data-rep-sort onchange="repSetSort(this.value)">${repOpt(sortOpts,sortCur)}</select>
-  <div class="sl-row"><label class="rep-inline">Top <input type="number" min="0" step="1" value="${q.limit||''}" placeholder="all" onchange="repSetW('limit',this.value)"></label><label class="rep-inline"><input type="checkbox" ${q.other?'checked':''} onchange="repSetW('other',this.checked)"> Other row</label></div></div>`;
+  <h5>Filter on this chart</h5><div class="rep-drop" data-rep-drop="filter" ${onAct('dragover',repDragOver,EVENT)} ${onAct('dragleave',repDropLeave,EL)} ${onAct('drop',repDropField,EVENT,'filter')}>${q.filters.map((f,i)=>repFilterRow(S,f,i)).join('')}<button type="button" class="sl-btn" data-rep-add-filter ${onAct('click',repAddFilter)}>+ Add filter</button></div>
+  ${(q.having||[]).map((h,i)=>repHavingRow(mets,h,i)).join('')}<button type="button" class="sl-btn" data-rep-add-having ${onAct('click',repAddHaving)} title="Keep rows whose value fits">+ Metric filter</button>
+  <h5>Date range</h5>${dates.length>1?`<select aria-label="Date field" ${onAct('change',repSetW,'date.f',EL_VALUE)}>${repOpt(dates.map(k=>[k,repField(S,k).label]),q.date.f||dates[0])}</select>`:''}
+  <select data-rep-date-use ${onAct('change',repSetDateUse,EL_VALUE)}>${repOpt([['report','Report period']].concat(REP_PRESETS).concat([['custom','Custom dates']]),dateCur)}</select>
+  ${dateCur==='custom'?`<div class="sl-row"><input type="date" value="${esc(q.date.from)}" ${onAct('change',repSetW,'date.from',EL_VALUE)}><input type="date" value="${esc(q.date.to)}" ${onAct('change',repSetW,'date.to',EL_VALUE)}></div>`:''}
+  <select data-rep-compare ${onAct('change',repSetW,'compare',EL_VALUE)}>${repOpt(cmp,q.compare||'')}</select>
+  <h5>Sort · rows</h5><select data-rep-sort ${onAct('change',repSetSort,EL_VALUE)}>${repOpt(sortOpts,sortCur)}</select>
+  <div class="sl-row"><label class="rep-inline">Top <input type="number" min="0" step="1" value="${q.limit||''}" placeholder="all" ${onAct('change',repSetW,'limit',EL_VALUE)}></label><label class="rep-inline"><input type="checkbox" ${q.other?'checked':''} ${onAct('change',repSetW,'other',EL_CHECKED)}> Other row</label></div></div>`;
 }
 
 /* ------------------------------ Команды экрана ------------------------------ */
@@ -57870,8 +57900,8 @@ function repSetSource(k){const S=REP_SRC[k];if(!S)return;repWEdit(w=>{w.q.source
 function repMoreHTML(w,S){
  const q=w.q,d0=q.dims[0];if(w.type!=='table'||!d0||repIsTime(S,d0))return '';
  const opts=repDimOptions(S).filter(d=>!d[0].includes(':')&&d[0]!==d0),more=q.more||[],free=opts.find(d=>!more.includes(d[0]));
- return more.map((d,i)=>`<div class="sl-row"><select aria-label="Row dimension" data-rep-more="${i}" onchange="repSetMore(${i},this.value)">${repOpt(opts,d)}</select><button type="button" class="sm dl" onclick="repSetMore(${i},'')">×</button></div>`).join('')
-  +(free&&more.length<8?`<button type="button" class="sl-btn" data-rep-add-row onclick="repSetMore(${more.length},'${esc(free[0])}')">+ Row dimension</button>`:'');
+ return more.map((d,i)=>`<div class="sl-row"><select aria-label="Row dimension" data-rep-more="${i}" ${onAct('change',repSetMore,i,EL_VALUE)}>${repOpt(opts,d)}</select><button type="button" class="sm dl" ${onAct('click',repSetMore,i,'')}>×</button></div>`).join('')
+  +(free&&more.length<8?`<button type="button" class="sl-btn" data-rep-add-row ${onAct('click',repSetMore,more.length,String(free[0]??''))}>+ Row dimension</button>`:'');
 }
 function repSetMore(i,v){repWEdit(w=>{const m=(w.q.more||[]).slice();if(v)m[i]=v;else m.splice(i,1);w.q.more=m.filter(Boolean);w.q.sort=null;});}
 /* ------------------------- Свои показатели ------------------------- */
@@ -57879,23 +57909,27 @@ function repSetMore(i,v){repWEdit(w=>{const m=(w.q.more||[]).slice();if(v)m[i]=v
    или что на что поделить, и у меня моя личная формула». Показатель живёт в
    отчёте (r.custom) и стоит в списке Metrics у всех графиков этого источника. */
 let repCm=null;
+function repCmSet(key,v,redraw){repCm[key]=v;if(redraw)render();}
+function repCmFormulaSet(v){repCm.formula=v;repCmCheck();}
+function repCmDigits(v){repCm.digits=+v;}
+function repCmCancel(){repCm=null;render();}
 function repCustomHTML(r,S,q){
  const src=repSrcKey(S),mine=(r.custom||[]).filter(c=>c.source===src);
- const list=mine.map(c=>`<div class="rep-cm" data-rep-cm="${esc(c.id)}"><b data-raw>${esc(c.name)}</b><span class="rep-cm-acts"><button type="button" class="sm" onclick="repCmOpen('${esc(c.id)}')">Edit</button><button type="button" class="sm dl" title="Delete" onclick="repCmDel('${esc(c.id)}')">×</button></span><code data-raw>${esc(c.formula)}</code></div>`).join('');
- if(!repCm||repCm.source!==src)return list+`<button type="button" class="sl-btn" data-rep-cm-new onclick="repCmOpen('')" title="Your own metric by formula">+ Custom metric</button>`;
+ const list=mine.map(c=>`<div class="rep-cm" data-rep-cm="${esc(c.id)}"><b data-raw>${esc(c.name)}</b><span class="rep-cm-acts"><button type="button" class="sm" ${onAct('click',repCmOpen,String(c.id??''))}>Edit</button><button type="button" class="sm dl" title="Delete" ${onAct('click',repCmDel,String(c.id??''))}>×</button></span><code data-raw>${esc(c.formula)}</code></div>`).join('');
+ if(!repCm||repCm.source!==src)return list+`<button type="button" class="sl-btn" data-rep-cm-new ${onAct('click',repCmOpen,'')} title="Your own metric by formula">+ Custom metric</button>`;
  /* Поле вставляется с выбранной функцией (как в Looker: Field as Sum, Count…);
     Auto — число суммой, текст — COUNT_DISTINCT. Метрика источника — как есть. */
  const f=repFields(S).filter(x=>x.type==='num'||x.type==='dim'||x.type==='text'),as=repCm.as||'auto',wrap=x=>{const t='['+x.label+']',fn=as==='auto'?(x.type==='num'?'':'COUNT_DISTINCT'):x.type!=='num'&&['SUM','AVG','MIN','MAX'].includes(as)?'COUNT_DISTINCT':as;return fn?fn+'('+t+')':t;};
- const tip=n=>`title="${esc(n)}" data-n="${esc(n)}" onmouseover="repCmTip(this)" onfocus="repCmTip(this)"`;
- const chips=f.map(x=>`<button type="button" class="sm" onclick="repCmInsert(this.dataset.t)" data-t="${esc(wrap(x))}" ${tip(repFieldNote(x)+' → '+wrap(x))}>${esc(x.label)}</button>`).join('')+(S.metrics||[]).filter(m=>!f.some(x=>x.label===m.label)).map(m=>`<button type="button" class="sm" onclick="repCmInsert(this.dataset.t)" data-t="${esc('['+m.label+']')}" ${tip(repMetricNote(S,m))}>${esc(m.label)}</button>`).join('');
- const asSel=`<div class="sl-row"><label class="rep-inline">Field as <select aria-label="Field as" data-rep-cm-as onchange="repCm.as=this.value;render()">${repOpt([['auto','Auto'],['SUM','Sum'],['AVG','Average'],['MIN','Min'],['MAX','Max'],['COUNT','Count'],['COUNT_DISTINCT','Count distinct']],as)}</select></label></div>`;
- const fns=REP_FORMULA_FUNCS.map(fn=>`<button type="button" class="sm" onclick="repCmInsert('${fn}(')">${fn}</button>`).join('')+['+','−','×','÷','(',')'].map(o=>`<button type="button" class="sm" onclick="repCmInsert(' ${{'−':'-','×':'*','÷':'/'}[o]||o} ')">${o}</button>`).join('');
- return list+`<div class="rep-calc" data-rep-cm-edit><input type="text" id="repCmName" placeholder="Name, e.g. Waste %" value="${esc(repCm.name)}" oninput="repCm.name=this.value">
-  <textarea id="repCmFormula" class="rep-formula" placeholder="[Waste ft²] / [Sheet ft²] * 100" oninput="repCm.formula=this.value;repCmCheck()">${esc(repCm.formula)}</textarea>
+ const tip=n=>`title="${esc(n)}" data-n="${esc(n)}" ${onAct('mouseover',repCmTip,EL)} ${onAct('focus',repCmTip,EL)}`;
+ const chips=f.map(x=>`<button type="button" class="sm" ${onAct('click',repCmInsert,elData('t'))} data-t="${esc(wrap(x))}" ${tip(repFieldNote(x)+' → '+wrap(x))}>${esc(x.label)}</button>`).join('')+(S.metrics||[]).filter(m=>!f.some(x=>x.label===m.label)).map(m=>`<button type="button" class="sm" ${onAct('click',repCmInsert,elData('t'))} data-t="${esc('['+m.label+']')}" ${tip(repMetricNote(S,m))}>${esc(m.label)}</button>`).join('');
+ const asSel=`<div class="sl-row"><label class="rep-inline">Field as <select aria-label="Field as" data-rep-cm-as ${onAct('change',repCmSet,'as',EL_VALUE,true)}>${repOpt([['auto','Auto'],['SUM','Sum'],['AVG','Average'],['MIN','Min'],['MAX','Max'],['COUNT','Count'],['COUNT_DISTINCT','Count distinct']],as)}</select></label></div>`;
+ const fns=REP_FORMULA_FUNCS.map(fn=>`<button type="button" class="sm" ${onAct('click',repCmInsert,fn+'(')}>${fn}</button>`).join('')+['+','−','×','÷','(',')'].map(o=>`<button type="button" class="sm" ${onAct('click',repCmInsert,' '+({'−':'-','×':'*','÷':'/'}[o]||o)+' ')}>${o}</button>`).join('');
+ return list+`<div class="rep-calc" data-rep-cm-edit><input type="text" id="repCmName" placeholder="Name, e.g. Waste %" value="${esc(repCm.name)}" ${onAct('input',repCmSet,'name',EL_VALUE)}>
+  <textarea id="repCmFormula" class="rep-formula" placeholder="[Waste ft²] / [Sheet ft²] * 100" ${onAct('input',repCmFormulaSet,EL_VALUE)}>${esc(repCm.formula)}</textarea>
   <div data-rep-cm-msg class="${repCmMsg().ok?'rep-formula-ok':'rep-formula-err'}">${esc(repCmMsg().text)}</div>
   <div class="rep-fchips">${fns}</div>${asSel}<div class="rep-fchips">${chips}</div><div class="hint" data-rep-cm-tip>Point at a field to see what it is.</div>
-  <div class="sl-row"><select aria-label="Format" onchange="repCm.fmt=this.value">${repOpt([['number','Number'],['money','Money'],['pct','Percent']],repCm.fmt)}</select><select aria-label="Decimals" onchange="repCm.digits=+this.value">${repOpt([0,1,2,3].map(n=>[String(n),n+' decimals']),String(repCm.digits))}</select></div>
-  <div class="sl-row"><button type="button" class="pri sm" data-rep-cm-save onclick="repCmSave()">Save metric</button><button type="button" class="sm" onclick="repCm=null;render()">Cancel</button></div></div>`;
+  <div class="sl-row"><select aria-label="Format" ${onAct('change',repCmSet,'fmt',EL_VALUE)}>${repOpt([['number','Number'],['money','Money'],['pct','Percent']],repCm.fmt)}</select><select aria-label="Decimals" ${onAct('change',repCmDigits,EL_VALUE)}>${repOpt([0,1,2,3].map(n=>[String(n),n+' decimals']),String(repCm.digits))}</select></div>
+  <div class="sl-row"><button type="button" class="pri sm" data-rep-cm-save ${onAct('click',repCmSave)}>Save metric</button><button type="button" class="sm" ${onAct('click',repCmCancel)}>Cancel</button></div></div>`;
 }
 function repCmSource(){const r=repOpenReport(),w=r&&repSelWidget(r);return w?w.q.source:'';}
 function repCmOpen(id){const r=repOpenReport(),c=id&&(r.custom||[]).find(x=>x.id===id);repCm=c?Object.assign({},c):{id:'',name:'',formula:'',fmt:'number',digits:1,source:repCmSource()};render();}
@@ -57920,8 +57954,8 @@ function repCmDel(id){
 }
 /* Фильтр по показателю: строка графика остаётся, если её значение подходит. */
 function repHavingRow(mets,h,i){
- return `<div class="rep-filter-row" data-rep-having="${i}"><div class="sl-row"><select aria-label="Metric" onchange="repSetHaving(${i},'m',this.value)">${repOpt(mets,h.m)}</select><select aria-label="Condition" onchange="repSetHaving(${i},'op',this.value)">${repOpt(REP_HAVING_OPS,h.op)}</select><button type="button" class="sm dl" onclick="repSetHaving(${i},'del')">×</button></div>
-  <div class="sl-row"><input type="number" step="any" aria-label="Value" value="${esc(h.v[0]??'')}" onchange="repSetHaving(${i},'v0',this.value)">${h.op==='between'?`<input type="number" step="any" aria-label="To" value="${esc(h.v[1]??'')}" onchange="repSetHaving(${i},'v1',this.value)">`:''}</div></div>`;
+ return `<div class="rep-filter-row" data-rep-having="${i}"><div class="sl-row"><select aria-label="Metric" ${onAct('change',repSetHaving,i,'m',EL_VALUE)}>${repOpt(mets,h.m)}</select><select aria-label="Condition" ${onAct('change',repSetHaving,i,'op',EL_VALUE)}>${repOpt(REP_HAVING_OPS,h.op)}</select><button type="button" class="sm dl" ${onAct('click',repSetHaving,i,'del')}>×</button></div>
+  <div class="sl-row"><input type="number" step="any" aria-label="Value" value="${esc(h.v[0]??'')}" ${onAct('change',repSetHaving,i,'v0',EL_VALUE)}>${h.op==='between'?`<input type="number" step="any" aria-label="To" value="${esc(h.v[1]??'')}" ${onAct('change',repSetHaving,i,'v1',EL_VALUE)}>`:''}</div></div>`;
 }
 function repAddHaving(){repWEdit(w=>{const m=w.q.metrics[0]||REP_SRC[w.q.source].metrics[0].k;w.q.having=(w.q.having||[]).concat([{m,op:'lt',v:['']}]);});}
 function repSetHaving(i,k,v){repWEdit(w=>{const h=(w.q.having||[])[i];if(!h)return;if(k==='del'){w.q.having.splice(i,1);return;}if(k==='m')h.m=v;else if(k==='op')h.op=v;else if(k==='v0')h.v[0]=v===''?'':+v;else if(k==='v1')h.v[1]=v===''?'':+v;});}
@@ -58069,15 +58103,16 @@ function repPrintHTML(){const r=repOpenReport();return r?repPrintPageHTML(r,repP
 /* Отчёт на чужом экране — Board станции или Overview человека: страницы и
    графики, без правки и фильтров; подстановки — станция и человек экрана. */
 let repScreenPage={};
+function repScreenPageSet(el){repScreenPage[el.dataset.rid]=el.dataset.repScreenPage;render();}
 function repScreenHTML(r,ctx){
  const was=repCtxOverride,wasEdit=repEditOn,wasC=[repCustomCur,repColorsCur];repCtxOverride=ctx;repEditOn=false;repCustomCur=r.custom||[];repColorsCur=r.colors||{};
  try{
-  const p=r.pages.find(x=>x.id===repScreenPage[r.id])||r.pages[0],tabs=r.pages.length>1?`<div class="tabs rep-pages">${r.pages.map(x=>`<button type="button" class="${x.id===p.id?'on':''}" data-rep-screen-page="${esc(x.id)}" onclick="repScreenPage[this.dataset.rid]=this.dataset.repScreenPage;render()" data-rid="${esc(r.id)}">${esc(x.name)}</button>`).join('')}</div>`:'';
+  const p=r.pages.find(x=>x.id===repScreenPage[r.id])||r.pages[0],tabs=r.pages.length>1?`<div class="tabs rep-pages">${r.pages.map(x=>`<button type="button" class="${x.id===p.id?'on':''}" data-rep-screen-page="${esc(x.id)}" ${onAct('click',repScreenPageSet,EL)} data-rid="${esc(r.id)}">${esc(x.name)}</button>`).join('')}</div>`:'';
   return `<div class="rep-screen" data-rep-screen="${esc(r.id)}">${tabs}<div class="mut small rep-screen-period">${esc(repDateText(r.date))}</div><div class="rep-ws">${p.widgets.map((w,i)=>repWidgetCard(r,w,i,p.widgets.length)).join('')}</div></div>`;
  }finally{repCtxOverride=was;repEditOn=wasEdit;[repCustomCur,repColorsCur]=wasC;}
 }
 /* Вкладки экрана: «Now» — встроенный экран, дальше — назначенные отчёты. */
-function repScreenTabs(reps,cur,setter){return `<div class="rep-screen-tabs tabs" data-rep-screen-tabs>${[['','Now']].concat(reps.map(r=>[r.id,r.name])).map(([id,n])=>`<button type="button" class="${id===cur?'on':''}" data-rep-screen-tab="${esc(id)}" onclick="${setter}(this.dataset.repScreenTab)">${esc(n)}</button>`).join('')}</div>`;}
+function repScreenTabs(reps,cur,setter){return `<div class="rep-screen-tabs tabs" data-rep-screen-tabs>${[['','Now']].concat(reps.map(r=>[r.id,r.name])).map(([id,n])=>`<button type="button" class="${id===cur?'on':''}" data-rep-screen-tab="${esc(id)}" ${onAct('click',setter,elData('repScreenTab'))}>${esc(n)}</button>`).join('')}</div>`;}
 
 /* Периоды страницы для архива (erp/archive): у каждого графика свой отрезок и
    отрезок сравнения. Дыры между ними не читаются: Today со сравнением «год
@@ -58090,23 +58125,23 @@ function repArchiveRanges(r,p){
 }
 /* ------------------------------ Экран ------------------------------ */
 function repMain(r){
- if(!r)return `<div class="card rep-empty" data-rep-empty><h3>Pick a report</h3><p class="mut">Choose one on the left, or start a new one. Every chart can be changed: data, type, dimensions, metrics, filters, period.</p><button type="button" class="pri" onclick="repNew()">+ New report</button></div>`;
+ if(!r)return `<div class="card rep-empty" data-rep-empty><h3>Pick a report</h3><p class="mut">Choose one on the left, or start a new one. Every chart can be changed: data, type, dimensions, metrics, filters, period.</p><button type="button" class="pri" ${onAct('click',repNew)}>+ New report</button></div>`;
  const can=repEditOn||repCanEdit(repFind(r.id)),p=repPage(r),n=p.widgets.length,folders=[...new Set((DB.report||[]).map(x=>x.folder).filter(Boolean))];
  /* Edit по образцу Looker (владелец, 05.11.2026): верх — одна строка; папка,
     доступ, Show on и Delete — в окне Report settings; листы — панель слева. */
  const dirty=repDirty(),saved=!!repFind(r.id),at=r.pages.indexOf(p);
- const head=repEditOn?`<input type="text" class="rep-name-inline" data-rep-name value="${esc(r.name)}" aria-label="Report name" onchange="repSetMeta('name',this.value)"><span class="mut small rep-folder-crumb" data-raw>${esc(r.folder||'No folder')}</span>`
+ const head=repEditOn?`<input type="text" class="rep-name-inline" data-rep-name value="${esc(r.name)}" aria-label="Report name" ${onAct('change',repSetMeta,'name',EL_VALUE)}><span class="mut small rep-folder-crumb" data-raw>${esc(r.folder||'No folder')}</span>`
   :`<h2 class="rep-title" data-raw>${esc(r.name)}</h2>`;
  /* Готовый отчёт: листы стрелками «‹ Page 2 of 4 ›» (владелец, 05.11.2026). */
- const pager=!repEditOn&&r.pages.length>1?`<span class="rep-pager" data-rep-pager>${repIcoBtn('previous','Previous page',`repPageStep(-1)`,at>0?'':'disabled')}<span class="mut small">Page ${at+1} of ${r.pages.length}</span>${repIcoBtn('next','Next page',`repPageStep(1)`,at<r.pages.length-1?'':'disabled')}</span>`:'';
- const acts=repEditOn?`${dirty?'<span class="rep-unsaved" data-rep-unsaved>● Unsaved changes</span>':''}<button type="button" class="sm" data-rep-settings onclick="repSettingsOpen(event)">${ico('settings','icon-inline')} Report settings</button><button type="button" class="sm" data-rep-cancel onclick="repCancelEdit()">Cancel</button><button type="button" class="pri sm" data-rep-save onclick="repSaveEdit()">Save</button>`
-  :`${pager}${saved?`<button type="button" class="sm rep-pin${repPinned(r.id)?' on':''}" data-rep-pin="${esc(r.id)}" title="${repPinned(r.id)?'Unpin':'Pin'}" aria-label="${repPinned(r.id)?'Unpin':'Pin'}" onclick="repPinToggle(this.dataset.repPin)">${repPinned(r.id)?'★':'☆'}</button>`:''}${repCanEdit(repFind(r.id))?`<button type="button" class="sm" data-rep-edit onclick="repEditToggle()">Edit</button>`:''}<button type="button" class="sm" data-rep-copy onclick="repCopyOpen()">Copy</button><button type="button" class="sm" data-rep-print onclick="repPrint()">Print</button>`;
- const tabs=`<div class="tabs rep-pages">${r.pages.map(x=>`${x.sep?'<span class="rep-tab-sep" aria-hidden="true"></span>':''}<button type="button" class="${x.id===p.id?'on':''}" data-rep-page="${esc(x.id)}" onclick="repPageId=this.dataset.repPage;repSelW='';render()"${repEditOn?` oncontextmenu="repPageMenuOpen(event,'${esc(x.id)}')"`:''}>${esc(x.name)}</button>`).join('')}${repEditOn?`<button type="button" data-rep-add-page onclick="repAddPage()">+ Page</button>`:''}</div>`;
+ const pager=!repEditOn&&r.pages.length>1?`<span class="rep-pager" data-rep-pager>${repIcoBtn('previous','Previous page',[repPageStep,-1],at>0?'':'disabled')}<span class="mut small">Page ${at+1} of ${r.pages.length}</span>${repIcoBtn('next','Next page',[repPageStep,1],at<r.pages.length-1?'':'disabled')}</span>`:'';
+ const acts=repEditOn?`${dirty?'<span class="rep-unsaved" data-rep-unsaved>● Unsaved changes</span>':''}<button type="button" class="sm" data-rep-settings ${onAct('click',repSettingsOpen,EVENT)}>${ico('settings','icon-inline')} Report settings</button><button type="button" class="sm" data-rep-cancel ${onAct('click',repCancelEdit)}>Cancel</button><button type="button" class="pri sm" data-rep-save ${onAct('click',repSaveEdit)}>Save</button>`
+  :`${pager}${saved?`<button type="button" class="sm rep-pin${repPinned(r.id)?' on':''}" data-rep-pin="${esc(r.id)}" title="${repPinned(r.id)?'Unpin':'Pin'}" aria-label="${repPinned(r.id)?'Unpin':'Pin'}" ${onAct('click',repPinToggle,elData('repPin'))}>${repPinned(r.id)?'★':'☆'}</button>`:''}${repCanEdit(repFind(r.id))?`<button type="button" class="sm" data-rep-edit ${onAct('click',repEditToggle)}>Edit</button>`:''}<button type="button" class="sm" data-rep-copy ${onAct('click',repCopyOpen)}>Copy</button><button type="button" class="sm" data-rep-print ${onAct('click',repPrint)}>Print</button>`;
+ const tabs=`<div class="tabs rep-pages">${r.pages.map(x=>`${x.sep?'<span class="rep-tab-sep" aria-hidden="true"></span>':''}<button type="button" class="${x.id===p.id?'on':''}" data-rep-page="${esc(x.id)}" ${onAct('click',repPageTab,EL)}${repEditOn?` ${onAct('contextmenu',repPageMenuOpen,EVENT,String(x.id??''))}`:''}>${esc(x.name)}</button>`).join('')}${repEditOn?`<button type="button" data-rep-add-page ${onAct('click',repAddPage)}>+ Page</button>`:''}</div>`;
  /* Период захватывает ушедшие в архив заказы — сначала их строки с диска. */
  const ranges=repArchiveRanges(r,p),arch=ranges?archiveScopeFor(ranges,repArchiveNeed(r,p)):'none';
  if(!ranges)archiveScopeDrop();
  const ready=arch==='loading'?'':repPageReady(r,p),wait=arch==='loading'?archiveFactsText(archiveScope):ready==='wait'?repBuildText(repBuild):'';
- const body=wait?`<div class="card mut" data-rep-archive-wait>${esc(wait)}</div>`:(n||repEditOn?repSheetMark(p,r.pages.indexOf(p)+1):'')+p.widgets.map((w,i)=>repWidgetCard(r,w,i,n)).join('')+(repEditOn?`<button type="button" class="card rep-add" data-rep-add onclick="repAddWidget()">+ Add chart</button>`:n?'':'<div class="card mut">This page is empty.</div>');
+ const body=wait?`<div class="card mut" data-rep-archive-wait>${esc(wait)}</div>`:(n||repEditOn?repSheetMark(p,r.pages.indexOf(p)+1):'')+p.widgets.map((w,i)=>repWidgetCard(r,w,i,n)).join('')+(repEditOn?`<button type="button" class="card rep-add" data-rep-add ${onAct('click',repAddWidget)}>+ Add chart</button>`:n?'':'<div class="card mut">This page is empty.</div>');
  return `<div class="card rep-head"><div class="rep-head-row">${head}<span class="sales-toolbar-sp"></span>${ready==='stale'?`<span class="mut small" data-rep-updating>${esc(repBuildText(repBuild,true))}</span>`:''}${acts}</div>${!can&&!repEditOn?`<div class="mut small">${r.ownerId?'Shared with you':'Starter report'} · Copy to change it</div>`:''}${tabs}${repControls(r)}</div><div class="rep-ws">${body}</div>`;
 }
 function viewReports(){
@@ -58134,39 +58169,47 @@ const REP_TYPE_ICO={
 };
 /* Style — коротко: заголовок, ширина, высота, итог у таблицы, цвета; Reset to default. */
 function repStyleHTML(w){
- const rows=[`<h5>Title</h5><input type="text" data-rep-title value="${esc(w.title)}" placeholder="${esc(repWidgetTitle(Object.assign({},w,{title:''})))}" onchange="repSetW('title',this.value)">`,
-  `<h5>Size</h5><div class="sl-row"><select aria-label="Width" onchange="repSetW('width',this.value)">${repOpt([['full','Full width'],['half','Half width']],w.width)}</select><input type="number" min="80" step="20" aria-label="Height, px" placeholder="Height · auto" value="${w.h||''}" onchange="repSetW('h',this.value)"></div><div class="hint">Or drag the corner of the chart.</div>`];
- if(w.type==='table')rows.push(`<h5>Table</h5><label class="rep-inline"><input type="checkbox" ${w.opts.totals?'checked':''} onchange="repSetW('opts.totals',this.checked)"> Total row</label><div class="hint">Columns, widths and order — the gear and headers of the table.</div>`);
+ const rows=[`<h5>Title</h5><input type="text" data-rep-title value="${esc(w.title)}" placeholder="${esc(repWidgetTitle(Object.assign({},w,{title:''})))}" ${onAct('change',repSetW,'title',EL_VALUE)}>`,
+  `<h5>Size</h5><div class="sl-row"><select aria-label="Width" ${onAct('change',repSetW,'width',EL_VALUE)}>${repOpt([['full','Full width'],['half','Half width']],w.width)}</select><input type="number" min="80" step="20" aria-label="Height, px" placeholder="Height · auto" value="${w.h||''}" ${onAct('change',repSetW,'h',EL_VALUE)}></div><div class="hint">Or drag the corner of the chart.</div>`];
+ if(w.type==='table')rows.push(`<h5>Table</h5><label class="rep-inline"><input type="checkbox" ${w.opts.totals?'checked':''} ${onAct('change',repSetW,'opts.totals',EL_CHECKED)}> Total row</label><div class="hint">Columns, widths and order — the gear and headers of the table.</div>`);
  if(w.type!=='number'&&w.type!=='table'&&w.type!=='line')rows.push(`<h5>Colors</h5><div class="hint">Click a color in the legend to change it.</div>`);
- rows.push(`<div class="sl-row" style="margin-top:12px"><button type="button" class="sl-btn" data-rep-style-reset onclick="repStyleReset()">${ico('reset','icon-inline')} Reset to default</button></div>`);
+ rows.push(`<div class="sl-row" style="margin-top:12px"><button type="button" class="sl-btn" data-rep-style-reset ${onAct('click',repStyleReset)}>${ico('reset','icon-inline')} Reset to default</button></div>`);
  return rows.join('');
 }
 function repStyleReset(){repWEdit(w=>{w.title='';w.width='full';w.h=0;w.opts.totals=true;w.tv={hide:[],order:[],cw:{}};});}
 /* Report settings — редкое: папка, кто видит, Show on, удалить отчёт. */
 function repSettingsOpen(e){if(e)e.stopPropagation();repMenu={kind:'settings',x:0,y:0};render();}
+function repDeleteAsk(){repMenu=null;repDeleteOpen();}
 function repSettingsHTML(r){
  const folders=[...new Set((DB.report||[]).map(x=>x.folder).filter(Boolean))],saved=!!repFind(r.id),n=r.screens.stations.length+r.screens.people.length;
- return `<div class="sl-backdrop rep-shade" onclick="repMenu=null;render()"></div><div class="rep-modal" role="dialog" aria-label="Report settings" data-rep-settings-box><div class="rep-setup-head"><h3>Report settings</h3><button type="button" class="rep-ib" title="Close" aria-label="Close" onclick="repMenu=null;render()">${ico('close')}</button></div>
-  <label>Folder</label><input type="text" list="repFolders" data-rep-folder value="${esc(r.folder)}" placeholder="Folder / sub-folder" onchange="repSetMeta('folder',this.value)"><datalist id="repFolders">${folders.map(f=>`<option value="${esc(f)}">`).join('')}</datalist>
-  <label>Who sees it</label><select data-rep-share onchange="repSetMeta('share',this.value)">${repOpt([['me','Only me'],['all','Everyone with Reports']],r.share==='all'?'all':'me')}</select>
-  ${repCanScreens()?`<label>Show on</label><button type="button" class="sl-btn" data-rep-screens onclick="repOpenScreens(event)" title="Station boards and people's Overview">Station boards and Overview${n?' · '+n:''}</button>`:''}
-  <div class="rep-modal-foot">${saved?`<button type="button" class="sm dl" data-rep-delete onclick="repMenu=null;repDeleteOpen()">Delete report</button>`:''}<span class="sales-toolbar-sp"></span><button type="button" class="pri sm" onclick="repMenu=null;render()">Done</button></div></div>`;
+ return `<div class="sl-backdrop rep-shade" ${onAct('click',repMenuClose)}></div><div class="rep-modal" role="dialog" aria-label="Report settings" data-rep-settings-box><div class="rep-setup-head"><h3>Report settings</h3><button type="button" class="rep-ib" title="Close" aria-label="Close" ${onAct('click',repMenuClose)}>${ico('close')}</button></div>
+  <label>Folder</label><input type="text" list="repFolders" data-rep-folder value="${esc(r.folder)}" placeholder="Folder / sub-folder" ${onAct('change',repSetMeta,'folder',EL_VALUE)}><datalist id="repFolders">${folders.map(f=>`<option value="${esc(f)}">`).join('')}</datalist>
+  <label>Who sees it</label><select data-rep-share ${onAct('change',repSetMeta,'share',EL_VALUE)}>${repOpt([['me','Only me'],['all','Everyone with Reports']],r.share==='all'?'all':'me')}</select>
+  ${repCanScreens()?`<label>Show on</label><button type="button" class="sl-btn" data-rep-screens ${onAct('click',repOpenScreens,EVENT)} title="Station boards and people's Overview">Station boards and Overview${n?' · '+n:''}</button>`:''}
+  <div class="rep-modal-foot">${saved?`<button type="button" class="sm dl" data-rep-delete ${onAct('click',repDeleteAsk)}>Delete report</button>`:''}<span class="sales-toolbar-sp"></span><button type="button" class="pri sm" ${onAct('click',repMenuClose)}>Done</button></div></div>`;
 }
 /* Листы слева (как Report Pages в Looker): клик — лист, перетаскивание — порядок,
    правая кнопка — меню листа; разделитель — черта над листом. «‹» сворачивает. */
 function repPagesPanel(r,folded){
  const p=repPage(r);
- if(folded)return `<div class="card rep-pages-panel folded" data-rep-pages-panel><button type="button" class="rep-ib" title="Pages" aria-label="Show pages" onclick="repUiSet(v=>{v.pagesHidden=false;});render()">${ico('next')}</button></div>`;
- return `<div class="card rep-pages-panel" data-rep-pages-panel><div class="rep-setup-head"><h3>Pages</h3><button type="button" class="rep-ib" title="Hide pages" aria-label="Hide pages" onclick="repUiSet(v=>{v.pagesHidden=true;});render()">${ico('previous')}</button></div>
-  <div class="rep-plist">${r.pages.map(x=>`${x.sep?'<div class="rep-psep" aria-hidden="true"></div>':''}<button type="button" class="rep-pitem${x.id===p.id?' on':''}" draggable="true" data-rep-pitem="${esc(x.id)}" onclick="repPageId='${esc(x.id)}';repSelW='';render()" oncontextmenu="repPageMenuOpen(event,'${esc(x.id)}')" ondragstart="repPageDrag='${esc(x.id)}'" ondragover="event.preventDefault()" ondrop="event.preventDefault();repPageDrop('${esc(x.id)}')"><span class="rep-grip" aria-hidden="true">⋮⋮</span><span class="rep-pname" data-raw>${esc(x.name)}</span><span class="mut small">${x.orient==='landscape'?'L':'P'}</span></button>`).join('')}</div>
-  <button type="button" class="sl-btn rep-padd" data-rep-add-page onclick="repAddPage()">+ Page</button><button type="button" class="sl-btn rep-padd" data-rep-add-sep onclick="repPageSep(repPage(repOpenReport()).id)">+ Separator</button>
+ if(folded)return `<div class="card rep-pages-panel folded" data-rep-pages-panel><button type="button" class="rep-ib" title="Pages" aria-label="Show pages" ${onAct('click',repPagesHide,false)}>${ico('next')}</button></div>`;
+ return `<div class="card rep-pages-panel" data-rep-pages-panel><div class="rep-setup-head"><h3>Pages</h3><button type="button" class="rep-ib" title="Hide pages" aria-label="Hide pages" ${onAct('click',repPagesHide,true)}>${ico('previous')}</button></div>
+  <div class="rep-plist">${r.pages.map(x=>`${x.sep?'<div class="rep-psep" aria-hidden="true"></div>':''}<button type="button" class="rep-pitem${x.id===p.id?' on':''}" draggable="true" data-rep-pitem="${esc(x.id)}" ${onAct('click',repPageGo,String(x.id??''))} ${onAct('contextmenu',repPageMenuOpen,EVENT,String(x.id??''))} ${onAct('dragstart',repPageDragStart,String(x.id??''))} ${onAct('dragover',actPrevent,EVENT)} ${onAct('drop',repPageDropEv,EVENT,String(x.id??''))}><span class="rep-grip" aria-hidden="true">⋮⋮</span><span class="rep-pname" data-raw>${esc(x.name)}</span><span class="mut small">${x.orient==='landscape'?'L':'P'}</span></button>`).join('')}</div>
+  <button type="button" class="sl-btn rep-padd" data-rep-add-page ${onAct('click',repAddPage)}>+ Page</button><button type="button" class="sl-btn rep-padd" data-rep-add-sep ${onAct('click',repPageSepCur)}>+ Separator</button>
   <div class="hint">Right-click a page: name, Portrait / Landscape, delete.</div></div>`;
 }
+function repPageTab(el){repPageId=el.dataset.repPage;repSelW='';render();}
+function repPagesHide(hidden){repUiSet(v=>{v.pagesHidden=hidden;});render();}
+function repPageGo(pid){repPageId=pid;repSelW='';render();}
+function repPageDragStart(pid){repPageDrag=pid;}
+function repPageDropEv(ev,pid){ev.preventDefault();repPageDrop(pid);}
+function repPageSepCur(){repPageSep(repPage(repOpenReport()).id);}
+function repPageDelete(pid){repMenu=null;repPageId=pid;repDelPage();}
 function repPageStep(d){const r=repOpenReport();if(!r)return;const i=r.pages.indexOf(repPage(r)),p=r.pages[i+d];if(!p)return;repPageId=p.id;repSelW='';render();}
 function repPageMenuOpen(e,pid){e.preventDefault();e.stopPropagation();repMenu={kind:'page',pid,x:e.clientX,y:e.clientY};render();}
 function repPageMenuHTML(r,m,style){
- const p=r.pages.find(x=>x.id===m.pid);if(!p)return '';const i=r.pages.indexOf(p),item=(attr,label,on,cls,dis)=>`<button type="button" role="menuitem" class="${cls||''}" ${attr} ${dis?'disabled':''} onclick="${on}">${label}</button>`;
- return `<div class="sl-ctx rep-page-menu" style="${style}" role="menu" data-rep-page-menu>${item('data-rep-page-rename','Rename…',`repPageRename('${esc(p.id)}')`)}${item('data-rep-orient="portrait"','Portrait'+(p.orient!=='landscape'?' ✓':''),`repPageSet('${esc(p.id)}','orient','portrait')`)}${item('data-rep-orient="landscape"','Landscape'+(p.orient==='landscape'?' ✓':''),`repPageSet('${esc(p.id)}','orient','landscape')`)}<hr>${item('','Move up',`repPageMove('${esc(p.id)}',-1)`,'',!i)}${item('','Move down',`repPageMove('${esc(p.id)}',1)`,'',i>=r.pages.length-1)}${item('data-rep-page-dup','Duplicate page',`repPageDup('${esc(p.id)}')`)}${item('data-rep-page-sep',p.sep?'Remove separator above':'Separator above',`repPageSep('${esc(p.id)}')`)}<hr>${item('data-rep-page-del','Delete page',`repMenu=null;repPageId='${esc(p.id)}';repDelPage()`,'dl',r.pages.length<2)}</div>`;
+ const p=r.pages.find(x=>x.id===m.pid);if(!p)return '';const i=r.pages.indexOf(p),item=(attr,label,on,cls,dis)=>`<button type="button" role="menuitem" class="${cls||''}" ${attr} ${dis?'disabled':''} ${onAct.apply(null,['click'].concat(on))}>${label}</button>`;
+ return `<div class="sl-ctx rep-page-menu" style="${style}" role="menu" data-rep-page-menu>${item('data-rep-page-rename','Rename…',[repPageRename,String(p.id??'')])}${item('data-rep-orient="portrait"','Portrait'+(p.orient!=='landscape'?' ✓':''),[repPageSet,String(p.id??''),'orient','portrait'])}${item('data-rep-orient="landscape"','Landscape'+(p.orient==='landscape'?' ✓':''),[repPageSet,String(p.id??''),'orient','landscape'])}<hr>${item('','Move up',[repPageMove,String(p.id??''),-1],'',!i)}${item('','Move down',[repPageMove,String(p.id??''),1],'',i>=r.pages.length-1)}${item('data-rep-page-dup','Duplicate page',[repPageDup,String(p.id??'')])}${item('data-rep-page-sep',p.sep?'Remove separator above':'Separator above',[repPageSep,String(p.id??'')])}<hr>${item('data-rep-page-del','Delete page',[repPageDelete,String(p.id??'')],'dl',r.pages.length<2)}</div>`;
 }
 function repPageEdit(pid,fn){repMenu=null;repEditCur(r=>{const p=r.pages.find(x=>x.id===pid);if(p)fn(p,r);});}
 function repPageSet(pid,k,v){repPageEdit(pid,p=>{p[k]=v;});}
@@ -58177,17 +58220,21 @@ function repPageDup(pid){let nid='';repPageEdit(pid,(p,r)=>{const c=JSON.parse(J
 function repPageDrop(to){const from=repPageDrag;repPageDrag='';if(!from||from===to)return;repEditCur(r=>{const a=r.pages.findIndex(x=>x.id===from),b=r.pages.findIndex(x=>x.id===to);if(a<0||b<0)return;const [p]=r.pages.splice(a,1);r.pages.splice(b,0,p);});}
 /* Колонка Data: поля источника выбранного графика с типом и поиском; поле
    тянут в Setup (или нажимают — встаёт в Dimension / Metrics); «+ Field» — свой показатель. */
+function repFieldDragStart(kind,el){repDragKey={kind,k:el.dataset.repField};}
+function repDataQSet(v){repDataQ=v;repDataRefresh();}
+function repDataSrcSet(v){repDataSrc=v;render();}
+function repAddControlPick(f){repMenu=null;repAddControl(f);}
 function repDataPanel(r){
  const w=repSelWidget(r),key=w?w.q.source:(REP_SRC[repDataSrc]?repDataSrc:Object.keys(REP_SRC).find(repSourceAllowed)),S=REP_SRC[key];
  if(!S)return '<div class="card rep-data-panel" data-rep-data></div>';
  const q=repDataQ.trim().toLowerCase(),hit=l=>!q||String(l).toLowerCase().includes(q);
  const dims=repFields(S).filter(f=>f.type!=='num'&&hit(f.label)).map(f=>[f.type==='date'?'DATE':'ABC',f.type==='date'?'d':'',f.label,'dim',f.type==='date'?f.k+':month':f.k]);
  const mk=new Set(),mets=repMetricOptions(S).filter(m=>!mk.has(m[0])&&mk.add(m[0])&&hit(m[1])).map(m=>[/^cm:/.test(m[0])?'fx':'123','n',m[1],'metric',m[0]]);
- const row=([t,c,l,kind,k])=>`<div class="rep-field" draggable="true" data-rep-field="${esc(k)}" data-kind="${kind}" title="${w?'Drag into Setup, or click to add':'Pick a chart first'}" ondragstart="repDragKey={kind:'${kind}',k:this.dataset.repField}" onclick="repFieldClick('${kind}',this.dataset.repField)"><i class="${c}">${t}</i><span data-raw>${esc(l)}</span></div>`;
- return `<div class="card rep-data-panel" data-rep-data><h3>Data</h3><input type="search" class="rep-data-q" placeholder="Search fields…" value="${esc(repDataQ)}" oninput="repDataQ=this.value;repDataRefresh()" aria-label="Search fields">
-  ${w?`<div class="rep-data-src"><b data-raw>${esc(S.label)}</b><span class="mut small">${esc(S.group||'')}</span></div>`:`<select aria-label="Data source" onchange="repDataSrc=this.value;render()">${repSrcOptions(key)}</select>`}
+ const row=([t,c,l,kind,k])=>`<div class="rep-field" draggable="true" data-rep-field="${esc(k)}" data-kind="${kind}" title="${w?'Drag into Setup, or click to add':'Pick a chart first'}" ${onAct('dragstart',repFieldDragStart,String(kind),EL)} ${onAct('click',repFieldClick,String(kind),elData('repField'))}><i class="${c}">${t}</i><span data-raw>${esc(l)}</span></div>`;
+ return `<div class="card rep-data-panel" data-rep-data><h3>Data</h3><input type="search" class="rep-data-q" placeholder="Search fields…" value="${esc(repDataQ)}" ${onAct('input',repDataQSet,EL_VALUE)} aria-label="Search fields">
+  ${w?`<div class="rep-data-src"><b data-raw>${esc(S.label)}</b><span class="mut small">${esc(S.group||'')}</span></div>`:`<select aria-label="Data source" ${onAct('change',repDataSrcSet,EL_VALUE)}>${repSrcOptions(key)}</select>`}
   <div class="rep-fields" data-rep-fields><h5>Dimensions</h5>${dims.map(row).join('')||'<div class="mut small">No fields</div>'}<h5>Metrics</h5>${mets.map(row).join('')||'<div class="mut small">No fields</div>'}</div>
-  ${w?`<button type="button" class="sl-btn" data-rep-add-field onclick="repCmOpen('')">+ Field</button>`:''}<div class="hint">Sources: ${esc(REP_GROUPS.join(' · '))}</div></div>`;
+  ${w?`<button type="button" class="sl-btn" data-rep-add-field ${onAct('click',repCmOpen,'')}>+ Field</button>`:''}<div class="hint">Sources: ${esc(REP_GROUPS.join(' · '))}</div></div>`;
 }
 function repDataRefresh(){const el=document.querySelector('[data-rep-data]');const r=repOpenReport();if(!el||!r)return;const pos=el.querySelector('.rep-data-q').selectionStart;el.outerHTML=repDataPanel(r);const q=document.querySelector('[data-rep-data] .rep-data-q');if(q){q.focus();try{q.setSelectionRange(pos,pos);}catch(e){}}}
 function repDragOver(e){if(!repDragKey)return;e.preventDefault();e.currentTarget.classList.add('over');}
@@ -58204,7 +58251,7 @@ function repPlaceField(kind,k,zone){
 function repAddCtlOpen(e){if(e)e.stopPropagation();repMenu=Object.assign({kind:'addctl'},repAt(e));render();}
 function repAddCtlHTML(r,style){
  const labels=repControlFields(r),free=[...labels.keys()].filter(f=>!r.controls.includes(f));
- return `<div class="sl-menu rep-colmenu" style="${style}" role="menu" data-rep-addctl-menu><h5>Filter by</h5>${free.map(f=>`<button type="button" class="sl-btn" data-rep-addctl="${esc(f)}" onclick="repMenu=null;repAddControl('${esc(f)}')">${esc(labels.get(f))}</button>`).join('')||'<div class="mut">Every field is already here.</div>'}</div>`;
+ return `<div class="sl-menu rep-colmenu" style="${style}" role="menu" data-rep-addctl-menu><h5>Filter by</h5>${free.map(f=>`<button type="button" class="sl-btn" data-rep-addctl="${esc(f)}" ${onAct('click',repAddControlPick,String(f??''))}>${esc(labels.get(f))}</button>`).join('')||'<div class="mut">Every field is already here.</div>'}</div>`;
 }
 
 /* ==== src/erp/archive.js ==== */
@@ -59084,7 +59131,9 @@ function archiveIguJoin(g,hot,cold){
  used.forEach((u,k)=>{const a=m.get('ARCH|'+k);if(!a)return;a.qty-=u.qty;a.missing=Math.max(0,a.missing-u.missing);g.sum.forEach(f=>{if(f.endsWith('Ft')||f.endsWith('Kg'))if(a[f])a[f]-=u.qty;});if(Math.abs(a.qty)<1e-6&&!a.missing)m.delete('ARCH|'+k);});
  return [...m.values()];
 }
-Object.keys(ARCH_GENS).forEach(gen=>{const name=ARCH_GENS[gen].fn,fn=window[name];window[name]=function(){return archiveFactsMerge(gen,fn.apply(this,arguments),arguments);};});
+/* Обёртке — имя прежней функции: onAct (core/actions.js) узнаёт действие по имени. */
+Object.keys(ARCH_GENS).forEach(gen=>{const name=ARCH_GENS[gen].fn,fn=window[name];window[name]=function(){return archiveFactsMerge(gen,fn.apply(this,arguments),arguments);};
+ Object.defineProperty(window[name],'name',{value:name});});
 
 /* ==== src/erp/storage-records.js ==== */
 /* =====================================================================
@@ -59934,10 +59983,9 @@ function afterRender(){
    a broken database or in an older version, persisting controls are off. */
 function storageLockButtons(){
  if(storageRecovery||!navigator.locks||storageStale){
-  /* Кнопку записи узнаём по имени действия (data-on-click, core/actions);
-     onclick — пока не все экраны переведены на действия (задание «CSP без inline»). */
-  document.querySelectorAll('#app button[onclick],#app button[data-on-click],#app [data-station-scan]').forEach(el=>{
-   const code=el.getAttribute('onclick')||(el.getAttribute('data-on-click')||'')+'(';
+  /* Кнопку записи узнаём по имени действия (data-on-click, core/actions). */
+  document.querySelectorAll('#app button[data-on-click],#app [data-station-scan]').forEach(el=>{
+   const code=el.getAttribute('data-on-click')+'(';
    if(el.hasAttribute('data-station-scan')||/\b(?:save\w*|\w*Save|\w*Create|stationSubmit|stationMark|stationUndoClick|finConfirmApply|finExportQuickBooks|del\w*|carrierSet)\s*\(/.test(code)){
     el.disabled=true;el.title=storageStale?'Reload this tab to edit.':'Activate editing in this tab to change the database.';
    }
