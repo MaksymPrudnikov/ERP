@@ -112,3 +112,15 @@ Owner, 8 Nov 2026: a customer calls the front desk, gives the PO and asks where 
   is on it in order, where it stands); **✓** — all passed; **·** — not there yet. The order line is the total of its
   glass.
 - An order not in the shop yet (not batched) shows "Not in production yet" and the order status.
+
+## Cancel order and Delete — Finance only
+
+Owner, 13.11.2026: only people with Finance cancel orders; without it — only On Hold, no delete and no cancel.
+
+- **Cancel order** (right click on an order) and **Delete** (above the table and in the right-click menu) work only
+  for a user with the **Finance** box ticked in Users. Others get "Ask Finance to cancel or delete this order." and
+  the order stays as it was.
+- Without Finance there is **On Hold** / **Release** — put the order on hold and ask Finance to cancel it.
+- A **quote** and a **draft** are not orders: no glass, no money. Sales deletes them as before.
+- The command checks the rule, not only the screen: an order cannot be cancelled or deleted without Finance from
+  Optimization, Shipping or a second tab either.

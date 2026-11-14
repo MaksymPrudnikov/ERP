@@ -1,6 +1,6 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 5.312 · 14 ноября 2026 — действия экрана без кода в разметке (`core/actions.js`): Sales, фигуры, списки и общее переведены, осталось 1435 обработчиков из 2095; хендофф — «как устроено сейчас» по разделам, журнал решений — `docs/journal/`.
+Версия 5.313 · 14 ноября 2026 — действия экрана без кода в разметке (`core/actions.js`): Sales, фигуры, списки, общее, Optimization, Production и станции переведены, осталось 958 обработчиков из 2095; Cancel order и Delete заказа — только с галочкой Finance; хендофф — «как устроено сейчас» по разделам, журнал решений — `docs/journal/`.
 
 ## Как читать
 
@@ -56,7 +56,9 @@
   `EL_CHECKED`, `elData('x')`); `event.stopPropagation();f()` → `onActStop`; `if(event.target===this)f()` →
   `onActSelf`; в строке через `'+'` — `'<b '+onAct('click',f)+'>'`. Аргументы — данные, `esc` для них не нужен.
   Несколько шагов, условие, присваивание — маленькая функция рядом со своим экраном (`salesDraftSet`,
-  `salesListDrop`). Код строкой (`${go}`) не передают — передают функцию и аргументы.
+  `salesListDrop`). Код строкой (`${go}`) не передают — передают функцию и аргументы. Переведены: PR 1 — Sales,
+  фигуры, списки, общее; PR 2 — Optimization, Production, станции; осталось 958 в 29 файлах
+  (`node tools/csp-handlers.js`).
 - **Как перевести раздел** (PR 2–5): `node tools/csp-handlers.js --write <файлы>` переводит простые формы и
   печатает остальные «руками» с причиной; `git diff` прочитать по каждому файлу (что проверять — в шапке скрипта);
   функция, которую подменяют на `window[name]`, должна сохранить имя; тесты, искавшие элемент по `[onclick…]`, —
@@ -99,7 +101,12 @@
 - **Price by hand и Adjustments ±** — на любом этапе, клиент «by hand» не видит (07.10). Отрицательный итог —
   Review required.
 - **Delete на любом этапе** (09.10): одно окно последствий; стекло из батчей, PS только этого заказа удаляется,
-  оплаты — на депозит, номер не переиспользуется. Тронутый заказ удаляют Users / Finance / Optimization.
+  оплаты — на депозит, номер не переиспользуется.
+- **Cancel order и Delete заказа — только с галочкой Finance** (13.11): без неё — On Hold / Release, ответ «Ask
+  Finance to cancel or delete this order.». Квоту и черновик (Draft) Sales удаляет как раньше (тронутый черновик —
+  Users / Finance / Optimization). Проверка в командах — `salesCancelDeleteAllowed` в `salesDeleteBlocked` и
+  `salesRecordTransitionAllowed` (`erp/sales/lifecycle.js`); в Sales кнопка отвечает этим текстом, в Optimization
+  и Shipping — серая.
 - **Hold / Cancel units**: юниты выбирает система (непорезанные → меньше работ → закалённые → IGU); цена отмены — по
   работе до Hold (не порезан $0, порезан — отожжённое, после печи — цена лайта, собран — полная); всё отменено:
   $0 → Cancelled, есть сумма → Closed днём отмены (06.10). Решения 12–18 Shipping в `решения-из-заданий.md`.
@@ -174,6 +181,9 @@
   остатки — пустые листья); план `DB.cutPlan` с отпечатком, цифры `cutPlanCounted`; What if и Cut preview — в памяти.
 - Батчи `glass-batches.js` (`glassBatchComponents`, Glass ID `G-` при сохранении заказа, `DB.glassPieceSeq`);
   листы журнала `sheetUsageRows`, бой `DB.sheetBreak`; размеры листов цеха — Inventory → Sheet sizes.
+- Кнопки, поля и перетаскивание экранов Optimization (очередь, батчи, раскрой, стикеры, Stock, Sheets) — действия
+  `onAct` (`core/actions.js`, PR 2 задания CSP, 14.11): в `views/cut-layout-ui.js` менялись только обработчики,
+  логика раскроя — нет. Cancel order и Delete без Finance серые с подсказкой, в меню правой кнопки их нет.
 - Сторожа: `test/cut-layout.js`, `cut-batch`, `cut-offset`, `optimization`, `optimization-fixture`, `glass-batches`,
   `stickers`, `sticker-free-layout`, `sheet-usage`, `sales-cut-estimate`; `tools/cut-bench.js` (данные только у
   владельца).
@@ -213,6 +223,9 @@
 - `shopfloor/scan.js` (`stationCheck`, `stationRecord`, контекст больших заказов `stationScanCtx`), тара
   `shopfloor/carriers.js`, пересчёт `carrier-count.js`, Skip `skip.js`, Unbatch `production-unbatch.js`;
   `stationBulk` и номера блоками `cloudNumbersReserve`; чужая запись с сервера — станция перерисовывается сразу.
+- Экраны станций, Production (Stations, Terminals, Dollies & Skids, окно тары, пересчёт), Skip, Unbatch, Skids,
+  формы Drawing и Dolly / Skid sheet — на действиях `onAct` (PR 2 задания CSP, 14.11); Enter в поле «куда»
+  (`stationDollyMoveKey`, `carrierWinMoveKey`, …) — маленькие функции рядом с экраном.
 - Сторожа: `test/station*.js`, `carriers`, `carrier-form`, `carrier-sheet`, `dollies-count`, `dollies-skids`,
   `skip`, `production-unbatch`, `route-repeat`, `step-unit`, `igu-ready`, `units`.
 
@@ -309,6 +322,8 @@ Ready по скану, packing slip (PS), погрузка на SHIP, части
   отмена или Delete заказа — оплаты на депозит. Отрицательный итог — Review required.
 - Оплаты читают Finance и Sales (продавец видит, сколько оплачено), пишет только Finance; Save заказа без галочки
   Finance проходит (24.10).
+- **Отменить или удалить заказ может только Finance** (13.11): «если нет — можно только отправить на On Hold»;
+  отмена переносит оплаты на депозит (`finReleaseOrder`). Как устроено — Sales.
 
 **Как устроено**
 - Таблицы `FIN_OWN` (receipt, refund, financeTerms, financeEvent, financeExport, financeExportBatch, referrer,
