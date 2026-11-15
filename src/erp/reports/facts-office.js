@@ -67,7 +67,12 @@ function repBreakFacts(){
    обязан забрать… может оставить на месяц»): заказ вовремя, если всё его
    стекло готово к выдаче (скан станции готовности) не позже срока, когда бы
    клиент его ни забрал. On time % — из заказов On time и Late: просроченный
-   невыданный заказ тоже опоздал. */
+   невыданный заказ тоже опоздал.
+   Владелец, 16.11.2026: Recut до выдачи — срок по последнему стеклу, включая
+   переделку («в голове заложено +3 дня, но клиенту нужно выдать в срок»);
+   NCR после выдачи исходный заказ не трогает (переделка — свой заказ без
+   срока); выдача частями — по последнему стеклу; отменённые юниты не ждут.
+   Сторож — test/late-rule.js. */
 let repOrderCache={stamp:'',rows:null};
 /* Отгружен — последний отправленный PS, когда заказ выдан целиком. */
 function repOrderShipped(o){
@@ -94,7 +99,11 @@ function repOrderFacts(){
  /* Когда стекло заказа стало готово к выдаче: последний скан станции готовности. */
  const readySt=shippingStations().ready,index=stationPieceIndex(),readyAt=new Map();
  (DB.stationScan||[]).forEach(s=>{if(s.undoneAt||s.broken||s.park||s.station!==readySt)return;const h=index.get(s.piece);if(!h)return;const t=readyAt.get(h.orderId);if(!t||s.at>t)readyAt.set(h.orderId,s.at);});
+ /* Recut до выдачи (владелец, 16.11.2026: «клиенту нужно выдать в срок»): пока переделка ждёт батча, заказ
+    ещё в Ready, но не готов — срок считается по последнему стеклу, включая переделку. */
+ const recutOrders=new Set((DB.recut||[]).map(r=>r.orderId));
  const pickupReady=(o,done,shipped)=>{
+  if(o.status==='ready'&&recutOrders.has(o.id)&&recutForOrder(o.id).some(r=>recutStatus(r)==='In queue'))return '';
   if(o.status==='ready')return salesListIsoDay(o.statusDates&&o.statusDates.ready)||repDay(readyAt.get(o.id)||'');
   if(done||o.status==='shipping'&&(()=>{const q=shippingSummary(o);return q.glass>0&&q.physicalReady+q.lines.reduce((n,r)=>n+r.shipped,0)>=q.glass;})())return repDay(readyAt.get(o.id)||'')||shipped;
   return '';
