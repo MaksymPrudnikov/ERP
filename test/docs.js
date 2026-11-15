@@ -35,6 +35,12 @@ module.exports=async function({eq}){
   eq('хендофф: раздел на каждую строку «Разделы» карты, не больше 100 КБ (история — в docs/journal/)',
    {missing:rows.filter(n=>!heads.includes(n)),rows:rows.length>10,small:Buffer.byteLength(hand)<=100*1024},
    {missing:[],rows:true,small:true});}
+ /* Файл журнала больше ~500 КБ GitHub показывает сырым текстом (октябрь 2026
+    весил 817 КБ, 15.11.2026). Подходит к пределу — делить месяц по датам
+    на половины (docs/journal/README.md, «Размер файла»). */
+ {const dir=path.join(root,'docs/journal');
+  eq('журнал: каждый файл docs/journal/ не больше 500 КБ — иначе GitHub не показывает разметку',
+   fs.readdirSync(dir).filter(f=>f.endsWith('.md')&&fs.statSync(path.join(dir,f)).size>500*1024),[]);}
  /* Руководство Reports: приложение «все поля и показатели» — то же, что в
     коде (tools/manual-fields.js --write). Владелец, 03.11.2026: «руководство с
     объяснениями — тогда сам сможешь проверять, если что-то дублируется». */
