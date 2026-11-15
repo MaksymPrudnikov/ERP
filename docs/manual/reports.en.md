@@ -160,6 +160,23 @@ A row is a stock line now: a sheet size, an offcut on the rack or in a batch, a 
 Free, Reserved, On order and Minimum are in the row's unit (sheets, pieces, kg, ft); a total adds up one unit only.
 Starter report **Stock now · everything on the shelves** (Inventory).
 
+### 5.3 On time or late (Orders & due dates)
+
+A row is an order with a due date. **On time** — made it, **Late** — did not, **Open** — the due date is still ahead,
+**No due date** — no date set (not counted in On time %).
+
+- **Delivery**: on time when the last trip with the order left on or before the due date.
+- **Pickup**: on time when all glass of the order was scanned at Ready on or before the due date. When the customer
+  picked it up does not matter.
+- The due date has passed and the order is not ready — it is already Late.
+- **Remake before handout (Recut)**: the date of the last glass counts, the remake included. Ready on September 30,
+  one glass broke, the new one is ready on October 12 with a due date of October 8 — the order is Late. While the
+  remake waits for a batch, the order is not counted as ready either.
+- **NCR after handout**: the original order stays On time. The remake is a separate order with no due date and is
+  not counted in On time %.
+- **Handout in parts**: the last glass counts. The rest is ready by the due date — On time, later — Late.
+- **Cancelled units** are not waited for: the rest is ready by the due date — On time.
+
 ## 6. Custom metric
 
 Your own formula, like a calculated field in Looker Studio. Create it once; it then appears in the Metrics list of
