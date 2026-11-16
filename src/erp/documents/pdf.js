@@ -2,7 +2,8 @@
    erp/documents/pdf  ·  documents-1.0
    PDF из листов erp/documents/layout — для письма клиенту.
    IN : листы (текст, прямоугольники, линии, контуры, JPEG-логотип)
-   OUT: байты PDF 1.4
+   OUT: байты PDF 1.4; страница с rotate — повёрнута для читалки (лист чертежа
+        лёжа, erp/documents/drawings-pdf)
    Правило: без внешних библиотек — файл программы открывается с диска. Шрифты
    берутся стандартные Helvetica / Helvetica-Bold в кодировке WinAnsi: их не
    нужно вкладывать в файл, а ширины букв совпадают с раскладкой.
@@ -86,7 +87,7 @@ function docPdfBytes(pages,info){
  const kids=pages.map(pg=>{
   const content=docPdfContent(pg,src=>{const v=images.get(src);return v?v.name:'';},x=>fonts.get(docPdfFontOf(x)));
   const cid=add('<< /Length '+content.length+' >>\nstream\n'+content+'\nendstream');
-  return add('<< /Type /Page /Parent '+pagesId+' 0 R /MediaBox [0 0 612 792] /Resources << /Font << '+fontIds.map(([k,id])=>'/'+k+' '+id+' 0 R').join(' ')+' >>'+xobjects+' >> /Contents '+cid+' 0 R >>');
+  return add('<< /Type /Page /Parent '+pagesId+' 0 R /MediaBox [0 0 612 792]'+(pg.rotate?' /Rotate '+pg.rotate:'')+' /Resources << /Font << '+fontIds.map(([k,id])=>'/'+k+' '+id+' 0 R').join(' ')+' >>'+xobjects+' >> /Contents '+cid+' 0 R >>');
  });
  objs[catalog-1]='<< /Type /Catalog /Pages '+pagesId+' 0 R >>';
  objs[pagesId-1]='<< /Type /Pages /Kids ['+kids.map(k=>k+' 0 R').join(' ')+'] /Count '+kids.length+' >>';

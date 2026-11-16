@@ -178,7 +178,10 @@
   const count = (text, name) => text.split(name).length - 1;
   /* PDF к ответу — как если бы его перетащили мышкой. Не появился в ответе за
      три секунды — файл сохраняется в Загрузки, его перетаскивают сами. */
+  const GMAIL_MAX = 24 * 1024 * 1024;
   async function attachFile(file) {
+    /* Больше 25 МБ Gmail вложением не берёт — сразу в Загрузки. */
+    if (file.size > GMAIL_MAX) { download(file); return 'big'; }
     const c = await composeOpen();
     if (!c) { download(file); return 'saved'; }
     const before = count(document.body.innerText, file.name), dt = new DataTransfer();
@@ -206,11 +209,14 @@
       else if (await insertText(r.text)) { st.info = r.name + ' — in the reply'; send({ req: 'mailLog', orderId: m.orderId, kind: 'text', note: 'Template: ' + r.name }); }
       else st.note = 'Open the reply in Gmail first.';
     } else {
+      st.info = 'Preparing ' + item.label + '…'; render();
       const r = await send({ req: 'document', orderId: m.orderId, key: item.key });
+      st.info = '';
       if (r && r.error) st.note = TEXTS[r.error] || r.error;
       else {
         const how = await attachFile(fileOf(r));
-        st.info = how === 'attached' ? r.name + ' — attached' : r.name + ' saved to Downloads — drag it into the reply';
+        const mb = Math.round(r.data.length * 3 / 4 / 1048576);
+        st.info = how === 'attached' ? r.name + ' — attached' : how === 'big' ? r.name + ' is ' + mb + ' MB — too big for Gmail, saved to Downloads' : r.name + ' saved to Downloads — drag it into the reply';
         send({ req: 'mailLog', orderId: m.orderId, kind: 'doc', note: r.label });
       }
     }

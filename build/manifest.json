@@ -115,6 +115,7 @@
   "src/erp/documents/model.js",
   "src/erp/documents/layout.js",
   "src/erp/documents/pdf.js",
+  "src/erp/documents/drawings-pdf.js",
   "src/erp/documents/forms.js",
   "src/erp/documents/order-form.js",
   "src/erp/documents/drawing-form.js",
