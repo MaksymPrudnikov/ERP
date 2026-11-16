@@ -223,14 +223,20 @@
     }
     return Object.assign({}, r, { data });
   }
+  /* Пока ERP готовила текст или PDF, человек мог открыть другое письмо —
+     тогда в его ответ ничего не кладём (аудит 17.11.2026, P1). */
+  const sameThread = t => !!cur && cur.email.threadId === t;
+  const MOVED = 'You opened another email. Open the first one and try again.';
   async function pick(item) {
     const m = st.menu;
     if (!m || st.busy) return;
+    const thread = cur && cur.email.threadId;
     st.busy = true; st.note = ''; st.info = ''; render();
     try {
       if (m.kind === 'text') {
         const r = await send({ req: 'reply', orderId: m.orderId, templateId: item.id, from: email() ? email().from : '' });
         if (r && r.error) st.note = TEXTS[r.error] || r.error;
+        else if (!sameThread(thread)) st.note = MOVED;
         else if (await insertText(r.text)) { st.info = r.name + ' — in the reply'; send({ req: 'mailLog', orderId: m.orderId, kind: 'text', note: 'Template: ' + r.name }); }
         else st.note = 'Open the reply in Gmail first.';
       } else {
@@ -238,9 +244,10 @@
         const r = await fetchDoc(m.orderId, item.key);
         st.info = '';
         if (r && r.error) st.note = TEXTS[r.error] || r.error;
+        else if (!sameThread(thread)) st.note = MOVED;
         else {
           const how = await attachFile(fileOf(r));
-          if (how === 'attached') { st.info = r.name + ' — attached'; send({ req: 'mailLog', orderId: m.orderId, kind: 'doc', note: r.label }); }
+          if (how === 'attached') { st.info = r.name + ' — attached' + (r.note ? ' · ' + r.note : ''); send({ req: 'mailLog', orderId: m.orderId, kind: 'doc', note: r.label }); }
           else st.note = how === 'noreply' ? 'Open the reply in Gmail first.' : 'Gmail did not take ' + r.name + '. Try again.';
         }
       }

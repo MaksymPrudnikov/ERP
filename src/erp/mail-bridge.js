@@ -178,7 +178,7 @@ function mailDocument(m){
  const o=mailOrderOf(m),key=String(m.key||'');if(!o)return {error:'missing'};
  const d=mailDocList(o).find(x=>x.key===key);if(!d||d.off)return {error:'This document is not available for the order.'};
  /* Чертежи рисуются картинками — не сразу: ответ — Promise (мост ждёт его). */
- if(key==='drawings')return docDrawingsPdf(o).then(r=>mailFileKeep(r.name,'Drawings · '+r.sheets+(r.sheets===1?' sheet':' sheets')+(r.skipped?' · '+r.skipped+' could not be drawn':''),r.bytes),e=>({error:e&&e.message||'The drawings could not be prepared.'}));
+ if(key==='drawings')return docDrawingsPdf(o).then(r=>Object.assign(mailFileKeep(r.name,'Drawings · '+r.sheets+(r.sheets===1?' sheet':' sheets'),r.bytes),{note:[r.missing.length?(r.missing.length===1?'line ':'lines ')+r.missing.join(', ')+' — no drawing':'',r.skipped?r.skipped+(r.skipped===1?' sheet':' sheets')+' could not be drawn':''].filter(Boolean).join(' · ')}),e=>({error:e&&e.message||'The drawings could not be prepared.'}));
  let pages,name,title;
  if(key.startsWith('ps:')){const s=shippingFind(key.slice(3));pages=shippingPages(shippingDocument(s));title='Packing slip '+s.number;name=title.replace(/[^A-Za-z0-9]+/g,'_')+'.pdf';}
  else{pages=docPages(Object.assign(docBuildModel(key,o,docDefaultOptions(key)),{form:''}));title=docKindLabel(key)+' '+(o.businessNumber||'draft');name=docFileName(key,o);}

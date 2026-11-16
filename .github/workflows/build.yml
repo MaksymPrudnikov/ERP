@@ -32,6 +32,7 @@ on:
       - 'docs/**'             # test/docs.js сверяет документы с кодом
       - '*.md'
       - 'templates/**'
+      - 'extension/**'        # расширение Gmail: test/gmail-extension.js (аудит 17.11.2026)
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/build.yml'
@@ -45,6 +46,7 @@ on:
       - 'docs/**'             # test/docs.js сверяет документы с кодом
       - '*.md'
       - 'templates/**'
+      - 'extension/**'        # расширение Gmail: test/gmail-extension.js (аудит 17.11.2026)
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/build.yml'

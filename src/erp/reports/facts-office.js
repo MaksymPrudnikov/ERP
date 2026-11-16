@@ -103,7 +103,8 @@ function repOrderFacts(){
     ещё в Ready, но не готов — срок считается по последнему стеклу, включая переделку. */
  const recutOrders=new Set((DB.recut||[]).map(r=>r.orderId));
  const pickupReady=(o,done,shipped)=>{
-  if(o.status==='ready'&&recutOrders.has(o.id)&&recutForOrder(o.id).some(r=>recutStatus(r)==='In queue'))return '';
+  /* И после выдачи частями (Shipping): остаток с переделкой в очереди ещё не готов (аудит 17.11.2026). */
+  if((o.status==='ready'||o.status==='shipping')&&recutOrders.has(o.id)&&recutForOrder(o.id).some(r=>recutStatus(r)==='In queue'))return '';
   if(o.status==='ready')return salesListIsoDay(o.statusDates&&o.statusDates.ready)||repDay(readyAt.get(o.id)||'');
   if(done||o.status==='shipping'&&(()=>{const q=shippingSummary(o);return q.glass>0&&q.physicalReady+q.lines.reduce((n,r)=>n+r.shipped,0)>=q.glass;})())return repDay(readyAt.get(o.id)||'')||shipped;
   return '';

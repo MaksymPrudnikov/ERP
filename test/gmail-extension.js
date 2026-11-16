@@ -149,7 +149,25 @@ module.exports = async function ({ eq }) {
       return what;
     })(), ['Customer email']);
 
+    eq('Панель: пока ERP готовит PDF, открыли другое письмо — в его ответ файл не кладётся, панель говорит почему (аудит 17.11.2026, P1)', await (async () => {
+      await e.evaluate(() => { window.realDrawings = docDrawingsPdf; window.gate = new Promise(r => { window.openGate = r; }); docDrawingsPdf = async o => { await gate; return realDrawings(o); }; });
+      await show(john('FMfcgzQXKWgLlNmPqRsTuVwXyZaBcDe4', 'Pickup', 'When can we pick up?'));
+      await until(has('units done'));
+      const before = await g.evaluate(() => document.querySelectorAll('.att').length);
+      await click('Attach PDF'); await until(has('Drawings'));
+      await g.evaluate(() => { const s = document.getElementById('gf-mail-panel').shadowRoot; [...s.querySelectorAll('.menu .mi')].find(x => x.textContent.includes('Drawings')).click(); });
+      await until(has('Preparing'));
+      await show(john('FMfcgzQXKWgLlNmPqRsTuVwXyZaBcDe8', 'Other thread', 'Something else.'));
+      await e.evaluate(() => openGate());
+      const p = await until(has('another email'));
+      const after = await g.evaluate(() => document.querySelectorAll('.att').length);
+      await e.evaluate(() => { docDrawingsPdf = realDrawings; });
+      return { said: !!p && p.text.includes('another email'), att: after - before };
+    })(), { said: true, att: 0 });
+
     eq('Панель: Edit templates in ERP — вкладка ERP выходит вперёд на Master Data → Email templates', await (async () => {
+      await show(john('FMfcgzQXKWgLlNmPqRsTuVwXyZaBcDe4', 'Pickup', 'When can we pick up?'));
+      await until(has('units done'));
       await click('Reply text'); await until(has('Edit templates in ERP'));
       await g.evaluate(() => { const s = document.getElementById('gf-mail-panel').shadowRoot, el = [...s.querySelectorAll('.menu .mi')].find(x => x.textContent.includes('Edit templates')); el.click(); });
       await e.waitForFunction(() => tab === 'masterdata' && mdTab === 'emails', null, { timeout: 8000 }).catch(() => null);

@@ -79,6 +79,11 @@ module.exports=async function({page,eq}){
   const land=atob((await mbDoc(mtA,'drawings')).data);delete DB.formTemplate[k];
   return {docs,name:r.name===('Drawings '+salesRecord(mtA).businessNumber).replace(/[^A-Za-z0-9]+/g,'_')+'.pdf',label:r.label,head:pdf.slice(0,5),pages,rotate:[(pdf.match(/\/Rotate 90/g)||[]).length,(land.match(/\/Rotate 90/g)||[]).length]};
  }),{docs:['Drawings · 2 lines · 1 PDF'],name:true,label:'Drawings · 2 sheets',head:'%PDF-',pages:2,rotate:[0,2]});
+ eq('Мост: строка без чертежа в PDF не входит, и это сказано — «line 2 — no drawing» (аудит 17.11.2026)',await run(async()=>{
+  const l=salesRecord(mtA).lines[1],keep=l.shapeRef;l.shapeRef=null;
+  const r=await mbDoc(mtA,'drawings');l.shapeRef=keep;
+  return {label:r.label,note:r.note,pages:(atob(r.data).match(/\/Type \/Page /g)||[]).length};
+ }),{label:'Drawings · 1 sheet',note:'line 2 — no drawing',pages:1});
  eq('Мост: письмо с ящика Gmail и с адреса нашего домена (не из карточки клиента) — «Reply sent»; клиент и чужой домен — «Customer email»; ящик не узнали — наше всё, чего нет у клиента',await run(()=>{
   orderEmailAdd(mtB,{threadId:'18c3f2a9b1d4e5bb',from:'john@abcglass.example',subject:'Pickup'});
   const m=(id,from)=>({id:'18c3f2a9b1d4f2'+id,from,name:'',at:'2026-11-16T1'+id.slice(-1)+':00:00.000Z'});
