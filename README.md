@@ -33,6 +33,7 @@
 | `test/` | Регрессионные и браузерные тесты (`test/run.js`) |
 | `tools/` | Предпуск, снимки экранов, симулятор цеха, замер скорости, SQL сервера (`tools/supabase/`) |
 | `docs/` | Хендофф, журнал, руководство, статус станочного экспорта |
+| `extension/` | Расширение Chrome «Glass Farm for Gmail»: заказ рядом с письмом ([`extension/gmail/README.md`](extension/gmail/README.md)) |
 | `templates/` | CSV для загрузки каталога стекла, листов и станций ([`templates/README.md`](templates/README.md)) |
 
 Файл за файлом — раздел «Все модули» в [`КАРТА-ПРОЕКТА.md`](КАРТА-ПРОЕКТА.md).

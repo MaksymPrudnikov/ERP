@@ -7,7 +7,6 @@
   "permissions": ["scripting"],
   "host_permissions": [
     "https://marketing-farm.agency/*",
-    "https://maksymprudnikov.github.io/*",
     "http://127.0.0.1/*",
     "http://localhost/*",
     "file:///*GLASS_ERP*"
@@ -22,7 +21,6 @@
     {
       "matches": [
         "https://marketing-farm.agency/*",
-        "https://maksymprudnikov.github.io/*",
         "http://127.0.0.1/*",
         "http://localhost/*",
         "file:///*GLASS_ERP*"

@@ -2,10 +2,10 @@
    Пересылает запрос панели из вкладки Gmail во вкладку ERP и ответ обратно.
    Сети нет: только сообщения между вкладками этого браузера.
    Адреса ERP — здесь и в manifest.json (host_permissions и content_scripts):
-   новый домен ERP добавляется в оба места. */
+   новый домен ERP добавляется в оба места. Старого адреса github.io нет: он
+   переводит на marketing-farm.agency, а на том же github.io — другие сайты. */
 const ERP_MATCH = [
   'https://marketing-farm.agency/*',
-  'https://maksymprudnikov.github.io/*',
   'http://127.0.0.1/*',
   'http://localhost/*',
   /* ERP файлом с диска (пакет для проверки): в chrome://extensions → Details →
