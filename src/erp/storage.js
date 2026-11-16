@@ -1005,6 +1005,7 @@ function normalizeDB(){
  if(typeof normalizeFinanceLedger==='function')normalizeFinanceLedger();
  if(typeof normalizeCommissions==='function')normalizeCommissions();
  if(typeof normalizeOrderLog==='function')normalizeOrderLog();
+ if(typeof normalizeMailTemplates==='function')normalizeMailTemplates();
  if(typeof normalizeMdLog==='function')normalizeMdLog();
  if(typeof normalizePriceLists==='function')normalizePriceLists();
  if(typeof normalizeAuthLog==='function')normalizeAuthLog();

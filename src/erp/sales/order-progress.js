@@ -7,7 +7,8 @@
         glassCutKeys (erp/production/glass-batches), prodBoard
         (views/production-board), salesStatusLabel (erp/sales/lifecycle),
         archiveIndex (erp/archive), location.hash
-   OUT: salesOrderProgress(o); salesOrderHash, salesOrderHashOpen
+   OUT: salesOrderProgress(o), salesLineProgress(o) — то же по строкам;
+        salesOrderHash, salesOrderHashOpen
    Заказчик задания, 15.11.2026: клиент письмом спрашивает статус — «сразу
    видно, сколько из скольки выполнено»; показать «максимально логично, чтобы
    никого не запутать». Поэтому все юниты заказа разложены на четыре кучки,
@@ -32,6 +33,17 @@ function salesProgressStations(o){
  const x=typeof prodBoard==='function'?prodBoard().find(r=>r.o.id===o.id):null;if(!x)return [];
  return (DB.station||[]).filter(s=>x.route[s.code]).map(s=>({code:s.code,waiting:x.route[s.code].w,passed:x.route[s.code].p,total:x.route[s.code].n}));
 }
+/* Те же четыре кучки по каждой строке заказа: шаблоны писем перечисляют
+   строки back order (erp/sales/mail-templates). Сумма по строкам — ровно
+   salesOrderProgress. s — shippingSummary(o), если уже посчитан. */
+function salesLineProgress(o,s){
+ s=s||shippingSummary(o);
+ const live=!['cancelled','closed','done'].includes(o.status),active=live?glassBatchActive(o.id):null;
+ return s.lines.map(r=>{
+  const ready=Math.min(r.physicalReady,Math.max(0,r.ordered-r.shipped)),left=r.ordered-r.shipped-ready,none=live?salesProgressNotStarted(o,r.l,left,active):left;
+  return {l:r.l,ordered:r.ordered,shipped:r.shipped,delivered:r.delivered,ready,inProduction:left-none,notStarted:none};
+ });
+}
 function salesOrderProgress(o){
  if(!o)return null;
  if(salesIsQuote(o)){
@@ -39,12 +51,9 @@ function salesOrderProgress(o){
   return {kind:'quote',status:salesStatusLabel(o,st),statusKey:st,sentAt:o.sentAt||'',validUntil:st==='won'?'':salesQuoteValidUntil(o),wonOrderId:o.wonOrderId||'',
    units:{total:(o.lines||[]).reduce((n,l)=>n+salesPositiveInt(l.qty,1),0)}};
  }
- const s=shippingSummary(o),live=!['cancelled','closed','done'].includes(o.status),active=live?glassBatchActive(o.id):null;
+ const s=shippingSummary(o),live=!['cancelled','closed','done'].includes(o.status);
  const u={total:0,shipped:0,ready:0,inProduction:0,notStarted:0};
- s.lines.forEach(r=>{
-  const ready=Math.min(r.physicalReady,Math.max(0,r.ordered-r.shipped)),left=r.ordered-r.shipped-ready,none=live?salesProgressNotStarted(o,r.l,left,active):left;
-  u.total+=r.ordered;u.shipped+=r.shipped;u.ready+=ready;u.notStarted+=none;u.inProduction+=left-none;
- });
+ salesLineProgress(o,s).forEach(r=>{u.total+=r.ordered;u.shipped+=r.shipped;u.ready+=r.ready;u.notStarted+=r.notStarted;u.inProduction+=r.inProduction;});
  u.done=u.shipped+u.ready;
  const extras=s.extras.length?{ordered:s.extras.reduce((n,x)=>n+x.ordered,0),shipped:s.extras.reduce((n,x)=>n+x.shipped,0)}:null;
  return {kind:'order',status:salesStatusLabel(o),statusKey:o.status,onHold:!!o.onHold,holdReason:o.onHold?o.holdReason||'':'',due:o.dueDate||'',units:u,extras,

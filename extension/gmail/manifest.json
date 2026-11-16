@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Glass Farm for Gmail",
   "short_name": "Glass Farm",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Shows the Glass Farm ERP order next to the open Gmail email. Data moves only between the Gmail tab and the Glass Farm tab on this computer.",
   "permissions": ["scripting"],
   "host_permissions": [

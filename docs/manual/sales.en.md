@@ -131,7 +131,8 @@ Orders arrive by email. The order keeps a link to the conversation, so the origi
   conversation of the order. Right-click an order → **Open email**. In ⚙ Columns you can turn on the **Email**
   column — the email subject; its filter "Is empty" shows orders without an email.
 - **Copy** does not copy the emails. A new quote revision and **Convert** to an order carry them over.
-- **Activity log**: "Email linked", "Email removed".
+- **Activity log**: "Email linked", "Email removed"; the **Emails** filter shows only emails: the conversation emails,
+  templates and documents from the Gmail panel ([gmail.en.md](gmail.en.md)).
 
 ## A link to an order
 

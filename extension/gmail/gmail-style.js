@@ -82,5 +82,21 @@ input.in:focus{outline:2px solid var(--accent-line);border-color:var(--accent)}
 .foot .ft{display:flex;align-items:center;gap:8px;color:var(--text-2);cursor:pointer}
 .foot .ft b{font-weight:600;color:var(--text)}
 .foot .ft span{margin-left:auto;color:var(--text-3)}
+.acts{display:grid;grid-template-columns:1fr 38px 38px;gap:6px}
+.acts button.b{margin:0}
+button.b.ic{padding:0;color:var(--text-2)}
+button.b.ic svg{width:19px;height:19px}
+button.b.ic.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.menu{margin:8px 0 0;border:1px solid var(--line);border-radius:11px;padding:4px;background:var(--surface);box-shadow:0 10px 28px rgba(16,24,40,.12)}
+.menu .sec{font-size:10.5px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;padding:6px 8px 3px}
+.menu .mi{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 8px;border-radius:7px;font-size:12.5px;cursor:pointer}
+.menu .mi:hover{background:var(--accent-soft);color:var(--accent)}
+.menu .mi small{color:var(--text-3);font-size:11px;white-space:nowrap}
+.menu .mi.off{color:var(--text-3);cursor:default;background:transparent}
+.menu .mi.ed{color:var(--text-2)}
+.menu hr{border:0;border-top:1px solid var(--line-soft);margin:4px 2px}
+.talk{margin:0 0 9px;padding:7px 9px;border-radius:9px;background:var(--surface-2);font-size:12px;color:var(--text-2);line-height:1.5}
+.talk b{color:var(--text);font-weight:600}
+.info{color:var(--success);font-size:12px;margin:0 0 8px}
 .foot .fm{display:grid;gap:4px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line);color:var(--text-2);font-size:12px}
 `;

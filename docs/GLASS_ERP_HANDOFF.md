@@ -1,6 +1,6 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 5.320 · 16 ноября 2026 — панель Glass Farm в Gmail — расширение Chrome `extension/gmail/`: заказ рядом с открытым письмом (статус, сколько готово, где стекло), Create order / Create quote / Link to order / Open in ERP; ответы даёт мост `erp/mail-bridge.js`; прогресс заказа и адрес `#order=`; письмо Gmail в заказе (этапы 1–4 задания `docs/ЗАДАЧА_ПОЧТА_ЗАКАЗЫ.md`).
+Версия 5.321 · 16 ноября 2026 — шаблоны ответов клиенту (Master Data → Email templates, поля `{order}`, `{back order lines}`…), в панели Gmail конверт — текст по шаблону в ответ, скрепка — PDF бланка к ответу; письма привязанной переписки и кнопки панели — в журнале заказа (Activity log → Emails).
 
 ## Как читать
 
@@ -162,6 +162,12 @@
   запасная `orderEmailFindUrl` (поиск по отправителю и теме); адрес из строки браузера — `orderEmailFromLink`.
   Экран — `salesMailRow` / `salesMailStrip` (`views/sales.js`), в списке — `salesListMailCell` (`views/sales-list-ui.js`): у закрытого заказа шапка `inert`, письма — полосой
   над ней. Журнал заказа: «Email linked», «Email removed» (`orderEmailLogNotes`).
+- Шаблоны ответов: `erp/sales/mail-templates.js` — `DB.emailTemplate` (свои и правленые; четыре встроенных
+  `MAIL_TPL_BUILTIN`, удалённый встроенный — строка `{id, deleted:true}`), поля `MAIL_TPL_FIELDS` по группам,
+  `mailTplRender(text, order, {from})`: неизвестное поле остаётся в тексте, нет данных — пусто, денег в полях нет;
+  back order — только строки с остатком (`salesLineProgress`, те же четыре кучки по строкам), состав — именами стекла,
+  как на бланках клиента; подпись `{my name}` — вошедший. Экран — `views/md-mail-templates.js` (Master Data → Company &
+  print → Email templates, правит галочка Master Data).
 - Прогресс: `erp/sales/order-progress.js` — `salesOrderProgress(o)` → статус, Hold, срок, `units {total, shipped, ready,
   inProduction, notStarted, done}` (четыре кучки в сумме всегда `total`, `done = shipped + ready`), товары склада
   отдельно (`extras`), станции — клетки `prodBoard` и только пока стекло в цеху. Отгружено и готово — из
@@ -177,23 +183,31 @@
   (`linked`, `closed`, `archived`; заказ из открытого письма первым) либо до трёх открытых заказов клиента, счётчик и
   `known` — номера и PO для поиска в тексте на стороне панели; `orders {ids}`; `search {q}`. Команды: `openOrder`,
   `openCustomer` (Sales с фильтром по клиенту), `newOrder` (черновик с клиентом и письмом), `linkEmail`. Текст письма
-  мост не получает, сам ничего не привязывает, денег в ответах нет. «Открытый» — `mailIsOpen` (выданный — 14 дней).
+  мост не получает, сам ничего не привязывает, денег в ответах нет. Ответ: `templates`, `reply` (текст шаблона на заказе), `documents`, `document`
+  (PDF бланка base64: Work order, Order confirmation, Proforma, Invoice — после последнего юнита, отправленные PS;
+  у квоты — Quote; настройки бланков из Master Data), `mailLog` («Reply text», «Document attached»), `threadLog` —
+  письма привязанной переписки в журнал каждого её заказа: «Customer email» / «Reply sent» (письмо с ящика,
+  открытого в Gmail), только время, кто и тема, одна запись на письмо (id события `OEM-<заказ>-<письмо>`); `lookup`
+  у привязанного заказа несёт `talk` — последнее письмо клиента и наш ответ. «Открытый» — `mailIsOpen` (выданный — 14 дней).
   Указатель архива несёт ветки заказа (`mail` в `archiveRowOf`). Правила — раздел «Логика панели» задания.
 - Панель в Gmail — расширение Chrome `extension/gmail/` (не модуль ERP, в `build/manifest.json` его нет; устройство и
   правила — `extension/gmail/README.md`): `gmail.js` читает открытую ветку (разметка Gmail — объект `SEL`), ищет номера
   из `known` в тексте сам, рисует панель (`createElement`, закрытый Shadow DOM); `background.js` находит вкладку ERP;
-  `erp.js` передаёт сообщения странице. Сети нет. Адреса ERP — `manifest.json` и `ERP_MATCH`, совпадают (тест);
+  `erp.js` передаёт сообщения странице. Под карточкой — Open in ERP, конверт (текст в поле ответа:
+  `execCommand('insertText')` там, где курсор; поля нет — нажимает Reply) и скрепка (PDF «перетаскивается» в ответ
+  событием drop; не появился за 3 с — сохраняется в Загрузки); кнопки не забирают фокус у Gmail. Время писем для
+  журнала — подсказка у даты (английский Gmail). Сети нет. Адреса ERP — `manifest.json` и `ERP_MATCH`, совпадают (тест);
   старого `maksymprudnikov.github.io` в них нет: он переводит на сайт ERP, а на нём же — другие сайты владельца;
   ERP файлом с диска — `file:///*GLASS_ERP*` и «Allow access to file URLs». Разметка настоящего Gmail проверяется
   на пилоте — тест идёт по образцу.
 - Сторожа: `test/order-totals.js` + эталоны `order-totals-fixture.js`, `money`, `line-metrics`, `line-measure`,
   `shape-cut-billing`, `order-delete`, `order-draft`, `copy-order`, `unit-cancel`, `batched-line-qty`, `dxf-import`,
-  `quotes`, `lifecycle`, `save-job`, `order-emails`, `order-progress`, `mail-bridge`, `gmail-extension`.
+  `quotes`, `lifecycle`, `save-job`, `order-emails`, `order-progress`, `mail-bridge`, `mail-templates`,
+  `gmail-extension`.
 
 **Открыто**: количество 0, минус и текст молча становятся 1; Ctrl+F дальше 400 строк не находит; ссылка на ветку
-Gmail `…/u/0/#all/<ветка>` на настоящем ящике открывает письмо (проверено 16.11), вариант с ящиком
-(`…/u/?authuser=<ящик>#all/<ветка>`, его ставит панель) и разметка настоящего Gmail для панели не проверены —
-пилот, этап 5 задания.
+Gmail открывает письмо в ящике, где его привязали (`authuser`), панель читает настоящий Gmail — проверено владельцем
+16.11; вставка текста и PDF в ответ настоящего Gmail — по образцу в тесте, проверяется на пилоте.
 
 ## Optimization
 
