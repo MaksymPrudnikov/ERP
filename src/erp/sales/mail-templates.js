@@ -136,7 +136,7 @@ const MAIL_TPL_FIELDS=[
   ['ready','Units ready to ship',c=>mailTplNum(c.u().ready)],
   ['in production','Units in the shop',c=>mailTplNum(c.u().inProduction)],
   ['not started','Units not in production yet',c=>mailTplNum(c.u().notStarted)],
-  ['back order','Units not shipped yet',c=>{const u=c.u();return typeof u.total==='number'?String(u.total-(u.shipped||0)):'';}],
+  ['back order','Units not shipped yet',c=>{const u=c.u();return !salesIsQuote(c.o)&&typeof u.total==='number'?String(u.total-(u.shipped||0)):'';}],
   ['cancelled','Cancelled units',c=>String((c.o.cancellations||[]).reduce((n,x)=>n+(x.units||[]).length,0))],
   ['where is the glass','Stations where lites wait',c=>(c.p().stations||[]).filter(s=>s.waiting).map(s=>s.code+' — '+s.waiting+(s.waiting===1?' lite':' lites')).join(', ')]
  ]},

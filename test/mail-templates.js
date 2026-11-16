@@ -77,6 +77,19 @@ module.exports=async function({page,eq}){
   const land=atob((await mb('document',{orderId:mtA,key:'drawings'})).data);delete DB.formTemplate[k];
   return {docs,name:r.name===('Drawings '+salesRecord(mtA).businessNumber).replace(/[^A-Za-z0-9]+/g,'_')+'.pdf',label:r.label,head:pdf.slice(0,5),pages,rotate:[(pdf.match(/\/Rotate 90/g)||[]).length,(land.match(/\/Rotate 90/g)||[]).length]};
  }),{docs:['Drawings · 2 lines · 1 PDF'],name:true,label:'Drawings · 2 sheets',head:'%PDF-',pages:2,rotate:[0,2]});
+ eq('Мост: письмо с ящика Gmail и с адреса нашего домена (не из карточки клиента) — «Reply sent»; клиент и чужой домен — «Customer email»; ящик не узнали — наше всё, чего нет у клиента',await run(()=>{
+  orderEmailAdd(mtB,{threadId:'18c3f2a9b1d4e5bb',from:'john@abcglass.example',subject:'Pickup'});
+  const m=(id,from)=>({id:'18c3f2a9b1d4f2'+id,from,name:'',at:'2026-11-16T1'+id.slice(-1)+':00:00.000Z'});
+  mb('threadLog',{threadId:'18c3f2a9b1d4e5bb',account:'sales@infinity.example',subject:'Pickup',messages:[m('01','john@abcglass.example'),m('02','sales@infinity.example'),m('03','daniel@infinity.example'),m('04','bob@other.example')]});
+  orderEmailAdd(mtB,{threadId:'18c3f2a9b1d4e5cc',from:'john@abcglass.example',subject:'Pickup 2'});
+  mb('threadLog',{threadId:'18c3f2a9b1d4e5cc',account:'',subject:'Pickup 2',messages:[m('05','anna@abcglass.example'),m('06','daniel@infinity.example')]});
+  return DB.orderEvent.filter(e=>e.orderId===mtB&&/^OEM-/.test(e.id)).sort((a,b)=>a.at.localeCompare(b.at)).map(e=>e.by+' · '+e.what);
+ }),['john@abcglass.example · Customer email','sales@infinity.example · Reply sent','daniel@infinity.example · Reply sent','bob@other.example · Customer email','anna@abcglass.example · Customer email','daniel@infinity.example · Reply sent']);
+ eq('Чертежи клиенту — базовый вид из Forms → Drawing: Metric detail этого компьютера (мм) на PDF не влияет и остаётся включённым',await run(()=>{
+  const o=salesRecord(mtA),mm=()=>docDrawingSheetsOf(o)[0].html,base=mm();
+  setShapeMetricDetail(true);const withMetric=mm(),still=sMetricDetail;setShapeMetricDetail(false);
+  return {same:withMetric===base,still};
+ }),{same:true,still:true});
  eq('Шаблоны: без ошибок в странице',t.errs,[]);
  await t.c.close();
 };

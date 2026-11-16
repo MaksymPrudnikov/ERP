@@ -12,6 +12,7 @@ Create order, Create quote, Link to order, Open in ERP; под карточко�
 | `manifest.json` | — | Manifest V3. Разрешения: `scripting` и адреса ERP; Gmail — только для панели |
 | `gmail-style.js` | вкладка Gmail | Вид панели: цвета Glass Farm (`src/styles/tokens.css`), Shadow DOM |
 | `gmail.js` | вкладка Gmail | Читает открытую ветку, ищет номера заказов в тексте, рисует панель. Разметка Gmail — объект `SEL` в начале |
+| `gmail-attach.js` | вкладка Gmail, мир страницы | Скрепка: вместо окна выбора файла кладёт PDF в input type=file кнопки Attach files (`world: MAIN`) |
 | `background.js` | фон | Находит вкладку ERP, пересылает запрос и ответ, выводит ERP вперёд |
 | `erp.js` | вкладка ERP | Передаёт запрос странице ERP (`window.postMessage`) и ответ обратно |
 

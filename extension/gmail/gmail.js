@@ -26,7 +26,9 @@
     body: 'div.a3s',
     /* Поле ответа и кнопка Reply под перепиской. */
     compose: 'div[contenteditable="true"][role="textbox"]',
-    reply: 'span.ams.bkH'
+    reply: 'span.ams.bkH',
+    /* Кнопка Attach files в поле ответа (скрепка Gmail). */
+    attach: '[command="Files"], [aria-label^="Attach files"]'
   };
   const ADDRESS = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
   const TEXTS = {
@@ -170,24 +172,39 @@
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
     return new File([bytes], doc.name, { type: 'application/pdf' });
   }
+  /* В Загрузки. Ссылка не в странице: Gmail ловит клики по ссылкам на
+     странице и открывал файл новым окном (проверка владельца 16.11.2026). */
   function download(file) {
     const a = document.createElement('a'), url = URL.createObjectURL(file);
-    a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
+    a.href = url; a.download = file.name; a.rel = 'noopener'; a.click();
     setTimeout(() => URL.revokeObjectURL(url), 4000);
   }
+  /* Кнопка Attach files того ответа, где поле: ищем вверх от поля. */
+  function attachButton(c) {
+    for (let e = c; e && e !== document.body; e = e.parentElement) { const b = e.querySelector(SEL.attach); if (b) return b; }
+    return null;
+  }
+  function press(el) {
+    ['mousedown', 'mouseup', 'click'].forEach(type => el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window })));
+  }
   const count = (text, name) => text.split(name).length - 1;
-  /* PDF к ответу — как если бы его перетащили мышкой. Не появился в ответе за
-     три секунды — файл сохраняется в Загрузки, его перетаскивают сами. */
+  /* PDF к ответу: кнопка Attach files ответа, а файл кладёт gmail-attach.js
+     (мир страницы) вместо окна выбора. Нет кнопки или файл не появился — как
+     если бы его перетащили мышкой; не появился и так — в Загрузки. */
   const GMAIL_MAX = 24 * 1024 * 1024;
   async function attachFile(file) {
     /* Больше 25 МБ Gmail вложением не берёт — сразу в Загрузки. */
     if (file.size > GMAIL_MAX) { download(file); return 'big'; }
     const c = await composeOpen();
     if (!c) { download(file); return 'saved'; }
-    const before = count(document.body.innerText, file.name), dt = new DataTransfer();
+    const before = count(document.body.innerText, file.name), shown = async ms => { for (let i = 0; i < ms / 100; i++) { await sleep(100); if (count(document.body.innerText, file.name) > before) return true; } return false; };
+    const btn = attachButton(c);
+    /* Сообщение доходит до страницы не сразу — кнопку жмём после него. */
+    if (btn) { window.postMessage({ gf: 'attach-file', file }, location.origin); await sleep(50); press(btn); if (await shown(5000)) return 'attached'; }
+    const dt = new DataTransfer();
     dt.items.add(file);
     ['dragenter', 'dragover', 'drop'].forEach(type => c.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt })));
-    for (let i = 0; i < 30; i++) { await sleep(100); if (count(document.body.innerText, file.name) > before) return 'attached'; }
+    if (await shown(2000)) return 'attached';
     download(file);
     return 'saved';
   }

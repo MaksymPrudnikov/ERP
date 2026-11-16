@@ -146,6 +146,8 @@ function mailReply(m){
    Master Data; Invoice — только когда клиент получил последний юнит; PS —
    отправленные. Work order — тоже (владелец, 16.11.2026: «пусть будет»). */
 const MAIL_DOC_KINDS=['workOrder','confirmation','proforma','invoice'];
+/* Больше — не передаём панели: Gmail берёт до 25 МБ, а сообщение между вкладками не резиновое. */
+const MAIL_PDF_MAX=40*1048576;
 /* Чертежи — все строки заказа одним PDF (владелец, 16.11.2026). */
 function mailDocList(o){
  const n=(o.lines||[]).length,drawings=n?[{key:'drawings',label:'Drawings',hint:n+(n===1?' line':' lines')+' · 1 PDF'}]:[];
@@ -160,7 +162,7 @@ function mailDocument(m){
  const o=mailOrderOf(m),key=String(m.key||'');if(!o)return {error:'missing'};
  const d=mailDocList(o).find(x=>x.key===key);if(!d||d.off)return {error:'This document is not available for the order.'};
  /* Чертежи рисуются картинками — не сразу: ответ — Promise (мост ждёт его). */
- if(key==='drawings')return docDrawingsPdf(o).then(r=>({name:r.name,label:'Drawings · '+r.sheets+(r.sheets===1?' sheet':' sheets'),data:mailBase64(r.bytes)}),e=>({error:e&&e.message||'The drawings could not be prepared.'}));
+ if(key==='drawings')return docDrawingsPdf(o).then(r=>r.bytes.length>MAIL_PDF_MAX?{error:'Drawings are '+Math.round(r.bytes.length/1048576)+' MB — too big for an email. Print them from Documents in Glass Farm.'}:{name:r.name,label:'Drawings · '+r.sheets+(r.sheets===1?' sheet':' sheets'),data:mailBase64(r.bytes)},e=>({error:e&&e.message||'The drawings could not be prepared.'}));
  let pages,name,title;
  if(key.startsWith('ps:')){const s=shippingFind(key.slice(3));pages=shippingPages(shippingDocument(s));title='Packing slip '+s.number;name=title.replace(/[^A-Za-z0-9]+/g,'_')+'.pdf';}
  else{pages=docPages(Object.assign(docBuildModel(key,o,docDefaultOptions(key)),{form:''}));title=docKindLabel(key)+' '+(o.businessNumber||'draft');name=docFileName(key,o);}
@@ -178,6 +180,15 @@ function mailLog(m){
    Только время, кто и тема — текста письма мост не получает. Запись одна на
    письмо и заказ: id события несёт номер письма. */
 const MAIL_LOG_WHATS=['Customer email','Reply sent','Reply text','Document attached','Email linked','Email removed'];
+/* Наше письмо — с ящика, открытого в Gmail, или с адреса нашего домена,
+   которого нет у клиента заказа (ответили с другого адреса компании). Ящик
+   не узнали — наше всё, чего нет в карточке клиента. */
+function mailDomain(a){return String(a||'').split('@')[1]||'';}
+function mailIsOurs(o,from,acc){
+ if(acc&&from===acc)return true;
+ const c=(DB.customer||[]).find(x=>x.id===o.customerId);if(c&&mailCustomerEmails(c).has(from))return false;
+ return !acc||mailDomain(from)===mailDomain(acc);
+}
 function mailThreadLog(m){
  const threadId=orderEmailId(m.threadId),acc=orderEmailAddress(m.account),subject=orderEmailText(m.subject,160);
  if(!threadId)return {error:'missing'};
@@ -185,9 +196,9 @@ function mailThreadLog(m){
  const have=new Set((DB.orderEvent||[]).map(e=>e.id)),add=[];
  (Array.isArray(m.messages)?m.messages:[]).slice(0,200).forEach(x=>{
   const id=orderEmailId(x&&x.id),from=orderEmailAddress(x&&x.from),at=orderEmailIso(x&&x.at);if(!id||!from||!at)return;
-  const ours=!!acc&&from===acc,name=orderEmailText(x.name,60);
+  const name=orderEmailText(x.name,60);
   orders.forEach(o=>{const eid='OEM-'+o.id+'-'+id;if(have.has(eid))return;have.add(eid);
-   add.push({id:eid,at,orderId:o.id,no:String(o.businessNumber||''),what:ours?'Reply sent':'Customer email',note:subject,by:(name&&name!==from?name+' · ':'')+from,byId:''});});
+   add.push({id:eid,at,orderId:o.id,no:String(o.businessNumber||''),what:mailIsOurs(o,from,acc)?'Reply sent':'Customer email',note:subject,by:(name&&name!==from?name+' · ':'')+from,byId:''});});
  });
  if(!add.length)return {ok:true,added:0};
  const r=storageCommand(()=>{if(!Array.isArray(DB.orderEvent))DB.orderEvent=[];add.forEach(e=>DB.orderEvent.push(e));return true;},{orderEvent:add.map(e=>e.id)});

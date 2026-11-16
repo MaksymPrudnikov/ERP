@@ -18,7 +18,15 @@
 /* Как лист в окне Drawings (.doc-drawing): 850 × 1100 и поле 34 px — на бумаге 0,34″. */
 const DOC_DRAW_PX={w:850,h:1100},DOC_DRAW_PAD=34,DOC_DRAW_SCALE=2,DOC_DRAW_JPEG=0.86;
 /* Листы в порядке окна Drawings: строка, за ней листы её стёкол. */
+/* Клиенту — базовый вид из Forms → Drawing: кнопка Metric detail редактора
+   фигуры (своя у компьютера, мм-вид) на PDF не влияет (владелец, 16.11.2026:
+   «почему открыло чертёж в мм, а не базово в инчах»). */
 function docDrawingSheetsOf(o){
+ const metric=typeof sMetricDetail!=='undefined'&&sMetricDetail;
+ if(metric)sMetricDetail=false;
+ try{return docDrawingSheetsBase(o);}finally{if(metric)sMetricDetail=true;}
+}
+function docDrawingSheetsBase(o){
  const lines=o&&o.lines||[],lites=l=>typeof salesLineStepSheets==='function'?salesLineStepSheets(l,o):[];
  return lines.flatMap((l,i)=>[{i,l,lite:null}].concat(lites(l).map(k=>({i,l,lite:k}))))
   .map(x=>{const d=salesLineDrawing(x.l,null,x.lite,o);return d&&d.html?{i:x.i,lite:x.lite,html:d.html,land:/class="print-shape-sheet[^"]*\bdw-land\b/.test(d.html)}:null;})
@@ -26,8 +34,8 @@ function docDrawingSheetsOf(o){
 }
 /* Правила стилей, что касаются листа в host: обычные — если находят что-то
    внутри (::before и :hover — по самому элементу: штриховка распорки),
-   :root/html/body — переменные и шрифт, @font-face — шрифты, @media
-   screen — как на экране. Чужой файл стилей пропускается. */
+   :root/html/body — переменные и шрифт, @font-face — шрифты, @media — те,
+   что верны на экране сейчас. Чужой файл стилей пропускается. */
 const DOC_DRAW_PSEUDO=/::?(before|after|marker|placeholder|first-line|first-letter|hover|focus|focus-visible|focus-within|active|visited)\b/g;
 function docDrawingCss(host){
  const one=s=>{try{return !!host.querySelector(s.replace(DOC_DRAW_PSEUDO,'')||'*');}catch(e){return false;}};
@@ -35,7 +43,8 @@ function docDrawingCss(host){
  const walk=rules=>{for(const r of rules){
   if(r.type===1){if(hit(r.selectorText))out.push(r.cssText);}
   else if(r.type===5)out.push(r.cssText);
-  else if(r.type===4){if(!/print/.test(r.media.mediaText)||/screen/.test(r.media.mediaText))walk(r.cssRules);}
+  /* @media — как на этом экране сейчас (картинка листа своей ширины не знает). */
+  else if(r.type===4){const mt=r.media.mediaText;if(!/\bprint\b/.test(mt)&&window.matchMedia(mt).matches)walk(r.cssRules);}
  }};
  for(const s of document.styleSheets){let rules;try{rules=s.cssRules;}catch(e){continue;}if(rules)walk(rules);}
  return out.join('\n');

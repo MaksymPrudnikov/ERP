@@ -17,8 +17,11 @@ window.gmShow=function(t){const m=document.getElementById('main');m.textContent=
  const r=document.createElement('span');r.className='ams bkH';r.textContent='Reply';r.onclick=function(){if(document.getElementById('compose'))return;
   const c=document.createElement('div');c.id='compose';c.setAttribute('contenteditable','true');c.setAttribute('role','textbox');c.style.minHeight='40px';
   c.addEventListener('dragover',function(e){e.preventDefault();});
-  c.addEventListener('drop',function(e){e.preventDefault();[].forEach.call(e.dataTransfer.files,function(f){const a=document.createElement('div');a.className='att';a.textContent=f.name+' '+f.size;m.appendChild(a);});});
-  m.appendChild(c);};m.appendChild(r);
+  c.addEventListener('drop',function(e){e.preventDefault();[].forEach.call(e.dataTransfer.files,function(f){const a=document.createElement('div');a.className='att';a.setAttribute('data-via','drop');a.textContent=f.name+' '+f.size;m.appendChild(a);});});
+  /* Attach files, как в Gmail: по mouseup создаёт input type=file и зовёт click() — окно выбора файла. */
+  const b=document.createElement('div');b.setAttribute('command','Files');b.setAttribute('aria-label','Attach files');b.textContent='Attach';
+  b.addEventListener('mouseup',function(){const i=document.createElement('input');i.type='file';i.addEventListener('change',function(){[].forEach.call(i.files,function(f){const a=document.createElement('div');a.className='att';a.setAttribute('data-via','input');a.textContent=f.name+' '+f.size;m.appendChild(a);});});i.click();});
+  const w=document.createElement('div');w.className='reply';w.appendChild(c);w.appendChild(b);m.appendChild(w);};m.appendChild(r);
  location.hash='inbox/'+t.thread;};
 </script></body></html>`;
 module.exports = async function ({ eq }) {
@@ -117,7 +120,7 @@ module.exports = async function ({ eq }) {
       return { text: p && ['3 of 3 units done', 'Ready to ship 3', 'Ready'].filter(s => !p.text.includes(s.toLowerCase())), where: !!p && p.text.includes('Where is the glass'.toLowerCase()), opened: await e.evaluate(() => soEdit === xB) };
     })(), { text: [], where: false, opened: true });
 
-    eq('Панель: конверт — шаблоны ERP, выбранный текст встаёт в ответ (Reply открывается сам); скрепка — PDF прикрепляется к ответу; в журнале заказа — письмо клиента, Reply text и Document attached; в карточке — когда клиент написал', await (async () => {
+    eq('Панель: конверт — шаблоны ERP, выбранный текст встаёт в ответ (Reply открывается сам); скрепка — PDF прикрепляется кнопкой Attach files ответа (без окна выбора); в журнале заказа — письмо клиента, Reply text и Document attached; в карточке — когда клиент написал', await (async () => {
       await e.evaluate(() => salesDraftDrop());
       await show(john('FMfcgzQXKWgLlNmPqRsTuVwXyZaBcDe4', 'Pickup', 'When can we pick up?'));
       await click('Refresh');
@@ -128,11 +131,11 @@ module.exports = async function ({ eq }) {
       const text = await g.evaluate(() => { const c = document.getElementById('compose'); return c ? c.innerText : ''; });
       await click('Attach PDF'); await until(has('Proforma invoice')); await item('Proforma invoice');
       const done = await until(has('attached'));
-      const att = await g.evaluate(() => [...document.querySelectorAll('.att')].map(a => a.textContent.split(' ')[0]));
+      const att = await g.evaluate(() => [...document.querySelectorAll('.att')].map(a => a.textContent.split(' ')[0] + ' · ' + a.getAttribute('data-via')));
       const no = await e.evaluate(() => salesRecord(xB).businessNumber);
       const log = await e.evaluate(() => [...new Set(DB.orderEvent.filter(x => x.orderId === xB && ['Customer email', 'Reply text', 'Document attached'].includes(x.what)).map(x => x.what))].sort());
       return { talk: !!talk, text: ['Hi John,', '3 units of order', 'are ready for pickup:', '• Line 1 · Kitchen'].filter(x => !text.includes(x)), att, want: 'Proforma_invoice_' + no + '.pdf', done: !!done, log };
-    })(), { talk: true, text: [], att: [await e.evaluate(() => 'Proforma_invoice_' + salesRecord(xB).businessNumber + '.pdf')], want: await e.evaluate(() => 'Proforma_invoice_' + salesRecord(xB).businessNumber + '.pdf'), done: true, log: ['Customer email', 'Document attached', 'Reply text'] });
+    })(), { talk: true, text: [], att: [await e.evaluate(() => 'Proforma_invoice_' + salesRecord(xB).businessNumber + '.pdf · input')], want: await e.evaluate(() => 'Proforma_invoice_' + salesRecord(xB).businessNumber + '.pdf'), done: true, log: ['Customer email', 'Document attached', 'Reply text'] });
 
     eq('Панель: отправитель неизвестен — «No customer with this email»; Create order открывает в ERP новый заказ с этим письмом, в базе ничего до Save', await (async () => {
       await e.evaluate(() => salesDraftDrop());
