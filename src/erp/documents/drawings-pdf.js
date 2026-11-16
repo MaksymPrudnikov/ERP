@@ -6,7 +6,7 @@
    IN : заказ; salesLineDrawing, salesLineStepSheets (листы строк и стёкол
         ступенчатого юнита), salesSheetFitDrawing; стили страницы
    OUT: docDrawingSheetsOf(order) — листы заказа; docDrawingsPdf(order) →
-        Promise {name, bytes, sheets}
+        Promise {name, bytes, sheets, skipped}
    Владелец, 16.11.2026: «чертежи логично прикреплять все сразу к целому
    заказу одним PDF». Recut — переделки цеха, клиенту не нужны: только
    строки заказа. Лист с ошибкой геометрии в PDF не попадает.
@@ -74,8 +74,11 @@ async function docDrawingJpeg(sheet){
 }
 async function docDrawingsPdf(o){
  const sheets=docDrawingSheetsOf(o);if(!sheets.length)throw new Error('The order has no drawings.');
- const pages=[];
- for(const s of sheets){const src=await docDrawingJpeg(s);pages.push(Object.assign({items:[{t:'img',src,x:0,y:0,w:DOC_PAGE.w,h:DOC_PAGE.h}]},s.land?{rotate:90}:{}));}
+ /* Лист, который не нарисовался, пропускается — остальные чертежи клиент
+    получает (аудит 17.11.2026, L8); сколько пропущено — в ответе. */
+ const pages=[];let skipped=0;
+ for(const s of sheets){let src;try{src=await docDrawingJpeg(s);}catch(e){skipped++;continue;}pages.push(Object.assign({items:[{t:'img',src,x:0,y:0,w:DOC_PAGE.w,h:DOC_PAGE.h}]},s.land?{rotate:90}:{}));}
+ if(!pages.length)throw new Error('The drawings could not be drawn.');
  const title='Drawings '+(o.businessNumber||'draft');
- return {name:title.replace(/[^A-Za-z0-9]+/g,'_')+'.pdf',bytes:docPdfBytes(pages,{title}),sheets:sheets.length};
+ return {name:title.replace(/[^A-Za-z0-9]+/g,'_')+'.pdf',bytes:docPdfBytes(pages,{title}),sheets:pages.length,skipped};
 }

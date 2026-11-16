@@ -22,6 +22,7 @@ window.gmShow=function(t){const m=document.getElementById('main');m.textContent=
   const b=document.createElement('div');b.setAttribute('command','Files');b.setAttribute('aria-label','Attach files');b.textContent='Attach';
   b.addEventListener('mouseup',function(){const i=document.createElement('input');i.type='file';i.addEventListener('change',function(){[].forEach.call(i.files,function(f){const a=document.createElement('div');a.className='att';a.setAttribute('data-via','input');a.textContent=f.name+' '+f.size;m.appendChild(a);});});i.click();});
   const w=document.createElement('div');w.className='reply';w.appendChild(c);w.appendChild(b);m.appendChild(w);};m.appendChild(r);
+ document.title=t.subject+' - sales@infinity.example - Gmail';
  location.hash='inbox/'+t.thread;};
 </script></body></html>`;
 module.exports = async function ({ eq }) {
@@ -132,10 +133,21 @@ module.exports = async function ({ eq }) {
       await click('Attach PDF'); await until(has('Proforma invoice')); await item('Proforma invoice');
       const done = await until(has('attached'));
       const att = await g.evaluate(() => [...document.querySelectorAll('.att')].map(a => a.textContent.split(' ')[0] + ' · ' + a.getAttribute('data-via')));
+      await e.waitForFunction(() => DB.orderEvent.some(x => x.orderId === xB && x.what === 'Document attached'), null, { timeout: 8000 }).catch(() => null);
       const no = await e.evaluate(() => salesRecord(xB).businessNumber);
       const log = await e.evaluate(() => [...new Set(DB.orderEvent.filter(x => x.orderId === xB && ['Customer email', 'Reply text', 'Document attached'].includes(x.what)).map(x => x.what))].sort());
       return { talk: !!talk, text: ['Hi John,', '3 units of order', 'are ready for pickup:', '• Line 1 · Kitchen'].filter(x => !text.includes(x)), att, want: 'Proforma_invoice_' + no + '.pdf', done: !!done, log };
     })(), { talk: true, text: [], att: [await e.evaluate(() => 'Proforma_invoice_' + salesRecord(xB).businessNumber + '.pdf · input')], want: await e.evaluate(() => 'Proforma_invoice_' + salesRecord(xB).businessNumber + '.pdf'), done: true, log: ['Customer email', 'Document attached', 'Reply text'] });
+
+    eq('Панель: адрес в теме письма за свой ящик не принимается — письма клиента в журнале «Customer email» (аудит 17.11.2026, M3)', await (async () => {
+      await e.evaluate(() => orderEmailAdd(xB, { threadId: 'FMfcgzQXKWgLlNmPqRsTuVwXyZaBcDe7', from: 'john@abcglass.example', subject: 'Fwd' }));
+      await show({ thread: 'FMfcgzQXKWgLlNmPqRsTuVwXyZaBcDe7', subject: 'Fwd: quote for john@abcglass.example', messages: [{ id: '18c3f2a9b1d4f777', from: 'john@abcglass.example', name: 'John Miller', body: 'See the quote.' }] });
+      await until(has('units done'));
+      await e.waitForFunction(() => DB.orderEvent.some(x => /18c3f2a9b1d4f777$/.test(x.id)), null, { timeout: 8000 }).catch(() => null);
+      const what = await e.evaluate(() => DB.orderEvent.filter(x => /18c3f2a9b1d4f777$/.test(x.id)).map(x => x.what));
+      await e.evaluate(() => orderEmailRemove(xB, 'FMfcgzQXKWgLlNmPqRsTuVwXyZaBcDe7'));
+      return what;
+    })(), ['Customer email']);
 
     eq('Панель: Edit templates in ERP — вкладка ERP выходит вперёд на Master Data → Email templates', await (async () => {
       await click('Reply text'); await until(has('Edit templates in ERP'));

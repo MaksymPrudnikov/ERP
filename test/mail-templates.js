@@ -11,6 +11,8 @@ module.exports=async function({page,eq}){
   oqReset();DB.orderEvent=[];DB.emailTemplate=[];
   window.mtC=oqCustomer({legalName:'ABC Glass Ltd',contacts:[{name:'Anna Kowal',email:'anna@abcglass.example',isPrimary:true},{name:'John Miller',email:'john@abcglass.example',phone:'416-555-0142'}]});
   window.mb=(req,extra)=>mailBridgeHandle(Object.assign({gf:'mail',req},extra));
+  /* PDF из моста — частями, как берёт панель. */
+  window.mbDoc=async(orderId,key)=>{const r=await mb('document',{orderId,key});if(!r||r.error)return r;let data='';for(let i=0;i<r.parts;i++)data+=mb('part',{file:r.file,i}).data;return Object.assign({},r,{data,gone:mb('part',{file:r.file,i:0}).error});};
   window.mtA=oqOrder(mtC,{customerPo:'4502',dueDate:'2026-11-28'});salesDraftDrop();
   window.mtB=oqOrder(mtC,{customerPo:'4390',dueDate:'2026-12-01'});salesDraftDrop();oqThrough(mtB,'batched');oqReady(mtB);
   touch();
@@ -36,10 +38,10 @@ module.exports=async function({page,eq}){
    all:r('{all lines}',b).split('\n').length,shipped:r('{shipped lines}',b)};
  }),{notStarted:['• Line 1 · Kitchen · 37" × 71" · Clear 6mm / 17/32 Black Warm Edge ARG / Clear 6mm — 2 units, not started yet','• Line 2 · Bedroom · 30" × 40" · Clear 6mm / 17/32 Black Warm Edge ARG / Clear 6mm — 1 unit, not started yet'],counts:'0/0/0/3/3',
   ready:['• Line 1 · Kitchen · 37" × 71" · Clear 6mm / 17/32 Black Warm Edge ARG / Clear 6mm — 2 units ready','• Line 2 · Bedroom · 30" × 40" · Clear 6mm / 17/32 Black Warm Edge ARG / Clear 6mm — 1 unit ready'],readyCounts:'0/3/0/0/3/100%',all:2,shipped:''});
- eq('Мост: конверт — список шаблонов и готовый текст на заказе; скрепка — бланки заказа, Invoice до выдачи серый, PDF настоящий; Reply text и Document attached — в журнале',await run(()=>{
+ eq('Мост: конверт — список шаблонов и готовый текст на заказе; скрепка — бланки заказа, Invoice до выдачи серый, PDF настоящий; Reply text и Document attached — в журнале',await run(async()=>{
   DB.orderEvent=[];
   const list=mb('templates',{orderId:mtA}),reply=mb('reply',{orderId:mtA,templateId:'ET-backorder',from:'john@abcglass.example'}),docs=mb('documents',{orderId:mtA});
-  const pdf=mb('document',{orderId:mtA,key:'proforma'}),inv=mb('document',{orderId:mtA,key:'invoice'}),wo=mb('document',{orderId:mtA,key:'workOrder'});
+  const pdf=await mbDoc(mtA,'proforma'),inv=await mbDoc(mtA,'invoice'),wo=await mbDoc(mtA,'workOrder');
   mb('mailLog',{orderId:mtA,kind:'text',note:'Template: Back order'});mb('mailLog',{orderId:mtA,kind:'doc',note:'Proforma invoice'});
   return {list:list.templates.map(x=>x.name),edit:list.canEdit,starts:reply.text.split('\n')[0],lines:reply.text.includes('Still on back order — 3 units:\n• Line 1'),
    docs:docs.docs.map(d=>d.label+(d.off?' (off: '+d.hint+')':'')),pdf:[pdf.name,atob(pdf.data).slice(0,5)],wo:atob(wo.data).slice(0,5),inv:inv.error,
@@ -72,9 +74,9 @@ module.exports=async function({page,eq}){
  }),{head:'{po}',preview:true,dirty:true,saved:['Thanks: Thanks for order {order}.']});
  eq('Мост: скрепка — Drawings: все строки заказа одним PDF, по листу на строку; альбомный лист — страница с /Rotate 90',await run(async()=>{
   const docs=mb('documents',{orderId:mtA}).docs.filter(d=>d.key==='drawings').map(d=>d.label+' · '+d.hint);
-  const r=await mb('document',{orderId:mtA,key:'drawings'}),pdf=atob(r.data),pages=(pdf.match(/\/Type \/Page /g)||[]).length;
+  const r=await mbDoc(mtA,'drawings'),pdf=atob(r.data),pages=(pdf.match(/\/Type \/Page /g)||[]).length;
   const k=formUseKey('drawing'),t=JSON.parse(JSON.stringify(drawFormTpl()));t.style=Object.assign({},t.style,{paper:'landscape'});DB.formTemplate=Object.assign({},DB.formTemplate,{[k]:t});
-  const land=atob((await mb('document',{orderId:mtA,key:'drawings'})).data);delete DB.formTemplate[k];
+  const land=atob((await mbDoc(mtA,'drawings')).data);delete DB.formTemplate[k];
   return {docs,name:r.name===('Drawings '+salesRecord(mtA).businessNumber).replace(/[^A-Za-z0-9]+/g,'_')+'.pdf',label:r.label,head:pdf.slice(0,5),pages,rotate:[(pdf.match(/\/Rotate 90/g)||[]).length,(land.match(/\/Rotate 90/g)||[]).length]};
  }),{docs:['Drawings · 2 lines · 1 PDF'],name:true,label:'Drawings · 2 sheets',head:'%PDF-',pages:2,rotate:[0,2]});
  eq('Мост: письмо с ящика Gmail и с адреса нашего домена (не из карточки клиента) — «Reply sent»; клиент и чужой домен — «Customer email»; ящик не узнали — наше всё, чего нет у клиента',await run(()=>{

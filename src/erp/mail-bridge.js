@@ -10,7 +10,8 @@
         бланков (erp/documents, erp/shipping/print), вход и доступ
    OUT: ответ window {gf:'mail-reply', id, req, res}; mailBridgeHandle(m) —
         тот же ответ вызовом (тесты). Чтение: lookup, orders, search,
-        templates, reply, documents, document (PDF base64; чертежи — Promise). Команды:
+        templates, reply, documents, document (имя и число частей PDF; чертежи —
+        Promise), part (часть PDF base64). Команды:
         openOrder, openCustomer, newOrder, linkEmail, mailLog, threadLog,
         openTemplates
    Заказчик задания, 15.11.2026: панель показывает то, что относится к
@@ -146,8 +147,6 @@ function mailReply(m){
    Master Data; Invoice — только когда клиент получил последний юнит; PS —
    отправленные. Work order — тоже (владелец, 16.11.2026: «пусть будет»). */
 const MAIL_DOC_KINDS=['workOrder','confirmation','proforma','invoice'];
-/* Больше — не передаём панели: Gmail берёт до 25 МБ, а сообщение между вкладками не резиновое. */
-const MAIL_PDF_MAX=40*1048576;
 /* Чертежи — все строки заказа одним PDF (владелец, 16.11.2026). */
 function mailDocList(o){
  const n=(o.lines||[]).length,drawings=n?[{key:'drawings',label:'Drawings',hint:n+(n===1?' line':' lines')+' · 1 PDF'}]:[];
@@ -158,15 +157,32 @@ function mailDocList(o){
 }
 function mailDocuments(m){const o=mailOrderOf(m);return o?{docs:mailDocList(o)}:{error:'missing'};}
 function mailBase64(bytes){let s='';for(let i=0;i<bytes.length;i+=0x8000)s+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));return btoa(s);}
+/* PDF отдаётся панели частями: файл кладётся сюда, ответ на document —
+   имя и число частей, каждая часть — запрос part. Большой PDF одним
+   сообщением между вкладками не пролезает (аудит 17.11.2026, M2). Файл
+   живёт до последней части, но не дольше 3 минут. */
+const MAIL_PART=4*1048576,MAIL_FILE_TTL=180000,mailFiles=new Map();
+function mailFileKeep(name,label,bytes){
+ const now=Date.now();mailFiles.forEach((f,k)=>{if(now-f.at>MAIL_FILE_TTL)mailFiles.delete(k);});
+ const id='F'+now.toString(36)+Math.random().toString(36).slice(2,6),data=mailBase64(bytes);
+ mailFiles.set(id,{data,at:now});
+ return {name,label,file:id,size:bytes.length,parts:Math.max(1,Math.ceil(data.length/MAIL_PART))};
+}
+function mailPart(m){
+/* Номер файла — поле file: id сообщения занят пересылкой (extension/gmail/erp.js). */
+ const f=mailFiles.get(String(m.file||'')),i=Math.floor(+m.i);if(!f||!(i>=0))return {error:'The file is gone. Try again.'};
+ const data=f.data.slice(i*MAIL_PART,(i+1)*MAIL_PART);if((i+1)*MAIL_PART>=f.data.length)mailFiles.delete(String(m.file));
+ return {data};
+}
 function mailDocument(m){
  const o=mailOrderOf(m),key=String(m.key||'');if(!o)return {error:'missing'};
  const d=mailDocList(o).find(x=>x.key===key);if(!d||d.off)return {error:'This document is not available for the order.'};
  /* Чертежи рисуются картинками — не сразу: ответ — Promise (мост ждёт его). */
- if(key==='drawings')return docDrawingsPdf(o).then(r=>r.bytes.length>MAIL_PDF_MAX?{error:'Drawings are '+Math.round(r.bytes.length/1048576)+' MB — too big for an email. Print them from Documents in Glass Farm.'}:{name:r.name,label:'Drawings · '+r.sheets+(r.sheets===1?' sheet':' sheets'),data:mailBase64(r.bytes)},e=>({error:e&&e.message||'The drawings could not be prepared.'}));
+ if(key==='drawings')return docDrawingsPdf(o).then(r=>mailFileKeep(r.name,'Drawings · '+r.sheets+(r.sheets===1?' sheet':' sheets')+(r.skipped?' · '+r.skipped+' could not be drawn':''),r.bytes),e=>({error:e&&e.message||'The drawings could not be prepared.'}));
  let pages,name,title;
  if(key.startsWith('ps:')){const s=shippingFind(key.slice(3));pages=shippingPages(shippingDocument(s));title='Packing slip '+s.number;name=title.replace(/[^A-Za-z0-9]+/g,'_')+'.pdf';}
  else{pages=docPages(Object.assign(docBuildModel(key,o,docDefaultOptions(key)),{form:''}));title=docKindLabel(key)+' '+(o.businessNumber||'draft');name=docFileName(key,o);}
- return {name,label:d.label+(key.startsWith('ps:')?' '+d.hint:''),data:mailBase64(docPdfBytes(pages,{title}))};
+ return mailFileKeep(name,d.label+(key.startsWith('ps:')?' '+d.hint:''),docPdfBytes(pages,{title}));
 }
 /* Журнал заказа: что сделали кнопками панели. */
 const MAIL_LOG_KINDS={text:'Reply text',doc:'Document attached'};
@@ -215,7 +231,7 @@ function mailOpenTemplates(){
  if(typeof mdLeave==='function'&&!mdLeave())return {ok:true};
  tab='masterdata';mdTab='emails';render();return {ok:true};
 }
-const MAIL_READ={lookup:mailLookup,orders:mailOrders,search:mailSearch,templates:mailTemplatesList,reply:mailReply,documents:mailDocuments,document:mailDocument},
+const MAIL_READ={lookup:mailLookup,orders:mailOrders,search:mailSearch,templates:mailTemplatesList,reply:mailReply,documents:mailDocuments,document:mailDocument,part:mailPart},
  MAIL_DO={openOrder:mailOpenOrder,openCustomer:mailOpenCustomer,newOrder:mailNewOrder,linkEmail:mailLinkEmail,mailLog,threadLog:mailThreadLog,openTemplates:mailOpenTemplates};
 /* Шаг 0. Вход включён, а человека нет — signin; вошёл без Sales — access. */
 function mailBridgeGate(){

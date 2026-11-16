@@ -50,7 +50,9 @@
     const id = parts.length > 1 && parts[0] !== 'settings' ? parts[parts.length - 1] : '';
     return /^[A-Za-z0-9_-]{14,80}$/.test(id) ? id : '';
   }
-  function account() { const m = ADDRESS.exec(document.title || ''); return m ? m[0].toLowerCase() : ''; }
+  /* Ящик — последний адрес в заголовке вкладки («<тема> - <ящик> - Gmail»):
+     адрес в теме письма за ящик не принимается (аудит 17.11.2026, M3). */
+  function account() { const all = (document.title || '').match(new RegExp(ADDRESS.source, 'g')); return all ? all[all.length - 1].toLowerCase() : ''; }
   function readThread() {
     const threadId = threadToken(), subj = threadId && document.querySelector(SEL.subject);
     if (!subj) return null;
@@ -123,12 +125,13 @@
   async function act(m, after) {
     if (st.busy) return;
     st.busy = true; st.note = ''; render();
-    const r = await send(m);
-    st.busy = false;
+    let r;
+    try { r = await send(m); } finally { st.busy = false; }
     if (r && r.error) st.note = TEXTS[r.error] || r.error;
     else if (after) after(r);
     render();
-    if (r && r.ok && m.req === 'linkEmail') refresh(true);
+    /* Новый заказ ветки получает её письма в журнал (аудит 17.11.2026, L1). */
+    if (r && r.ok && m.req === 'linkEmail') { st.logged = ''; refresh(true); }
   }
   const email = () => cur && cur.email;
   const openOrder = id => act({ req: 'openOrder', orderId: id });
@@ -207,27 +210,46 @@
     if (r && r.error) { st.menu = null; st.note = TEXTS[r.error] || r.error; render(); return; }
     st.menu.items = kind === 'text' ? r.templates : r.docs; st.menu.canEdit = !!r.canEdit; render();
   }
+  /* PDF приходит частями (мост, part): большой файл одним сообщением между
+     вкладками не пролезает (аудит 17.11.2026, M2). */
+  async function fetchDoc(orderId, key) {
+    const r = await send({ req: 'document', orderId, key });
+    if (!r || r.error || !r.parts) return r || { error: 'closed' };
+    let data = '';
+    for (let i = 0; i < r.parts; i++) {
+      const p = await send({ req: 'part', file: r.file, i });
+      if (!p || p.error || typeof p.data !== 'string') return { error: (p && p.error) || 'failed' };
+      data += p.data;
+    }
+    return Object.assign({}, r, { data });
+  }
   async function pick(item) {
     const m = st.menu;
     if (!m || st.busy) return;
     st.busy = true; st.note = ''; st.info = ''; render();
-    if (m.kind === 'text') {
-      const r = await send({ req: 'reply', orderId: m.orderId, templateId: item.id, from: email() ? email().from : '' });
-      if (r && r.error) st.note = TEXTS[r.error] || r.error;
-      else if (await insertText(r.text)) { st.info = r.name + ' — in the reply'; send({ req: 'mailLog', orderId: m.orderId, kind: 'text', note: 'Template: ' + r.name }); }
-      else st.note = 'Open the reply in Gmail first.';
-    } else {
-      st.info = 'Preparing ' + item.label + '…'; render();
-      const r = await send({ req: 'document', orderId: m.orderId, key: item.key });
-      st.info = '';
-      if (r && r.error) st.note = TEXTS[r.error] || r.error;
-      else {
-        const how = await attachFile(fileOf(r));
-        if (how === 'attached') { st.info = r.name + ' — attached'; send({ req: 'mailLog', orderId: m.orderId, kind: 'doc', note: r.label }); }
-        else st.note = how === 'noreply' ? 'Open the reply in Gmail first.' : 'Gmail did not take ' + r.name + '. Try again.';
+    try {
+      if (m.kind === 'text') {
+        const r = await send({ req: 'reply', orderId: m.orderId, templateId: item.id, from: email() ? email().from : '' });
+        if (r && r.error) st.note = TEXTS[r.error] || r.error;
+        else if (await insertText(r.text)) { st.info = r.name + ' — in the reply'; send({ req: 'mailLog', orderId: m.orderId, kind: 'text', note: 'Template: ' + r.name }); }
+        else st.note = 'Open the reply in Gmail first.';
+      } else {
+        st.info = 'Preparing ' + item.label + '…'; render();
+        const r = await fetchDoc(m.orderId, item.key);
+        st.info = '';
+        if (r && r.error) st.note = TEXTS[r.error] || r.error;
+        else {
+          const how = await attachFile(fileOf(r));
+          if (how === 'attached') { st.info = r.name + ' — attached'; send({ req: 'mailLog', orderId: m.orderId, kind: 'doc', note: r.label }); }
+          else st.note = how === 'noreply' ? 'Open the reply in Gmail first.' : 'Gmail did not take ' + r.name + '. Try again.';
+        }
       }
+    } catch (e) {
+      st.info = ''; st.note = TEXTS.failed;
+    } finally {
+      /* Что бы ни случилось — кнопки панели снова нажимаются (аудит 17.11.2026, L4). */
+      st.busy = false; st.menu = null; render();
     }
-    st.busy = false; st.menu = null; render();
   }
 
   /* ------------------------------ Вид ---------------------------------- */

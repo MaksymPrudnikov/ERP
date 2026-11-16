@@ -171,8 +171,8 @@
 - Прогресс: `erp/sales/order-progress.js` — `salesOrderProgress(o)` → статус, Hold, срок, `units {total, shipped, ready,
   inProduction, notStarted, done}` (четыре кучки в сумме всегда `total`, `done = shipped + ready`), товары склада
   отдельно (`extras`), станции — клетки `prodBoard` и только пока стекло в цеху. Отгружено и готово — из
-  `shippingSummary`; «не начато» — целые юниты, чьё стекло не в батче (`glassBatchRemaining`): юнит с одним стеклом в
-  батче уже в производстве. У квоты — статус, срок цен, число юнитов. Показывает расчёт панель Gmail; своего
+  `shippingSummary`; «не начато» — юниты, у которых ни одно режущееся стекло не в батче и не порезано сканом
+  (`salesProgressNotStarted`): юнит с одним стеклом в батче уже в производстве. У квоты — статус, срок цен, число юнитов. Показывает расчёт панель Gmail; своего
   экрана в ERP у него нет.
 - Адрес `…#order=<номер>` (`salesOrderHashOpen`): открывает заказ или квоту по номеру (архивный — `archiveOpen`),
   адрес сразу снимается; вход включён, а человека нет — ждёт входа (`signinAs`); нет Sales — ничего; номера нет —
@@ -184,7 +184,7 @@
   `known` — номера и PO для поиска в тексте на стороне панели; `orders {ids}`; `search {q}`. Команды: `openOrder`,
   `openCustomer` (Sales с фильтром по клиенту), `newOrder` (черновик с клиентом и письмом), `linkEmail`. Текст письма
   мост не получает, сам ничего не привязывает, денег в ответах нет. Ответ: `templates`, `reply` (текст шаблона на заказе), `documents`, `document`
-  (PDF бланка base64: Work order, Order confirmation, Proforma, Invoice — после последнего юнита, отправленные PS;
+  (имя и число частей, сами части — `part`, по 4 МБ base64; PDF бланка: Work order, Order confirmation, Proforma, Invoice — после последнего юнита, отправленные PS;
   у квоты — Quote; настройки бланков из Master Data; **Drawings** — чертежи всех строк заказа одним PDF:
   `erp/documents/drawings-pdf.js` (базовый вид Forms → Drawing: Metric detail на время сборки выключен) рисует каждый лист (`salesLineDrawing`, листы стёкол ступенчатого юнита, без Recut)
   браузером в картинку 850 × 1100 с полем 34 px, как в окне Drawings, стили — правила страницы, что касаются листа;
