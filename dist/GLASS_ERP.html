@@ -3,12 +3,12 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 210 модулей, 27 стиля.
+  Состав сборки: 213 модулей, 27 стиля.
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-QjXJ7AxJBFOWqdEKtwwO890mk5fqn24CKm/jLqxD1oY=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-e1kw+aCFu/tzJGfjrFRthBS/OV2Sif5gnW2Uy62Sybs=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GLASS ERP — Glazing System</title>
 <style>
@@ -508,14 +508,30 @@ body.signin-mode main#app{padding:0}
 .so-cust-foot{border-top:1px solid var(--line);margin-top:4px;padding:6px 9px 3px;font-size:10.5px;color:var(--text-3)}
 /* Шапка заказа (владелец 30.10.2026): Customer PO шире — «размера с колонку клиента», дата, приоритет,
    доставка и валюта уже. У квоты ещё Valid until. */
-@media(min-width:1351px){.sales-header-compact.so-head{grid-template-columns:minmax(220px,1.6fr) minmax(220px,1.6fr) repeat(4,minmax(105px,.75fr)) minmax(150px,1.1fr)}
-.sales-header-compact.so-head.q{grid-template-columns:minmax(220px,1.6fr) minmax(220px,1.6fr) repeat(5,minmax(105px,.75fr)) minmax(150px,1.1fr)}}
+@media(min-width:1351px){.sales-header-compact.so-head{grid-template-columns:minmax(260px,1.85fr) minmax(180px,1.35fr) repeat(4,minmax(105px,.75fr)) minmax(150px,1.1fr)}
+.sales-header-compact.so-head.q{grid-template-columns:minmax(260px,1.85fr) minmax(180px,1.35fr) repeat(5,minmax(105px,.75fr)) minmax(150px,1.1fr)}}
 /* Контакт заказа (пункт 6, views/sales.js): иконка у Customer, строка под шапкой. */
 .so-cust-cell{display:flex;gap:6px;align-items:center}.so-cust-cell .so-cust{flex:1;min-width:0}
 .so-contact-btn{flex:none;display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--line-strong);border-radius:7px;background:var(--surface);color:var(--text-2)}
 .so-contact-btn span,.so-contact-pick span{display:inline-flex}.so-contact-btn svg{width:17px;height:17px}
 .so-contact-btn.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent)}
 .sales-header-compact.has-contact{border-bottom-left-radius:0;border-bottom-right-radius:0}
+/* Письма заказа (erp/sales/order-emails): конверт рядом с Contact, строка под шапкой — как строка контакта. */
+.so-mail-btn{position:relative}
+.so-mail-btn i{position:absolute;right:-5px;top:-6px;display:grid;place-items:center;min-width:15px;height:15px;padding:0 3px;border-radius:999px;background:var(--accent);color:var(--on-solid);font-size:9.5px;font-style:normal;font-weight:700}
+.so-mail-row{display:grid;margin-top:-11px;padding:3px 14px;background:var(--surface);border:1px solid var(--line);border-radius:0 0 11px 11px;font-size:12.5px;color:var(--text)}
+.so-mail-row>div{display:grid;grid-template-columns:18px minmax(0,2.2fr) minmax(0,1.6fr) 84px 96px 24px;gap:12px;align-items:center;min-height:36px;border-top:1px solid var(--line-soft)}
+.so-mail-row>div:first-child{border-top:0}
+.so-mail-row a{color:var(--accent);font-weight:500;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.so-mail-row a:hover{text-decoration:underline}
+.so-mail-row a.so-mail-find{color:var(--text-2);font-weight:400;font-size:12px}
+.so-mail-row small{color:var(--text-3);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.so-mail-x{display:grid;place-items:center;width:24px;height:24px;padding:0;border:0;border-radius:6px;background:transparent;color:var(--text-3);font-size:16px;line-height:1}
+.so-mail-x:hover{background:var(--danger-soft);color:var(--danger)}
+.so-mail-row>.so-mail-add{grid-template-columns:minmax(0,420px) auto minmax(0,1fr);padding:5px 0}
+.so-mail-add input{height:30px;padding:4px 8px;font-size:12px}
+.so-mail-err{color:var(--danger);font-size:12px}
+.so-mail-row.so-mail-strip{margin-top:0;border-radius:11px}
 .so-contact-row{position:relative;display:grid;grid-template-columns:1fr 1fr 1.5fr 1.5fr;gap:14px;align-items:center;margin-top:-11px;padding:9px 14px;background:var(--surface);border:1px solid var(--line);border-radius:0 0 11px 11px;font-size:12.5px;color:var(--text)}
 .so-contact-row>span{display:inline-flex;align-items:center;gap:8px;min-width:0;user-select:text}
 .so-contact-i{display:inline-flex;color:var(--text-3)}.so-contact-i svg{width:14px;height:14px}
@@ -1833,6 +1849,8 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .sl-fbtn.on{background:var(--accent);border-color:var(--accent);color:var(--on-solid)}
 .sl-table .sl-check{width:26px}
 .sl-table input[type=checkbox]{width:15px;height:15px;margin:0}
+.sl-po{display:flex;align-items:center;gap:6px;max-width:100%}.sl-po>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis}.sl-po>a,.sl-po>.sl-po-arch{flex:none;display:inline-flex;color:var(--accent)}.sl-po>.sl-po-arch{color:var(--text-3)}.sl-po svg{width:15px;height:15px}
+.sl-table td .sl-glass a{color:var(--accent);text-decoration:none}
 .sl-glass{display:inline-block;max-width:220px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom;color:var(--text-2);font-size:12px}
 .sl-table tr.sl-row-sel td{background:var(--accent-soft)}
 .sl-table tr.sl-row-work td{background:var(--surface-3)}
@@ -4337,7 +4355,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='248b9e4fdb39';
+var ERP_BUILD='fb03dd940e05';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -13511,6 +13529,95 @@ function salesOrderChargeDefaults(){
 }
 function orderSetupFrit(){const s=orderSetup();return {dotMm:s.fritDotMm,margin16:s.fritMargin16,marginFrom:s.fritCorner};}
 
+/* ==== src/erp/sales/order-emails.js ==== */
+/* ============================================================================
+   Письма заказа: привязка ветки Gmail к заказу или квоте и ссылки на неё
+   (задание docs/ЗАДАЧА_ПОЧТА_ЗАКАЗЫ.md, этап 1).
+   IN : DB.salesOrder[].emails, открытый заказ (soDraft, soEdit, soQuoteCopyOf),
+        адрес письма из Gmail текстом
+   OUT: orderEmailsClean, orderEmailUrl, orderEmailFindUrl, orderEmailFromLink,
+        orderEmailLatest, orderEmailAdd, orderEmailRemove, orderEmailLogNotes
+   Заказчик задания, 15.11.2026: заказы приходят письмами на общий ящик — из
+   заказа должно быть легко открыть оригинальное письмо. Привязка — запись о
+   ветке (thread): одна на ветку, сколько бы ответов ни пришло; хранит и ветку,
+   и письмо, из которого её привязали (messageId). Текст письма не хранится.
+   Привязка пишется сразу, без Save (как Hold): она не меняет содержание
+   заказа, и закрытый заказ её тоже принимает. Система сама ничего не
+   привязывает — только по действию человека.
+   Ссылка: ящик из записи (authuser) + ветка; запасная — поиск Gmail по
+   отправителю и теме, она находит письмо и в другом ящике.
+   ============================================================================ */
+const ORDER_EMAIL_MAX=20;
+function orderEmailText(v,n){return String(v==null?'':v).replace(/\s+/g,' ').trim().slice(0,n);}
+function orderEmailAddress(v){const s=orderEmailText(v,120).toLowerCase();return /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(s)?s:'';}
+function orderEmailId(v){const s=orderEmailText(v,80);return /^[A-Za-z0-9_-]{10,80}$/.test(s)?s:'';}
+function orderEmailIso(v){const s=orderEmailText(v,40);return s&&!Number.isNaN(Date.parse(s))?s:'';}
+function orderEmailClean(e){
+ e=e&&typeof e==='object'?e:{};
+ const threadId=orderEmailId(e.threadId);if(!threadId)return null;
+ return {threadId,messageId:orderEmailId(e.messageId),account:orderEmailAddress(e.account),from:orderEmailAddress(e.from),fromName:orderEmailText(e.fromName,80),
+  subject:orderEmailText(e.subject,200),at:orderEmailIso(e.at),by:orderEmailText(e.by,80),addedAt:orderEmailIso(e.addedAt)};
+}
+/* Одна запись на ветку: повторная привязка той же ветки заменяет запись на
+   её месте. Больше ORDER_EMAIL_MAX не храним — остаются последние. */
+function orderEmailsClean(list){
+ const out=[];
+ (Array.isArray(list)?list:[]).forEach(x=>{const e=orderEmailClean(x);if(!e)return;const i=out.findIndex(y=>y.threadId===e.threadId);if(i>=0)out[i]=e;else out.push(e);});
+ return out.slice(-ORDER_EMAIL_MAX);
+}
+function orderEmailLatest(o){const l=o&&Array.isArray(o.emails)?o.emails:[];return l.length?l[l.length-1]:null;}
+function orderEmailBase(e){return 'https://mail.google.com/mail/u/'+(e.account?'?authuser='+encodeURIComponent(e.account):'0/');}
+function orderEmailUrl(e){return e&&e.threadId?orderEmailBase(e)+'#all/'+encodeURIComponent(e.threadId):'';}
+/* Поиск Gmail по отправителю и теме. Нет ни того, ни другого (ссылку вставили
+   руками) — искать нечем. */
+function orderEmailFindUrl(e){
+ if(!e)return '';
+ const q=[e.from?'from:'+e.from:'',e.subject?'subject:"'+e.subject.replace(/"/g,' ')+'"':''].filter(Boolean).join(' ');
+ return q?orderEmailBase(e)+'#search/'+encodeURIComponent(q):'';
+}
+/* Адрес открытого письма из строки браузера: …/mail/u/0/#inbox/<ветка>,
+   #label/<метка>/<ветка>, #search/<запрос>/<ветка>. Список писем (#inbox) и
+   настройки ветки не несут — null. */
+function orderEmailFromLink(text){
+ let u;try{u=new URL(String(text||'').trim());}catch(err){return null;}
+ if(u.protocol!=='https:'||u.hostname!=='mail.google.com')return null;
+ const parts=u.hash.replace(/^#/,'').split('?')[0].split('/').filter(Boolean),id=parts.length>1&&parts[0]!=='settings'?parts[parts.length-1]:'';
+ return id.length>=14?orderEmailClean({threadId:id,account:u.searchParams.get('authuser')||''}):null;
+}
+function orderEmailWho(){const u=typeof signinUser==='function'?signinUser():null;return u&&u.name||'';}
+/* Запись, чьи письма правит открытый редактор: сохранённый заказ или
+   отправленная ревизия квоты, открытая рабочей копией. Новый, ещё не
+   записанный заказ — null: его письма живут в черновике до Save. */
+function orderEmailEditorId(){return typeof soQuoteCopyOf!=='undefined'&&soQuoteCopyOf||(typeof soEdit!=='undefined'&&soEdit&&soEdit!=='new'?soEdit:null);}
+function orderEmailSet(o,list){if(list.length)o.emails=list;else delete o.emails;}
+/* Правка писем сохранённой записи одной командой; открытый в редакторе
+   черновик получает то же, чтобы его несохранённые правки не потерялись. */
+function orderEmailWrite(orderId,change){
+ const out=storageCommand(()=>{
+  const o=(DB.salesOrder||[]).find(x=>x.id===orderId);if(!o)return {error:'The order was not found.'};
+  orderEmailSet(o,orderEmailsClean(change((o.emails||[]).slice())));o.updatedAt=new Date().toISOString();
+  /* Запись — в том же порядке полей, что даёт нормализация: иначе открытый
+     заказ считался бы изменённым. */
+  const now=normalizeSalesOrderIn(orderId)||o;
+  if(typeof soDraft!=='undefined'&&soDraft&&orderEmailEditorId()===orderId){orderEmailSet(soDraft,JSON.parse(JSON.stringify(now.emails||[])));if(soDraft.id===orderId)soDraft.updatedAt=now.updatedAt;}
+  return true;
+ },{salesOrder:[orderId]});
+ return out.ok?{ok:true}:{ok:false,error:out.error};
+}
+function orderEmailStamp(email){const e=orderEmailClean(email);return e?Object.assign(e,{by:orderEmailWho(),addedAt:new Date().toISOString()}):null;}
+function orderEmailAdd(orderId,email){
+ const e=orderEmailStamp(email);if(!e)return {ok:false,error:'This is not a link to a Gmail email.'};
+ return orderEmailWrite(orderId,list=>list.concat(e));
+}
+function orderEmailRemove(orderId,threadId){return orderEmailWrite(orderId,list=>list.filter(x=>x.threadId!==threadId));}
+/* Журнал заказа (erp/sales/order-log): что привязали и что сняли. */
+function orderEmailLogNotes(a,b){
+ const was=new Map((a.emails||[]).map(e=>[e.threadId,e])),now=new Map((b.emails||[]).map(e=>[e.threadId,e])),out=[],name=e=>e.subject||e.from||'Gmail link';
+ now.forEach((e,id)=>{if(!was.has(id))out.push(['Email linked',name(e)]);});
+ was.forEach((e,id)=>{if(!now.has(id))out.push(['Email removed',name(e)]);});
+ return out;
+}
+
 /* ==== src/erp/sales/data.js ==== */
 /* =====================================================================
    erp/sales/data · sales-0.3b-makeup
@@ -14121,7 +14228,9 @@ function normalizeSalesOrder(o){
   /* Заказ-переделка NCR (erp/quality/ncr): связь и «без оплаты» по умолчанию. */
   remakeNcrId:salesRefId(o.remakeNcrId),noCharge:o.noCharge===true,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt),
   ...(c=>c.length?{cancellations:c}:{})(normalizeCancellations(o.cancellations,lines)),
-  ...(a=>a.length?{adjustments:a}:{})(normalizeSalesAdjustments(o.adjustments))};
+  ...(a=>a.length?{adjustments:a}:{})(normalizeSalesAdjustments(o.adjustments)),
+  /* Письма Gmail, привязанные к заказу (erp/sales/order-emails). */
+  ...(m=>m.length?{emails:m}:{})(orderEmailsClean(o.emails))};
 }
 /* Поправка на заказ руками: свой текст и сумма, минус — меньше платить
    (владелец, 7.10.2026: «то, что касается денег, должно быть максимально
@@ -15355,6 +15464,8 @@ function orderLogDiff(a,b){
  (b.lines||[]).forEach((l,i)=>{const was=before.get(l.id);if(was&&(was.priceManual??null)!==(l.priceManual??null))add('Price by hand','line '+(i+1)+' · '+money(was.priceManual)+' → '+money(l.priceManual));});
  /* Числа надбавок заказа — тоже со значениями (окно Surcharges). */
  if(typeof salesSurchargeLogNotes==='function')salesSurchargeLogNotes(a,b).forEach(n=>add('Surcharge',n));
+ /* Письма Gmail: привязали, сняли (erp/sales/order-emails). */
+ if(typeof orderEmailLogNotes==='function')orderEmailLogNotes(a,b).forEach(n=>add(n[0],n[1]));
  if(JSON.stringify(a.adjustments||[])!==JSON.stringify(b.adjustments||[]))add('Adjustments',(b.adjustments||[]).map(x=>(x.label||'Adjustment')+' '+(x.amount<0?'−':'+')+'$'+Math.abs(x.amount).toFixed(2)).join('; ')||'removed');
  /* Hold заказа и строк. */
  if(!a.onHold&&b.onHold)add('On Hold',b.holdReason);
@@ -15397,7 +15508,7 @@ function orderLogCapture(ids){
  const moving=id=>typeof storageColdMoving==='function'&&storageColdMoving('salesOrder',id);
  now.forEach((x,id)=>{
   if(!x)return;const {o,text}=x;
-  if(!base.has(id)){if(moving(id))return;orderLogPush(o,'Created',orderLogCreatedNote(o));if(typeof salesSurchargeLogNotes==='function')salesSurchargeLogNotes({},o).forEach(n=>orderLogPush(o,'Surcharge',n));return;}
+  if(!base.has(id)){if(moving(id))return;orderLogPush(o,'Created',orderLogCreatedNote(o));if(typeof salesSurchargeLogNotes==='function')salesSurchargeLogNotes({},o).forEach(n=>orderLogPush(o,'Surcharge',n));if(typeof orderEmailLogNotes==='function')orderEmailLogNotes({},o).forEach(n=>orderLogPush(o,n[0],n[1]));return;}
   if(base.get(id)===text)return;
   let a,b;try{a=normalizeSalesOrder(JSON.parse(base.get(id)));b=normalizeSalesOrder(JSON.parse(text));}catch(e){return;}
   orderLogDiff(a,b).forEach(([what,note])=>orderLogPush(o,what,note));
@@ -19222,6 +19333,8 @@ function signinAs(id){
  signinSetTabSid(sid);signinPick='';signinError='';authLog('Sign in','Office',u);
  if(signinOwner&&signinOwner!==id)return signinFresh();
  signinOwner=id;render();
+ /* Адрес #order=<номер> ждал входа (erp/sales/order-progress). */
+ if(typeof salesOrderHashOpen==='function')salesOrderHashOpen();
 }
 function signinOut(){const was=signinUser();if(was)authLog('Sign out','Office',was);try{localStorage.removeItem(SIGNIN_KEY);}catch(e){}signinSetTabSid('');signinPick='';signinError='';render();}
 /* Sign out своей кнопкой: сначала тот же вопрос, что при уходе из
@@ -19674,6 +19787,9 @@ let soExpandAll=false;
 let soPricingLineId=null,soServiceLineId=null,soServiceOrderOpen=false;
 /* Строка контакта под шапкой (пункт 6): спрятана при каждом открытии заказа. */
 let soContactOpen=false,soContactMenu=false;
+/* Строка писем под шапкой (erp/sales/order-emails) — на месте строки контакта:
+   открыта либо одна, либо другая; тоже спрятана при каждом открытии заказа. */
+let soMailOpen=false,soMailText='',soMailError='';
 let salesBridge=null;
 
 function salesFindCustomer(id){return (DB.customer||[]).find(c=>c.id===id)||null;}
@@ -19686,8 +19802,8 @@ function salesApplyCustomerDefaults(id){
 }
 /* Строки поиска в списке больше нет — фильтры колонок (views/sales-list-ui). */
 function salesToggleExpandAll(){soExpandAll=!soExpandAll;render();}
-function salesOrderNew(kind){if(typeof salesSaveJob!=='undefined'&&salesSaveJob){salesSaveQueue(()=>salesOrderNew(kind),'A new '+(kind==='quote'?'quote':'order')+' opens after saving.');return;}soSavedBaseline=null;salesLineHoldMenu=null;salesMetricsPanel=null;salesExcelReset();salesDialog=null;soQuoteCopyOf=null;soCopyOf=null;soEdit='new';soDraft=newSalesOrderDraft(kind);salesShapeSnapshotTake(null);soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soContactOpen=false;soContactMenu=false;soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
-function salesOrderEdit(id){if(typeof salesSaveJob!=='undefined'&&salesSaveJob){const x=salesRecord(id);salesSaveQueue(()=>salesOrderEdit(id),(x&&x.businessNumber?salesSaveTitle(x).replace(/^./,c=>c.toUpperCase()):'The order')+' opens after saving.');return;}salesLineHoldMenu=null;salesMetricsPanel=null;salesDialog=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;soSavedBaseline=JSON.stringify(o);salesExcelReset();soQuoteCopyOf=null;soCopyOf=null;if(salesQuoteOpensAsCopy(o)){soEdit='new';soDraft=normalizeSalesOrder(salesQuoteWorkingCopy(o));soQuoteCopyOf=o.id;}else{soEdit=id;soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(o)));}salesShapeSnapshotTake(o);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soContactOpen=false;soContactMenu=false;soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderNew(kind){if(typeof salesSaveJob!=='undefined'&&salesSaveJob){salesSaveQueue(()=>salesOrderNew(kind),'A new '+(kind==='quote'?'quote':'order')+' opens after saving.');return;}soSavedBaseline=null;salesLineHoldMenu=null;salesMetricsPanel=null;salesExcelReset();salesDialog=null;soQuoteCopyOf=null;soCopyOf=null;soEdit='new';soDraft=newSalesOrderDraft(kind);salesShapeSnapshotTake(null);soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soContactOpen=false;soContactMenu=false;soMailOpen=false;soMailText='';soMailError='';soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderEdit(id){if(typeof salesSaveJob!=='undefined'&&salesSaveJob){const x=salesRecord(id);salesSaveQueue(()=>salesOrderEdit(id),(x&&x.businessNumber?salesSaveTitle(x).replace(/^./,c=>c.toUpperCase()):'The order')+' opens after saving.');return;}salesLineHoldMenu=null;salesMetricsPanel=null;salesDialog=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;soSavedBaseline=JSON.stringify(o);salesExcelReset();soQuoteCopyOf=null;soCopyOf=null;if(salesQuoteOpensAsCopy(o)){soEdit='new';soDraft=normalizeSalesOrder(salesQuoteWorkingCopy(o));soQuoteCopyOf=o.id;}else{soEdit=id;soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(o)));}salesShapeSnapshotTake(o);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soContactOpen=false;soContactMenu=false;soMailOpen=false;soMailText='';soMailError='';soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
 /* Закрытие черновика спрашивает подтверждение, если в нём есть что терять.
    Раньше Close молча стирал введённые строки — оператор терял работу без единого
    сообщения. Сравниваем с сохранённым состоянием: у нового заказа терять нечего,
@@ -19761,7 +19877,7 @@ function salesDraftDrop(discard){
  listWindowDrop('.sales-lines-table');
  const restored=!!discard&&salesShapeSnapshotRestore();
  if(typeof salesBridge!=='undefined'&&salesBridge&&typeof sEdit!=='undefined'){sEdit=null;sDraft=null;}
- salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soContactOpen=false;soContactMenu=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;soQuoteCopyOf=null;soCopyOf=null;soShapeSnapshot=null;soShapeConflicts=new Set();
+ salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soContactOpen=false;soContactMenu=false;soMailOpen=false;soMailText='';soMailError='';soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;soQuoteCopyOf=null;soCopyOf=null;soShapeSnapshot=null;soShapeConflicts=new Set();
  if(salesPruneOrphanShapes()||restored)touch();
  /* Заказ из архива на просмотре — его записи уходят из DB (erp/archive). */
  if(typeof archiveVisitEnd==='function')archiveVisitEnd();
@@ -19834,7 +19950,7 @@ function salesCopyOrder(id){
 }
 function salesCopyOrderDraft(src){
  const copy=salesCopySalesRecord(src,{businessNumber:'',status:salesIsQuote(src)?'open':'new',statusDates:{},batchNo:'',batchHistory:[],unbatchHistory:[],productionUnbatchVerify:false,fulfilledVia:'',fromQuoteId:'',wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',
-  onHold:false,holdReason:'',holdAt:'',remakeNcrId:'',noCharge:false,cancellations:[],adjustments:[],createdAt:'',updatedAt:''});
+  onHold:false,holdReason:'',holdAt:'',remakeNcrId:'',noCharge:false,cancellations:[],adjustments:[],emails:[],createdAt:'',updatedAt:''});
  delete copy.isDraft;
  copy.lines.forEach(l=>{Object.assign(l,{batchManaged:false,onHold:false,holdReason:'',holdAt:'',cutStartedAt:'',batchNo:''});});
  return normalizeSalesOrder(copy);
@@ -27429,7 +27545,7 @@ function salesCustomerOptionDown(ev,id){ev.preventDefault();salesCustomerPick(id
 function salesCustomerFocus(el){el.select();salesCustomerOpen(el,'');}
 function salesCustomerField(){
  const c=salesFindCustomer(soDraft.customerId),name=salesCustomerName(c);
- return `<div class="so-cust-cell"><div class="so-cust"><input id="so_customer" data-customer-input role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="so_cust_list" autocomplete="off" value="${esc(name)}" title="${esc(c?name+' · '+(c.code||''):'')}" placeholder="Search customers by name or code" ${onAct('focus',salesCustomerFocus,EL)} ${onAct('input',salesCustomerOpen,EL,EL_VALUE)} ${onAct('keydown',salesCustomerKeydown,EVENT,EL)} ${onAct('blur',salesCustomerClose,EL)}><span class="so-cust-car" aria-hidden="true">▾</span><div class="so-cust-list" id="so_cust_list" role="listbox" hidden ${onAct('mousedown',actPrevent,EVENT)}></div></div><button type="button" class="so-contact-btn${soContactOpen&&c?' on':''}" data-contact-toggle title="Contact" aria-label="Contact" aria-expanded="${soContactOpen&&!!c}" ${c?'':'disabled'} ${onAct('click',salesContactToggle)}>${ico('contact')}</button></div>`;
+ return `<div class="so-cust-cell"><div class="so-cust"><input id="so_customer" data-customer-input role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="so_cust_list" autocomplete="off" value="${esc(name)}" title="${esc(c?name+' · '+(c.code||''):'')}" placeholder="Search customers by name or code" ${onAct('focus',salesCustomerFocus,EL)} ${onAct('input',salesCustomerOpen,EL,EL_VALUE)} ${onAct('keydown',salesCustomerKeydown,EVENT,EL)} ${onAct('blur',salesCustomerClose,EL)}><span class="so-cust-car" aria-hidden="true">▾</span><div class="so-cust-list" id="so_cust_list" role="listbox" hidden ${onAct('mousedown',actPrevent,EVENT)}></div></div><button type="button" class="so-contact-btn${soContactOpen&&c?' on':''}" data-contact-toggle title="Contact" aria-label="Contact" aria-expanded="${soContactOpen&&!!c}" ${c?'':'disabled'} ${onAct('click',salesContactToggle)}>${ico('contact')}</button>${(n=>`<button type="button" class="so-contact-btn so-mail-btn${soMailOpen?' on':''}" data-mail-toggle title="Emails" aria-label="Emails" aria-expanded="${soMailOpen}" ${onAct('click',salesMailToggle)}>${ico('mail')}${n?`<i data-mail-count>${n}</i>`:''}</button>`)(salesMailList(soDraft).length)}</div>`;
 }
 /* Контакт заказа (пункт 6; рисунок владельца 30.10.2026: «чтобы оно было
    спрятано, но при нажатии на иконку выпадала снизу строка с данными»).
@@ -27459,7 +27575,45 @@ function salesContactRow(o,c){
 function salesContactMenuHTML(c,p){
  return `<span class="so-contact-back" ${onAct('click',salesContactMenuToggle)}></span><span class="so-contact-menu" role="listbox">${c.contacts.map(x=>`<button type="button" role="option" aria-selected="${x===p}" class="${x===p?'on':''}" data-contact-option="${esc(x.id)}" ${onAct('click',salesContactPick,elData('contactOption'))}><span class="ck">${x===p?ico('check'):''}</span><span><b>${esc(x.name||'—')}</b><small>${esc([x.role,x.isPrimary?'primary':''].filter(Boolean).join(' · '))}</small></span><span class="ph">${esc(x.phone||x.mobile||x.phone2||'')}</span></button>`).join('')}</span>`;
 }
-function salesContactToggle(){soContactOpen=!soContactOpen;soContactMenu=false;render();}
+function salesContactToggle(){soContactOpen=!soContactOpen;soContactMenu=false;if(soContactOpen)soMailOpen=false;render();}
+/* Письма заказа (erp/sales/order-emails; задание ЗАДАЧА_ПОЧТА_ЗАКАЗЫ, вариант C,
+   15.11.2026): письмо — второстепенное, как контакт: конверт с числом веток
+   у поля Customer, строка писем под шапкой на месте строки контакта. Клик по
+   теме открывает ветку в Gmail; Find in Gmail — поиск по отправителю и теме
+   (другой ящик). × и вставка ссылки пишутся сразу, без Save; у нового, ещё не
+   записанного заказа — в черновик. */
+function salesMailList(o){return o&&Array.isArray(o.emails)?o.emails:[];}
+function salesMailToggle(){soMailOpen=!soMailOpen;soMailError='';if(soMailOpen){soContactOpen=false;soContactMenu=false;}render();}
+function salesMailLine(e,edit){
+ const find=orderEmailFindUrl(e),who=[e.fromName,e.from].filter(Boolean).join(' · ');
+ return `<div data-mail="${esc(e.threadId)}">${ico('mail','so-contact-i')}<a href="${esc(orderEmailUrl(e))}" target="_blank" rel="noopener" data-mail-link title="Open in Gmail">${esc(e.subject||'Gmail link')}</a><small>${esc(who)}</small><small>${esc(salesListShortDay(salesListIsoDay(e.at||e.addedAt)))}</small>${find?`<a class="so-mail-find" href="${esc(find)}" target="_blank" rel="noopener" data-mail-find>Find in Gmail</a>`:'<span></span>'}${edit?`<button type="button" class="so-mail-x" aria-label="Remove email" title="Remove" ${onAct('click',salesMailRemove,String(e.threadId))}>×</button>`:'<span></span>'}</div>`;
+}
+function salesMailRow(o){
+ if(!soMailOpen)return '';
+ return `<div class="so-mail-row" data-order-mail>${salesMailList(o).map(e=>salesMailLine(e,true)).join('')}<div class="so-mail-add"><input data-mail-paste placeholder="Paste Gmail link" aria-label="Paste Gmail link" value="${esc(soMailText)}" ${onAct('input',salesMailInput,EL_VALUE)} ${onAct('keydown',salesMailKey,EVENT)}><button type="button" class="sm" data-mail-add ${onAct('click',salesMailPaste)}>Link</button>${soMailError?`<span class="so-mail-err" data-mail-error>${esc(soMailError)}</span>`:''}</div></div>`;
+}
+/* Закрытый заказ и заказ из архива — шапка не нажимается (inert): письма
+   видны сразу, полосой над ней, только ссылками. */
+function salesMailStrip(o){
+ const list=salesMailList(o);
+ return list.length?`<div class="so-mail-row so-mail-strip" data-order-mail-strip>${list.map(e=>salesMailLine(e,false)).join('')}</div>`:'';
+}
+function salesMailInput(v){soMailText=v;}
+function salesMailKey(ev){if(ev.key==='Enter'){ev.preventDefault();salesMailPaste();}}
+function salesMailPaste(){
+ const e=orderEmailFromLink(soMailText),id=orderEmailEditorId();
+ if(!e){soMailError='Open the email in Gmail and copy its address.';render();return;}
+ if(id){const r=orderEmailAdd(id,e);if(!r.ok){soMailError=r.error;render();return;}}
+ else orderEmailSet(soDraft,orderEmailsClean(salesMailList(soDraft).concat(orderEmailStamp(e))));
+ soMailText='';soMailError='';render();
+}
+function salesMailRemove(threadId){
+ const id=orderEmailEditorId();
+ if(id){const r=orderEmailRemove(id,threadId);if(!r.ok){soMailError=r.error;render();return;}}
+ else orderEmailSet(soDraft,salesMailList(soDraft).filter(e=>e.threadId!==threadId));
+ soMailError='';render();
+}
+
 function salesContactMenuToggle(){soContactMenu=!soContactMenu;render();}
 function salesContactPick(id){const c=salesFindCustomer(soDraft.customerId);soContactMenu=false;if(c&&c.contacts.some(x=>x.id===id))soDraft.customerContactId=id;render();}
 function salesCustomerOpen(el,q){
@@ -27514,9 +27668,9 @@ function salesOrderEditor(){
     записи на экране только на время просмотра. */
  const o=soDraft,c=salesFindCustomer(o.customerId),title=salesOrderTitle(o),ro=salesOrderReadOnly(o),av=typeof archiveViewing==='function'&&archiveViewing(o),q=salesIsQuote(o),fromQuote=o.fromQuoteId?((DB.salesOrder||[]).find(x=>x.id===o.fromQuoteId)||{}).businessNumber:'',customerFlags=c?`${c.onHold?'<span class="pill bad">On Hold</span>':''}${c.poRequired?'<span class="pill warn">PO Required</span>':''}${c.isProspect?'<span class="pill info">Prospect</span>':''}`:'';
  return `<div class="sales-order-editor"><div class="sales-editor-top"><div><div class="sales-order-title"><h3>${esc(title)}</h3>${salesStatusPill(q?salesQuoteShown(o):o)}${!q&&o.onHold?'<span class="pill hold" data-hold-pill>On Hold</span>':''}${customerFlags}</div><div class="mut mono">${esc(q?salesQuoteShown(o).id:o.id)}${fromQuote?' · from quote '+raw(fromQuote):''}${(e=>e&&e.by?`<span data-created-by> · Created by ${esc(e.by)} · ${esc(salesListShortDay(salesListIsoDay(e.at)))}</span>`:'')(orderCreatedBy(q?salesQuoteShown(o).id:o.id))}</div></div>${q?'':av?`<div inert>${salesPaymentStrip(o)}</div>`:salesPaymentStrip(o)}<div class="sales-editor-actions">${salesHeaderActions(o)}</div></div>
- ${av?'<div class="sales-readonly" inert>':''}${salesCopyStrip(o)}${salesHoldBar(o)}${shippingOrderStrip(o)}${salesStatusStepper(o)}${salesLockBar(o)}${typeof ncrOrderStrip==='function'?ncrOrderStrip(o):''}${ro&&!av?'<div class="sales-readonly" inert>':''}
- <div class="sales-header-compact so-head${q?' q':''}${soContactOpen&&c?' has-contact':''}"><div><label for="so_customer">Customer *</label>${salesCustomerField()}</div><div><label>Customer PO</label><input value="${esc(o.customerPo)}" ${onAct('input',salesDraftSet,'customerPo',EL_VALUE)}></div><div><label>Due Date</label><input type="date" value="${esc(o.dueDate)}" ${onAct('change',salesDraftSet,'dueDate',EL_VALUE)}></div><div><label>Priority</label><select ${onAct('change',salesDraftSet,'priority',EL_VALUE)}><option value="normal" ${o.priority==='normal'?'selected':''}>Normal</option><option value="rush" ${o.priority==='rush'?'selected':''}>Rush</option><option value="critical" ${o.priority==='critical'?'selected':''}>Critical</option></select></div><div><label>Delivery</label><select ${onAct('change',salesDraftSet,'delivery',EL_VALUE)}><option value="pickup" ${o.delivery==='pickup'?'selected':''}>Pickup</option><option value="delivery" ${o.delivery==='delivery'?'selected':''}>Delivery</option></select></div><div><label>Currency</label><select ${onAct('change',salesDraftSetRender,'currency',EL_VALUE)}><option ${o.currency==='CAD'?'selected':''}>CAD</option><option ${o.currency==='USD'?'selected':''}>USD</option></select></div><div><label>Branch</label><input value="${esc(o.branch)}" ${onAct('input',salesDraftSet,'branch',EL_VALUE)}></div>${q?`<div><label>Valid until</label><input type="date" data-quote-valid value="${esc(o.validUntil)}" title="Empty: the send date plus ${salesQuoteValidDays()} days" ${onAct('change',salesDraftSetRender,'validUntil',EL_VALUE)}></div>`:''}</div>
- ${salesContactRow(o,c)}${salesPriceListStrip(o)}${q?'':salesDepositHint(o)}${c&&c.onHold?'<div class="sales-hold">Customer on hold</div>':''}
+ ${ro?salesMailStrip(o):''}${av?'<div class="sales-readonly" inert>':''}${salesCopyStrip(o)}${salesHoldBar(o)}${shippingOrderStrip(o)}${salesStatusStepper(o)}${salesLockBar(o)}${typeof ncrOrderStrip==='function'?ncrOrderStrip(o):''}${ro&&!av?'<div class="sales-readonly" inert>':''}
+ <div class="sales-header-compact so-head${q?' q':''}${soContactOpen&&c||soMailOpen?' has-contact':''}"><div><label for="so_customer">Customer *</label>${salesCustomerField()}</div><div><label>Customer PO</label><input value="${esc(o.customerPo)}" ${onAct('input',salesDraftSet,'customerPo',EL_VALUE)}></div><div><label>Due Date</label><input type="date" value="${esc(o.dueDate)}" ${onAct('change',salesDraftSet,'dueDate',EL_VALUE)}></div><div><label>Priority</label><select ${onAct('change',salesDraftSet,'priority',EL_VALUE)}><option value="normal" ${o.priority==='normal'?'selected':''}>Normal</option><option value="rush" ${o.priority==='rush'?'selected':''}>Rush</option><option value="critical" ${o.priority==='critical'?'selected':''}>Critical</option></select></div><div><label>Delivery</label><select ${onAct('change',salesDraftSet,'delivery',EL_VALUE)}><option value="pickup" ${o.delivery==='pickup'?'selected':''}>Pickup</option><option value="delivery" ${o.delivery==='delivery'?'selected':''}>Delivery</option></select></div><div><label>Currency</label><select ${onAct('change',salesDraftSetRender,'currency',EL_VALUE)}><option ${o.currency==='CAD'?'selected':''}>CAD</option><option ${o.currency==='USD'?'selected':''}>USD</option></select></div><div><label>Branch</label><input value="${esc(o.branch)}" ${onAct('input',salesDraftSet,'branch',EL_VALUE)}></div>${q?`<div><label>Valid until</label><input type="date" data-quote-valid value="${esc(o.validUntil)}" title="Empty: the send date plus ${salesQuoteValidDays()} days" ${onAct('change',salesDraftSetRender,'validUntil',EL_VALUE)}></div>`:''}</div>
+ ${salesContactRow(o,c)}${salesMailRow(o)}${salesPriceListStrip(o)}${q?'':salesDepositHint(o)}${c&&c.onHold?'<div class="sales-hold">Customer on hold</div>':''}
  ${salesGlassSectionHTML()}
  ${salesExtraItemsSection()}
  ${typeof recutOrderSection==='function'?recutOrderSection(o):''}<div class="sales-notes"><label>Order Notes</label><textarea rows="2" ${onAct('input',salesDraftSet,'notes',EL_VALUE)}>${esc(o.notes)}</textarea></div>${ro?'</div>':''}<div class="err" id="e_sales_order"></div>${typeof ncrModalHTML==='function'?ncrModalHTML():''}${salesLineHoldMenuHTML()}${salesExcelModal()}${salesServicesModal()}${salesMetricsModal()}${salesStockPickerModal()}${docModal()}${finApplyModal()}</div>`;
@@ -37083,6 +37237,12 @@ const SALES_LIST_COLUMNS=[
  {k:'customer',label:'Customer',type:'text',def:true},
  {k:'createdBy',label:'Created by',type:'text'},
  {k:'po',label:'PO',type:'text',def:true},
+ /* Письмо Gmail, привязанное к заказу (erp/sales/order-emails; 16.11.2026).
+    Конверт стоит в ячейке PO: таблица Sales подогнана без прокрутки вбок, на
+    1440 свободно 10 px — отдельной колонке по умолчанию места нет. Колонка
+    Email — в ⚙ Columns: тема последней ветки ссылкой, фильтр «Is empty» —
+    заказы без письма. */
+ {k:'email',label:'Email',type:'text'},
  {k:'created',label:'Created',type:'date',def:true},
  {k:'due',label:'Due',type:'date',def:true},
  {k:'status',label:'Status',type:'list',def:true},
@@ -37323,6 +37483,7 @@ function salesListValue(info,k){
   case 'number':v=(q?salesQuoteBaseNumber(o):o.businessNumber)||'';break;
   case 'customer':v=c.displayName||c.legalName||'';break;
   case 'po':v=o.customerPo||'';break;
+  case 'email':{const e=orderEmailLatest(o);v=e?e.subject||e.from||'Gmail link':'';break;}
   case 'created':v=salesListIsoDay(o.createdAt);break;
   case 'due':v=o.dueDate||'';break;
   case 'status':v=salesStatusLabel(o,salesListStatus(o));break;
@@ -37565,9 +37726,20 @@ function salesListWeightCell(v,w){
  if(!w||w.complete)return `<td class="n"${w&&w.estimated?' title="Nominal glass thickness"':''}>${w&&w.estimated?'≈ ':''}${esc(salesKgText(v))}</td>`;
  return `<td class="n" title="${esc(salesWeightTip(w))}" data-weight-partial>${esc(salesKgText(v))}<span class="pill warn sl-partial">Partial</span></td>`;
 }
+/* Конверт письма — в ячейке PO, справа от номера: клик открывает последнюю
+   ветку. Колонка Email (⚙ Columns) — тема ссылкой. У заказа из архива ссылки
+   в строке нет: конверт серый, письма видны в самом заказе. Без письма —
+   обычная ячейка. */
+function salesListMailCell(info,col,v){
+ const subj=salesListValue(info,'email');if(!subj)return '';
+ const e=info.a?null:orderEmailLatest(info.o),link=e?`href="${esc(orderEmailUrl(e))}" target="_blank" rel="noopener"`:'';
+ if(col.k==='email')return `<td><span class="sl-glass" title="${esc(subj)}">${e?`<a ${link} data-mail-subject>${raw(subj)}</a>`:raw(subj)}</span></td>`;
+ return `<td><span class="sl-po"><span>${v?raw(v):'<span class="mut">—</span>'}</span>${e?`<a ${link} data-mail-open title="${esc(subj)}" aria-label="Open email">${ico('mail')}</a>`:`<span class="sl-po-arch" title="${esc(subj)}">${ico('mail')}</span>`}</span></td>`;
+}
 function salesListCell(info,col){
  if(info.n)return ncrListCell(info,col);
  const o=info.o,q=info.q,v=salesListValue(info,col.k);
+ if(col.k==='po'||col.k==='email'){const m=salesListMailCell(info,col,v);if(m)return m;}
  switch(col.k){
   case 'type':return `<td><span class="pill ${q?'kind-quote':'kind-order'}">${q?'Quote':'Order'}</span></td>`;
   case 'number':{const from=!q&&o.fromQuoteId?salesListValue(info,'fromQuote'):'';return `<td><b class="mono">${raw(v||'Auto Number')}</b>${from?` <span class="mut small">from ${raw(from)}</span>`:''}</td>`;}
@@ -37864,7 +38036,7 @@ function salesListContextHTML(m,style){
  const q=salesIsQuote(o),ids=salesListSelectedOrders(),many=ids.length>1&&ids.includes(o.id);
  const item=(act,label,cls)=>`<button type="button" role="menuitem" class="${cls||''}" data-menu="${act}" ${onAct('click',salesListMenuRun,String(act))}>${label}</button>`;
  const hold=q?'':o.onHold?item('release',many?'Release · '+ids.length+' orders':'Release'):item('hold',many?'⛔ On Hold… · '+ids.length+' orders':'⛔ On Hold…');
- return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${item('copy','Copy')}${!q&&typeof salesProdOpen==='function'?item('production','Production'):''}${typeof orderLogOpen==='function'?item('log','Activity log'):''}${typeof skipAllowed==='function'&&!many&&skipAllowed()&&skipCanOpen(o)?item('skip','Skip…'):''}${hold}<hr>${item('documents','Documents')}${item('drawings','Drawings')}${typeof salesCutEstimateOpen==='function'&&cutEstUsable(o)?item('cutpreview',salesCutEstimateIds().length>1?'Cut preview · '+salesCutEstimateIds().length+' selected':'Cut preview'):''}${!q&&o.status!=='cancelled'?item('stickers','Print stickers…'):''}${!q&&typeof productionUnbatchAllowed==='function'&&productionUnbatchAllowed()&&productionUnbatchCanOpen(o)?item('unbatch','Unbatch order…'):''}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
+ return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${item('copy','Copy')}${!q&&typeof salesProdOpen==='function'?item('production','Production'):''}${typeof orderLogOpen==='function'?item('log','Activity log'):''}${orderEmailLatest(o)?item('email','Open email'):''}${typeof skipAllowed==='function'&&!many&&skipAllowed()&&skipCanOpen(o)?item('skip','Skip…'):''}${hold}<hr>${item('documents','Documents')}${item('drawings','Drawings')}${typeof salesCutEstimateOpen==='function'&&cutEstUsable(o)?item('cutpreview',salesCutEstimateIds().length>1?'Cut preview · '+salesCutEstimateIds().length+' selected':'Cut preview'):''}${!q&&o.status!=='cancelled'?item('stickers','Print stickers…'):''}${!q&&typeof productionUnbatchAllowed==='function'&&productionUnbatchAllowed()&&productionUnbatchCanOpen(o)?item('unbatch','Unbatch order…'):''}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
 }
 function salesListMenuRun(act){
  const m=salesListMenu;salesListMenu=null;
@@ -37875,6 +38047,7 @@ function salesListMenuRun(act){
  else if(act==='copy')salesCopyOrder(o.id);
  else if(act==='production')salesProdOpen(o.id);
  else if(act==='log')orderLogOpen(o.id);
+ else if(act==='email'){const e=orderEmailLatest(o);if(e)window.open(orderEmailUrl(e),'_blank','noopener');render();}
  else if(act==='skip')skipOpen(o.id);
  else if(act==='hold')salesHoldOpen(ids.filter(id=>!held(id)));
  else if(act==='release')salesReleaseHold(ids.filter(held));
@@ -53290,6 +53463,239 @@ function validateShipmentPayload(src){
  });
 }
 
+/* ==== src/erp/sales/order-progress.js ==== */
+/* ============================================================================
+   Прогресс заказа одним ответом: статус, сколько юнитов отгружено, готово к
+   выдаче, в производстве и ещё не начато, где стекло по станциям; и адрес
+   #order=<номер>, который открывает заказ (задание docs/ЗАДАЧА_ПОЧТА_ЗАКАЗЫ.md,
+   этап 2).
+   IN : заказ; shippingSummary (erp/shipping/data), glassBatchRemaining и
+        glassCutKeys (erp/production/glass-batches), prodBoard
+        (views/production-board), salesStatusLabel (erp/sales/lifecycle),
+        archiveIndex (erp/archive), location.hash
+   OUT: salesOrderProgress(o); salesOrderHash, salesOrderHashOpen
+   Заказчик задания, 15.11.2026: клиент письмом спрашивает статус — «сразу
+   видно, сколько из скольки выполнено»; показать «максимально логично, чтобы
+   никого не запутать». Поэтому все юниты заказа разложены на четыре кучки,
+   которые в сумме всегда дают total: shipped + ready + inProduction +
+   notStarted. «Сделано» (done) = shipped + ready.
+   Своих подсчётов стекла здесь нет: отгружено и готово — как в Shipping
+   (shippingSummary), «не начато» — юниты, чьё стекло ещё не в батче
+   (glassBatchRemaining), станции — клетки доски Production (prodBoard).
+   Юнит, у которого в батче хотя бы одно стекло, — уже в производстве.
+   Отменённые юниты в total не входят; товары склада (extraItems) — отдельно.
+   ============================================================================ */
+/* Сколько юнитов строки ещё не начато: целые юниты, чьё режущееся стекло не
+   в батче. Стекло без резки (COG) батча не ждёт — оно в производстве, как
+   только заказ дошёл до цеха. */
+function salesProgressNotStarted(o,l,left,active){
+ if(left<=0)return 0;
+ const keys=glassCutKeys(o,l).size;
+ if(!keys)return GLASS_WAITING_STATUSES.includes(o.status)?0:left;
+ return Math.min(left,Math.floor(glassBatchRemaining(o,l,active)/keys));
+}
+function salesProgressStations(o){
+ const x=typeof prodBoard==='function'?prodBoard().find(r=>r.o.id===o.id):null;if(!x)return [];
+ return (DB.station||[]).filter(s=>x.route[s.code]).map(s=>({code:s.code,waiting:x.route[s.code].w,passed:x.route[s.code].p,total:x.route[s.code].n}));
+}
+function salesOrderProgress(o){
+ if(!o)return null;
+ if(salesIsQuote(o)){
+  const st=typeof salesListStatus==='function'?salesListStatus(o):o.status;
+  return {kind:'quote',status:salesStatusLabel(o,st),statusKey:st,sentAt:o.sentAt||'',validUntil:st==='won'?'':salesQuoteValidUntil(o),wonOrderId:o.wonOrderId||'',
+   units:{total:(o.lines||[]).reduce((n,l)=>n+salesPositiveInt(l.qty,1),0)}};
+ }
+ const s=shippingSummary(o),live=!['cancelled','closed','done'].includes(o.status),active=live?glassBatchActive(o.id):null;
+ const u={total:0,shipped:0,ready:0,inProduction:0,notStarted:0};
+ s.lines.forEach(r=>{
+  const ready=Math.min(r.physicalReady,Math.max(0,r.ordered-r.shipped)),left=r.ordered-r.shipped-ready,none=live?salesProgressNotStarted(o,r.l,left,active):left;
+  u.total+=r.ordered;u.shipped+=r.shipped;u.ready+=ready;u.notStarted+=none;u.inProduction+=left-none;
+ });
+ u.done=u.shipped+u.ready;
+ const extras=s.extras.length?{ordered:s.extras.reduce((n,x)=>n+x.ordered,0),shipped:s.extras.reduce((n,x)=>n+x.shipped,0)}:null;
+ return {kind:'order',status:salesStatusLabel(o),statusKey:o.status,onHold:!!o.onHold,holdReason:o.onHold?o.holdReason||'':'',due:o.dueDate||'',units:u,extras,
+  /* Станции — пока стекло в цеху: у готового и отгруженного заказа спрашивать «где стекло» незачем. */
+  stations:live&&u.inProduction>0?salesProgressStations(o):[]};
+}
+
+/* ------------------------ Адрес #order=<номер> ------------------------- */
+/* …/GLASS_ERP.html#order=76012 открывает заказ или квоту по номеру: ссылка из
+   панели Gmail и из любого письма или заметки. Адрес снимается, как только
+   заказ открыт, — F5 не открывает его второй раз. Никто не вошёл — адрес
+   ждёт входа (erp/signin зовёт salesOrderHashOpen). */
+function salesOrderHash(){const m=/^#order=([A-Za-z0-9-]{1,40})$/.exec(location.hash||'');return m?m[1]:'';}
+function salesOrderHashOpen(){
+ const no=salesOrderHash();if(!no)return false;
+ /* Вход включён, а человека ещё нет (экран входа, проверка сеанса) — ждём. */
+ if(!window.GF_NO_SIGNIN&&typeof signinOn==='function'&&signinOn()&&!signinUser())return false;
+ history.replaceState(null,'',location.href.split('#')[0]);
+ if(!accessCan('sales'))return false;
+ const key=no.toLowerCase(),o=(DB.salesOrder||[]).find(x=>String(x.businessNumber||'').toLowerCase()===key);
+ tab='sales';subtab='orders';
+ if(o){salesLeaveDraft(()=>salesOrderEdit(o.id));return true;}
+ let cold='';if(typeof archiveIndex!=='undefined')archiveIndex.forEach((a,id)=>{if(!cold&&String(a.number||'').toLowerCase()===key)cold=id;});
+ if(cold){salesLeaveDraft(()=>archiveOpen(cold));return true;}
+ render();alert('Order '+no+' was not found.');return false;
+}
+if(typeof window!=='undefined'){
+ window.addEventListener('hashchange',salesOrderHashOpen);
+ window.addEventListener('load',()=>{if(window.storageReady)window.storageReady.then(salesOrderHashOpen);});
+}
+
+/* ==== src/erp/mail-bridge.js ==== */
+/* ============================================================================
+   Мост для панели Gmail: страница ERP отвечает расширению Chrome, какой заказ
+   показать рядом с открытым письмом, и выполняет его команды — открыть заказ,
+   создать заказ или квоту, привязать письмо (задание
+   docs/ЗАДАЧА_ПОЧТА_ЗАКАЗЫ.md, этап 3, раздел «Логика панели»).
+   IN : сообщения window {gf:'mail', id, req, …} от своей же страницы (их
+        кладёт расширение); DB.salesOrder, DB.customer, archiveIndex;
+        salesOrderProgress (erp/sales/order-progress), orderEmail*
+        (erp/sales/order-emails), вход и доступ (erp/signin, erp/access)
+   OUT: ответ window {gf:'mail-reply', id, req, res}; mailBridgeHandle(m) —
+        тот же ответ вызовом (тесты)
+   Заказчик задания, 15.11.2026: панель показывает то, что относится к
+   открытому письму, а не всё, что есть у клиента; «не хочу, чтобы код работал
+   под логикой слов или шаблонов и предугадывал». Поэтому мост текста письма
+   не получает вообще: только адрес отправителя, номер ветки и письма. Порядок
+   решения — сверху вниз, срабатывает первое:
+     0. человек не вошёл или нет галочки Sales — {error:'signin'|'access'};
+     1. адрес отправителя стоит в карточке ровно одного клиента — клиент
+        известен; у двух и больше — панель не выбирает за человека;
+     2. есть заказы или квоты с привязкой к этой ветке — они, и на этом всё;
+     3. номер или PO открытого заказа в тексте письма ищет сама панель по
+        списку known — текст из вкладки Gmail не выходит;
+     4. до трёх открытых заказов клиента и счётчик по статусам.
+   Сам мост ничего не привязывает: запись — только командой linkEmail по
+   нажатию человека. Денег в ответах нет.
+   ============================================================================ */
+const MAIL_BRIDGE_VERSION=1,MAIL_OPEN_DAYS=14,MAIL_ROWS=3,MAIL_SEARCH_ROWS=8,MAIL_CLOSED_ROWS=30,MAIL_KNOWN_MAX=400;
+/* Порядок «самых актуальных» у непривязанного письма: готовое к выдаче —
+   первым, затем то, что в цеху, внутри — ближний срок выше. */
+const MAIL_RANK=['ready','shipping','batched','verified','new','done'];
+function mailCustomerEmails(c){
+ const out=new Set(),add=v=>String(v||'').split(/[\s,;]+/).forEach(x=>{const a=orderEmailAddress(x);if(a)out.add(a);});
+ (c.contacts||[]).forEach(x=>add(x.email));add(c.invoiceEmail);add(c.statementEmail);return out;
+}
+function mailCustomersFor(addr){return addr?(DB.customer||[]).filter(c=>c&&c.status!=='archived'&&mailCustomerEmails(c).has(addr)):[];}
+function mailCustomer(c,from){
+ const p=(c.contacts||[]).find(x=>orderEmailAddress(x.email)===from)||customerPrimaryContact(c);
+ return {id:c.id,name:c.displayName||c.legalName||c.code||'',contact:{name:p.name||'',role:p.role||'',phone:p.phone||p.mobile||p.phone2||'',email:p.email||''},
+  terms:c.paymentMode==='credit'?'Credit'+(c.creditDays?' · Net '+c.creditDays:''):'Cash'};
+}
+/* Открытый — тот, о котором клиент может спросить: не Closed, не Cancelled;
+   выданный — ещё MAIL_OPEN_DAYS дней после выдачи; квота — пока не Won и не
+   вышел срок цен. */
+function mailIsOpen(o){
+ if(salesIsQuote(o))return salesQuoteGroupStatus(o)!=='won'&&salesQuoteValidUntil(salesQuoteRepresentative(o))>=finToday();
+ if(o.status==='closed'||o.status==='cancelled')return false;
+ if(o.status==='done'){const d=Date.parse(o.statusDates&&o.statusDates.done||'');return !Number.isNaN(d)&&Date.now()-d<MAIL_OPEN_DAYS*864e5;}
+ return true;
+}
+function mailNumberOf(id){const o=id&&(DB.salesOrder||[]).find(x=>x.id===id);return o&&o.businessNumber||'';}
+function mailCard(o){
+ const p=salesOrderProgress(o),q=salesIsQuote(o);
+ return {id:o.id,number:o.businessNumber||'',po:o.customerPo||'',customer:salesCustomerDisplay(o.customerId),open:mailIsOpen(o),draft:salesIsDraft(o),
+  fromQuote:q?'':mailNumberOf(o.fromQuoteId),wonOrder:q?mailNumberOf(p.wonOrderId):'',progress:p};
+}
+function mailRank(o){const i=salesIsQuote(o)?MAIL_RANK.length:MAIL_RANK.indexOf(o.status);return i<0?MAIL_RANK.length:i;}
+function mailByRank(a,b){return mailRank(a)-mailRank(b)||(a.dueDate||'9999').localeCompare(b.dueDate||'9999')||String(b.createdAt||'').localeCompare(String(a.createdAt||''));}
+/* Запись, которую показывают за квоту: одна на группу ревизий, как в Sales. */
+function mailShown(o){return salesIsQuote(o)?salesQuoteRepresentative(o):o;}
+function mailLookup(m){
+ const from=orderEmailAddress(m.from),threadId=orderEmailId(m.threadId),messageId=orderEmailId(m.messageId);
+ const custs=mailCustomersFor(from),c=custs.length===1?custs[0]:null;
+ const out={step:5,customer:c?mailCustomer(c,from):null,customers:custs.length,linked:[],closed:[],closedCount:0,archived:[],rows:[],openCount:0,counts:[],known:[]};
+ /* Шаг 2: привязанное к ветке. Письмо, из которого привязали, — первым. */
+ if(threadId){
+  const seen=new Set(),open=[],closed=[];
+  (DB.salesOrder||[]).forEach(o=>{
+   const e=(o.emails||[]).find(x=>x.threadId===threadId);if(!e)return;
+   const s=mailShown(o);if(seen.has(s.id))return;seen.add(s.id);
+   (mailIsOpen(s)?open:closed).push({o:s,here:!!messageId&&e.messageId===messageId});
+  });
+  open.sort((a,b)=>Number(b.here)-Number(a.here)||mailByRank(a.o,b.o));
+  closed.sort((a,b)=>String(b.o.updatedAt||'').localeCompare(String(a.o.updatedAt||'')));
+  out.linked=open.map(x=>Object.assign(mailCard(x.o),{here:x.here}));
+  out.closedCount=closed.length;out.closed=closed.slice(0,MAIL_CLOSED_ROWS).map(x=>mailCard(x.o));
+  if(typeof archiveIndex!=='undefined')archiveIndex.forEach((a,id)=>{if(a.rep&&Array.isArray(a.mail)&&a.mail.includes(threadId))out.archived.push({id,number:a.number||'',status:a.row&&a.row.status||''});});
+  if(out.linked.length||out.closedCount||out.archived.length){out.step=2;return out;}
+ }
+ if(!c)return out;
+ /* Шаги 3–4: открытые заказы и квоты клиента. Черновик ни в чём не участвует. */
+ const open=(DB.salesOrder||[]).filter(o=>o.customerId===c.id&&!salesIsDraft(o)&&mailShown(o).id===o.id&&mailIsOpen(o)).sort(mailByRank);
+ out.step=4;out.openCount=open.length;
+ out.known=open.slice(0,MAIL_KNOWN_MAX).map(o=>({id:o.id,number:o.businessNumber||'',po:o.customerPo||''}));
+ out.rows=open.slice(0,MAIL_ROWS).map(mailCard);
+ if(open.length>MAIL_ROWS){const n=new Map();open.forEach(o=>{const k=salesIsQuote(o)?'Quote':salesStatusLabel(o);n.set(k,(n.get(k)||0)+1);});out.counts=[...n].map(([label,count])=>({label,count}));}
+ return out;
+}
+function mailOrders(m){
+ const ids=(Array.isArray(m.ids)?m.ids:[]).slice(0,20).map(String);
+ return {orders:ids.map(id=>(DB.salesOrder||[]).find(o=>o.id===id)).filter(Boolean).map(mailCard)};
+}
+/* Link to order: поиск по номеру или PO среди заказов и квот — и закрытых. */
+function mailSearch(m){
+ const q=String(m.q||'').trim().toLowerCase();if(q.length<2)return {rows:[]};
+ const hit=o=>{const n=String(o.businessNumber||'').toLowerCase(),p=String(o.customerPo||'').toLowerCase();return n.startsWith(q)?0:p.startsWith(q)?1:n.includes(q)||p.includes(q)?2:-1;};
+ const found=[];(DB.salesOrder||[]).forEach(o=>{if(salesIsDraft(o)||mailShown(o).id!==o.id)return;const r=hit(o);if(r>=0)found.push({o,r});});
+ found.sort((a,b)=>a.r-b.r||Number(mailIsOpen(b.o))-Number(mailIsOpen(a.o))||String(b.o.createdAt||'').localeCompare(String(a.o.createdAt||'')));
+ return {rows:found.slice(0,MAIL_SEARCH_ROWS).map(x=>mailCard(x.o)),more:Math.max(0,found.length-MAIL_SEARCH_ROWS)};
+}
+/* ------------------------------ Команды -------------------------------- */
+function mailOpenOrder(m){
+ const id=String(m.orderId||''),o=(DB.salesOrder||[]).find(x=>x.id===id);
+ if(!o&&!(typeof archiveKnown==='function'&&archiveKnown(id)))return {error:'missing'};
+ tab='sales';subtab='orders';salesLeaveDraft(()=>o?salesOrderEdit(id):archiveOpen(id));return {ok:true};
+}
+/* «+24 more · open in ERP»: Sales с фильтром по клиенту, без срока Created —
+   открытый заказ бывает старше двух недель. */
+function mailOpenCustomer(m){
+ const c=(DB.customer||[]).find(x=>x.id===String(m.customerId||''));if(!c)return {error:'missing'};
+ tab='sales';subtab='orders';
+ salesLeaveDraft(()=>{
+  const p=salesListLoadPrefs();p.filters.customer=salesListCleanFilter('customer',{conds:[{op:'equals',v:c.displayName||c.legalName||''}]});delete p.filters.created;p.quick='all';
+  salesListSavePrefs();render();
+ });
+ return {ok:true};
+}
+function mailNewOrder(m){
+ const c=(DB.customer||[]).find(x=>x.id===String(m.customerId||'')),e=orderEmailStamp(m.email);
+ tab='sales';subtab='orders';
+ salesLeaveDraft(()=>{salesOrderNew(m.kind==='quote'?'quote':'order');if(c)salesApplyCustomerDefaults(c.id);if(e)orderEmailSet(soDraft,[e]);render();});
+ return {ok:true};
+}
+function mailLinkEmail(m){
+ const id=String(m.orderId||'');
+ if(!(DB.salesOrder||[]).some(o=>o.id===id))return {error:typeof archiveKnown==='function'&&archiveKnown(id)?'The order is in the archive. Open it in Glass Farm first.':'The order was not found.'};
+ const r=orderEmailAdd(id,m.email);if(r.ok)render();
+ return r.ok?{ok:true}:{error:r.error};
+}
+const MAIL_READ={lookup:mailLookup,orders:mailOrders,search:mailSearch},MAIL_DO={openOrder:mailOpenOrder,openCustomer:mailOpenCustomer,newOrder:mailNewOrder,linkEmail:mailLinkEmail};
+/* Шаг 0. Вход включён, а человека нет — signin; вошёл без Sales — access. */
+function mailBridgeGate(){
+ if(!window.GF_NO_SIGNIN&&typeof signinOn==='function'&&signinOn()&&!signinUser())return 'signin';
+ return accessCan('sales')?'':'access';
+}
+function mailBridgeHandle(m){
+ m=m&&typeof m==='object'?m:{};
+ const gate=mailBridgeGate();
+ if(m.req==='hello')return {ok:true,version:MAIL_BRIDGE_VERSION,build:storageBuildId(),state:gate||'ready'};
+ if(gate)return {error:gate};
+ /* Чтение — одним проходом с общими указателями (erp/read-scope), как отрисовка. */
+ if(MAIL_READ[m.req])return readScopeNow(()=>MAIL_READ[m.req](m));
+ if(MAIL_DO[m.req])return MAIL_DO[m.req](m);
+ return {error:'unknown'};
+}
+/* Сообщение принимается только от своего же окна и своего адреса. Страница,
+   открытая файлом с диска, адреса не имеет — ей отвечаем без него. */
+if(typeof window!=='undefined')window.addEventListener('message',ev=>{
+ const m=ev.data,file=location.protocol==='file:';
+ if(ev.source!==window||!file&&ev.origin!==location.origin||!m||m.gf!=='mail'||typeof m.req!=='string')return;
+ let res;try{res=mailBridgeHandle(m);}catch(err){res={error:'failed'};}
+ window.postMessage({gf:'mail-reply',id:m.id,req:m.req,res},file?'*':location.origin);
+});
+
 /* ==== src/erp/shipping/commands.js ==== */
 /* =====================================================================
    erp/shipping/commands  ·  shipping-1.4
@@ -58460,7 +58866,9 @@ function archiveRowOf(o,day,now){
  /* Стёкла каталога в Makeup: Master Data не даст удалить их, пока заказ в архиве. */
  (o.makeups||[]).forEach(m=>(m.panes||[]).forEach(p=>[p.glassProductId,p.laminated&&p.laminated.outer&&p.laminated.outer.glassProductId,p.laminated&&p.laminated.inner&&p.laminated.inner.glassProductId].forEach(id=>{if(id)glass.add(id);})));
  return {kind:q?'quote':'order',status:salesListStatus(o),customerId:o.customerId||'',currency:o.currency||'',number:o.businessNumber||'',createdAt:o.createdAt||'',groupId:q?salesQuoteGroupId(o):'',rep:!q||salesQuoteRepresentative(o).id===o.id,
-  pay:b?{status:b.status,balance:b.balance}:null,glass:[...glass],day,archivedAt:now,row};
+  pay:b?{status:b.status,balance:b.balance}:null,glass:[...glass],day,archivedAt:now,row,
+  /* Ветки Gmail заказа: панель в Gmail находит по ним и ушедший заказ (erp/mail-bridge). */
+  ...(o.emails&&o.emails.length?{mail:o.emails.map(e=>e.threadId)}:{})};
 }
 /* Стекло каталога, которое есть в Makeup ушедшего заказа (salesGlassProductHasReferences). */
 let archiveGlassSet=null;
