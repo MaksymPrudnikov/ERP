@@ -90,14 +90,30 @@
 .so-cust-foot{border-top:1px solid var(--line);margin-top:4px;padding:6px 9px 3px;font-size:10.5px;color:var(--text-3)}
 /* Шапка заказа (владелец 30.10.2026): Customer PO шире — «размера с колонку клиента», дата, приоритет,
    доставка и валюта уже. У квоты ещё Valid until. */
-@media(min-width:1351px){.sales-header-compact.so-head{grid-template-columns:minmax(220px,1.6fr) minmax(220px,1.6fr) repeat(4,minmax(105px,.75fr)) minmax(150px,1.1fr)}
-.sales-header-compact.so-head.q{grid-template-columns:minmax(220px,1.6fr) minmax(220px,1.6fr) repeat(5,minmax(105px,.75fr)) minmax(150px,1.1fr)}}
+@media(min-width:1351px){.sales-header-compact.so-head{grid-template-columns:minmax(260px,1.85fr) minmax(180px,1.35fr) repeat(4,minmax(105px,.75fr)) minmax(150px,1.1fr)}
+.sales-header-compact.so-head.q{grid-template-columns:minmax(260px,1.85fr) minmax(180px,1.35fr) repeat(5,minmax(105px,.75fr)) minmax(150px,1.1fr)}}
 /* Контакт заказа (пункт 6, views/sales.js): иконка у Customer, строка под шапкой. */
 .so-cust-cell{display:flex;gap:6px;align-items:center}.so-cust-cell .so-cust{flex:1;min-width:0}
 .so-contact-btn{flex:none;display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--line-strong);border-radius:7px;background:var(--surface);color:var(--text-2)}
 .so-contact-btn span,.so-contact-pick span{display:inline-flex}.so-contact-btn svg{width:17px;height:17px}
 .so-contact-btn.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent)}
 .sales-header-compact.has-contact{border-bottom-left-radius:0;border-bottom-right-radius:0}
+/* Письма заказа (erp/sales/order-emails): конверт рядом с Contact, строка под шапкой — как строка контакта. */
+.so-mail-btn{position:relative}
+.so-mail-btn i{position:absolute;right:-5px;top:-6px;display:grid;place-items:center;min-width:15px;height:15px;padding:0 3px;border-radius:999px;background:var(--accent);color:var(--on-solid);font-size:9.5px;font-style:normal;font-weight:700}
+.so-mail-row{display:grid;margin-top:-11px;padding:3px 14px;background:var(--surface);border:1px solid var(--line);border-radius:0 0 11px 11px;font-size:12.5px;color:var(--text)}
+.so-mail-row>div{display:grid;grid-template-columns:18px minmax(0,2.2fr) minmax(0,1.6fr) 84px 96px 24px;gap:12px;align-items:center;min-height:36px;border-top:1px solid var(--line-soft)}
+.so-mail-row>div:first-child{border-top:0}
+.so-mail-row a{color:var(--accent);font-weight:500;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.so-mail-row a:hover{text-decoration:underline}
+.so-mail-row a.so-mail-find{color:var(--text-2);font-weight:400;font-size:12px}
+.so-mail-row small{color:var(--text-3);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.so-mail-x{display:grid;place-items:center;width:24px;height:24px;padding:0;border:0;border-radius:6px;background:transparent;color:var(--text-3);font-size:16px;line-height:1}
+.so-mail-x:hover{background:var(--danger-soft);color:var(--danger)}
+.so-mail-row>.so-mail-add{grid-template-columns:minmax(0,420px) auto minmax(0,1fr);padding:5px 0}
+.so-mail-add input{height:30px;padding:4px 8px;font-size:12px}
+.so-mail-err{color:var(--danger);font-size:12px}
+.so-mail-row.so-mail-strip{margin-top:0;border-radius:11px}
 .so-contact-row{position:relative;display:grid;grid-template-columns:1fr 1fr 1.5fr 1.5fr;gap:14px;align-items:center;margin-top:-11px;padding:9px 14px;background:var(--surface);border:1px solid var(--line);border-radius:0 0 11px 11px;font-size:12.5px;color:var(--text)}
 .so-contact-row>span{display:inline-flex;align-items:center;gap:8px;min-width:0;user-select:text}
 .so-contact-i{display:inline-flex;color:var(--text-3)}.so-contact-i svg{width:14px;height:14px}

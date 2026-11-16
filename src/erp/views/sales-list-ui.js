@@ -30,6 +30,12 @@ const SALES_LIST_COLUMNS=[
  {k:'customer',label:'Customer',type:'text',def:true},
  {k:'createdBy',label:'Created by',type:'text'},
  {k:'po',label:'PO',type:'text',def:true},
+ /* Письмо Gmail, привязанное к заказу (erp/sales/order-emails; 16.11.2026).
+    Конверт стоит в ячейке PO: таблица Sales подогнана без прокрутки вбок, на
+    1440 свободно 10 px — отдельной колонке по умолчанию места нет. Колонка
+    Email — в ⚙ Columns: тема последней ветки ссылкой, фильтр «Is empty» —
+    заказы без письма. */
+ {k:'email',label:'Email',type:'text'},
  {k:'created',label:'Created',type:'date',def:true},
  {k:'due',label:'Due',type:'date',def:true},
  {k:'status',label:'Status',type:'list',def:true},
@@ -270,6 +276,7 @@ function salesListValue(info,k){
   case 'number':v=(q?salesQuoteBaseNumber(o):o.businessNumber)||'';break;
   case 'customer':v=c.displayName||c.legalName||'';break;
   case 'po':v=o.customerPo||'';break;
+  case 'email':{const e=orderEmailLatest(o);v=e?e.subject||e.from||'Gmail link':'';break;}
   case 'created':v=salesListIsoDay(o.createdAt);break;
   case 'due':v=o.dueDate||'';break;
   case 'status':v=salesStatusLabel(o,salesListStatus(o));break;
@@ -512,9 +519,20 @@ function salesListWeightCell(v,w){
  if(!w||w.complete)return `<td class="n"${w&&w.estimated?' title="Nominal glass thickness"':''}>${w&&w.estimated?'≈ ':''}${esc(salesKgText(v))}</td>`;
  return `<td class="n" title="${esc(salesWeightTip(w))}" data-weight-partial>${esc(salesKgText(v))}<span class="pill warn sl-partial">Partial</span></td>`;
 }
+/* Конверт письма — в ячейке PO, справа от номера: клик открывает последнюю
+   ветку. Колонка Email (⚙ Columns) — тема ссылкой. У заказа из архива ссылки
+   в строке нет: конверт серый, письма видны в самом заказе. Без письма —
+   обычная ячейка. */
+function salesListMailCell(info,col,v){
+ const subj=salesListValue(info,'email');if(!subj)return '';
+ const e=info.a?null:orderEmailLatest(info.o),link=e?`href="${esc(orderEmailUrl(e))}" target="_blank" rel="noopener"`:'';
+ if(col.k==='email')return `<td><span class="sl-glass" title="${esc(subj)}">${e?`<a ${link} data-mail-subject>${raw(subj)}</a>`:raw(subj)}</span></td>`;
+ return `<td><span class="sl-po"><span>${v?raw(v):'<span class="mut">—</span>'}</span>${e?`<a ${link} data-mail-open title="${esc(subj)}" aria-label="Open email">${ico('mail')}</a>`:`<span class="sl-po-arch" title="${esc(subj)}">${ico('mail')}</span>`}</span></td>`;
+}
 function salesListCell(info,col){
  if(info.n)return ncrListCell(info,col);
  const o=info.o,q=info.q,v=salesListValue(info,col.k);
+ if(col.k==='po'||col.k==='email'){const m=salesListMailCell(info,col,v);if(m)return m;}
  switch(col.k){
   case 'type':return `<td><span class="pill ${q?'kind-quote':'kind-order'}">${q?'Quote':'Order'}</span></td>`;
   case 'number':{const from=!q&&o.fromQuoteId?salesListValue(info,'fromQuote'):'';return `<td><b class="mono">${raw(v||'Auto Number')}</b>${from?` <span class="mut small">from ${raw(from)}</span>`:''}</td>`;}
@@ -811,7 +829,7 @@ function salesListContextHTML(m,style){
  const q=salesIsQuote(o),ids=salesListSelectedOrders(),many=ids.length>1&&ids.includes(o.id);
  const item=(act,label,cls)=>`<button type="button" role="menuitem" class="${cls||''}" data-menu="${act}" ${onAct('click',salesListMenuRun,String(act))}>${label}</button>`;
  const hold=q?'':o.onHold?item('release',many?'Release · '+ids.length+' orders':'Release'):item('hold',many?'⛔ On Hold… · '+ids.length+' orders':'⛔ On Hold…');
- return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${item('copy','Copy')}${!q&&typeof salesProdOpen==='function'?item('production','Production'):''}${typeof orderLogOpen==='function'?item('log','Activity log'):''}${typeof skipAllowed==='function'&&!many&&skipAllowed()&&skipCanOpen(o)?item('skip','Skip…'):''}${hold}<hr>${item('documents','Documents')}${item('drawings','Drawings')}${typeof salesCutEstimateOpen==='function'&&cutEstUsable(o)?item('cutpreview',salesCutEstimateIds().length>1?'Cut preview · '+salesCutEstimateIds().length+' selected':'Cut preview'):''}${!q&&o.status!=='cancelled'?item('stickers','Print stickers…'):''}${!q&&typeof productionUnbatchAllowed==='function'&&productionUnbatchAllowed()&&productionUnbatchCanOpen(o)?item('unbatch','Unbatch order…'):''}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
+ return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${item('copy','Copy')}${!q&&typeof salesProdOpen==='function'?item('production','Production'):''}${typeof orderLogOpen==='function'?item('log','Activity log'):''}${orderEmailLatest(o)?item('email','Open email'):''}${typeof skipAllowed==='function'&&!many&&skipAllowed()&&skipCanOpen(o)?item('skip','Skip…'):''}${hold}<hr>${item('documents','Documents')}${item('drawings','Drawings')}${typeof salesCutEstimateOpen==='function'&&cutEstUsable(o)?item('cutpreview',salesCutEstimateIds().length>1?'Cut preview · '+salesCutEstimateIds().length+' selected':'Cut preview'):''}${!q&&o.status!=='cancelled'?item('stickers','Print stickers…'):''}${!q&&typeof productionUnbatchAllowed==='function'&&productionUnbatchAllowed()&&productionUnbatchCanOpen(o)?item('unbatch','Unbatch order…'):''}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
 }
 function salesListMenuRun(act){
  const m=salesListMenu;salesListMenu=null;
@@ -822,6 +840,7 @@ function salesListMenuRun(act){
  else if(act==='copy')salesCopyOrder(o.id);
  else if(act==='production')salesProdOpen(o.id);
  else if(act==='log')orderLogOpen(o.id);
+ else if(act==='email'){const e=orderEmailLatest(o);if(e)window.open(orderEmailUrl(e),'_blank','noopener');render();}
  else if(act==='skip')skipOpen(o.id);
  else if(act==='hold')salesHoldOpen(ids.filter(id=>!held(id)));
  else if(act==='release')salesReleaseHold(ids.filter(held));

@@ -607,7 +607,9 @@ function normalizeSalesOrder(o){
   /* Заказ-переделка NCR (erp/quality/ncr): связь и «без оплаты» по умолчанию. */
   remakeNcrId:salesRefId(o.remakeNcrId),noCharge:o.noCharge===true,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt),
   ...(c=>c.length?{cancellations:c}:{})(normalizeCancellations(o.cancellations,lines)),
-  ...(a=>a.length?{adjustments:a}:{})(normalizeSalesAdjustments(o.adjustments))};
+  ...(a=>a.length?{adjustments:a}:{})(normalizeSalesAdjustments(o.adjustments)),
+  /* Письма Gmail, привязанные к заказу (erp/sales/order-emails). */
+  ...(m=>m.length?{emails:m}:{})(orderEmailsClean(o.emails))};
 }
 /* Поправка на заказ руками: свой текст и сумма, минус — меньше платить
    (владелец, 7.10.2026: «то, что касается денег, должно быть максимально

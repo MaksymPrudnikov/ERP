@@ -28,6 +28,9 @@ let soExpandAll=false;
 let soPricingLineId=null,soServiceLineId=null,soServiceOrderOpen=false;
 /* Строка контакта под шапкой (пункт 6): спрятана при каждом открытии заказа. */
 let soContactOpen=false,soContactMenu=false;
+/* Строка писем под шапкой (erp/sales/order-emails) — на месте строки контакта:
+   открыта либо одна, либо другая; тоже спрятана при каждом открытии заказа. */
+let soMailOpen=false,soMailText='',soMailError='';
 let salesBridge=null;
 
 function salesFindCustomer(id){return (DB.customer||[]).find(c=>c.id===id)||null;}
@@ -40,8 +43,8 @@ function salesApplyCustomerDefaults(id){
 }
 /* Строки поиска в списке больше нет — фильтры колонок (views/sales-list-ui). */
 function salesToggleExpandAll(){soExpandAll=!soExpandAll;render();}
-function salesOrderNew(kind){if(typeof salesSaveJob!=='undefined'&&salesSaveJob){salesSaveQueue(()=>salesOrderNew(kind),'A new '+(kind==='quote'?'quote':'order')+' opens after saving.');return;}soSavedBaseline=null;salesLineHoldMenu=null;salesMetricsPanel=null;salesExcelReset();salesDialog=null;soQuoteCopyOf=null;soCopyOf=null;soEdit='new';soDraft=newSalesOrderDraft(kind);salesShapeSnapshotTake(null);soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soContactOpen=false;soContactMenu=false;soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
-function salesOrderEdit(id){if(typeof salesSaveJob!=='undefined'&&salesSaveJob){const x=salesRecord(id);salesSaveQueue(()=>salesOrderEdit(id),(x&&x.businessNumber?salesSaveTitle(x).replace(/^./,c=>c.toUpperCase()):'The order')+' opens after saving.');return;}salesLineHoldMenu=null;salesMetricsPanel=null;salesDialog=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;soSavedBaseline=JSON.stringify(o);salesExcelReset();soQuoteCopyOf=null;soCopyOf=null;if(salesQuoteOpensAsCopy(o)){soEdit='new';soDraft=normalizeSalesOrder(salesQuoteWorkingCopy(o));soQuoteCopyOf=o.id;}else{soEdit=id;soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(o)));}salesShapeSnapshotTake(o);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soContactOpen=false;soContactMenu=false;soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderNew(kind){if(typeof salesSaveJob!=='undefined'&&salesSaveJob){salesSaveQueue(()=>salesOrderNew(kind),'A new '+(kind==='quote'?'quote':'order')+' opens after saving.');return;}soSavedBaseline=null;salesLineHoldMenu=null;salesMetricsPanel=null;salesExcelReset();salesDialog=null;soQuoteCopyOf=null;soCopyOf=null;soEdit='new';soDraft=newSalesOrderDraft(kind);salesShapeSnapshotTake(null);soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soContactOpen=false;soContactMenu=false;soMailOpen=false;soMailText='';soMailError='';soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderEdit(id){if(typeof salesSaveJob!=='undefined'&&salesSaveJob){const x=salesRecord(id);salesSaveQueue(()=>salesOrderEdit(id),(x&&x.businessNumber?salesSaveTitle(x).replace(/^./,c=>c.toUpperCase()):'The order')+' opens after saving.');return;}salesLineHoldMenu=null;salesMetricsPanel=null;salesDialog=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;soSavedBaseline=JSON.stringify(o);salesExcelReset();soQuoteCopyOf=null;soCopyOf=null;if(salesQuoteOpensAsCopy(o)){soEdit='new';soDraft=normalizeSalesOrder(salesQuoteWorkingCopy(o));soQuoteCopyOf=o.id;}else{soEdit=id;soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(o)));}salesShapeSnapshotTake(o);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soContactOpen=false;soContactMenu=false;soMailOpen=false;soMailText='';soMailError='';soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
 /* Закрытие черновика спрашивает подтверждение, если в нём есть что терять.
    Раньше Close молча стирал введённые строки — оператор терял работу без единого
    сообщения. Сравниваем с сохранённым состоянием: у нового заказа терять нечего,
@@ -115,7 +118,7 @@ function salesDraftDrop(discard){
  listWindowDrop('.sales-lines-table');
  const restored=!!discard&&salesShapeSnapshotRestore();
  if(typeof salesBridge!=='undefined'&&salesBridge&&typeof sEdit!=='undefined'){sEdit=null;sDraft=null;}
- salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soContactOpen=false;soContactMenu=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;soQuoteCopyOf=null;soCopyOf=null;soShapeSnapshot=null;soShapeConflicts=new Set();
+ salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soContactOpen=false;soContactMenu=false;soMailOpen=false;soMailText='';soMailError='';soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;soQuoteCopyOf=null;soCopyOf=null;soShapeSnapshot=null;soShapeConflicts=new Set();
  if(salesPruneOrphanShapes()||restored)touch();
  /* Заказ из архива на просмотре — его записи уходят из DB (erp/archive). */
  if(typeof archiveVisitEnd==='function')archiveVisitEnd();
@@ -188,7 +191,7 @@ function salesCopyOrder(id){
 }
 function salesCopyOrderDraft(src){
  const copy=salesCopySalesRecord(src,{businessNumber:'',status:salesIsQuote(src)?'open':'new',statusDates:{},batchNo:'',batchHistory:[],unbatchHistory:[],productionUnbatchVerify:false,fulfilledVia:'',fromQuoteId:'',wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',
-  onHold:false,holdReason:'',holdAt:'',remakeNcrId:'',noCharge:false,cancellations:[],adjustments:[],createdAt:'',updatedAt:''});
+  onHold:false,holdReason:'',holdAt:'',remakeNcrId:'',noCharge:false,cancellations:[],adjustments:[],emails:[],createdAt:'',updatedAt:''});
  delete copy.isDraft;
  copy.lines.forEach(l=>{Object.assign(l,{batchManaged:false,onHold:false,holdReason:'',holdAt:'',cutStartedAt:'',batchNo:''});});
  return normalizeSalesOrder(copy);

@@ -1,6 +1,6 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 5.316 · 14 ноября 2026 — встроенный код в странице запрещён: `script-src` без `'unsafe-inline'`, свой `<script>` — по `sha256` от сборки; все действия экрана — `onAct` (`core/actions.js`), встроенных обработчиков не осталось (было 2095); Cancel order и Delete заказа — только с галочкой Finance; хендофф — «как устроено сейчас» по разделам, журнал решений — `docs/journal/`.
+Версия 5.317 · 16 ноября 2026 — письмо Gmail в заказе: конверт у поля Customer с числом привязанных веток и строка писем под шапкой, конверт в ячейке PO в Sales, `Open email` правой кнопкой; привязка — вставкой адреса письма, пишется сразу (этап 1 задания `docs/ЗАДАЧА_ПОЧТА_ЗАКАЗЫ.md`); хендофф — «как устроено сейчас» по разделам, журнал решений — `docs/journal/`.
 
 ## Как читать
 
@@ -133,6 +133,12 @@
   просмотр, ничего не пишет (02.10). Сервис «+»: работа Master Data или свой разовый (только деньги, без станции).
 - Список Sales: Open и Delete над таблицей; Draft — своя кнопка; колонка Invoice с «Not invoiced · N d»; Created by
   скрыта (11.10); Activity log — коротко (02.10).
+- **Письмо Gmail в заказе** (заказчик задания, 15.11): письмо — второстепенное, как контакт: конверт с числом веток у
+  поля Customer, строка писем под шапкой на месте строки контакта (открыта одна из двух). Привязка — одна на ветку,
+  пишется сразу, без Save, и у закрытого заказа; **сама система ничего не привязывает и ничего не угадывает**. Текст
+  письма не хранится. Copy писем не копирует, ревизия квоты и Convert — переносят. В Sales — конверт в ячейке PO
+  (отдельной колонке по умолчанию нет места: таблица без прокрутки вбок), колонка Email — в ⚙ Columns, `Open email`
+  правой кнопкой. Дальше по заданию `docs/ЗАДАЧА_ПОЧТА_ЗАКАЗЫ.md` — панель в Gmail.
 
 **Как устроено**
 - Заказ — параметр расчёта: `salesOrderCommercialTotals(order)`, чужой заказ — `salesOrderArg`; `soDraft` только для
@@ -141,11 +147,19 @@
 - Экраны Sales, фигуры, списки — без кода в разметке (действия `onAct`, см. Общее): поле шапки заказа пишет в
   черновик через `salesDraftSet(k,v)`, поле строки — `salesLineSet(i,k,v)`, окна Hold — `salesLineHoldField`.
 - Цены: `salesBook`, `salesPriceBookOf`; надбавки `surchargeRates`, `salesSurcharges`; минимум `salesMinAreaFor`.
+- Письма: `erp/sales/order-emails.js` — `order.emails[]` (поля нет, пока писем нет), запись `{threadId, messageId,
+  account, from, fromName, subject, at, by, addedAt}`; `orderEmailAdd` / `orderEmailRemove` — команда с областью
+  одного заказа, открытый черновик получает то же; ссылка `orderEmailUrl` (ящик `authuser` + `#all/<ветка>`),
+  запасная `orderEmailFindUrl` (поиск по отправителю и теме); адрес из строки браузера — `orderEmailFromLink`.
+  Экран — `salesMailRow` / `salesMailStrip` (`views/sales.js`), в списке — `salesListMailCell` (`views/sales-list-ui.js`): у закрытого заказа шапка `inert`, письма — полосой
+  над ней. Журнал заказа: «Email linked», «Email removed» (`orderEmailLogNotes`).
 - Сторожа: `test/order-totals.js` + эталоны `order-totals-fixture.js`, `money`, `line-metrics`, `line-measure`,
   `shape-cut-billing`, `order-delete`, `order-draft`, `copy-order`, `unit-cancel`, `batched-line-qty`, `dxf-import`,
-  `quotes`, `lifecycle`, `save-job`.
+  `quotes`, `lifecycle`, `save-job`, `order-emails`.
 
-**Открыто**: количество 0, минус и текст молча становятся 1; Ctrl+F дальше 400 строк не находит.
+**Открыто**: количество 0, минус и текст молча становятся 1; Ctrl+F дальше 400 строк не находит; ссылка на ветку
+Gmail `…/u/0/#all/<ветка>` на настоящем ящике открывает письмо (проверено 16.11), вариант с ящиком
+(`…/u/?authuser=<ящик>#all/<ветка>`) не проверен — он появится вместе с панелью Gmail.
 
 ## Optimization
 

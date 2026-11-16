@@ -113,6 +113,26 @@ Owner, 8 Nov 2026: a customer calls the front desk, gives the PO and asks where 
   glass.
 - An order not in the shop yet (not batched) shows "Not in production yet" and the order status.
 
+## The Gmail email in the order
+
+Orders arrive by email. The order keeps a link to the conversation, so the original opens in one click.
+
+- Next to the **Customer** field, beside the Contact icon, there is an **envelope**; the number on it is how many
+  conversations are linked. Click it: a row of emails opens under the header (the contact row closes).
+- **Link an email**: open the email in Gmail, copy the address from the browser bar, paste it into **Paste Gmail
+  link**, click **Link** or press Enter. The link is written at once, no Save needed. The address of the mail list
+  (Inbox with no email open) will not do — the program says "Open the email in Gmail and copy its address."
+- A click on the subject opens the conversation in Gmail in a new tab. **Find in Gmail** searches by sender and
+  subject — useful when you are signed in to another mailbox.
+- **×** removes the link. The email in Gmail is not touched.
+- One conversation is one row, however many replies it has. The program never links emails by itself.
+- A closed or cancelled order shows its emails right away, as a strip above the header.
+- In the **Sales** list the envelope sits in the **PO** cell, right of the number: a click opens the latest
+  conversation of the order. Right-click an order → **Open email**. In ⚙ Columns you can turn on the **Email**
+  column — the email subject; its filter "Is empty" shows orders without an email.
+- **Copy** does not copy the emails. A new quote revision and **Convert** to an order carry them over.
+- **Activity log**: "Email linked", "Email removed".
+
 ## Cancel order and Delete — Finance only
 
 Owner, 13.11.2026: only people with Finance cancel orders; without it — only On Hold, no delete and no cancel.
