@@ -7,12 +7,12 @@
   Правишь код модуля — достаточно F5, пересобирать не нужно. Пересборка нужна
   только при смене состава модулей (build/manifest.json) или правке шапки
   (src/shell.html). Работает и с сервера, и при открытии с диска (file://).
-  Состав: 215 модулей, 27 стиля.
+  Состав: 216 модулей, 27 стиля.
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-iMpTjbAjWbvE+DqrWu4RRaXvFgUPrmRgCc6zT+lZOxU=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-2144qFvOdEC2nbHBOG7VhDGXcGUs7HZSGCJpAwWhRmY=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GLASS ERP — Glazing System — modules</title>
 <link rel="stylesheet" href="styles/fonts.css">
@@ -66,7 +66,7 @@
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='a19470a5fe2e';
+var ERP_BUILD='09791bdabc27';
 </script>
 <script src="core/dim.js"></script>
 <script src="core/poly.js"></script>
@@ -153,6 +153,7 @@ var ERP_BUILD='a19470a5fe2e';
 <script src="erp/documents/model.js"></script>
 <script src="erp/documents/layout.js"></script>
 <script src="erp/documents/pdf.js"></script>
+<script src="erp/documents/drawings-pdf.js"></script>
 <script src="erp/documents/forms.js"></script>
 <script src="erp/documents/order-form.js"></script>
 <script src="erp/documents/drawing-form.js"></script>

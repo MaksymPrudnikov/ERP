@@ -18,7 +18,8 @@
     if (!m || m.gf !== 'mail' || typeof m.req !== 'string') return;
     const id = 'gf' + Date.now().toString(36) + '-' + (++seq);
     /* Страница без моста (старая версия ERP, экран ещё грузится) не ответит. */
-    const timer = setTimeout(() => { waiting.delete(id); send({ error: 'closed' }); }, 4000);
+    /* PDF чертежей рисуется дольше — ждём до двух минут. */
+    const timer = setTimeout(() => { waiting.delete(id); send({ error: 'closed' }); }, m.req === 'document' ? 120000 : 4000);
     waiting.set(id, res => { clearTimeout(timer); send(res); });
     /* У страницы, открытой файлом с диска, адреса нет — только '*'. */
     window.postMessage(Object.assign({}, m, { id }), location.protocol === 'file:' ? '*' : location.origin);

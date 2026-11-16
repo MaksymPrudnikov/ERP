@@ -45,7 +45,7 @@ module.exports=async function({page,eq}){
    docs:docs.docs.map(d=>d.label+(d.off?' (off: '+d.hint+')':'')),pdf:[pdf.name,atob(pdf.data).slice(0,5)],wo:atob(wo.data).slice(0,5),inv:inv.error,
    log:DB.orderEvent.filter(e=>e.orderId===mtA).map(e=>e.what+' · '+e.note),missing:mb('reply',{orderId:'nope',templateId:'ET-status'}).error};
  }),{list:['Order received','Status','Back order','Ready for pickup'],edit:true,starts:'Hi John,',lines:true,
-  docs:['Work order','Order confirmation','Proforma invoice','Invoice (off: after last unit)'],pdf:['Proforma_invoice_'+await t.p.evaluate(()=>salesRecord(mtA).businessNumber)+'.pdf','%PDF-'],wo:'%PDF-',inv:'This document is not available for the order.',
+  docs:['Work order','Order confirmation','Proforma invoice','Invoice (off: after last unit)','Drawings'],pdf:['Proforma_invoice_'+await t.p.evaluate(()=>salesRecord(mtA).businessNumber)+'.pdf','%PDF-'],wo:'%PDF-',inv:'This document is not available for the order.',
   log:['Reply text · Template: Back order','Document attached · Proforma invoice'],missing:'missing'});
  eq('Мост: письма привязанной переписки — в журнал (клиент / наш ящик), одна запись на письмо, повтор ничего не добавляет; в карточке панели — последнее письмо и ответ; Activity log → Emails',await run(()=>{
   DB.orderEvent=[];orderEmailAdd(mtA,{threadId:'18c3f2a9b1d4e5aa',from:'john@abcglass.example',subject:'PO 4502'});
@@ -70,6 +70,13 @@ module.exports=async function({page,eq}){
   const saved=mailTemplates().filter(x=>!x.builtin).map(x=>x.name+': '+x.text);DB.emailTemplate=[];touch();mtSel='';mtDraft=null;tab='sales';render();
   return {head,preview:/^\d{4}Hi \w+,/.test(preview),dirty,saved};
  }),{head:'{po}',preview:true,dirty:true,saved:['Thanks: Thanks for order {order}.']});
+ eq('Мост: скрепка — Drawings: все строки заказа одним PDF, по листу на строку; альбомный лист — страница с /Rotate 90',await run(async()=>{
+  const docs=mb('documents',{orderId:mtA}).docs.filter(d=>d.key==='drawings').map(d=>d.label+' · '+d.hint);
+  const r=await mb('document',{orderId:mtA,key:'drawings'}),pdf=atob(r.data),pages=(pdf.match(/\/Type \/Page /g)||[]).length;
+  const k=formUseKey('drawing'),t=JSON.parse(JSON.stringify(drawFormTpl()));t.style=Object.assign({},t.style,{paper:'landscape'});DB.formTemplate=Object.assign({},DB.formTemplate,{[k]:t});
+  const land=atob((await mb('document',{orderId:mtA,key:'drawings'})).data);delete DB.formTemplate[k];
+  return {docs,name:r.name===('Drawings '+salesRecord(mtA).businessNumber).replace(/[^A-Za-z0-9]+/g,'_')+'.pdf',label:r.label,head:pdf.slice(0,5),pages,rotate:[(pdf.match(/\/Rotate 90/g)||[]).length,(land.match(/\/Rotate 90/g)||[]).length]};
+ }),{docs:['Drawings · 2 lines · 1 PDF'],name:true,label:'Drawings · 2 sheets',head:'%PDF-',pages:2,rotate:[0,2]});
  eq('Шаблоны: без ошибок в странице',t.errs,[]);
  await t.c.close();
 };

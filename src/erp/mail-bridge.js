@@ -10,7 +10,7 @@
         бланков (erp/documents, erp/shipping/print), вход и доступ
    OUT: ответ window {gf:'mail-reply', id, req, res}; mailBridgeHandle(m) —
         тот же ответ вызовом (тесты). Чтение: lookup, orders, search,
-        templates, reply, documents, document (PDF base64). Команды:
+        templates, reply, documents, document (PDF base64; чертежи — Promise). Команды:
         openOrder, openCustomer, newOrder, linkEmail, mailLog, threadLog,
         openTemplates
    Заказчик задания, 15.11.2026: панель показывает то, что относится к
@@ -146,10 +146,12 @@ function mailReply(m){
    Master Data; Invoice — только когда клиент получил последний юнит; PS —
    отправленные. Work order — тоже (владелец, 16.11.2026: «пусть будет»). */
 const MAIL_DOC_KINDS=['workOrder','confirmation','proforma','invoice'];
+/* Чертежи — все строки заказа одним PDF (владелец, 16.11.2026). */
 function mailDocList(o){
- if(salesIsQuote(o))return [{key:'quote',label:'Quote',hint:salesQuoteRevName(o)}];
+ const n=(o.lines||[]).length,drawings=n?[{key:'drawings',label:'Drawings',hint:n+(n===1?' line':' lines')+' · 1 PDF'}]:[];
+ if(salesIsQuote(o))return [{key:'quote',label:'Quote',hint:salesQuoteRevName(o)}].concat(drawings);
  const inv=!!finInvoiceDate(o);
- return MAIL_DOC_KINDS.map(k=>({key:k,label:docKindLabel(k),hint:k==='invoice'&&!inv?'after last unit':'',off:k==='invoice'&&!inv}))
+ return MAIL_DOC_KINDS.map(k=>({key:k,label:docKindLabel(k),hint:k==='invoice'&&!inv?'after last unit':'',off:k==='invoice'&&!inv})).concat(drawings)
   .concat(shippingForOrder(o.id).filter(s=>shippingSent(s)&&shippingCarries(s,o.id)).map(s=>({key:'ps:'+s.id,label:'Packing slip',hint:s.number})));
 }
 function mailDocuments(m){const o=mailOrderOf(m);return o?{docs:mailDocList(o)}:{error:'missing'};}
@@ -157,6 +159,8 @@ function mailBase64(bytes){let s='';for(let i=0;i<bytes.length;i+=0x8000)s+=Stri
 function mailDocument(m){
  const o=mailOrderOf(m),key=String(m.key||'');if(!o)return {error:'missing'};
  const d=mailDocList(o).find(x=>x.key===key);if(!d||d.off)return {error:'This document is not available for the order.'};
+ /* Чертежи рисуются картинками — не сразу: ответ — Promise (мост ждёт его). */
+ if(key==='drawings')return docDrawingsPdf(o).then(r=>({name:r.name,label:'Drawings · '+r.sheets+(r.sheets===1?' sheet':' sheets'),data:mailBase64(r.bytes)}),e=>({error:e&&e.message||'The drawings could not be prepared.'}));
  let pages,name,title;
  if(key.startsWith('ps:')){const s=shippingFind(key.slice(3));pages=shippingPages(shippingDocument(s));title='Packing slip '+s.number;name=title.replace(/[^A-Za-z0-9]+/g,'_')+'.pdf';}
  else{pages=docPages(Object.assign(docBuildModel(key,o,docDefaultOptions(key)),{form:''}));title=docKindLabel(key)+' '+(o.businessNumber||'draft');name=docFileName(key,o);}
@@ -223,5 +227,6 @@ if(typeof window!=='undefined')window.addEventListener('message',ev=>{
  const m=ev.data,file=location.protocol==='file:';
  if(ev.source!==window||!file&&ev.origin!==location.origin||!m||m.gf!=='mail'||typeof m.req!=='string')return;
  let res;try{res=mailBridgeHandle(m);}catch(err){res={error:'failed'};}
- window.postMessage({gf:'mail-reply',id:m.id,req:m.req,res},file?'*':location.origin);
+ const post=r=>window.postMessage({gf:'mail-reply',id:m.id,req:m.req,res:r},file?'*':location.origin);
+ if(res&&typeof res.then==='function')res.then(post,()=>post({error:'failed'}));else post(res);
 });
