@@ -137,6 +137,15 @@ module.exports = async function ({ eq }) {
       return { talk: !!talk, text: ['Hi John,', '3 units of order', 'are ready for pickup:', '• Line 1 · Kitchen'].filter(x => !text.includes(x)), att, want: 'Proforma_invoice_' + no + '.pdf', done: !!done, log };
     })(), { talk: true, text: [], att: [await e.evaluate(() => 'Proforma_invoice_' + salesRecord(xB).businessNumber + '.pdf · input')], want: await e.evaluate(() => 'Proforma_invoice_' + salesRecord(xB).businessNumber + '.pdf'), done: true, log: ['Customer email', 'Document attached', 'Reply text'] });
 
+    eq('Панель: Edit templates in ERP — вкладка ERP выходит вперёд на Master Data → Email templates', await (async () => {
+      await click('Reply text'); await until(has('Edit templates in ERP'));
+      await g.evaluate(() => { const s = document.getElementById('gf-mail-panel').shadowRoot, el = [...s.querySelectorAll('.menu .mi')].find(x => x.textContent.includes('Edit templates')); el.click(); });
+      await e.waitForFunction(() => tab === 'masterdata' && mdTab === 'emails', null, { timeout: 8000 }).catch(() => null);
+      const r = await e.evaluate(() => ({ tab, md: mdTab, shown: !!document.querySelector('[data-mail-templates]') }));
+      await e.evaluate(() => { tab = 'sales'; render(); }); await g.bringToFront();
+      return r;
+    })(), { tab: 'masterdata', md: 'emails', shown: true });
+
     eq('Панель: отправитель неизвестен — «No customer with this email»; Create order открывает в ERP новый заказ с этим письмом, в базе ничего до Save', await (async () => {
       await e.evaluate(() => salesDraftDrop());
       await show({ thread: 'FMfcgzQXKWgLlNmPqRsTuVwXyZaBcDe5', subject: 'New order', messages: [{ id: '18c3f2a9b1d4f005', from: 'bob@newbuilder.example', name: 'Bob Lee', body: 'We need 6 tempered panels.' }] });
