@@ -172,13 +172,6 @@
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
     return new File([bytes], doc.name, { type: 'application/pdf' });
   }
-  /* В Загрузки. Ссылка не в странице: Gmail ловит клики по ссылкам на
-     странице и открывал файл новым окном (проверка владельца 16.11.2026). */
-  function download(file) {
-    const a = document.createElement('a'), url = URL.createObjectURL(file);
-    a.href = url; a.download = file.name; a.rel = 'noopener'; a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
-  }
   /* Кнопка Attach files того ответа, где поле: ищем вверх от поля. */
   function attachButton(c) {
     for (let e = c; e && e !== document.body; e = e.parentElement) { const b = e.querySelector(SEL.attach); if (b) return b; }
@@ -189,24 +182,22 @@
   }
   const count = (text, name) => text.split(name).length - 1;
   /* PDF к ответу: кнопка Attach files ответа, а файл кладёт gmail-attach.js
-     (мир страницы) вместо окна выбора. Нет кнопки или файл не появился — как
-     если бы его перетащили мышкой; не появился и так — в Загрузки. */
-  const GMAIL_MAX = 24 * 1024 * 1024;
+     (мир страницы) вместо окна выбора; нет кнопки или файл не появился — как
+     если бы его перетащили мышкой. В Загрузки не сохраняем (владелец,
+     16.11.2026: «не хотел бы скачивать файл — чтобы он ложился в письмо»):
+     не вышло — панель так и говорит. Больше 25 МБ Gmail сам кладёт ссылкой
+     на Google Drive. */
   async function attachFile(file) {
-    /* Больше 25 МБ Gmail вложением не берёт — сразу в Загрузки. */
-    if (file.size > GMAIL_MAX) { download(file); return 'big'; }
     const c = await composeOpen();
-    if (!c) { download(file); return 'saved'; }
+    if (!c) return 'noreply';
     const before = count(document.body.innerText, file.name), shown = async ms => { for (let i = 0; i < ms / 100; i++) { await sleep(100); if (count(document.body.innerText, file.name) > before) return true; } return false; };
     const btn = attachButton(c);
     /* Сообщение доходит до страницы не сразу — кнопку жмём после него. */
-    if (btn) { window.postMessage({ gf: 'attach-file', file }, location.origin); await sleep(50); press(btn); if (await shown(5000)) return 'attached'; }
+    if (btn) { window.postMessage({ gf: 'attach-file', file }, location.origin); await sleep(50); press(btn); if (await shown(8000)) return 'attached'; }
     const dt = new DataTransfer();
     dt.items.add(file);
     ['dragenter', 'dragover', 'drop'].forEach(type => c.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt })));
-    if (await shown(2000)) return 'attached';
-    download(file);
-    return 'saved';
+    return await shown(3000) ? 'attached' : 'failed';
   }
   async function menu(kind, orderId) {
     if (st.menu && st.menu.kind === kind && st.menu.orderId === orderId) { st.menu = null; render(); return; }
@@ -232,9 +223,8 @@
       if (r && r.error) st.note = TEXTS[r.error] || r.error;
       else {
         const how = await attachFile(fileOf(r));
-        const mb = Math.round(r.data.length * 3 / 4 / 1048576);
-        st.info = how === 'attached' ? r.name + ' — attached' : how === 'big' ? r.name + ' is ' + mb + ' MB — too big for Gmail, saved to Downloads' : r.name + ' saved to Downloads — drag it into the reply';
-        send({ req: 'mailLog', orderId: m.orderId, kind: 'doc', note: r.label });
+        if (how === 'attached') { st.info = r.name + ' — attached'; send({ req: 'mailLog', orderId: m.orderId, kind: 'doc', note: r.label }); }
+        else st.note = how === 'noreply' ? 'Open the reply in Gmail first.' : 'Gmail did not take ' + r.name + '. Try again.';
       }
     }
     st.busy = false; st.menu = null; render();
