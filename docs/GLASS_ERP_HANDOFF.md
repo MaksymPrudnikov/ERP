@@ -1,6 +1,6 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 5.317 · 16 ноября 2026 — письмо Gmail в заказе: конверт у поля Customer с числом привязанных веток и строка писем под шапкой, конверт в ячейке PO в Sales, `Open email` правой кнопкой; привязка — вставкой адреса письма, пишется сразу (этап 1 задания `docs/ЗАДАЧА_ПОЧТА_ЗАКАЗЫ.md`); хендофф — «как устроено сейчас» по разделам, журнал решений — `docs/journal/`.
+Версия 5.318 · 16 ноября 2026 — прогресс заказа одним ответом (`salesOrderProgress`: отгружено, готово, в производстве, не начато — в сумме все юниты) и адрес `#order=<номер>`, который открывает заказ или квоту; письмо Gmail в заказе — конверт у Customer, строка писем, конверт в ячейке PO (этапы 1–2 задания `docs/ЗАДАЧА_ПОЧТА_ЗАКАЗЫ.md`); хендофф — «как устроено сейчас» по разделам, журнал решений — `docs/journal/`.
 
 ## Как читать
 
@@ -153,9 +153,18 @@
   запасная `orderEmailFindUrl` (поиск по отправителю и теме); адрес из строки браузера — `orderEmailFromLink`.
   Экран — `salesMailRow` / `salesMailStrip` (`views/sales.js`), в списке — `salesListMailCell` (`views/sales-list-ui.js`): у закрытого заказа шапка `inert`, письма — полосой
   над ней. Журнал заказа: «Email linked», «Email removed» (`orderEmailLogNotes`).
+- Прогресс: `erp/sales/order-progress.js` — `salesOrderProgress(o)` → статус, Hold, срок, `units {total, shipped, ready,
+  inProduction, notStarted, done}` (четыре кучки в сумме всегда `total`, `done = shipped + ready`), товары склада
+  отдельно (`extras`), станции — клетки `prodBoard` и только пока стекло в цеху. Отгружено и готово — из
+  `shippingSummary`; «не начато» — целые юниты, чьё стекло не в батче (`glassBatchRemaining`): юнит с одним стеклом в
+  батче уже в производстве. У квоты — статус, срок цен, число юнитов. Экрана у расчёта пока нет: его возьмёт
+  панель Gmail.
+- Адрес `…#order=<номер>` (`salesOrderHashOpen`): открывает заказ или квоту по номеру (архивный — `archiveOpen`),
+  адрес сразу снимается; вход включён, а человека нет — ждёт входа (`signinAs`); нет Sales — ничего; номера нет —
+  «Order … was not found.» и список Sales.
 - Сторожа: `test/order-totals.js` + эталоны `order-totals-fixture.js`, `money`, `line-metrics`, `line-measure`,
   `shape-cut-billing`, `order-delete`, `order-draft`, `copy-order`, `unit-cancel`, `batched-line-qty`, `dxf-import`,
-  `quotes`, `lifecycle`, `save-job`, `order-emails`.
+  `quotes`, `lifecycle`, `save-job`, `order-emails`, `order-progress`.
 
 **Открыто**: количество 0, минус и текст молча становятся 1; Ctrl+F дальше 400 строк не находит; ссылка на ветку
 Gmail `…/u/0/#all/<ветка>` на настоящем ящике открывает письмо (проверено 16.11), вариант с ящиком

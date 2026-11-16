@@ -133,6 +133,13 @@ Orders arrive by email. The order keeps a link to the conversation, so the origi
 - **Copy** does not copy the emails. A new quote revision and **Convert** to an order carry them over.
 - **Activity log**: "Email linked", "Email removed".
 
+## A link to an order
+
+The ERP address ending with `#order=` and a number opens that order or quote right away, for example
+`https://marketing-farm.agency/dist/GLASS_ERP.html#order=76012`. You can put such a link into an email to a colleague
+or into a note. If you are not signed in yet, the order opens after sign-in. The Sales tick is required. If there is
+no such number, the program says "Order 76012 was not found."
+
 ## Cancel order and Delete — Finance only
 
 Owner, 13.11.2026: only people with Finance cancel orders; without it — only On Hold, no delete and no cancel.

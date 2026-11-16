@@ -207,6 +207,7 @@
   "src/erp/views/carriers-board.js",
   "src/erp/views/carrier-count.js",
   "src/erp/shipping/data.js",
+  "src/erp/sales/order-progress.js",
   "src/erp/shipping/commands.js",
   "src/erp/shipping/loading.js",
   "src/erp/shipping/delivery.js",
