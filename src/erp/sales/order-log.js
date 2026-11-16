@@ -63,6 +63,8 @@ function orderLogDiff(a,b){
  (b.lines||[]).forEach((l,i)=>{const was=before.get(l.id);if(was&&(was.priceManual??null)!==(l.priceManual??null))add('Price by hand','line '+(i+1)+' · '+money(was.priceManual)+' → '+money(l.priceManual));});
  /* Числа надбавок заказа — тоже со значениями (окно Surcharges). */
  if(typeof salesSurchargeLogNotes==='function')salesSurchargeLogNotes(a,b).forEach(n=>add('Surcharge',n));
+ /* Письма Gmail: привязали, сняли (erp/sales/order-emails). */
+ if(typeof orderEmailLogNotes==='function')orderEmailLogNotes(a,b).forEach(n=>add(n[0],n[1]));
  if(JSON.stringify(a.adjustments||[])!==JSON.stringify(b.adjustments||[]))add('Adjustments',(b.adjustments||[]).map(x=>(x.label||'Adjustment')+' '+(x.amount<0?'−':'+')+'$'+Math.abs(x.amount).toFixed(2)).join('; ')||'removed');
  /* Hold заказа и строк. */
  if(!a.onHold&&b.onHold)add('On Hold',b.holdReason);
@@ -105,7 +107,7 @@ function orderLogCapture(ids){
  const moving=id=>typeof storageColdMoving==='function'&&storageColdMoving('salesOrder',id);
  now.forEach((x,id)=>{
   if(!x)return;const {o,text}=x;
-  if(!base.has(id)){if(moving(id))return;orderLogPush(o,'Created',orderLogCreatedNote(o));if(typeof salesSurchargeLogNotes==='function')salesSurchargeLogNotes({},o).forEach(n=>orderLogPush(o,'Surcharge',n));return;}
+  if(!base.has(id)){if(moving(id))return;orderLogPush(o,'Created',orderLogCreatedNote(o));if(typeof salesSurchargeLogNotes==='function')salesSurchargeLogNotes({},o).forEach(n=>orderLogPush(o,'Surcharge',n));if(typeof orderEmailLogNotes==='function')orderEmailLogNotes({},o).forEach(n=>orderLogPush(o,n[0],n[1]));return;}
   if(base.get(id)===text)return;
   let a,b;try{a=normalizeSalesOrder(JSON.parse(base.get(id)));b=normalizeSalesOrder(JSON.parse(text));}catch(e){return;}
   orderLogDiff(a,b).forEach(([what,note])=>orderLogPush(o,what,note));

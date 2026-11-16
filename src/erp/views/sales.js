@@ -55,7 +55,7 @@ function salesCustomerOptionDown(ev,id){ev.preventDefault();salesCustomerPick(id
 function salesCustomerFocus(el){el.select();salesCustomerOpen(el,'');}
 function salesCustomerField(){
  const c=salesFindCustomer(soDraft.customerId),name=salesCustomerName(c);
- return `<div class="so-cust-cell"><div class="so-cust"><input id="so_customer" data-customer-input role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="so_cust_list" autocomplete="off" value="${esc(name)}" title="${esc(c?name+' · '+(c.code||''):'')}" placeholder="Search customers by name or code" ${onAct('focus',salesCustomerFocus,EL)} ${onAct('input',salesCustomerOpen,EL,EL_VALUE)} ${onAct('keydown',salesCustomerKeydown,EVENT,EL)} ${onAct('blur',salesCustomerClose,EL)}><span class="so-cust-car" aria-hidden="true">▾</span><div class="so-cust-list" id="so_cust_list" role="listbox" hidden ${onAct('mousedown',actPrevent,EVENT)}></div></div><button type="button" class="so-contact-btn${soContactOpen&&c?' on':''}" data-contact-toggle title="Contact" aria-label="Contact" aria-expanded="${soContactOpen&&!!c}" ${c?'':'disabled'} ${onAct('click',salesContactToggle)}>${ico('contact')}</button></div>`;
+ return `<div class="so-cust-cell"><div class="so-cust"><input id="so_customer" data-customer-input role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="so_cust_list" autocomplete="off" value="${esc(name)}" title="${esc(c?name+' · '+(c.code||''):'')}" placeholder="Search customers by name or code" ${onAct('focus',salesCustomerFocus,EL)} ${onAct('input',salesCustomerOpen,EL,EL_VALUE)} ${onAct('keydown',salesCustomerKeydown,EVENT,EL)} ${onAct('blur',salesCustomerClose,EL)}><span class="so-cust-car" aria-hidden="true">▾</span><div class="so-cust-list" id="so_cust_list" role="listbox" hidden ${onAct('mousedown',actPrevent,EVENT)}></div></div><button type="button" class="so-contact-btn${soContactOpen&&c?' on':''}" data-contact-toggle title="Contact" aria-label="Contact" aria-expanded="${soContactOpen&&!!c}" ${c?'':'disabled'} ${onAct('click',salesContactToggle)}>${ico('contact')}</button>${(n=>`<button type="button" class="so-contact-btn so-mail-btn${soMailOpen?' on':''}" data-mail-toggle title="Emails" aria-label="Emails" aria-expanded="${soMailOpen}" ${onAct('click',salesMailToggle)}>${ico('mail')}${n?`<i data-mail-count>${n}</i>`:''}</button>`)(salesMailList(soDraft).length)}</div>`;
 }
 /* Контакт заказа (пункт 6; рисунок владельца 30.10.2026: «чтобы оно было
    спрятано, но при нажатии на иконку выпадала снизу строка с данными»).
@@ -85,7 +85,45 @@ function salesContactRow(o,c){
 function salesContactMenuHTML(c,p){
  return `<span class="so-contact-back" ${onAct('click',salesContactMenuToggle)}></span><span class="so-contact-menu" role="listbox">${c.contacts.map(x=>`<button type="button" role="option" aria-selected="${x===p}" class="${x===p?'on':''}" data-contact-option="${esc(x.id)}" ${onAct('click',salesContactPick,elData('contactOption'))}><span class="ck">${x===p?ico('check'):''}</span><span><b>${esc(x.name||'—')}</b><small>${esc([x.role,x.isPrimary?'primary':''].filter(Boolean).join(' · '))}</small></span><span class="ph">${esc(x.phone||x.mobile||x.phone2||'')}</span></button>`).join('')}</span>`;
 }
-function salesContactToggle(){soContactOpen=!soContactOpen;soContactMenu=false;render();}
+function salesContactToggle(){soContactOpen=!soContactOpen;soContactMenu=false;if(soContactOpen)soMailOpen=false;render();}
+/* Письма заказа (erp/sales/order-emails; задание ЗАДАЧА_ПОЧТА_ЗАКАЗЫ, вариант C,
+   15.11.2026): письмо — второстепенное, как контакт: конверт с числом веток
+   у поля Customer, строка писем под шапкой на месте строки контакта. Клик по
+   теме открывает ветку в Gmail; Find in Gmail — поиск по отправителю и теме
+   (другой ящик). × и вставка ссылки пишутся сразу, без Save; у нового, ещё не
+   записанного заказа — в черновик. */
+function salesMailList(o){return o&&Array.isArray(o.emails)?o.emails:[];}
+function salesMailToggle(){soMailOpen=!soMailOpen;soMailError='';if(soMailOpen){soContactOpen=false;soContactMenu=false;}render();}
+function salesMailLine(e,edit){
+ const find=orderEmailFindUrl(e),who=[e.fromName,e.from].filter(Boolean).join(' · ');
+ return `<div data-mail="${esc(e.threadId)}">${ico('mail','so-contact-i')}<a href="${esc(orderEmailUrl(e))}" target="_blank" rel="noopener" data-mail-link title="Open in Gmail">${esc(e.subject||'Gmail link')}</a><small>${esc(who)}</small><small>${esc(salesListShortDay(salesListIsoDay(e.at||e.addedAt)))}</small>${find?`<a class="so-mail-find" href="${esc(find)}" target="_blank" rel="noopener" data-mail-find>Find in Gmail</a>`:'<span></span>'}${edit?`<button type="button" class="so-mail-x" aria-label="Remove email" title="Remove" ${onAct('click',salesMailRemove,String(e.threadId))}>×</button>`:'<span></span>'}</div>`;
+}
+function salesMailRow(o){
+ if(!soMailOpen)return '';
+ return `<div class="so-mail-row" data-order-mail>${salesMailList(o).map(e=>salesMailLine(e,true)).join('')}<div class="so-mail-add"><input data-mail-paste placeholder="Paste Gmail link" aria-label="Paste Gmail link" value="${esc(soMailText)}" ${onAct('input',salesMailInput,EL_VALUE)} ${onAct('keydown',salesMailKey,EVENT)}><button type="button" class="sm" data-mail-add ${onAct('click',salesMailPaste)}>Link</button>${soMailError?`<span class="so-mail-err" data-mail-error>${esc(soMailError)}</span>`:''}</div></div>`;
+}
+/* Закрытый заказ и заказ из архива — шапка не нажимается (inert): письма
+   видны сразу, полосой над ней, только ссылками. */
+function salesMailStrip(o){
+ const list=salesMailList(o);
+ return list.length?`<div class="so-mail-row so-mail-strip" data-order-mail-strip>${list.map(e=>salesMailLine(e,false)).join('')}</div>`:'';
+}
+function salesMailInput(v){soMailText=v;}
+function salesMailKey(ev){if(ev.key==='Enter'){ev.preventDefault();salesMailPaste();}}
+function salesMailPaste(){
+ const e=orderEmailFromLink(soMailText),id=orderEmailEditorId();
+ if(!e){soMailError='Open the email in Gmail and copy its address.';render();return;}
+ if(id){const r=orderEmailAdd(id,e);if(!r.ok){soMailError=r.error;render();return;}}
+ else orderEmailSet(soDraft,orderEmailsClean(salesMailList(soDraft).concat(orderEmailStamp(e))));
+ soMailText='';soMailError='';render();
+}
+function salesMailRemove(threadId){
+ const id=orderEmailEditorId();
+ if(id){const r=orderEmailRemove(id,threadId);if(!r.ok){soMailError=r.error;render();return;}}
+ else orderEmailSet(soDraft,salesMailList(soDraft).filter(e=>e.threadId!==threadId));
+ soMailError='';render();
+}
+
 function salesContactMenuToggle(){soContactMenu=!soContactMenu;render();}
 function salesContactPick(id){const c=salesFindCustomer(soDraft.customerId);soContactMenu=false;if(c&&c.contacts.some(x=>x.id===id))soDraft.customerContactId=id;render();}
 function salesCustomerOpen(el,q){
@@ -140,9 +178,9 @@ function salesOrderEditor(){
     записи на экране только на время просмотра. */
  const o=soDraft,c=salesFindCustomer(o.customerId),title=salesOrderTitle(o),ro=salesOrderReadOnly(o),av=typeof archiveViewing==='function'&&archiveViewing(o),q=salesIsQuote(o),fromQuote=o.fromQuoteId?((DB.salesOrder||[]).find(x=>x.id===o.fromQuoteId)||{}).businessNumber:'',customerFlags=c?`${c.onHold?'<span class="pill bad">On Hold</span>':''}${c.poRequired?'<span class="pill warn">PO Required</span>':''}${c.isProspect?'<span class="pill info">Prospect</span>':''}`:'';
  return `<div class="sales-order-editor"><div class="sales-editor-top"><div><div class="sales-order-title"><h3>${esc(title)}</h3>${salesStatusPill(q?salesQuoteShown(o):o)}${!q&&o.onHold?'<span class="pill hold" data-hold-pill>On Hold</span>':''}${customerFlags}</div><div class="mut mono">${esc(q?salesQuoteShown(o).id:o.id)}${fromQuote?' · from quote '+raw(fromQuote):''}${(e=>e&&e.by?`<span data-created-by> · Created by ${esc(e.by)} · ${esc(salesListShortDay(salesListIsoDay(e.at)))}</span>`:'')(orderCreatedBy(q?salesQuoteShown(o).id:o.id))}</div></div>${q?'':av?`<div inert>${salesPaymentStrip(o)}</div>`:salesPaymentStrip(o)}<div class="sales-editor-actions">${salesHeaderActions(o)}</div></div>
- ${av?'<div class="sales-readonly" inert>':''}${salesCopyStrip(o)}${salesHoldBar(o)}${shippingOrderStrip(o)}${salesStatusStepper(o)}${salesLockBar(o)}${typeof ncrOrderStrip==='function'?ncrOrderStrip(o):''}${ro&&!av?'<div class="sales-readonly" inert>':''}
- <div class="sales-header-compact so-head${q?' q':''}${soContactOpen&&c?' has-contact':''}"><div><label for="so_customer">Customer *</label>${salesCustomerField()}</div><div><label>Customer PO</label><input value="${esc(o.customerPo)}" ${onAct('input',salesDraftSet,'customerPo',EL_VALUE)}></div><div><label>Due Date</label><input type="date" value="${esc(o.dueDate)}" ${onAct('change',salesDraftSet,'dueDate',EL_VALUE)}></div><div><label>Priority</label><select ${onAct('change',salesDraftSet,'priority',EL_VALUE)}><option value="normal" ${o.priority==='normal'?'selected':''}>Normal</option><option value="rush" ${o.priority==='rush'?'selected':''}>Rush</option><option value="critical" ${o.priority==='critical'?'selected':''}>Critical</option></select></div><div><label>Delivery</label><select ${onAct('change',salesDraftSet,'delivery',EL_VALUE)}><option value="pickup" ${o.delivery==='pickup'?'selected':''}>Pickup</option><option value="delivery" ${o.delivery==='delivery'?'selected':''}>Delivery</option></select></div><div><label>Currency</label><select ${onAct('change',salesDraftSetRender,'currency',EL_VALUE)}><option ${o.currency==='CAD'?'selected':''}>CAD</option><option ${o.currency==='USD'?'selected':''}>USD</option></select></div><div><label>Branch</label><input value="${esc(o.branch)}" ${onAct('input',salesDraftSet,'branch',EL_VALUE)}></div>${q?`<div><label>Valid until</label><input type="date" data-quote-valid value="${esc(o.validUntil)}" title="Empty: the send date plus ${salesQuoteValidDays()} days" ${onAct('change',salesDraftSetRender,'validUntil',EL_VALUE)}></div>`:''}</div>
- ${salesContactRow(o,c)}${salesPriceListStrip(o)}${q?'':salesDepositHint(o)}${c&&c.onHold?'<div class="sales-hold">Customer on hold</div>':''}
+ ${ro?salesMailStrip(o):''}${av?'<div class="sales-readonly" inert>':''}${salesCopyStrip(o)}${salesHoldBar(o)}${shippingOrderStrip(o)}${salesStatusStepper(o)}${salesLockBar(o)}${typeof ncrOrderStrip==='function'?ncrOrderStrip(o):''}${ro&&!av?'<div class="sales-readonly" inert>':''}
+ <div class="sales-header-compact so-head${q?' q':''}${soContactOpen&&c||soMailOpen?' has-contact':''}"><div><label for="so_customer">Customer *</label>${salesCustomerField()}</div><div><label>Customer PO</label><input value="${esc(o.customerPo)}" ${onAct('input',salesDraftSet,'customerPo',EL_VALUE)}></div><div><label>Due Date</label><input type="date" value="${esc(o.dueDate)}" ${onAct('change',salesDraftSet,'dueDate',EL_VALUE)}></div><div><label>Priority</label><select ${onAct('change',salesDraftSet,'priority',EL_VALUE)}><option value="normal" ${o.priority==='normal'?'selected':''}>Normal</option><option value="rush" ${o.priority==='rush'?'selected':''}>Rush</option><option value="critical" ${o.priority==='critical'?'selected':''}>Critical</option></select></div><div><label>Delivery</label><select ${onAct('change',salesDraftSet,'delivery',EL_VALUE)}><option value="pickup" ${o.delivery==='pickup'?'selected':''}>Pickup</option><option value="delivery" ${o.delivery==='delivery'?'selected':''}>Delivery</option></select></div><div><label>Currency</label><select ${onAct('change',salesDraftSetRender,'currency',EL_VALUE)}><option ${o.currency==='CAD'?'selected':''}>CAD</option><option ${o.currency==='USD'?'selected':''}>USD</option></select></div><div><label>Branch</label><input value="${esc(o.branch)}" ${onAct('input',salesDraftSet,'branch',EL_VALUE)}></div>${q?`<div><label>Valid until</label><input type="date" data-quote-valid value="${esc(o.validUntil)}" title="Empty: the send date plus ${salesQuoteValidDays()} days" ${onAct('change',salesDraftSetRender,'validUntil',EL_VALUE)}></div>`:''}</div>
+ ${salesContactRow(o,c)}${salesMailRow(o)}${salesPriceListStrip(o)}${q?'':salesDepositHint(o)}${c&&c.onHold?'<div class="sales-hold">Customer on hold</div>':''}
  ${salesGlassSectionHTML()}
  ${salesExtraItemsSection()}
  ${typeof recutOrderSection==='function'?recutOrderSection(o):''}<div class="sales-notes"><label>Order Notes</label><textarea rows="2" ${onAct('input',salesDraftSet,'notes',EL_VALUE)}>${esc(o.notes)}</textarea></div>${ro?'</div>':''}<div class="err" id="e_sales_order"></div>${typeof ncrModalHTML==='function'?ncrModalHTML():''}${salesLineHoldMenuHTML()}${salesExcelModal()}${salesServicesModal()}${salesMetricsModal()}${salesStockPickerModal()}${docModal()}${finApplyModal()}</div>`;

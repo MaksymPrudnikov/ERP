@@ -84,6 +84,8 @@ function signinAs(id){
  signinSetTabSid(sid);signinPick='';signinError='';authLog('Sign in','Office',u);
  if(signinOwner&&signinOwner!==id)return signinFresh();
  signinOwner=id;render();
+ /* Адрес #order=<номер> ждал входа (erp/sales/order-progress). */
+ if(typeof salesOrderHashOpen==='function')salesOrderHashOpen();
 }
 function signinOut(){const was=signinUser();if(was)authLog('Sign out','Office',was);try{localStorage.removeItem(SIGNIN_KEY);}catch(e){}signinSetTabSid('');signinPick='';signinError='';render();}
 /* Sign out своей кнопкой: сначала тот же вопрос, что при уходе из

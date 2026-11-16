@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Glass Farm for Gmail",
+  "short_name": "Glass Farm",
+  "version": "0.1.0",
+  "description": "Shows the Glass Farm ERP order next to the open Gmail email. Data moves only between the Gmail tab and the Glass Farm tab on this computer.",
+  "permissions": ["scripting"],
+  "host_permissions": [
+    "https://marketing-farm.agency/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*",
+    "file:///*GLASS_ERP*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://mail.google.com/*"],
+      "js": ["gmail-style.js", "gmail.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://marketing-farm.agency/*",
+        "http://127.0.0.1/*",
+        "http://localhost/*",
+        "file:///*GLASS_ERP*"
+      ],
+      "js": ["erp.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

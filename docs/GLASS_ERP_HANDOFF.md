@@ -1,6 +1,6 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 5.319 · 16 ноября 2026 — схема мастер-данных 10.09 удалена (решения владельца — в `docs/journal/решения-из-заданий.md`), лист тары на экране остаётся видом бумаги; симулятор цеха сверен с правилом Late: расхождений 1 вместо 5.
+Версия 5.320 · 16 ноября 2026 — панель Glass Farm в Gmail — расширение Chrome `extension/gmail/`: заказ рядом с открытым письмом (статус, сколько готово, где стекло), Create order / Create quote / Link to order / Open in ERP; ответы даёт мост `erp/mail-bridge.js`; прогресс заказа и адрес `#order=`; письмо Gmail в заказе (этапы 1–4 задания `docs/ЗАДАЧА_ПОЧТА_ЗАКАЗЫ.md`).
 
 ## Как читать
 
@@ -141,6 +141,13 @@
   просмотр, ничего не пишет (02.10). Сервис «+»: работа Master Data или свой разовый (только деньги, без станции).
 - Список Sales: Open и Delete над таблицей; Draft — своя кнопка; колонка Invoice с «Not invoiced · N d»; Created by
   скрыта (11.10); Activity log — коротко (02.10).
+- **Письмо Gmail в заказе** (заказчик задания, 15.11): письмо — второстепенное, как контакт: конверт с числом веток у
+  поля Customer, строка писем под шапкой на месте строки контакта (открыта одна из двух). Привязка — одна на ветку,
+  пишется сразу, без Save, и у закрытого заказа; **сама система ничего не привязывает и ничего не угадывает**. Текст
+  письма не хранится. Copy писем не копирует, ревизия квоты и Convert — переносят. В Sales — конверт в ячейке PO
+  (отдельной колонке по умолчанию нет места: таблица без прокрутки вбок), колонка Email — в ⚙ Columns, `Open email`
+  правой кнопкой. Заказ рядом с письмом показывает панель Glass Farm в Gmail (ниже, «Как устроено»); дальше по
+  заданию `docs/ЗАДАЧА_ПОЧТА_ЗАКАЗЫ.md` — пилот на настоящем ящике, метки в списке писем, Chrome Web Store.
 
 **Как устроено**
 - Заказ — параметр расчёта: `salesOrderCommercialTotals(order)`, чужой заказ — `salesOrderArg`; `soDraft` только для
@@ -149,11 +156,44 @@
 - Экраны Sales, фигуры, списки — без кода в разметке (действия `onAct`, см. Общее): поле шапки заказа пишет в
   черновик через `salesDraftSet(k,v)`, поле строки — `salesLineSet(i,k,v)`, окна Hold — `salesLineHoldField`.
 - Цены: `salesBook`, `salesPriceBookOf`; надбавки `surchargeRates`, `salesSurcharges`; минимум `salesMinAreaFor`.
+- Письма: `erp/sales/order-emails.js` — `order.emails[]` (поля нет, пока писем нет), запись `{threadId, messageId,
+  account, from, fromName, subject, at, by, addedAt}`; `orderEmailAdd` / `orderEmailRemove` — команда с областью
+  одного заказа, открытый черновик получает то же; ссылка `orderEmailUrl` (ящик `authuser` + `#all/<ветка>`),
+  запасная `orderEmailFindUrl` (поиск по отправителю и теме); адрес из строки браузера — `orderEmailFromLink`.
+  Экран — `salesMailRow` / `salesMailStrip` (`views/sales.js`), в списке — `salesListMailCell` (`views/sales-list-ui.js`): у закрытого заказа шапка `inert`, письма — полосой
+  над ней. Журнал заказа: «Email linked», «Email removed» (`orderEmailLogNotes`).
+- Прогресс: `erp/sales/order-progress.js` — `salesOrderProgress(o)` → статус, Hold, срок, `units {total, shipped, ready,
+  inProduction, notStarted, done}` (четыре кучки в сумме всегда `total`, `done = shipped + ready`), товары склада
+  отдельно (`extras`), станции — клетки `prodBoard` и только пока стекло в цеху. Отгружено и готово — из
+  `shippingSummary`; «не начато» — целые юниты, чьё стекло не в батче (`glassBatchRemaining`): юнит с одним стеклом в
+  батче уже в производстве. У квоты — статус, срок цен, число юнитов. Показывает расчёт панель Gmail; своего
+  экрана в ERP у него нет.
+- Адрес `…#order=<номер>` (`salesOrderHashOpen`): открывает заказ или квоту по номеру (архивный — `archiveOpen`),
+  адрес сразу снимается; вход включён, а человека нет — ждёт входа (`signinAs`); нет Sales — ничего; номера нет —
+  «Order … was not found.» и список Sales.
+- Мост панели Gmail: `erp/mail-bridge.js` слушает сообщения `window` `{gf:'mail', id, req}` только от своего окна и
+  адреса, отвечает `{gf:'mail-reply', id, res}`. Шаг 0 — `mailBridgeGate` (`signin` / `access`). Чтение (`readScopeNow`):
+  `lookup {from, threadId, messageId}` — клиент по точному адресу (у двух клиентов не выбирает), привязанное к ветке
+  (`linked`, `closed`, `archived`; заказ из открытого письма первым) либо до трёх открытых заказов клиента, счётчик и
+  `known` — номера и PO для поиска в тексте на стороне панели; `orders {ids}`; `search {q}`. Команды: `openOrder`,
+  `openCustomer` (Sales с фильтром по клиенту), `newOrder` (черновик с клиентом и письмом), `linkEmail`. Текст письма
+  мост не получает, сам ничего не привязывает, денег в ответах нет. «Открытый» — `mailIsOpen` (выданный — 14 дней).
+  Указатель архива несёт ветки заказа (`mail` в `archiveRowOf`). Правила — раздел «Логика панели» задания.
+- Панель в Gmail — расширение Chrome `extension/gmail/` (не модуль ERP, в `build/manifest.json` его нет; устройство и
+  правила — `extension/gmail/README.md`): `gmail.js` читает открытую ветку (разметка Gmail — объект `SEL`), ищет номера
+  из `known` в тексте сам, рисует панель (`createElement`, закрытый Shadow DOM); `background.js` находит вкладку ERP;
+  `erp.js` передаёт сообщения странице. Сети нет. Адреса ERP — `manifest.json` и `ERP_MATCH`, совпадают (тест);
+  старого `maksymprudnikov.github.io` в них нет: он переводит на сайт ERP, а на нём же — другие сайты владельца;
+  ERP файлом с диска — `file:///*GLASS_ERP*` и «Allow access to file URLs». Разметка настоящего Gmail проверяется
+  на пилоте — тест идёт по образцу.
 - Сторожа: `test/order-totals.js` + эталоны `order-totals-fixture.js`, `money`, `line-metrics`, `line-measure`,
   `shape-cut-billing`, `order-delete`, `order-draft`, `copy-order`, `unit-cancel`, `batched-line-qty`, `dxf-import`,
-  `quotes`, `lifecycle`, `save-job`.
+  `quotes`, `lifecycle`, `save-job`, `order-emails`, `order-progress`, `mail-bridge`, `gmail-extension`.
 
-**Открыто**: количество 0, минус и текст молча становятся 1; Ctrl+F дальше 400 строк не находит.
+**Открыто**: количество 0, минус и текст молча становятся 1; Ctrl+F дальше 400 строк не находит; ссылка на ветку
+Gmail `…/u/0/#all/<ветка>` на настоящем ящике открывает письмо (проверено 16.11), вариант с ящиком
+(`…/u/?authuser=<ящик>#all/<ветка>`, его ставит панель) и разметка настоящего Gmail для панели не проверены —
+пилот, этап 5 задания.
 
 ## Optimization
 
