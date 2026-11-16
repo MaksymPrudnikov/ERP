@@ -1,6 +1,6 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 5.319 · 16 ноября 2026 — мост для панели Gmail (`erp/mail-bridge.js`): страница ERP отвечает расширению, какой заказ показать рядом с письмом, и выполняет команды панели; прогресс заказа (`salesOrderProgress`) и адрес `#order=<номер>`; письмо Gmail в заказе (этапы 1–3 задания `docs/ЗАДАЧА_ПОЧТА_ЗАКАЗЫ.md`; самой панели в продукте ещё нет); хендофф — «как устроено сейчас» по разделам, журнал решений — `docs/journal/`.
+Версия 5.320 · 16 ноября 2026 — панель Glass Farm в Gmail — расширение Chrome `extension/gmail/`: заказ рядом с открытым письмом (статус, сколько готово, где стекло), Create order / Create quote / Link to order / Open in ERP; ответы даёт мост `erp/mail-bridge.js`; прогресс заказа и адрес `#order=`; письмо Gmail в заказе (этапы 1–4 задания `docs/ЗАДАЧА_ПОЧТА_ЗАКАЗЫ.md`); хендофф — «как устроено сейчас» по разделам, журнал решений — `docs/journal/`.
 
 ## Как читать
 
@@ -170,9 +170,15 @@
   `openCustomer` (Sales с фильтром по клиенту), `newOrder` (черновик с клиентом и письмом), `linkEmail`. Текст письма
   мост не получает, сам ничего не привязывает, денег в ответах нет. «Открытый» — `mailIsOpen` (выданный — 14 дней).
   Указатель архива несёт ветки заказа (`mail` в `archiveRowOf`). Правила — раздел «Логика панели» задания.
+- Панель в Gmail — расширение Chrome `extension/gmail/` (не модуль ERP, в `build/manifest.json` его нет; устройство и
+  правила — `extension/gmail/README.md`): `gmail.js` читает открытую ветку (разметка Gmail — объект `SEL`), ищет номера
+  из `known` в тексте сам, рисует панель (`createElement`, закрытый Shadow DOM); `background.js` находит вкладку ERP;
+  `erp.js` передаёт сообщения странице. Сети нет. Адреса ERP — `manifest.json` и `ERP_MATCH`, совпадают (тест);
+  ERP файлом с диска — `file:///*GLASS_ERP*` и «Allow access to file URLs». Разметка настоящего Gmail проверяется
+  на пилоте — тест идёт по образцу.
 - Сторожа: `test/order-totals.js` + эталоны `order-totals-fixture.js`, `money`, `line-metrics`, `line-measure`,
   `shape-cut-billing`, `order-delete`, `order-draft`, `copy-order`, `unit-cancel`, `batched-line-qty`, `dxf-import`,
-  `quotes`, `lifecycle`, `save-job`, `order-emails`, `order-progress`, `mail-bridge`.
+  `quotes`, `lifecycle`, `save-job`, `order-emails`, `order-progress`, `mail-bridge`, `gmail-extension`.
 
 **Открыто**: количество 0, минус и текст молча становятся 1; Ctrl+F дальше 400 строк не находит; ссылка на ветку
 Gmail `…/u/0/#all/<ветка>` на настоящем ящике открывает письмо (проверено 16.11), вариант с ящиком

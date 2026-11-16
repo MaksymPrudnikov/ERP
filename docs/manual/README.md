@@ -12,6 +12,7 @@ they appear on screen.
 |---|---|---|
 | Lists · Списки | [lists.ru.md](lists.ru.md) | [lists.en.md](lists.en.md) |
 | Sales | [sales.ru.md](sales.ru.md) | [sales.en.md](sales.en.md) |
+| Gmail panel · панель в Gmail | [gmail.ru.md](gmail.ru.md) | [gmail.en.md](gmail.en.md) |
 | Optimization | [optimization.ru.md](optimization.ru.md) | [optimization.en.md](optimization.en.md) |
 | Production · станции | [production.ru.md](production.ru.md) | [production.en.md](production.en.md) |
 | Shipping | [shipping.ru.md](shipping.ru.md) | [shipping.en.md](shipping.en.md) |

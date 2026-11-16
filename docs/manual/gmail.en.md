@@ -1,14 +1,25 @@
 # Gmail panel — the order next to the email
 
-> **Status:** written for the task `docs/ЗАДАЧА_ПОЧТА_ЗАКАЗЫ.md`. Not in the product yet; this guide joins the
-> contents table together with the extension.
-
 Orders arrive by email in the shared mailbox. The **Glass Farm** panel on the right side of Gmail shows the order the
 open email belongs to: status, how much is done, where the glass is. You also create an order or a quote from it. The
 order in the ERP keeps a link to the email.
 
 The panel works for people with the **Sales** tick in Users, and only while Glass Farm is open in another tab of the
 same Chrome.
+
+## Install
+
+The panel is the Chrome extension "Glass Farm for Gmail", folder `extension/gmail/` in the ERP repository.
+
+1. Open `chrome://extensions` in Chrome and turn on **Developer mode** (top right).
+2. **Load unpacked** → pick the `extension/gmail` folder.
+3. Open Glass Farm in one tab and Gmail in another, then open an email. The panel appears on the right.
+
+If Glass Farm is opened as a file from disk (for example the test package `GLASS_ERP_….html`), click **Details** on
+the extension in `chrome://extensions` and turn on **Allow access to file URLs**.
+
+A new version of the folder: click ↻ on the extension in `chrome://extensions`, then reload the Gmail and Glass Farm
+tabs.
 
 ## The main rule
 
@@ -43,7 +54,8 @@ The customer is one row at the bottom of the panel. Click it to see the contact,
   - **Ready to ship** — finished and waiting;
   - **In production** — on the shop floor;
   - the grey rest — not in production yet.
-- **Where is the glass** — the route stations: ✓ passed, a number is how many lites wait at the station, · not there yet.
+- **Where is the glass · lites** — the route stations, counted in lites (an IGU unit has two or three): ✓ all passed,
+  a number is how many lites wait at the station, · not there yet. The line is there while glass is on the floor.
 - **On Hold** — a red line with the reason.
 - **Open in ERP** — opens the order in Glass Farm.
 
@@ -121,6 +133,7 @@ One conversation is one row, however many replies it has. Copy does not copy the
 - It does not read attachments and does not store the email text.
 - It does not create customers or change their cards.
 - It sends nothing to the internet: data moves only between the Gmail tab and the Glass Farm tab on your computer.
+  The email text never leaves the Gmail tab: the panel gets the customer's order numbers as a list and looks for them itself.
 - It shows no money.
 - It does not change the order: from Gmail you can only link an email.
 
@@ -133,4 +146,6 @@ One conversation is one row, however many replies it has. Copy does not copy the
 | **No Sales access.** | Ask the administrator for the Sales tick in Users |
 | The email link from the order opened the wrong mailbox | Sign in to Gmail with the shared mailbox, or click **Find in Gmail** in the email row |
 | The conversation is linked to the wrong order | In the order: envelope → email row → **×**, then link the right one |
-| No panel | Check that the Glass Farm for Gmail extension is on in chrome://extensions |
+| No panel | Check that the Glass Farm for Gmail extension is on in chrome://extensions, and reload the Gmail tab |
+| **Reload this Gmail page.** | The extension was updated — reload the Gmail tab |
+| The panel does not see an order you have just saved | Click ↻ in the panel header |
