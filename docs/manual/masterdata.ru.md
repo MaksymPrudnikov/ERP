@@ -112,6 +112,17 @@
   ориентация, раскладка Automatic или Free layout; образец на настоящем заказе.
 - **Forms** — конструктор бланков: Quote, Proforma, Order confirmation, Invoice, Work order, Packing slip, Receipt,
   Statement, Purchase order, Trip sheet, Drawing, лист и наклейка тары. Руководство — [forms.ru.md](forms.ru.md).
+- **Email templates** — тексты ответов клиенту для панели Gmail (конверт; [gmail.ru.md](gmail.ru.md)). Слева список:
+  четыре готовых (Order received, Status, Back order, Ready for pickup) и ваши, **+ New template** — свой. В середине
+  **Name** (так шаблон называется в панели) и **Text**. Справа **Fields** по группам — Order, Quote, Customer, Progress,
+  Lines, Shipping, Me · company · date: клик ставит поле в текст на место курсора, подсказка при наведении — что
+  подставится. **Preview on order** — письмо на выбранном заказе. **Save** / **Cancel** / **Delete** — над экраном.
+  - `{back order lines}` — только строки, где что-то осталось: «• Line 2 · W1 · 24" × 36" · стекло — 3 units: 1 ready,
+    2 in production»; отгруженные строки не перечисляются. `{ready lines}`, `{shipped lines}`, `{all lines}` — так же.
+  - `{my name}` — кто вошёл в Glass Farm; `{contact first name}` — контакт, который написал письмо, иначе главный.
+  - Нет данных (нет доставки, нет Hold) — поле пустое, ничего не придумывается. Поле с опечаткой (`{oder}`) остаётся в
+    тексте как есть — его видно в просмотре. Денег в полях нет.
+  - Править может тот, у кого галочка Master Data.
 
 ## Setup
 

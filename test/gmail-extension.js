@@ -14,6 +14,11 @@ window.gmShow=function(t){const m=document.getElementById('main');m.textContent=
   const s=document.createElement('span');s.className='gD';s.setAttribute('email',x.from);s.setAttribute('name',x.name||'');s.textContent=x.name||x.from;d.appendChild(s);
   const g=document.createElement('span');g.className='g3';g.setAttribute('title','Sat, Nov 15, 2026, 9:42 AM');d.appendChild(g);
   const b=document.createElement('div');b.className='a3s';b.textContent=x.body||'';d.appendChild(b);m.appendChild(d);});
+ const r=document.createElement('span');r.className='ams bkH';r.textContent='Reply';r.onclick=function(){if(document.getElementById('compose'))return;
+  const c=document.createElement('div');c.id='compose';c.setAttribute('contenteditable','true');c.setAttribute('role','textbox');c.style.minHeight='40px';
+  c.addEventListener('dragover',function(e){e.preventDefault();});
+  c.addEventListener('drop',function(e){e.preventDefault();[].forEach.call(e.dataTransfer.files,function(f){const a=document.createElement('div');a.className='att';a.textContent=f.name+' '+f.size;m.appendChild(a);});});
+  m.appendChild(c);};m.appendChild(r);
  location.hash='inbox/'+t.thread;};
 </script></body></html>`;
 module.exports = async function ({ eq }) {
@@ -111,6 +116,23 @@ module.exports = async function ({ eq }) {
       await e.waitForFunction(id => soEdit === id, await e.evaluate(() => xB), { timeout: 8000 }).catch(() => null);
       return { text: p && ['3 of 3 units done', 'Ready to ship 3', 'Ready'].filter(s => !p.text.includes(s.toLowerCase())), where: !!p && p.text.includes('Where is the glass'.toLowerCase()), opened: await e.evaluate(() => soEdit === xB) };
     })(), { text: [], where: false, opened: true });
+
+    eq('Панель: конверт — шаблоны ERP, выбранный текст встаёт в ответ (Reply открывается сам); скрепка — PDF прикрепляется к ответу; в журнале заказа — письмо клиента, Reply text и Document attached; в карточке — когда клиент написал', await (async () => {
+      await e.evaluate(() => salesDraftDrop());
+      await show(john('FMfcgzQXKWgLlNmPqRsTuVwXyZaBcDe4', 'Pickup', 'When can we pick up?'));
+      await click('Refresh');
+      const talk = await until(has('Customer wrote'));
+      const item = (label) => g.evaluate(l => { const s = document.getElementById('gf-mail-panel').shadowRoot, el = [...s.querySelectorAll('.menu .mi')].find(x => x.textContent.includes(l)); if (!el) throw new Error('No item ' + l); el.click(); }, label);
+      await click('Reply text'); await until(has('Ready for pickup')); await item('Ready for pickup');
+      await g.waitForFunction(() => { const c = document.getElementById('compose'); return c && c.innerText.includes('ready for pickup'); }, null, { timeout: 8000 }).catch(() => null);
+      const text = await g.evaluate(() => { const c = document.getElementById('compose'); return c ? c.innerText : ''; });
+      await click('Attach PDF'); await until(has('Proforma invoice')); await item('Proforma invoice');
+      const done = await until(has('attached'));
+      const att = await g.evaluate(() => [...document.querySelectorAll('.att')].map(a => a.textContent.split(' ')[0]));
+      const no = await e.evaluate(() => salesRecord(xB).businessNumber);
+      const log = await e.evaluate(() => [...new Set(DB.orderEvent.filter(x => x.orderId === xB && ['Customer email', 'Reply text', 'Document attached'].includes(x.what)).map(x => x.what))].sort());
+      return { talk: !!talk, text: ['Hi John,', '3 units of order', 'are ready for pickup:', '• Line 1 · Kitchen'].filter(x => !text.includes(x)), att, want: 'Proforma_invoice_' + no + '.pdf', done: !!done, log };
+    })(), { talk: true, text: [], att: [await e.evaluate(() => 'Proforma_invoice_' + salesRecord(xB).businessNumber + '.pdf')], want: await e.evaluate(() => 'Proforma_invoice_' + salesRecord(xB).businessNumber + '.pdf'), done: true, log: ['Customer email', 'Document attached', 'Reply text'] });
 
     eq('Панель: отправитель неизвестен — «No customer with this email»; Create order открывает в ERP новый заказ с этим письмом, в базе ничего до Save', await (async () => {
       await e.evaluate(() => salesDraftDrop());

@@ -23,7 +23,7 @@ module.exports=async function({page,eq}){
   await new Promise(r=>setTimeout(r,60));window.removeEventListener('message',on);
   const h=mb('hello');
   return {hello:[h.ok,h.version,h.state,typeof h.build],replies:got.map(x=>x.id+':'+(x.res.ok?x.res.state:x.res.error))};
- }).catch(e=>({error:String(e.message).split('\n')[0]})),{hello:[true,1,'ready','string'],replies:['q1:ready','q3:unknown']});
+ }).catch(e=>({error:String(e.message).split('\n')[0]})),{hello:[true,2,'ready','string'],replies:['q1:ready','q3:unknown']});
  eq('Мост, шаг 1: клиент — только по точному адресу (контакт, Invoice Email, Statement Email), регистр не важен; нет адреса — клиента нет; адрес у двух клиентов — мост не выбирает',await run(()=>{
   const who=from=>{const r=mb('lookup',{from});return [r.step,r.customer?r.customer.name:null,r.customers];};
   const c=mb('lookup',{from:'john@abcglass.example'}).customer;

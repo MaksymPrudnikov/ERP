@@ -6,9 +6,13 @@
    IN : сообщения window {gf:'mail', id, req, …} от своей же страницы (их
         кладёт расширение); DB.salesOrder, DB.customer, archiveIndex;
         salesOrderProgress (erp/sales/order-progress), orderEmail*
-        (erp/sales/order-emails), вход и доступ (erp/signin, erp/access)
+        (erp/sales/order-emails), шаблоны (erp/sales/mail-templates), PDF
+        бланков (erp/documents, erp/shipping/print), вход и доступ
    OUT: ответ window {gf:'mail-reply', id, req, res}; mailBridgeHandle(m) —
-        тот же ответ вызовом (тесты)
+        тот же ответ вызовом (тесты). Чтение: lookup, orders, search,
+        templates, reply, documents, document (PDF base64). Команды:
+        openOrder, openCustomer, newOrder, linkEmail, mailLog, threadLog,
+        openTemplates
    Заказчик задания, 15.11.2026: панель показывает то, что относится к
    открытому письму, а не всё, что есть у клиента; «не хочу, чтобы код работал
    под логикой слов или шаблонов и предугадывал». Поэтому мост текста письма
@@ -24,7 +28,7 @@
    Сам мост ничего не привязывает: запись — только командой linkEmail по
    нажатию человека. Денег в ответах нет.
    ============================================================================ */
-const MAIL_BRIDGE_VERSION=1,MAIL_OPEN_DAYS=14,MAIL_ROWS=3,MAIL_SEARCH_ROWS=8,MAIL_CLOSED_ROWS=30,MAIL_KNOWN_MAX=400;
+const MAIL_BRIDGE_VERSION=2,MAIL_OPEN_DAYS=14,MAIL_ROWS=3,MAIL_SEARCH_ROWS=8,MAIL_CLOSED_ROWS=30,MAIL_KNOWN_MAX=400;
 /* Порядок «самых актуальных» у непривязанного письма: готовое к выдаче —
    первым, затем то, что в цеху, внутри — ближний срок выше. */
 const MAIL_RANK=['ready','shipping','batched','verified','new','done'];
@@ -71,7 +75,7 @@ function mailLookup(m){
   });
   open.sort((a,b)=>Number(b.here)-Number(a.here)||mailByRank(a.o,b.o));
   closed.sort((a,b)=>String(b.o.updatedAt||'').localeCompare(String(a.o.updatedAt||'')));
-  out.linked=open.map(x=>Object.assign(mailCard(x.o),{here:x.here}));
+  out.linked=open.map(x=>Object.assign(mailCard(x.o),{here:x.here,talk:mailTalk(x.o)}));
   out.closedCount=closed.length;out.closed=closed.slice(0,MAIL_CLOSED_ROWS).map(x=>mailCard(x.o));
   if(typeof archiveIndex!=='undefined')archiveIndex.forEach((a,id)=>{if(a.rep&&Array.isArray(a.mail)&&a.mail.includes(threadId))out.archived.push({id,number:a.number||'',status:a.row&&a.row.status||''});});
   if(out.linked.length||out.closedCount||out.archived.length){out.step=2;return out;}
@@ -126,7 +130,78 @@ function mailLinkEmail(m){
  const r=orderEmailAdd(id,m.email);if(r.ok)render();
  return r.ok?{ok:true}:{error:r.error};
 }
-const MAIL_READ={lookup:mailLookup,orders:mailOrders,search:mailSearch},MAIL_DO={openOrder:mailOpenOrder,openCustomer:mailOpenCustomer,newOrder:mailNewOrder,linkEmail:mailLinkEmail};
+/* ------------------- Ответ: шаблоны, документы, журнал ------------------- */
+/* Конверт панели: список шаблонов и готовый текст на этом заказе
+   (erp/sales/mail-templates). Подпись — вошедший в эту вкладку ERP. */
+function mailOrderOf(m){const id=String(m.orderId||'');return (DB.salesOrder||[]).find(o=>o.id===id)||null;}
+function mailTemplatesList(m){
+ if(!mailOrderOf(m))return {error:'missing'};
+ return {templates:mailTemplates().map(t=>({id:t.id,name:t.name})),canEdit:mailTplCanEdit()};
+}
+function mailReply(m){
+ const o=mailOrderOf(m),t=mailTplFind(String(m.templateId||''));if(!o||!t)return {error:'missing'};
+ return {name:t.name,text:mailTplRender(t.text,o,{from:m.from})};
+}
+/* Скрепка панели: те же PDF, что Documents заказа, с настройками бланков из
+   Master Data; Invoice — только когда клиент получил последний юнит; PS —
+   отправленные. Work order — тоже (владелец, 16.11.2026: «пусть будет»). */
+const MAIL_DOC_KINDS=['workOrder','confirmation','proforma','invoice'];
+function mailDocList(o){
+ if(salesIsQuote(o))return [{key:'quote',label:'Quote',hint:salesQuoteRevName(o)}];
+ const inv=!!finInvoiceDate(o);
+ return MAIL_DOC_KINDS.map(k=>({key:k,label:docKindLabel(k),hint:k==='invoice'&&!inv?'after last unit':'',off:k==='invoice'&&!inv}))
+  .concat(shippingForOrder(o.id).filter(s=>shippingSent(s)&&shippingCarries(s,o.id)).map(s=>({key:'ps:'+s.id,label:'Packing slip',hint:s.number})));
+}
+function mailDocuments(m){const o=mailOrderOf(m);return o?{docs:mailDocList(o)}:{error:'missing'};}
+function mailBase64(bytes){let s='';for(let i=0;i<bytes.length;i+=0x8000)s+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));return btoa(s);}
+function mailDocument(m){
+ const o=mailOrderOf(m),key=String(m.key||'');if(!o)return {error:'missing'};
+ const d=mailDocList(o).find(x=>x.key===key);if(!d||d.off)return {error:'This document is not available for the order.'};
+ let pages,name,title;
+ if(key.startsWith('ps:')){const s=shippingFind(key.slice(3));pages=shippingPages(shippingDocument(s));title='Packing slip '+s.number;name=title.replace(/[^A-Za-z0-9]+/g,'_')+'.pdf';}
+ else{pages=docPages(Object.assign(docBuildModel(key,o,docDefaultOptions(key)),{form:''}));title=docKindLabel(key)+' '+(o.businessNumber||'draft');name=docFileName(key,o);}
+ return {name,label:d.label+(key.startsWith('ps:')?' '+d.hint:''),data:mailBase64(docPdfBytes(pages,{title}))};
+}
+/* Журнал заказа: что сделали кнопками панели. */
+const MAIL_LOG_KINDS={text:'Reply text',doc:'Document attached'};
+function mailLog(m){
+ const o=mailOrderOf(m),what=MAIL_LOG_KINDS[m.kind];if(!o||!what)return {error:'missing'};
+ const r=storageCommand(()=>{const now=mailOrderOf(m);if(now)orderLogPush(now,what,String(m.note||'').slice(0,200));return true;},{orderEvent:[]});
+ return r.ok?{ok:true}:{error:r.error};
+}
+/* Письма переписки — в журнал каждого заказа, привязанного к ней: когда
+   клиент написал, когда ответили мы (письмо с ящика, открытого в Gmail).
+   Только время, кто и тема — текста письма мост не получает. Запись одна на
+   письмо и заказ: id события несёт номер письма. */
+const MAIL_LOG_WHATS=['Customer email','Reply sent','Reply text','Document attached','Email linked','Email removed'];
+function mailThreadLog(m){
+ const threadId=orderEmailId(m.threadId),acc=orderEmailAddress(m.account),subject=orderEmailText(m.subject,160);
+ if(!threadId)return {error:'missing'};
+ const orders=(DB.salesOrder||[]).filter(o=>(o.emails||[]).some(e=>e.threadId===threadId));
+ const have=new Set((DB.orderEvent||[]).map(e=>e.id)),add=[];
+ (Array.isArray(m.messages)?m.messages:[]).slice(0,200).forEach(x=>{
+  const id=orderEmailId(x&&x.id),from=orderEmailAddress(x&&x.from),at=orderEmailIso(x&&x.at);if(!id||!from||!at)return;
+  const ours=!!acc&&from===acc,name=orderEmailText(x.name,60);
+  orders.forEach(o=>{const eid='OEM-'+o.id+'-'+id;if(have.has(eid))return;have.add(eid);
+   add.push({id:eid,at,orderId:o.id,no:String(o.businessNumber||''),what:ours?'Reply sent':'Customer email',note:subject,by:(name&&name!==from?name+' · ':'')+from,byId:''});});
+ });
+ if(!add.length)return {ok:true,added:0};
+ const r=storageCommand(()=>{if(!Array.isArray(DB.orderEvent))DB.orderEvent=[];add.forEach(e=>DB.orderEvent.push(e));return true;},{orderEvent:add.map(e=>e.id)});
+ return r.ok?{ok:true,added:add.length}:{error:r.error};
+}
+/* Последнее письмо клиента и наш последний ответ — строкой в карточке панели. */
+function mailTalk(o){
+ let customerAt='',replyAt='';
+ (DB.orderEvent||[]).forEach(e=>{if(e.orderId!==o.id)return;if(e.what==='Customer email'&&e.at>customerAt)customerAt=e.at;if(e.what==='Reply sent'&&e.at>replyAt)replyAt=e.at;});
+ return customerAt||replyAt?{customerAt,replyAt}:null;
+}
+function mailOpenTemplates(){
+ if(!accessCan('masterdata'))return {error:'No Master Data access.'};
+ if(typeof mdLeave==='function'&&!mdLeave())return {ok:true};
+ tab='masterdata';mdTab='emails';render();return {ok:true};
+}
+const MAIL_READ={lookup:mailLookup,orders:mailOrders,search:mailSearch,templates:mailTemplatesList,reply:mailReply,documents:mailDocuments,document:mailDocument},
+ MAIL_DO={openOrder:mailOpenOrder,openCustomer:mailOpenCustomer,newOrder:mailNewOrder,linkEmail:mailLinkEmail,mailLog,threadLog:mailThreadLog,openTemplates:mailOpenTemplates};
 /* Шаг 0. Вход включён, а человека нет — signin; вошёл без Sales — access. */
 function mailBridgeGate(){
  if(!window.GF_NO_SIGNIN&&typeof signinOn==='function'&&signinOn()&&!signinUser())return 'signin';

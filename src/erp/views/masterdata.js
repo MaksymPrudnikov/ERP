@@ -30,6 +30,7 @@ const MD_TABS=[
  {k:'company',   label:'Company'},
  {k:'stickers',  label:'Stickers'},
  {k:'forms',     label:'Forms'},
+ {k:'emails',    label:'Email templates'},
  {k:'cutting',   label:'Cutting'},
  {k:'carriers',  label:'Dollies & Skids'},
  {k:'trucks',    label:'Trucks'},
@@ -46,7 +47,7 @@ const MD_SECTIONS=[
  {k:'prices',    label:'Prices',          tabs:['prices']},
  {k:'production',label:'Production',      tabs:['stations','cutting','carriers','ncr','stockreasons']},
  {k:'shipping',  label:'Shipping',        tabs:['trucks']},
- {k:'print',     label:'Company & print', tabs:['company','stickers','forms']},
+ {k:'print',     label:'Company & print', tabs:['company','stickers','forms','emails']},
  {k:'setup',     label:'Setup',           tabs:['setup','overview']}
 ];
 /* Категория → чем она наполнена. Стекло и спейсер держат свои экраны (у них
@@ -96,7 +97,7 @@ function viewMasterData(){
  const subs=sec.k!=='catalog'&&sec.tabs.length>1?`<div class="sl-filter-row md-mat-subs" data-md-subtabs><div class="sl-quick">${sec.tabs.map(k=>`<button type="button" class="sl-quick-pill${mdTab===k?' on':''}" ${onAct('click',mdSetTab,String(k))}>${esc(MD_TABS.find(t=>t.k===k).label)}</button>`).join('')}</div></div>`:'';
  /* Каталог — своя раскладка (viewMdCatalog); остальные разделы — карточка с таблетками. */
  return `${sec.k==='catalog'?viewMdCatalog(pills):`<div class="card md-card">${pills}${subs}
-   ${({prices:viewMdPrices,stations:viewMdStations,setup:viewMdSetup,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,forms:viewMdForms,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,stockreasons:viewMdStockReasons,overview:viewMdOverview})[mdTab]()}
+   ${({prices:viewMdPrices,stations:viewMdStations,setup:viewMdSetup,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,forms:viewMdForms,emails:viewMdMailTemplates,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,stockreasons:viewMdStockReasons,overview:viewMdOverview})[mdTab]()}
   </div>`}
   ${mdTab==='materials'&&mdMatCategory==='glass'&&(mdMatView==='glassProduct'||accessCost())?mdImportCard():''}`;
 }
@@ -189,7 +190,7 @@ function orderSetupCardRemove(i){DB.orderSetup.cardNetworks.splice(i,1);normaliz
    false — человек остался. */
 function mdChanged(){
  return [[mdEdit,mdDraft,'glass'],[mdSheetEdit,mdSheetDraft,'sheet'],[mdSpacerEdit,mdSpacerDraft,'spacer'],[mdHwKindEdit,mdHwKindDraft,'hwKind'],[mdHwModelEdit,mdHwModelDraft,'hwModel'],[mdCatEdit,mdCatDraft,'cat']]
-  .some(([edit,d,k])=>edit!=null&&!!d&&(edit==='new'||!edit||JSON.stringify(d)!==mdSeen[k]));
+  .some(([edit,d,k])=>edit!=null&&!!d&&(edit==='new'||!edit||JSON.stringify(d)!==mdSeen[k]))||typeof mtChanged==='function'&&mtChanged();
 }
 function mdLeave(){return !mdChanged()||confirm('Discard unsaved changes?');}
 function mdSetTab(k){if(!mdLeave())return false;mdTab=k;if(typeof stEdit!=='undefined')stEdit=null;if(typeof cutMdNotice!=='undefined')cutMdNotice='';mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdCatEdit=null;mdCatDraft=null;mdImportReport=null;

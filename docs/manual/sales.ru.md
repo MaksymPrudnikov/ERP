@@ -129,7 +129,8 @@
   Правый клик по заказу → **Open email**. В ⚙ Columns можно включить колонку **Email** — тема письма; её фильтр
   «Is empty» покажет заказы без письма.
 - **Copy** письма не копирует. Новая ревизия квоты и **Convert** в заказ — переносят.
-- В **Activity log**: «Email linked», «Email removed».
+- В **Activity log**: «Email linked», «Email removed»; фильтр **Emails** — только письма: письма переписки, шаблоны и
+  документы из панели Gmail ([gmail.ru.md](gmail.ru.md)).
 
 ## Ссылка на заказ
 

@@ -114,6 +114,17 @@ personal list → the customer's group list → the base price (Glass, Works…)
   orientation, layout Automatic or Free layout; a sample on a real order.
 - **Forms** — the form builder: Quote, Proforma, Order confirmation, Invoice, Work order, Packing slip, Receipt,
   Statement, Purchase order, Trip sheet, Drawing, the carrier sheet and label. Manual — [forms.en.md](forms.en.md).
+- **Email templates** — reply texts for the Gmail panel (the envelope; [gmail.en.md](gmail.en.md)). On the left the list:
+  four ready ones (Order received, Status, Back order, Ready for pickup) and yours, **+ New template** adds your own. In
+  the middle **Name** (what the panel calls it) and **Text**. On the right **Fields** in groups — Order, Quote, Customer,
+  Progress, Lines, Shipping, Me · company · date: a click puts the field into the text at the cursor, the hover tip says
+  what goes in. **Preview on order** — the email on the chosen order. **Save** / **Cancel** / **Delete** — above.
+  - `{back order lines}` — only lines with something left: "• Line 2 · W1 · 24" × 36" · glass — 3 units: 1 ready, 2 in
+    production"; shipped lines are not listed. `{ready lines}`, `{shipped lines}`, `{all lines}` — the same way.
+  - `{my name}` — who is signed in to Glass Farm; `{contact first name}` — the contact who wrote, otherwise the main one.
+  - No data (no delivery, no Hold) — the field stays empty, nothing is invented. A misspelt field (`{oder}`) stays in
+    the text as it is — you see it in the preview. No money in the fields.
+  - Editing needs the Master Data tick.
 
 ## Setup
 

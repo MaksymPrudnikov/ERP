@@ -58,6 +58,32 @@ The customer is one row at the bottom of the panel. Click it to see the contact,
   a number is how many lites wait at the station, · not there yet. The line is there while glass is on the floor.
 - **On Hold** — a red line with the reason.
 - **Open in ERP** — opens the order in Glass Farm.
+- The line **Customer wrote … / We replied …** — when the customer last wrote and when we answered. You can see that
+  someone in the office has already replied.
+
+## Reply with a template and attach a document
+
+Under the card, next to **Open in ERP**, there are two buttons:
+
+- **Envelope** — reply texts (Status, Back order, Ready for pickup, Order received and your own). Pick one — the text
+  with this order's numbers goes into the Gmail reply where the cursor is. If the reply is not open yet, the panel opens
+  it. You can add to the text or change it before sending.
+- **Paperclip** — the order documents as PDF: Work order, Order confirmation, Proforma invoice, Invoice (it appears
+  when the customer has received the last unit), every sent Packing slip. Pick one — the file is attached to the reply.
+  If Gmail does not take it, the file is saved to Downloads and the panel tells you to drag it into the reply.
+- You send it yourself, with Send in Gmail.
+- **Edit templates in ERP ↗** at the bottom of the texts opens Master Data → Email templates (with the Master Data
+  tick). How to write your own template — [masterdata.en.md](masterdata.en.md), section Company & print.
+
+## The email log in the order
+
+When you open a conversation linked to an order in Gmail, the panel writes its emails to the order Activity log:
+**Customer email** — the customer wrote, **Reply sent** — your mailbox answered. Only the time, who and the subject are
+kept — the email text is not in Glass Farm. The panel buttons are logged too: **Reply text** — which template went in,
+**Document attached** — which document, and who did it.
+
+Where to look: right-click the order in Sales → **Activity log** → **Emails**. An email nobody opened in Gmail with the
+panel is not in the log.
 
 The panel shows no money. A quote shows its number, Not sent / Sent / Won, and Valid until.
 
@@ -135,7 +161,8 @@ One conversation is one row, however many replies it has. Copy does not copy the
 - It sends nothing to the internet: data moves only between the Gmail tab and the Glass Farm tab on your computer.
   The email text never leaves the Gmail tab: the panel gets the customer's order numbers as a list and looks for them itself.
 - It shows no money.
-- It does not change the order: from Gmail you can only link an email.
+- It does not change the order: from Gmail you can only link an email; the panel also writes the email log.
+- It does not send the reply: it puts the text and the document into the reply, you click Send.
 
 ## If something is wrong
 
