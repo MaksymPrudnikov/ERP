@@ -3,12 +3,12 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 213 модулей, 27 стиля.
+  Состав сборки: 215 модулей, 27 стиля.
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-e1kw+aCFu/tzJGfjrFRthBS/OV2Sif5gnW2Uy62Sybs=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-Kag76Y2IFA9imoc05zcxkWUljnAIktqLHeUPl93zRDI=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GLASS ERP — Glazing System</title>
 <style>
@@ -1345,6 +1345,31 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .dw-no-line .sheet-who>:is(span,b):nth-child(-n+2),.dw-no-note .sheet-who>:is(span,b):nth-child(n+3){display:none}
 .sheet-id-c>div+div,.sheet-id-p>div+div,.sheet-id-o>div+div{margin-top:1px}
 .sheet-foot-g>span+span{margin-left:12px}
+
+/* Master Data → Email templates (views/md-mail-templates): список · текст · поля · просмотр. */
+.mt-layout{display:grid;grid-template-columns:220px minmax(0,1.2fr) minmax(260px,.8fr) minmax(0,1fr);gap:0;margin-top:12px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface)}
+.mt-layout>div{padding:14px;min-width:0}
+.mt-side,.mt-edit,.mt-fields{border-right:1px solid var(--line-soft)}
+.mt-view{background:var(--surface-2)}
+.mt-layout label{display:block;font-size:12px;font-weight:500;color:var(--text-2);margin:0 0 5px}
+.mt-item{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;margin:0 0 3px;padding:8px 10px;border:0;border-radius:9px;background:transparent;color:var(--text);font:inherit;text-align:left;cursor:pointer}
+.mt-item:hover{background:var(--surface-2)}
+.mt-item.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.mt-item small{font-size:11px;color:var(--text-3);font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:45%}
+.mt-new{width:100%;margin-top:10px}
+.mt-edit input{width:100%;margin:0 0 12px}
+.mt-edit textarea{width:100%;min-height:400px;resize:vertical;font:inherit;font-size:13px;line-height:1.55;padding:10px}
+.mt-group{margin:0 0 10px}
+.mt-group b{display:block;font-size:10.5px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin:0 0 5px}
+.mt-field{display:inline-block;margin:0 3px 4px 0;padding:1px 6px;font:inherit;font-size:11.5px;border:1px solid var(--accent-line);border-radius:6px;background:var(--accent-soft);color:var(--accent);cursor:pointer}
+.mt-field:hover:not(:disabled){border-color:var(--accent)}
+.mt-view select{width:100%;margin:0 0 10px}
+.mt-preview{min-height:400px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);white-space:pre-wrap;font-size:13px;line-height:1.55;overflow-wrap:anywhere}
+.mt-bar{display:flex;align-items:center;gap:8px;margin-top:12px}
+.mt-bar+.mt-layout{margin-top:10px}
+.mt-bar .sp{flex:1}
+.mt-err{color:var(--danger);font-size:12.5px}
+@media(max-width:1350px){.mt-layout{grid-template-columns:200px minmax(0,1fr) minmax(240px,.8fr)}.mt-view{grid-column:1/-1;border-top:1px solid var(--line-soft)}}
 
 /* ---- src/styles/service-sets.css ---- */
 /* =====================================================================
@@ -4355,7 +4380,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='fb03dd940e05';
+var ERP_BUILD='a19470a5fe2e';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -32922,6 +32947,90 @@ function mdSyncBar(){
  btns.forEach(x=>add(x.textContent.trim()==='×'?'Delete':x.textContent.trim(),()=>x.click(),x.classList.contains('dl')?'sl-delete-quiet':'',x.disabled));
 }
 
+/* ==== src/erp/views/md-mail-templates.js ==== */
+/* ============================================================================
+   Экран Master Data → Company & print → Email templates: шаблоны ответов
+   клиенту для панели Gmail (erp/sales/mail-templates). Слева список, в
+   середине имя и текст, справа поля по группам и письмо на настоящем заказе.
+   IN : mailTemplates, MAIL_TPL_FIELDS, mailTplRender, mailTplSave,
+        mailTplDelete (erp/sales/mail-templates); DB.salesOrder — заказ для
+        просмотра
+   OUT: viewMdMailTemplates(); mtChanged() — несохранённая правка (mdLeave)
+   Владелец, 16.11.2026: вариант E1 — всё на одном экране; поля — кликом в
+   место курсора; свои шаблоны добавляет сам. Править может тот, у кого
+   галочка Master Data.
+   ============================================================================ */
+let mtSel='',mtDraft=null,mtSeen='',mtOrder='',mtError='',mtCaret=-1;
+function mtChanged(){return !!mtDraft&&(mtSel==='new'||JSON.stringify(mtDraft)!==mtSeen);}
+function mtPick(id){
+ if(id===mtSel)return;
+ if(mtChanged()&&!confirm('Discard unsaved changes?'))return;
+ const t=id==='new'?{name:'',text:''}:mailTplFind(id);if(!t)return;
+ mtSel=id;mtDraft={name:t.name,text:t.text};mtSeen=JSON.stringify(mtDraft);mtError='';render();
+}
+function mtNew(){mtPick('new');setTimeout(()=>{const i=document.querySelector('[data-mt-name]');if(i)i.focus();},0);}
+/* Заказы для просмотра: последние, кроме черновиков; открытые — выше. */
+function mtOrders(){
+ return (DB.salesOrder||[]).filter(o=>!salesIsDraft(o)&&o.businessNumber).sort((a,b)=>Number(mailIsOpen(b))-Number(mailIsOpen(a))||String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))).slice(0,60);
+}
+function mtPreviewText(){
+ const o=(DB.salesOrder||[]).find(x=>x.id===mtOrder);
+ return o&&mtDraft?mailTplRender(mtDraft.text,o):'';
+}
+function mtPreviewPaint(){const el=document.querySelector('[data-mt-preview]');if(el)el.textContent=mtPreviewText();}
+function mtSetName(v){if(mtDraft)mtDraft.name=v;}
+function mtSetText(v){if(!mtDraft)return;mtDraft.text=v;mtPreviewPaint();}
+function mtSetOrder(v){mtOrder=v;render();}
+function mtRemember(el){mtCaret=el?el.selectionStart:-1;}
+/* Поле — в место курсора; курсора не было — в конец текста. */
+function mtInsert(key){
+ if(!mtDraft)return;
+ const ta=document.querySelector('[data-mt-text]'),tag='{'+key+'}',v=mtDraft.text;
+ const at=ta&&document.activeElement===ta?ta.selectionStart:mtCaret>=0?Math.min(mtCaret,v.length):v.length;
+ mtDraft.text=v.slice(0,at)+tag+v.slice(at);mtCaret=at+tag.length;render();
+ setTimeout(()=>{const t=document.querySelector('[data-mt-text]');if(t){t.focus();t.setSelectionRange(mtCaret,mtCaret);}},0);
+}
+function mtSave(){
+ if(!mtDraft)return;
+ const r=mailTplSave(mtSel==='new'?'':mtSel,mtDraft);
+ if(!r.ok){mtError=r.error;render();return;}
+ const t=mailTplFind(r.id);mtSel=r.id;mtDraft={name:t.name,text:t.text};mtSeen=JSON.stringify(mtDraft);mtError='';render();
+}
+function mtCancel(){
+ if(mtSel==='new'){mtSel='';mtDraft=null;mtError='';render();return;}
+ const t=mailTplFind(mtSel);mtDraft=t?{name:t.name,text:t.text}:null;mtSeen=JSON.stringify(mtDraft);mtError='';render();
+}
+function mtDelete(){
+ const t=mailTplFind(mtSel);if(!t||!confirm('Delete the template “'+t.name+'”?'))return;
+ const r=mailTplDelete(mtSel);if(!r.ok){mtError=r.error;render();return;}
+ mtSel='';mtDraft=null;mtError='';render();
+}
+function viewMdMailTemplates(){
+ const list=mailTemplates(),edit=mailTplCanEdit();
+ if(mtSel&&mtSel!=='new'&&!list.some(t=>t.id===mtSel)){mtSel='';mtDraft=null;}
+ if(!mtSel&&list.length){const t=list[0];mtSel=t.id;mtDraft={name:t.name,text:t.text};mtSeen=JSON.stringify(mtDraft);}
+ const orders=mtOrders();if(!orders.some(o=>o.id===mtOrder))mtOrder=orders.length?orders[0].id:'';
+ const side=list.map(t=>`<button type="button" class="mt-item${t.id===mtSel?' on':''}" data-mt-item="${esc(t.id)}" ${onAct('click',mtPick,String(t.id))}><span>${esc(t.name)}</span><small>${t.builtin&&!t.updatedAt?'built-in':esc(t.updatedBy||'edited')}</small></button>`).join('')
+  +(edit?`<button type="button" class="mt-new" data-mt-new ${onAct('click',mtNew)}>+ New template</button>`:'');
+ const fields=MAIL_TPL_FIELDS.map(g=>`<div class="mt-group"><b>${esc(g.group)}</b>${g.fields.map(f=>`<button type="button" class="mt-field" data-mt-field="${esc(f[0])}" title="${esc(f[1])}" ${edit?'':'disabled'} ${onAct('mousedown',actPrevent,EVENT)} ${onAct('click',mtInsert,String(f[0]))}>{${esc(f[0])}}</button>`).join('')}</div>`).join('');
+ const d=mtDraft;
+ const editor=d?`<label for="mt_name">Name <span class="mut">· shown in the Gmail panel</span></label>
+   <input id="mt_name" data-mt-name maxlength="60" value="${esc(d.name)}" ${edit?'':'readonly'} ${onAct('input',mtSetName,EL_VALUE)}>
+   <label for="mt_text">Text</label>
+   <textarea id="mt_text" data-mt-text spellcheck="true" ${edit?'':'readonly'} ${onAct('input',mtSetText,EL_VALUE)} ${onAct('blur',mtRemember,EL)}>${esc(d.text)}</textarea>`:'<p class="mut">No templates.</p>';
+ const preview=`<label for="mt_order">Preview on order</label>
+   <select id="mt_order" data-mt-order ${onAct('change',mtSetOrder,EL_VALUE)}>${orders.map(o=>`<option value="${esc(o.id)}" ${o.id===mtOrder?'selected':''}>${esc([o.businessNumber,o.customerPo?'PO '+o.customerPo:'',salesCustomerDisplay(o.customerId)].filter(Boolean).join(' · '))}</option>`).join('')||'<option>No orders yet</option>'}</select>
+   <div class="mt-preview" data-mt-preview>${esc(mtPreviewText())}</div>
+   <p class="mut">Empty fields stay empty. Money is not in the fields.</p>`;
+ const bar=d&&edit?`<div class="mt-bar">${mtError?`<span class="mt-err" role="alert" data-mt-error>${esc(mtError)}</span>`:''}<span class="sp"></span>${mtSel!=='new'?`<button type="button" data-mt-delete ${onAct('click',mtDelete)}>Delete</button>`:''}<button type="button" ${onAct('click',mtCancel)}>Cancel</button><button type="button" class="pri" data-mt-save ${onAct('click',mtSave)}>Save</button></div>`:'';
+ return `${bar}<div class="mt-layout" data-mail-templates>
+  <div class="mt-side">${side}</div>
+  <div class="mt-edit">${editor}</div>
+  <div class="mt-fields"><label>Fields <span class="mut">· click to insert</span></label>${fields}</div>
+  <div class="mt-view">${preview}</div>
+ </div>`;
+}
+
 /* ==== src/erp/views/masterdata.js ==== */
 /* =====================================================================
    view/masterdata  ·  masterdata-1.0
@@ -32955,6 +33064,7 @@ const MD_TABS=[
  {k:'company',   label:'Company'},
  {k:'stickers',  label:'Stickers'},
  {k:'forms',     label:'Forms'},
+ {k:'emails',    label:'Email templates'},
  {k:'cutting',   label:'Cutting'},
  {k:'carriers',  label:'Dollies & Skids'},
  {k:'trucks',    label:'Trucks'},
@@ -32971,7 +33081,7 @@ const MD_SECTIONS=[
  {k:'prices',    label:'Prices',          tabs:['prices']},
  {k:'production',label:'Production',      tabs:['stations','cutting','carriers','ncr','stockreasons']},
  {k:'shipping',  label:'Shipping',        tabs:['trucks']},
- {k:'print',     label:'Company & print', tabs:['company','stickers','forms']},
+ {k:'print',     label:'Company & print', tabs:['company','stickers','forms','emails']},
  {k:'setup',     label:'Setup',           tabs:['setup','overview']}
 ];
 /* Категория → чем она наполнена. Стекло и спейсер держат свои экраны (у них
@@ -33021,7 +33131,7 @@ function viewMasterData(){
  const subs=sec.k!=='catalog'&&sec.tabs.length>1?`<div class="sl-filter-row md-mat-subs" data-md-subtabs><div class="sl-quick">${sec.tabs.map(k=>`<button type="button" class="sl-quick-pill${mdTab===k?' on':''}" ${onAct('click',mdSetTab,String(k))}>${esc(MD_TABS.find(t=>t.k===k).label)}</button>`).join('')}</div></div>`:'';
  /* Каталог — своя раскладка (viewMdCatalog); остальные разделы — карточка с таблетками. */
  return `${sec.k==='catalog'?viewMdCatalog(pills):`<div class="card md-card">${pills}${subs}
-   ${({prices:viewMdPrices,stations:viewMdStations,setup:viewMdSetup,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,forms:viewMdForms,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,stockreasons:viewMdStockReasons,overview:viewMdOverview})[mdTab]()}
+   ${({prices:viewMdPrices,stations:viewMdStations,setup:viewMdSetup,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,forms:viewMdForms,emails:viewMdMailTemplates,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,stockreasons:viewMdStockReasons,overview:viewMdOverview})[mdTab]()}
   </div>`}
   ${mdTab==='materials'&&mdMatCategory==='glass'&&(mdMatView==='glassProduct'||accessCost())?mdImportCard():''}`;
 }
@@ -33114,7 +33224,7 @@ function orderSetupCardRemove(i){DB.orderSetup.cardNetworks.splice(i,1);normaliz
    false — человек остался. */
 function mdChanged(){
  return [[mdEdit,mdDraft,'glass'],[mdSheetEdit,mdSheetDraft,'sheet'],[mdSpacerEdit,mdSpacerDraft,'spacer'],[mdHwKindEdit,mdHwKindDraft,'hwKind'],[mdHwModelEdit,mdHwModelDraft,'hwModel'],[mdCatEdit,mdCatDraft,'cat']]
-  .some(([edit,d,k])=>edit!=null&&!!d&&(edit==='new'||!edit||JSON.stringify(d)!==mdSeen[k]));
+  .some(([edit,d,k])=>edit!=null&&!!d&&(edit==='new'||!edit||JSON.stringify(d)!==mdSeen[k]))||typeof mtChanged==='function'&&mtChanged();
 }
 function mdLeave(){return !mdChanged()||confirm('Discard unsaved changes?');}
 function mdSetTab(k){if(!mdLeave())return false;mdTab=k;if(typeof stEdit!=='undefined')stEdit=null;if(typeof cutMdNotice!=='undefined')cutMdNotice='';mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdCatEdit=null;mdCatDraft=null;mdImportReport=null;
@@ -49913,7 +50023,9 @@ function viewSalesCutEstimate(){
 let orderLogView=null;
 /* Журнал заказа — часть Sales: без права Sales окно не открывается и не
    рисуется, даже если осталось открытым до смены человека. */
-function orderLogOpen(id){if(!accessCan('sales')||!(DB.salesOrder||[]).some(o=>o.id===id))return;salesListMenu=null;orderLogView={id};render();}
+function orderLogOpen(id){if(!accessCan('sales')||!(DB.salesOrder||[]).some(o=>o.id===id))return;salesListMenu=null;orderLogView={id,mail:false};render();}
+/* Фильтр Emails — только письма переписки и кнопки панели Gmail (erp/mail-bridge). */
+function orderLogMail(on){if(orderLogView){orderLogView.mail=!!on;render();}}
 function orderLogClose(){orderLogView=null;render();}
 function orderLogWhen(at){
  const d=new Date(at);if(!at||isNaN(d))return '—';
@@ -49926,7 +50038,9 @@ function orderLogDialogHTML(){
  /* Skip отменяется отсюда целиком (erp/shopfloor/skip) — Users и Finance. */
  const undo=r=>{const k=r.id&&typeof skipAllowed==='function'&&skipAllowed()?(DB.skip||[]).find(x=>x.eventId===r.id&&!x.undoneAt):null;const pieces=k?productionUnbatchSkipPieces(k):[];if(pieces.length)return ` <span class="mut" data-skip-unbatched>${pieces.length===k.pieces.length?'Fully':'Partially'} unbatched · ${shippingCount(pieces.length,'glass piece')}</span>`;return k?` <button type="button" class="sm" data-skip-undo="${esc(k.id)}" ${onAct('click',skipUndoClick,String(k.id??''))}>Undo</button>`:'';};
  /* Таблица вида Sales (владелец 07.11.2026): фильтр, сортировка, ширина, порядок; Note — и отдельной колонкой в ⚙. */
- const table=slTable('orderLog',{list:orderLogFor(o.id),cls:'order-log-table',empty:'No entries yet.',noun:l=>l.length+' entries',fill:'what',
+ const all=orderLogFor(o.id),mailWhats=typeof MAIL_LOG_WHATS!=='undefined'?MAIL_LOG_WHATS:[],list=v.mail?all.filter(r=>mailWhats.includes(r.what)):all;
+ const pills=`<div class="sl-quick order-log-pills" role="tablist">${[[false,'All'],[true,'Emails']].map(([k,t])=>`<button type="button" class="sl-quick-pill${!!v.mail===k?' on':''}" data-order-log-filter="${k?'mail':'all'}" ${onAct('click',orderLogMail,k)}>${t}</button>`).join('')}</div>`;
+ const table=slTable('orderLog',{list,cls:'order-log-table',empty:'No entries yet.',noun:l=>l.length+' entries',fill:'what',
   columns:()=>[{k:'when',label:'When',type:'text',w:170,v:r=>r.at||'',cell:r=>esc(orderLogWhen(r.at))},
    {k:'who',label:'Who',type:'list',w:150,v:r=>r.by||'',cell:r=>r.by?raw(r.by):'<span class="mut">—</span>'},
    {k:'what',label:'What',type:'text',v:r=>r.what+(r.note?' · '+r.note:''),cell:r=>`<b>${esc(r.what)}</b>${r.note?` <span class="order-log-note">· ${raw(r.note)}</span>`:''}${undo(r)}`},
@@ -49934,7 +50048,7 @@ function orderLogDialogHTML(){
   row:()=>({attrs:' data-order-log-row'})});
  return `<div class="sales-service-modal-back sales-dialog-back" ${onActSelf('click',orderLogClose)}><div class="sales-service-modal sales-dialog order-log-dialog" role="dialog" aria-modal="true" aria-label="Activity log" data-order-log>
   <div class="sales-service-modal-head"><div><span>Activity log</span><h3 data-raw>${esc([o.businessNumber,salesCustomerDisplay(o.customerId)].filter(Boolean).join(' · '))}</h3></div><button type="button" aria-label="Close" ${onAct('click',orderLogClose)}>×</button></div>
-  <div class="sales-dialog-body">${table}</div></div></div>`;
+  <div class="sales-dialog-body">${pills}${table}</div></div></div>`;
 }
 (window.APP_OVERLAYS=window.APP_OVERLAYS||[]).push(orderLogDialogHTML);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&orderLogView)orderLogClose();});
@@ -53473,7 +53587,8 @@ function validateShipmentPayload(src){
         glassCutKeys (erp/production/glass-batches), prodBoard
         (views/production-board), salesStatusLabel (erp/sales/lifecycle),
         archiveIndex (erp/archive), location.hash
-   OUT: salesOrderProgress(o); salesOrderHash, salesOrderHashOpen
+   OUT: salesOrderProgress(o), salesLineProgress(o) — то же по строкам;
+        salesOrderHash, salesOrderHashOpen
    Заказчик задания, 15.11.2026: клиент письмом спрашивает статус — «сразу
    видно, сколько из скольки выполнено»; показать «максимально логично, чтобы
    никого не запутать». Поэтому все юниты заказа разложены на четыре кучки,
@@ -53498,6 +53613,17 @@ function salesProgressStations(o){
  const x=typeof prodBoard==='function'?prodBoard().find(r=>r.o.id===o.id):null;if(!x)return [];
  return (DB.station||[]).filter(s=>x.route[s.code]).map(s=>({code:s.code,waiting:x.route[s.code].w,passed:x.route[s.code].p,total:x.route[s.code].n}));
 }
+/* Те же четыре кучки по каждой строке заказа: шаблоны писем перечисляют
+   строки back order (erp/sales/mail-templates). Сумма по строкам — ровно
+   salesOrderProgress. s — shippingSummary(o), если уже посчитан. */
+function salesLineProgress(o,s){
+ s=s||shippingSummary(o);
+ const live=!['cancelled','closed','done'].includes(o.status),active=live?glassBatchActive(o.id):null;
+ return s.lines.map(r=>{
+  const ready=Math.min(r.physicalReady,Math.max(0,r.ordered-r.shipped)),left=r.ordered-r.shipped-ready,none=live?salesProgressNotStarted(o,r.l,left,active):left;
+  return {l:r.l,ordered:r.ordered,shipped:r.shipped,delivered:r.delivered,ready,inProduction:left-none,notStarted:none};
+ });
+}
 function salesOrderProgress(o){
  if(!o)return null;
  if(salesIsQuote(o)){
@@ -53505,12 +53631,9 @@ function salesOrderProgress(o){
   return {kind:'quote',status:salesStatusLabel(o,st),statusKey:st,sentAt:o.sentAt||'',validUntil:st==='won'?'':salesQuoteValidUntil(o),wonOrderId:o.wonOrderId||'',
    units:{total:(o.lines||[]).reduce((n,l)=>n+salesPositiveInt(l.qty,1),0)}};
  }
- const s=shippingSummary(o),live=!['cancelled','closed','done'].includes(o.status),active=live?glassBatchActive(o.id):null;
+ const s=shippingSummary(o),live=!['cancelled','closed','done'].includes(o.status);
  const u={total:0,shipped:0,ready:0,inProduction:0,notStarted:0};
- s.lines.forEach(r=>{
-  const ready=Math.min(r.physicalReady,Math.max(0,r.ordered-r.shipped)),left=r.ordered-r.shipped-ready,none=live?salesProgressNotStarted(o,r.l,left,active):left;
-  u.total+=r.ordered;u.shipped+=r.shipped;u.ready+=ready;u.notStarted+=none;u.inProduction+=left-none;
- });
+ salesLineProgress(o,s).forEach(r=>{u.total+=r.ordered;u.shipped+=r.shipped;u.ready+=r.ready;u.notStarted+=r.notStarted;u.inProduction+=r.inProduction;});
  u.done=u.shipped+u.ready;
  const extras=s.extras.length?{ordered:s.extras.reduce((n,x)=>n+x.ordered,0),shipped:s.extras.reduce((n,x)=>n+x.shipped,0)}:null;
  return {kind:'order',status:salesStatusLabel(o),statusKey:o.status,onHold:!!o.onHold,holdReason:o.onHold?o.holdReason||'':'',due:o.dueDate||'',units:u,extras,
@@ -53542,6 +53665,195 @@ if(typeof window!=='undefined'){
  window.addEventListener('load',()=>{if(window.storageReady)window.storageReady.then(salesOrderHashOpen);});
 }
 
+/* ==== src/erp/sales/mail-templates.js ==== */
+/* ============================================================================
+   Шаблоны ответов клиенту: текст письма с полями {order}, {back order lines}…,
+   которые ERP заменяет данными заказа. Панель Gmail вставляет готовый текст в
+   ответ (конверт), правят шаблоны в Master Data → Email templates.
+   IN : DB.emailTemplate (свои и правленые шаблоны), заказ, его клиент,
+        salesLineProgress / salesOrderProgress (erp/sales/order-progress),
+        Shipping (PS заказа), DB.company, вошедший человек (signinUser)
+   OUT: MAIL_TPL_FIELDS — поля по группам; mailTemplates() — список шаблонов;
+        mailTplRender(text, order, {from}) — готовый текст; mailTplSave,
+        mailTplDelete — запись шаблона командой
+   Владелец, 16.11.2026: «вариант ответа шаблоном с возможностью добавить
+   самому и прописать шаблон самому»; back order — «лучше показать, что
+   осталось 5 стёкол с такой-то линии, чем 195 строк, что выдано»; все четыре
+   кучки, что считает система (Shipped, Ready, In production, Not started) —
+   «если нужно соврать, руками напишут»; подпись — того, кто вошёл, а не
+   название приложения. Денег в полях нет — как и в панели. Нет данных —
+   поле пустое: ERP ничего не придумывает. Неизвестное поле ({opps}) остаётся
+   в тексте как есть — опечатку видно в просмотре.
+   ============================================================================ */
+DEFAULT.emailTemplate=[];
+/* Четыре шаблона есть сразу. Правка встроенного пишет строку с тем же id;
+   удалённый встроенный — строка {id, deleted:true}. */
+const MAIL_TPL_BUILTIN=[
+ {id:'ET-received',name:'Order received',text:'Hi {contact first name},\n\nThank you for your order. We have it as order {order} (PO {po}): {units} units, due {due}.\n\nBest regards,\n{my name}\n{company}'},
+ {id:'ET-status',name:'Status',text:'Hi {contact first name},\n\nOrder {order} (PO {po}) is {status}: {done} of {units} units done.\n\nShipped: {shipped}\nReady for pickup: {ready}\nIn production: {in production}\nNot started yet: {not started}\n\nDue date: {due}.\n\nBest regards,\n{my name}'},
+ {id:'ET-backorder',name:'Back order',text:'Hi {contact first name},\n\nHere is where order {order} (PO {po}) stands — {done} of {units} units done:\n\nShipped: {shipped}\nReady for pickup: {ready}\nIn production: {in production}\nNot started yet: {not started}\n\nStill on back order — {back order} units:\n{back order lines}\n\nDue date: {due}.\n\nBest regards,\n{my name}'},
+ {id:'ET-ready',name:'Ready for pickup',text:'Hi {contact first name},\n\n{ready} units of order {order} (PO {po}) are ready for pickup:\n{ready lines}\n\nStill on back order: {back order} units.\n\nBest regards,\n{my name}\n{company} · {company phone}\n{company address}'}
+];
+const MAIL_TPL_MAX=60,MAIL_TPL_TEXT=4000;
+function mailTplString(v,n){return String(v==null?'':v).slice(0,n);}
+function mailTplRows(){return Array.isArray(DB.emailTemplate)?DB.emailTemplate:[];}
+function mailTplClean(t){
+ t=t&&typeof t==='object'?t:{};
+ const id=mailTplString(t.id,40);if(!id)return null;
+ if(t.deleted===true)return {id,deleted:true};
+ return {id,name:mailTplString(t.name,60).trim()||'Template',text:mailTplString(t.text,MAIL_TPL_TEXT).replace(/\r\n?/g,'\n'),updatedAt:mailTplString(t.updatedAt,40),updatedBy:mailTplString(t.updatedBy,80)};
+}
+function normalizeMailTemplates(){if(!Array.isArray(DB.emailTemplate))DB.emailTemplate=[];DB.emailTemplate=DB.emailTemplate.map(mailTplClean).filter(Boolean);}
+/* Встроенные — в своём порядке, свои — за ними, в порядке создания. */
+function mailTemplates(){
+ const own=new Map(mailTplRows().map(t=>[t.id,t]));
+ const base=MAIL_TPL_BUILTIN.map(b=>{const t=own.get(b.id);return t?(t.deleted?null:Object.assign({},t,{builtin:true})):Object.assign({},b,{builtin:true,updatedAt:'',updatedBy:''});}).filter(Boolean);
+ return base.concat(mailTplRows().filter(t=>!t.deleted&&!MAIL_TPL_BUILTIN.some(b=>b.id===t.id)).map(t=>Object.assign({},t,{builtin:false})));
+}
+function mailTplFind(id){return mailTemplates().find(t=>t.id===id)||null;}
+function mailTplWho(){const u=typeof signinUser==='function'?signinUser():null;return u&&u.name||'';}
+function mailTplCanEdit(){return accessCan('masterdata');}
+function mailTplSave(id,input){
+ if(!mailTplCanEdit())return {ok:false,error:'Master Data access needed.'};
+ const name=String(input&&input.name||'').trim(),text=String(input&&input.text||'');
+ if(!name)return {ok:false,error:'Enter a name.'};
+ if(!text.trim())return {ok:false,error:'Enter the text.'};
+ if(!id&&mailTemplates().length>=MAIL_TPL_MAX)return {ok:false,error:'Up to '+MAIL_TPL_MAX+' templates.'};
+ const tid=id||salesUid('ET');
+ const out=storageCommand(()=>{
+  if(!Array.isArray(DB.emailTemplate))DB.emailTemplate=[];
+  const row=mailTplClean({id:tid,name,text,updatedAt:new Date().toISOString(),updatedBy:mailTplWho()}),i=DB.emailTemplate.findIndex(t=>t.id===tid);
+  if(i>=0)DB.emailTemplate[i]=row;else DB.emailTemplate.push(row);return true;
+ },{emailTemplate:[tid]});
+ return out.ok?{ok:true,id:tid}:{ok:false,error:out.error};
+}
+function mailTplDelete(id){
+ if(!mailTplCanEdit())return {ok:false,error:'Master Data access needed.'};
+ const builtin=MAIL_TPL_BUILTIN.some(b=>b.id===id);
+ const out=storageCommand(()=>{
+  if(!Array.isArray(DB.emailTemplate))DB.emailTemplate=[];
+  DB.emailTemplate=DB.emailTemplate.filter(t=>t.id!==id);if(builtin)DB.emailTemplate.push({id,deleted:true});return true;
+ },{emailTemplate:[id]});
+ return out.ok?{ok:true}:{ok:false,error:out.error};
+}
+
+/* ------------------------------- Поля ---------------------------------- */
+function mailTplDay(iso){
+ const s=String(iso||''),t=Date.parse(s.length===10?s+'T12:00:00':s);if(Number.isNaN(t))return '';
+ const d=new Date(t);return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+(d.getFullYear()!==new Date().getFullYear()?', '+d.getFullYear():'');
+}
+function mailTplUnits(n){return n+(n===1?' unit':' units');}
+function mailTplNum(n){return typeof n==='number'?String(n):'';}
+/* Строка заказа так, как её узнает клиент: номер, марка, размер, состав —
+   именами стекла, как на бланках клиента (код и Short name — внутренние). */
+function mailTplLineName(o,l){
+ const i=(o.lines||[]).indexOf(l),m=salesMakeupById(o,l.makeupId);
+ return ['Line '+(i+1),l.mark||'',docSize(l),m?salesMakeupSummary(m,'name'):''].filter(Boolean).join(' · ');
+}
+function mailTplParts(r,withShipped){
+ return [withShipped&&r.shipped?r.shipped+' shipped':'',r.ready?r.ready+' ready':'',r.inProduction?r.inProduction+' in production':'',r.notStarted?r.notStarted+' not started yet':''].filter(Boolean);
+}
+function mailTplBreak(n,parts){return mailTplUnits(n)+(parts.length===1?', '+parts[0].replace(/^\d+ /,''):parts.length?': '+parts.join(', '):'');}
+function mailTplLinesText(c,pick){return c.lines().map(r=>pick(r)).filter(Boolean).join('\n');}
+function mailTplCompany(){return DB.company||{};}
+function mailTplNextTrip(c){
+ const o=c.o,s=(typeof shippingForOrder==='function'?shippingForOrder(o.id):[]).filter(x=>x.status==='planned'&&x.date&&shippingCarries(x,o.id)).sort((a,b)=>String(a.date).localeCompare(String(b.date)))[0];
+ if(!s)return '';
+ const t=s.method==='delivery'&&typeof truckFind==='function'?truckFind(s.truckId):null;
+ return (s.method==='delivery'?'Delivery ':'Pickup ')+mailTplDay(s.date)+(s.departAt?' at '+s.departAt:'')+(t?' · '+t.name:'');
+}
+function mailTplSlips(c){
+ const o=c.o;
+ return (typeof shippingForOrder==='function'?shippingForOrder(o.id):[]).filter(s=>shippingSent(s)&&shippingCarries(s,o.id)).sort((a,b)=>String(a.shippedAt).localeCompare(String(b.shippedAt)));
+}
+/* Группы и поля — порядок на экране редактора. hint — что подставится. */
+const MAIL_TPL_FIELDS=[
+ {group:'Order',fields:[
+  ['order','Order number',c=>c.o.businessNumber||''],
+  ['po','Customer PO',c=>c.o.customerPo||''],
+  ['status','Status as in Sales',c=>c.p().status||''],
+  ['due','Due date',c=>mailTplDay(c.o.dueDate)],
+  ['order date','When the order was created',c=>mailTplDay(c.o.createdAt)],
+  ['priority','Normal, Rush or Critical',c=>({normal:'Normal',rush:'Rush',critical:'Critical'})[c.o.priority]||''],
+  ['pickup or delivery','Pickup or Delivery',c=>c.o.delivery==='delivery'?'Delivery':'Pickup'],
+  ['branch','Branch',c=>c.o.branch||''],
+  ['hold reason','Why the order is on hold',c=>c.o.onHold?c.o.holdReason||'On hold':''],
+  ['order link','Link that opens the order in Glass Farm',c=>c.o.businessNumber&&typeof location!=='undefined'?location.href.split('#')[0]+'#order='+encodeURIComponent(c.o.businessNumber):'']
+ ]},
+ {group:'Quote',fields:[
+  ['quote','Quote number',c=>salesIsQuote(c.o)?c.o.businessNumber||'':''],
+  ['revision','Quote revision',c=>salesIsQuote(c.o)?salesQuoteRevName(c.o):''],
+  ['valid until','Prices valid until',c=>salesIsQuote(c.o)?mailTplDay(salesQuoteValidUntil(c.o)):''],
+  ['from quote','Quote the order came from',c=>{const q=c.o.fromQuoteId&&(DB.salesOrder||[]).find(x=>x.id===c.o.fromQuoteId);return q&&q.businessNumber||'';}]
+ ]},
+ {group:'Customer',fields:[
+  ['customer','Customer name',c=>c.cust?c.cust.displayName||c.cust.legalName||'':''],
+  ['customer code','Customer code',c=>c.cust&&c.cust.code||''],
+  ['contact name','Contact who wrote, or the main contact',c=>c.contact().name||''],
+  ['contact first name','First word of the contact name',c=>String(c.contact().name||'').trim().split(/\s+/)[0]||''],
+  ['contact phone','Contact phone',c=>{const k=c.contact();return k.phone||k.mobile||k.phone2||'';}],
+  ['contact email','Contact email',c=>c.contact().email||''],
+  ['delivery address','Default delivery address',c=>c.cust?docAddressText(customerAddressByType(c.cust,'delivery')):''],
+  ['payment terms','Cash or Credit · Net days',c=>!c.cust?'':c.cust.paymentMode==='credit'?'Credit'+(c.cust.creditDays?' · Net '+c.cust.creditDays:''):'Cash']
+ ]},
+ {group:'Progress · units',fields:[
+  ['units','All units of the order',c=>mailTplNum(c.u().total)],
+  ['done','Shipped and ready together',c=>mailTplNum(c.u().done)],
+  ['percent done','Done as a percent',c=>{const u=c.u();return u.total?Math.round(u.done/u.total*100)+'%':'';}],
+  ['shipped','Units shipped',c=>mailTplNum(c.u().shipped)],
+  ['ready','Units ready to ship',c=>mailTplNum(c.u().ready)],
+  ['in production','Units in the shop',c=>mailTplNum(c.u().inProduction)],
+  ['not started','Units not in production yet',c=>mailTplNum(c.u().notStarted)],
+  ['back order','Units not shipped yet',c=>{const u=c.u();return typeof u.total==='number'?String(u.total-(u.shipped||0)):'';}],
+  ['cancelled','Cancelled units',c=>String((c.o.cancellations||[]).reduce((n,x)=>n+(x.units||[]).length,0))],
+  ['where is the glass','Stations where lites wait',c=>(c.p().stations||[]).filter(s=>s.waiting).map(s=>s.code+' — '+s.waiting+(s.waiting===1?' lite':' lites')).join(', ')]
+ ]},
+ {group:'Lines',fields:[
+  ['back order lines','Lines with something left — one per row',c=>mailTplLinesText(c,r=>{const n=r.ordered-r.shipped;return n>0?'• '+mailTplLineName(c.o,r.l)+' — '+mailTplBreak(n,mailTplParts(r)):'';})],
+  ['ready lines','Lines with units ready to ship',c=>mailTplLinesText(c,r=>r.ready?'• '+mailTplLineName(c.o,r.l)+' — '+mailTplUnits(r.ready)+' ready':'')],
+  ['shipped lines','Lines with units shipped',c=>mailTplLinesText(c,r=>r.shipped?'• '+mailTplLineName(c.o,r.l)+' — '+r.shipped+' of '+r.ordered+' shipped':'')],
+  ['all lines','Every line with its state',c=>mailTplLinesText(c,r=>'• '+mailTplLineName(c.o,r.l)+' — '+mailTplBreak(r.ordered,mailTplParts(r,true)))],
+  ['line count','Number of lines',c=>String((c.o.lines||[]).length)],
+  ['area ft²','Glass area, ft²',c=>{const a=(c.o.lines||[]).reduce((n,l)=>n+(salesLineAreaFt2(l)||0)*salesPositiveInt(l.qty,1),0);return a?(Math.round(a*10)/10).toLocaleString('en-US'):'';}],
+  ['weight ~lb','Approximate weight, lb',c=>{const w=salesOrderWeight(c.o);return w&&w.kg?'~'+Math.round(w.kg*2.20462).toLocaleString('en-US')+' lb':'';}]
+ ]},
+ {group:'Shipping',fields:[
+  ['packing slips','Sent packing slips with dates',c=>mailTplSlips(c).map(s=>'• '+s.number+' · '+mailTplDay(s.shippedAt)+' · '+mailTplUnits((s.items||[]).filter(i=>i.orderId===c.o.id).length)).join('\n')],
+  ['last shipped','Date of the last packing slip',c=>{const l=mailTplSlips(c).pop();return l?mailTplDay(l.shippedAt):'';}],
+  ['delivered','Units delivered',c=>{const n=c.lines().reduce((s,r)=>s+(r.delivered||0),0);return n?String(n):'';}],
+  ['next delivery','Planned pickup or delivery',c=>mailTplNextTrip(c)],
+  ['ready since','When the order became Ready',c=>mailTplDay(c.o.statusDates&&c.o.statusDates.ready)],
+  ['stock items','Stock items shipped of ordered',c=>{const x=c.p().extras;return x?x.shipped+' of '+x.ordered+' shipped':'';}]
+ ]},
+ {group:'Me · company · date',fields:[
+  ['my name','Who is signed in to Glass Farm',c=>c.user?c.user.name||'':''],
+  ['my email','Server login of who is signed in',c=>c.user&&c.user.email||''],
+  ['company','Company name (Master Data → Company)',()=>mailTplCompany().legalName||''],
+  ['company phone','Company phone',()=>mailTplCompany().phone||''],
+  ['company email','Company email',()=>mailTplCompany().email||''],
+  ['company website','Company website',()=>mailTplCompany().website||''],
+  ['company address','Company address',()=>docCompanyBlock().lines.slice(0,2).join(', ')],
+  ['today','Today’s date',()=>mailTplDay(new Date().toISOString())]
+ ]}
+];
+const MAIL_TPL_FIELD=new Map(MAIL_TPL_FIELDS.flatMap(g=>g.fields.map(f=>[f[0],f])));
+/* Что нужно полям — считается один раз и только если поле есть в тексте. */
+function mailTplContext(o,opts){
+ const memo={},once=(k,f)=>()=>k in memo?memo[k]:(memo[k]=f());
+ const cust=salesFindCustomer(o.customerId),from=orderEmailAddress(opts&&opts.from);
+ const c={o,cust,user:typeof signinUser==='function'?signinUser():null};
+ c.contact=once('contact',()=>cust?(from&&(cust.contacts||[]).find(x=>orderEmailAddress(x.email)===from))||customerPrimaryContact(cust):{});
+ c.p=once('p',()=>salesOrderProgress(o)||{units:{}});
+ c.u=once('u',()=>c.p().units||{});
+ c.lines=once('lines',()=>salesIsQuote(o)?[]:salesLineProgress(o));
+ return c;
+}
+function mailTplRender(text,o,opts){
+ o=salesOrderArg(o);if(!o)return '';
+ const c=mailTplContext(o,opts);
+ return String(text||'').replace(/\{([^{}\n]{1,40})\}/g,(all,k)=>{const f=MAIL_TPL_FIELD.get(k.trim().toLowerCase());if(!f)return all;try{return String(f[2](c)||'');}catch(e){return '';}}).replace(/\n{3,}/g,'\n\n');
+}
+
 /* ==== src/erp/mail-bridge.js ==== */
 /* ============================================================================
    Мост для панели Gmail: страница ERP отвечает расширению Chrome, какой заказ
@@ -53551,9 +53863,13 @@ if(typeof window!=='undefined'){
    IN : сообщения window {gf:'mail', id, req, …} от своей же страницы (их
         кладёт расширение); DB.salesOrder, DB.customer, archiveIndex;
         salesOrderProgress (erp/sales/order-progress), orderEmail*
-        (erp/sales/order-emails), вход и доступ (erp/signin, erp/access)
+        (erp/sales/order-emails), шаблоны (erp/sales/mail-templates), PDF
+        бланков (erp/documents, erp/shipping/print), вход и доступ
    OUT: ответ window {gf:'mail-reply', id, req, res}; mailBridgeHandle(m) —
-        тот же ответ вызовом (тесты)
+        тот же ответ вызовом (тесты). Чтение: lookup, orders, search,
+        templates, reply, documents, document (PDF base64). Команды:
+        openOrder, openCustomer, newOrder, linkEmail, mailLog, threadLog,
+        openTemplates
    Заказчик задания, 15.11.2026: панель показывает то, что относится к
    открытому письму, а не всё, что есть у клиента; «не хочу, чтобы код работал
    под логикой слов или шаблонов и предугадывал». Поэтому мост текста письма
@@ -53569,7 +53885,7 @@ if(typeof window!=='undefined'){
    Сам мост ничего не привязывает: запись — только командой linkEmail по
    нажатию человека. Денег в ответах нет.
    ============================================================================ */
-const MAIL_BRIDGE_VERSION=1,MAIL_OPEN_DAYS=14,MAIL_ROWS=3,MAIL_SEARCH_ROWS=8,MAIL_CLOSED_ROWS=30,MAIL_KNOWN_MAX=400;
+const MAIL_BRIDGE_VERSION=2,MAIL_OPEN_DAYS=14,MAIL_ROWS=3,MAIL_SEARCH_ROWS=8,MAIL_CLOSED_ROWS=30,MAIL_KNOWN_MAX=400;
 /* Порядок «самых актуальных» у непривязанного письма: готовое к выдаче —
    первым, затем то, что в цеху, внутри — ближний срок выше. */
 const MAIL_RANK=['ready','shipping','batched','verified','new','done'];
@@ -53616,7 +53932,7 @@ function mailLookup(m){
   });
   open.sort((a,b)=>Number(b.here)-Number(a.here)||mailByRank(a.o,b.o));
   closed.sort((a,b)=>String(b.o.updatedAt||'').localeCompare(String(a.o.updatedAt||'')));
-  out.linked=open.map(x=>Object.assign(mailCard(x.o),{here:x.here}));
+  out.linked=open.map(x=>Object.assign(mailCard(x.o),{here:x.here,talk:mailTalk(x.o)}));
   out.closedCount=closed.length;out.closed=closed.slice(0,MAIL_CLOSED_ROWS).map(x=>mailCard(x.o));
   if(typeof archiveIndex!=='undefined')archiveIndex.forEach((a,id)=>{if(a.rep&&Array.isArray(a.mail)&&a.mail.includes(threadId))out.archived.push({id,number:a.number||'',status:a.row&&a.row.status||''});});
   if(out.linked.length||out.closedCount||out.archived.length){out.step=2;return out;}
@@ -53671,7 +53987,78 @@ function mailLinkEmail(m){
  const r=orderEmailAdd(id,m.email);if(r.ok)render();
  return r.ok?{ok:true}:{error:r.error};
 }
-const MAIL_READ={lookup:mailLookup,orders:mailOrders,search:mailSearch},MAIL_DO={openOrder:mailOpenOrder,openCustomer:mailOpenCustomer,newOrder:mailNewOrder,linkEmail:mailLinkEmail};
+/* ------------------- Ответ: шаблоны, документы, журнал ------------------- */
+/* Конверт панели: список шаблонов и готовый текст на этом заказе
+   (erp/sales/mail-templates). Подпись — вошедший в эту вкладку ERP. */
+function mailOrderOf(m){const id=String(m.orderId||'');return (DB.salesOrder||[]).find(o=>o.id===id)||null;}
+function mailTemplatesList(m){
+ if(!mailOrderOf(m))return {error:'missing'};
+ return {templates:mailTemplates().map(t=>({id:t.id,name:t.name})),canEdit:mailTplCanEdit()};
+}
+function mailReply(m){
+ const o=mailOrderOf(m),t=mailTplFind(String(m.templateId||''));if(!o||!t)return {error:'missing'};
+ return {name:t.name,text:mailTplRender(t.text,o,{from:m.from})};
+}
+/* Скрепка панели: те же PDF, что Documents заказа, с настройками бланков из
+   Master Data; Invoice — только когда клиент получил последний юнит; PS —
+   отправленные. Work order — тоже (владелец, 16.11.2026: «пусть будет»). */
+const MAIL_DOC_KINDS=['workOrder','confirmation','proforma','invoice'];
+function mailDocList(o){
+ if(salesIsQuote(o))return [{key:'quote',label:'Quote',hint:salesQuoteRevName(o)}];
+ const inv=!!finInvoiceDate(o);
+ return MAIL_DOC_KINDS.map(k=>({key:k,label:docKindLabel(k),hint:k==='invoice'&&!inv?'after last unit':'',off:k==='invoice'&&!inv}))
+  .concat(shippingForOrder(o.id).filter(s=>shippingSent(s)&&shippingCarries(s,o.id)).map(s=>({key:'ps:'+s.id,label:'Packing slip',hint:s.number})));
+}
+function mailDocuments(m){const o=mailOrderOf(m);return o?{docs:mailDocList(o)}:{error:'missing'};}
+function mailBase64(bytes){let s='';for(let i=0;i<bytes.length;i+=0x8000)s+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));return btoa(s);}
+function mailDocument(m){
+ const o=mailOrderOf(m),key=String(m.key||'');if(!o)return {error:'missing'};
+ const d=mailDocList(o).find(x=>x.key===key);if(!d||d.off)return {error:'This document is not available for the order.'};
+ let pages,name,title;
+ if(key.startsWith('ps:')){const s=shippingFind(key.slice(3));pages=shippingPages(shippingDocument(s));title='Packing slip '+s.number;name=title.replace(/[^A-Za-z0-9]+/g,'_')+'.pdf';}
+ else{pages=docPages(Object.assign(docBuildModel(key,o,docDefaultOptions(key)),{form:''}));title=docKindLabel(key)+' '+(o.businessNumber||'draft');name=docFileName(key,o);}
+ return {name,label:d.label+(key.startsWith('ps:')?' '+d.hint:''),data:mailBase64(docPdfBytes(pages,{title}))};
+}
+/* Журнал заказа: что сделали кнопками панели. */
+const MAIL_LOG_KINDS={text:'Reply text',doc:'Document attached'};
+function mailLog(m){
+ const o=mailOrderOf(m),what=MAIL_LOG_KINDS[m.kind];if(!o||!what)return {error:'missing'};
+ const r=storageCommand(()=>{const now=mailOrderOf(m);if(now)orderLogPush(now,what,String(m.note||'').slice(0,200));return true;},{orderEvent:[]});
+ return r.ok?{ok:true}:{error:r.error};
+}
+/* Письма переписки — в журнал каждого заказа, привязанного к ней: когда
+   клиент написал, когда ответили мы (письмо с ящика, открытого в Gmail).
+   Только время, кто и тема — текста письма мост не получает. Запись одна на
+   письмо и заказ: id события несёт номер письма. */
+const MAIL_LOG_WHATS=['Customer email','Reply sent','Reply text','Document attached','Email linked','Email removed'];
+function mailThreadLog(m){
+ const threadId=orderEmailId(m.threadId),acc=orderEmailAddress(m.account),subject=orderEmailText(m.subject,160);
+ if(!threadId)return {error:'missing'};
+ const orders=(DB.salesOrder||[]).filter(o=>(o.emails||[]).some(e=>e.threadId===threadId));
+ const have=new Set((DB.orderEvent||[]).map(e=>e.id)),add=[];
+ (Array.isArray(m.messages)?m.messages:[]).slice(0,200).forEach(x=>{
+  const id=orderEmailId(x&&x.id),from=orderEmailAddress(x&&x.from),at=orderEmailIso(x&&x.at);if(!id||!from||!at)return;
+  const ours=!!acc&&from===acc,name=orderEmailText(x.name,60);
+  orders.forEach(o=>{const eid='OEM-'+o.id+'-'+id;if(have.has(eid))return;have.add(eid);
+   add.push({id:eid,at,orderId:o.id,no:String(o.businessNumber||''),what:ours?'Reply sent':'Customer email',note:subject,by:(name&&name!==from?name+' · ':'')+from,byId:''});});
+ });
+ if(!add.length)return {ok:true,added:0};
+ const r=storageCommand(()=>{if(!Array.isArray(DB.orderEvent))DB.orderEvent=[];add.forEach(e=>DB.orderEvent.push(e));return true;},{orderEvent:add.map(e=>e.id)});
+ return r.ok?{ok:true,added:add.length}:{error:r.error};
+}
+/* Последнее письмо клиента и наш последний ответ — строкой в карточке панели. */
+function mailTalk(o){
+ let customerAt='',replyAt='';
+ (DB.orderEvent||[]).forEach(e=>{if(e.orderId!==o.id)return;if(e.what==='Customer email'&&e.at>customerAt)customerAt=e.at;if(e.what==='Reply sent'&&e.at>replyAt)replyAt=e.at;});
+ return customerAt||replyAt?{customerAt,replyAt}:null;
+}
+function mailOpenTemplates(){
+ if(!accessCan('masterdata'))return {error:'No Master Data access.'};
+ if(typeof mdLeave==='function'&&!mdLeave())return {ok:true};
+ tab='masterdata';mdTab='emails';render();return {ok:true};
+}
+const MAIL_READ={lookup:mailLookup,orders:mailOrders,search:mailSearch,templates:mailTemplatesList,reply:mailReply,documents:mailDocuments,document:mailDocument},
+ MAIL_DO={openOrder:mailOpenOrder,openCustomer:mailOpenCustomer,newOrder:mailNewOrder,linkEmail:mailLinkEmail,mailLog,threadLog:mailThreadLog,openTemplates:mailOpenTemplates};
 /* Шаг 0. Вход включён, а человека нет — signin; вошёл без Sales — access. */
 function mailBridgeGate(){
  if(!window.GF_NO_SIGNIN&&typeof signinOn==='function'&&signinOn()&&!signinUser())return 'signin';
@@ -60957,6 +61344,7 @@ function normalizeDB(){
  if(typeof normalizeFinanceLedger==='function')normalizeFinanceLedger();
  if(typeof normalizeCommissions==='function')normalizeCommissions();
  if(typeof normalizeOrderLog==='function')normalizeOrderLog();
+ if(typeof normalizeMailTemplates==='function')normalizeMailTemplates();
  if(typeof normalizeMdLog==='function')normalizeMdLog();
  if(typeof normalizePriceLists==='function')normalizePriceLists();
  if(typeof normalizeAuthLog==='function')normalizeAuthLog();
