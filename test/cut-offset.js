@@ -63,11 +63,11 @@ module.exports=async function({page,eq}){
   coReset();const n=coBatch();cutSetStock(n,'6CLEAR','130x96','inset','1/16');
   tab='optimization';optimizationSetTab('production');glassBatchOpen(n);glassBatchDetailTab='optimization';render();
   const input=()=>document.querySelector('[data-cut-stock="130x96"] [data-cut-inset]');
-  const before={value:input().value,laid:(document.querySelector('[data-cut-laid="130x96"]')||{}).textContent,head:[...document.querySelectorAll('.cut-stock th')].map(th=>th.textContent.trim()).slice(0,3)};
+  const before={value:input().value,laid:(document.querySelector('[data-cut-laid="130x96"]')||{}).textContent,head:[...document.querySelectorAll('.cut-stock th')].map(th=>th.textContent.trim()).slice(1,5)};
   cutPlanRun(n);render();const locked=input().disabled;
   const next=prepareImportedState(JSON.parse(JSON.stringify(storageExportEnvelope()))),p=next.cutPlan.find(x=>x.batch===n);
   return {before,locked,kept:[p.sheetPick['6CLEAR'].sizes.find(x=>x.key==='130x96').inset,p.groups[0].sheets[0].size.inset],russian:/[А-яЁё]/.test(document.getElementById('app').innerText)};
- }),{before:{value:'1/16',laid:'laid as 129 7/8 × 95 7/8″',head:['Sheets','Qty','Offsetall sides']},locked:true,kept:[0.0625,0.0625],russian:false});
+ }),{before:{value:'1/16',laid:'laid as 129 7/8 × 95 7/8″',head:['Sheet, in','In stock','Qty','Offset']},locked:true,kept:[0.0625,0.0625],russian:false});
 
  eq('cut offset has no JavaScript errors',t.errs,[]);await t.c.close();
 };
