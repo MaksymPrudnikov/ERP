@@ -1,6 +1,9 @@
 /* End-to-end commercial metrics and view preferences, run against src and dist. */
 module.exports=async function({page,eq,ok}){
  const t=await page();
+ /* Общий минимум площади выключен правкой данных 12 (17.11.2026); здесь
+    проверяется сама надбавка Minimum area — включаем её. */
+ await t.p.evaluate(()=>{const w=(DB.serviceRate||[]).find(r=>r&&r.id==='minArea');if(w)w.active=true;});
  await t.p.evaluate(()=>{
   window.metricFixture=function(type='single',w=47,h=73.5,qty=2){
    tab='sales';salesOrderNew();salesSetUnitType(type);
@@ -225,7 +228,7 @@ module.exports=async function({page,eq,ok}){
     Double 6CLEAR / BWE 17/32 ARG / 6CLEAR, Rough Arris: юнит 968.40, Large
     unit 50% → 1452.60. Возможность снимали 22.10 (v5.240) вместе с проверкой;
     эти проверки её сторожат. */
- const s=await page();await require('./optimization-fixture')(s.p);
+ const s=await page();await require('./optimization-fixture')(s.p);await s.p.evaluate(()=>{const w=(DB.serviceRate||[]).find(r=>r&&r.id==='minArea');if(w)w.active=true;});
  const p15Helpers=()=>{
   window.p15Order=function(w=90,h=120,type='double',customer){
    tab='sales';salesOrderNew();salesSetUnitType(type);const m=soDraft.makeups[0],l=normalizeSalesOrderLine({makeupId:m.id,width16:w*16,height16:h*16,qty:1});

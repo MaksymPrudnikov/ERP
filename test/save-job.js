@@ -6,7 +6,7 @@
    сверяет с расчётом GF_SCOPE_CHECK («Stale save book», «Stale measure»). */
 module.exports=async function({page,eq}){
  console.log('save-job');
- const t=await page();await require('./optimization-fixture')(t.p);
+ const t=await page();await require('./optimization-fixture')(t.p);await t.p.evaluate(()=>{const w=(DB.serviceRate||[]).find(r=>r&&r.id==='minArea');if(w)w.active=true;});
  await t.p.evaluate(()=>{
   /* Заказ на 120 разных строк: правки не сохранены, кнопка Save включена. */
   window.sjBig=function(keep){

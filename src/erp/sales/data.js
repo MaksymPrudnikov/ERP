@@ -310,7 +310,9 @@ function salesCavityCatalogPrice(c,order){
  }
  return Math.round(p*100)/100;
 }
-function salesSurroundPartIsPlain(x,order){const r=salesItemSaleRules(x.table,x.item,undefined,order);return r.unit==='sqft'&&r.minArea==null&&r.minCharge==null;}
+/* Ставка за sq ft складывается в ставку полости и с минимумом площади: свой
+   минимум у каждого айтема (17.11.2026) меняет количество, а не единицу. */
+function salesSurroundPartIsPlain(x,order){const r=salesItemSaleRules(x.table,x.item,undefined,order);return r.unit==='sqft'&&r.minCharge==null;}
 function salesCavityOtherUnits(c,order){order=salesOrderArg(order);return !!c&&c.priceOverride==null&&surroundCavityParts(c,null,order).parts.some(x=>x.item&&!salesSurroundPartIsPlain(x,order));}
 /* Цена лайта = стекло из прайса + надбавка за то, что на нём делают.
    Spandrel и Frit продаются поверх стекла своей ставкой из справочника, а не
@@ -532,6 +534,20 @@ function normalizeSalesSurchargeRates(raw){
  });
  return out;
 }
+/* Минимум площади заказа по макапу (владелец 17.11.2026: «то что внутри
+   заказа главнее мастер даты, написал 1 — значит 1 ft²»): order.minArea =
+   {makeupId: {'<таблица>:<id>': число}} — стекло, плёнка, распорка, фрит,
+   спандрел, работы Works за ft². Не зависит от надбавок: общего минимума
+   больше нет, у каждого айтема и работы — свой. */
+function normalizeSalesOrderMinArea(raw){
+ raw=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:{};const out={},okId=/^[A-Za-z0-9:._|+\-]{1,180}$/;
+ Object.keys(raw).forEach(mid=>{
+  if(!okId.test(mid))return;const e=raw[mid]&&typeof raw[mid]==='object'&&!Array.isArray(raw[mid])?raw[mid]:{},y={};
+  Object.keys(e).forEach(k=>{const v=e[k]==null||e[k]===''?NaN:Number(e[k]);if(okId.test(k)&&k.includes(':')&&Number.isFinite(v)&&v>=0)y[k]=v;});
+  if(Object.keys(y).length)out[mid]=y;
+ });
+ return out;
+}
 /* Отдельная форма на лайт. Ступенчатый пакет с фигурой: у 10 мм один контур, у
    6 мм — другой, меньший, и отступом от общего он не выводится. Пусто = лайт
    живёт на общей форме строки (со своим отступом, если он задан). */
@@ -603,7 +619,7 @@ function normalizeSalesOrder(o){
  const first=makeups[0].id;
  const lines=(Array.isArray(o.lines)?o.lines:[]).map(normalizeSalesOrderLine);lines.forEach(l=>{if(!muIds.has(l.makeupId))l.makeupId=first;});
  const extraItems=(Array.isArray(o.extraItems)?o.extraItems:[]).map(normalizeSalesExtraItem);
- return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),...salesLifecycleFields(o),customerId:salesString(o.customerId),...(x=>x?{customerContactId:x}:{})(salesString(o.customerContactId)),...(o.isDraft===true&&o.kind!=='quote'?{isDraft:true}:{}),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),...(r=>Object.keys(r).length?{surchargeRates:r}:{})(normalizeSalesSurchargeRates(o.surchargeRates)),...(o.priceBook&&typeof o.priceBook==='object'&&!Array.isArray(o.priceBook)?{priceBook:salesPriceBookClean(o.priceBook)}:{}),...(f=>Object.keys(f).length?{priceFrom:f}:{})(salesPriceFromClean(o.priceFrom)),orderCharges:normalizeSalesOrderCharges(o.orderCharges),...(o.shapeCut===true?{shapeCut:true}:{}),makeups,lines,extraItems,
+ return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),...salesLifecycleFields(o),customerId:salesString(o.customerId),...(x=>x?{customerContactId:x}:{})(salesString(o.customerContactId)),...(o.isDraft===true&&o.kind!=='quote'?{isDraft:true}:{}),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),...(r=>Object.keys(r).length?{surchargeRates:r}:{})(normalizeSalesSurchargeRates(o.surchargeRates)),...(r=>Object.keys(r).length?{minArea:r}:{})(normalizeSalesOrderMinArea(o.minArea)),...(o.priceBook&&typeof o.priceBook==='object'&&!Array.isArray(o.priceBook)?{priceBook:salesPriceBookClean(o.priceBook)}:{}),...(f=>Object.keys(f).length?{priceFrom:f}:{})(salesPriceFromClean(o.priceFrom)),orderCharges:normalizeSalesOrderCharges(o.orderCharges),...(o.shapeCut===true?{shapeCut:true}:{}),makeups,lines,extraItems,
   /* Заказ-переделка NCR (erp/quality/ncr): связь и «без оплаты» по умолчанию. */
   remakeNcrId:salesRefId(o.remakeNcrId),noCharge:o.noCharge===true,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt),
   ...(c=>c.length?{cancellations:c}:{})(normalizeCancellations(o.cancellations,lines)),

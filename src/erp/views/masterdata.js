@@ -70,7 +70,7 @@ const MD_MATERIAL_VIEWS={
    не среди материалов. */
 /* Фрит и спандрел — работы по поверхности (этап 4, часть 2 плана Master
    Data): карточка говорит, какая работа Works их делает. */
-const MD_WORK_CATALOGUES=['serviceRate','heatTreatment','fritProduct','spandrelProduct','spandrelColour'];
+const MD_WORK_CATALOGUES=['serviceRate','heatTreatment','fritProduct','spandrelProduct','spandrelColour','edgeAllowance'];
 const MD_CAT_WORK=['fritProduct','spandrelProduct'];
 /* Каталог длиннее любого экрана: показываем страницу и честно говорим, сколько
    осталось за краем. Молчаливая обрезка списка читается как «это всё». */
@@ -122,7 +122,9 @@ function mdStationAssigned(code){
 function mdStationViaHTML(table){
  const hit=MD_STATION_VIA.find(([,tables])=>tables.some(([t])=>t===table));if(!hit)return '';
  const w=salesServiceRateRow(hit[0]);
- return `<div data-md-station-via><label>Station</label><div class="mono">${w&&w.station?esc(w.station):'—'}</div><div class="hint">From work ${esc(w?w.name:hit[0])}</div></div>`;
+ /* Где станцию поменять — ссылкой на работу (владелец 17.11.2026: «почему ты
+    меня ограничил»): станция одна на работу, меняется в её карточке. */
+ return `<div data-md-station-via><label>Station</label><div class="mono">${w&&w.station?esc(w.station):'—'}</div><div class="hint">${w?`<button type="button" class="gb-link" data-md-station-work ${onAct('click',mdCatalogOpen,'serviceRate',String(w.id))}>Set in Works → ${esc(w.name)}</button>`:'From work '+esc(hit[0])}</div></div>`;
 }
 function mdStationTreeHTML(){
  const pill=(t,cls)=>`<span class="pill ${cls}" data-raw>${esc(t)}</span>`;
@@ -744,7 +746,7 @@ function mdSpacerForm(){
  const measure=`<div class="grid">
    ${mdField('Weight, g',num('md_spWeight',r.weightG).replace('placeholder="—"','placeholder="unknown"'))}
    ${mdField('Per',`<select id="md_spWeightPer">${Object.keys(SPACER_WEIGHT_PER).map(k=>`<option value="${k}" ${k===r.weightPer?'selected':''}>${esc(SPACER_WEIGHT_PER[k])}</option>`).join('')}</select>`)}
-   <div><label class="chk"><input type="checkbox" id="md_spMeasured" ${r.weightMeasured?'checked':''}> Measured</label><div class="hint">Off — an estimate.</div></div>
+   <div><label class="md-chk-space" aria-hidden="true">&nbsp;</label><label class="chk"><input type="checkbox" id="md_spMeasured" ${r.weightMeasured?'checked':''}> Measured</label><div class="hint">Off — an estimate.</div></div>
   </div><h4>Size limits</h4><div class="grid">${mdSaleRulesFields(r,['minAreaFt2','minWidthIn','minHeightIn','maxWidthIn','maxHeightIn'])}</div>`;
  const purchase=`<div class="grid">
    ${mdField('Supplier',`<input id="md_spSupplier" value="${esc(r.supplier)}">`)}
@@ -1008,78 +1010,145 @@ const MD_COLLECTIONS=[
 
    Выигрывает самая узкая подходящая строка, поэтому широкая задаёт умолчание,
    а узкая описывает исключение внутри него — порядок строк ничего не решает. */
-const MD_ALLOWANCE_SCOPES=[{k:'mono',label:'Monolithic · per glass'},{k:'lami',label:'Laminated · per PLY'}];
-/* Пробник: владелец видит результат правки, не открывая заказ. */
-const MD_ALLOWANCE_SAMPLES=[
- {label:'Monolithic 6 mm · Flat Polish',op:'Flat Polish',mm:6,scope:'mono'},
- {label:'Monolithic 12 mm · Flat Polish',op:'Flat Polish',mm:12,scope:'mono'},
- {label:'Monolithic 10 mm · CNC Shape Polish',op:'CNC Shape Polish',mm:10,scope:'mono'},
- {label:'Laminated 6+6 · Flat Polish (ply 6)',op:'Flat Polish',mm:6,scope:'lami'},
- {label:'Laminated 6+6 · Lami Polish (ply 6)',op:'Lami Polish',mm:6,scope:'lami'},
- {label:'Laminated 10+10 · Lami Polish (ply 10)',op:'Lami Polish',mm:10,scope:'lami'},
- {label:'Laminated 12+12 · CNC Lami Polish (ply 12)',op:'CNC Lami Polish',mm:12,scope:'lami'}
-];
+const MD_ALLOWANCE_SCOPES=[{k:'mono',label:'Monolithic'},{k:'lami',label:'Laminated · ply'}];
+/* Экран свой (пункт дерева Services → Cutting allowance, владелец 17.11.2026:
+   «что делает этот интерфейс… обыватель не поймёт»): заголовок словами,
+   новая строка — строкой ввода наверху, в базу и в расчёт только по Add;
+   порядок строк фиксируется при входе на экран, правка не двигает строку
+   («оно скачет и я не знаю что где»). Пересортировка — при следующем входе. */
+let mdAllowanceDraft=null,mdAllowanceOrder=null,mdAllowanceCheck={op:'Flat Polish',scope:'mono',mm:'6'};
 function mdAllowanceSorted(){
  return (DB.edgeAllowance||[]).slice().sort((a,b)=>
   SHAPE_EDGE_OPS.indexOf(a.op)-SHAPE_EDGE_OPS.indexOf(b.op)
-  ||String(a.scope).localeCompare(String(b.scope))
+  ||(a.scope==='lami')-(b.scope==='lami')
   ||(+a.minMm)-(+b.minMm));
 }
+/* Строки в порядке экрана: зафиксированный при входе, чужие новые (вторая
+   вкладка, сервер) — в конце по сортировке. */
+function mdAllowanceRows(){
+ const all=DB.edgeAllowance||[];
+ if(!mdAllowanceOrder)mdAllowanceOrder=mdAllowanceSorted().map(r=>r.id);
+ const byId=new Map(all.map(r=>[r.id,r])),seen=new Set(mdAllowanceOrder);
+ return mdAllowanceOrder.map(id=>byId.get(id)).filter(Boolean).concat(mdAllowanceSorted().filter(r=>!seen.has(r.id)));
+}
+/* Вход на экран (узел дерева): порядок и строка ввода — заново. */
+function mdAllowanceEnter(){mdAllowanceOrder=null;mdAllowanceDraft=null;}
 function mdAllowanceShow(v){
  const p=fabParseDimStrict(String(v==null?'':v).trim());
  if(!p.ok)return '<span class="pill warn">not a number</span>';
  if(p.v>SHAPE_ALLOWANCE_MAX_IN)return '<span class="pill warn">too much</span>';
  return `<span class="mono">${p.v?esc(dimIn(p.v)):'0″'}</span>`;
 }
+/* Толщины, для которых у работы нет строки: такое стекло не уйдёт в раскрой.
+   Толщины — из каталога стекла (живые позиции); ламинат меряется по плите,
+   а плита — то же стекло каталога. */
+function mdAllowanceGaps(){
+ const mms=[...new Set((DB.glassProduct||[]).filter(g=>g&&g.active!==false).map(g=>+g.thicknessMm).filter(n=>n>0))].sort((a,b)=>a-b);
+ return SHAPE_EDGE_OPS.map(op=>({op,mm:mms.filter(mm=>!ShapeModule.productionAllowanceRule(op,mm,shapeIsLamiOnlyOp(op)?'lami':'mono').ok)})).filter(g=>g.mm.length);
+}
+function mdAllowanceOpOptions(v){return `<option value="" ${v?'':'selected'}>—</option>`+SHAPE_EDGE_OPS.map(o=>`<option value="${esc(o)}" ${o===v?'selected':''}>${esc(o)}</option>`).join('');}
+function mdAllowanceScopeOptions(v){return MD_ALLOWANCE_SCOPES.map(s=>`<option value="${s.k}" ${s.k===v?'selected':''}>${esc(s.label)}</option>`).join('');}
+/* Группы по работе (владелец 17.11.2026, вариант C: «просто полотно, в котором
+   нет понимания»): заголовок группы — работа, сколько строк, её припуски одной
+   строкой и + row; внутри — Monolithic, потом Laminated · ply. Группа
+   сворачивается; раскрытые помнятся до выхода из Data. */
+let mdAllowanceOpen=new Set();
+function mdAllowanceToggle(op){if(op==='*'){const all=SHAPE_EDGE_OPS.every(o=>mdAllowanceOpen.has(o));mdAllowanceOpen=new Set(all?[]:SHAPE_EDGE_OPS);}else if(mdAllowanceOpen.has(op))mdAllowanceOpen.delete(op);else mdAllowanceOpen.add(op);render();}
+function mdAllowanceRange(r){const lo=+r.minMm,hi=+r.maxMm;return hi>=1000?(lo>0?lo+'+ mm':'any'):lo+'–'+hi+' mm';}
+function mdAllowanceRowHTML(r){
+ const id=String(r.id??'');
+ return `<tr data-md-allow-row="${esc(r.id)}">
+   <td class="md-allow-scope"><select aria-label="Measured by" ${onAct('change',mdAllowanceSet,id,'scope',EL_VALUE)}>${mdAllowanceScopeOptions(r.scope)}</select></td>
+   <td><input class="md-mm" type="number" step="0.1" min="0" aria-label="Thickness from, mm" value="${esc(String(r.minMm))}" ${onAct('change',mdAllowanceSet,id,'minMm',EL_VALUE)}></td>
+   <td><input class="md-mm" type="number" step="0.1" min="0" aria-label="Thickness to, mm" value="${esc(String(r.maxMm))}" ${onAct('change',mdAllowanceSet,id,'maxMm',EL_VALUE)}></td>
+   <td><input class="md-allow-val" aria-label="Allowance per side" value="${esc(String(r.allowance))}" placeholder="1/16" ${onAct('change',mdAllowanceSet,id,'allowance',EL_VALUE)}></td>
+   <td>${mdAllowanceShow(r.allowance)}${r.note?` <span class="mut">${esc(r.note)}</span>`:''}</td>
+   <td><button class="btn-ghost" aria-label="Remove row" ${onAct('click',mdAllowanceRemove,id)}>×</button></td></tr>`;
+}
+/* Строка ввода — внутри своей группы (или над группами, пока работа не выбрана). */
+function mdAllowanceDraftHTML(d,inGroup){
+ return `<tr class="md-allow-new" data-md-allow-new>
+   <td class="md-allow-scope">${inGroup?'':`<select aria-label="Operation" ${onAct('change',mdAllowanceDraftOp,EL_VALUE)}>${mdAllowanceOpOptions(d.op)}</select> `}<select aria-label="Measured by" ${onAct('change',mdAllowanceDraftSet,'scope',EL_VALUE)}>${mdAllowanceScopeOptions(d.scope)}</select></td>
+   <td><input class="md-mm" type="number" step="0.1" min="0" aria-label="Thickness from, mm" placeholder="from" value="${esc(d.minMm)}" ${onAct('change',mdAllowanceDraftSet,'minMm',EL_VALUE)}></td>
+   <td><input class="md-mm" type="number" step="0.1" min="0" aria-label="Thickness to, mm" placeholder="to" value="${esc(d.maxMm)}" ${onAct('change',mdAllowanceDraftSet,'maxMm',EL_VALUE)}></td>
+   <td><input class="md-allow-val" aria-label="Allowance per side" value="${esc(d.allowance)}" placeholder="1/16" ${onAct('change',mdAllowanceDraftSet,'allowance',EL_VALUE)}></td>
+   <td colspan="2"><span class="md-allow-new-acts"><button class="pri sm" data-md-allow-add ${onAct('click',mdAllowanceAddSave)}>Add</button><button class="sm" ${onAct('click',mdAllowanceAddCancel)}>Cancel</button></span><span class="err" id="e_mdAllow"></span></td></tr>`;
+}
 function viewMdAllowance(){
- const rows=mdAllowanceSorted();
- return `<div class="sub" style="margin-top:6px">Stock removal per side. Narrowest row wins.</div>
-  <div class="customer-table-wrap">${slFromTable('mdOperations',`<table><thead><tr><th>Operation</th><th>Measured by</th><th>From, mm</th><th>To, mm</th><th>Allowance</th><th>Preview</th><th></th></tr></thead>
-  <tbody>${rows.map(r=>`<tr>
-   <td><select ${onAct('change',mdAllowanceSet,String(r.id??''),'op',EL_VALUE)}>${SHAPE_EDGE_OPS.map(o=>`<option value="${esc(o)}" ${o===r.op?'selected':''}>${esc(o)}</option>`).join('')}</select></td>
-   <td><select ${onAct('change',mdAllowanceSet,String(r.id??''),'scope',EL_VALUE)}>${MD_ALLOWANCE_SCOPES.map(s=>`<option value="${s.k}" ${s.k===r.scope?'selected':''}>${esc(s.label)}</option>`).join('')}</select></td>
-   <td><input class="md-mm" type="number" step="0.1" min="0" style="width:78px" value="${esc(String(r.minMm))}" ${onAct('change',mdAllowanceSet,String(r.id??''),'minMm',EL_VALUE)}></td>
-   <td><input class="md-mm" type="number" step="0.1" min="0" style="width:78px" value="${esc(String(r.maxMm))}" ${onAct('change',mdAllowanceSet,String(r.id??''),'maxMm',EL_VALUE)}></td>
-   <td><input style="width:92px" value="${esc(String(r.allowance))}" placeholder="1/16" ${onAct('change',mdAllowanceSet,String(r.id??''),'allowance',EL_VALUE)}></td>
-   <td>${mdAllowanceShow(r.allowance)}${r.note?`<div class="mut">${esc(r.note)}</div>`:''}</td>
-   <td><button class="btn-ghost" ${onAct('click',mdAllowanceRemove,String(r.id??''))}>×</button></td>
-  </tr>`).join('')}</tbody></table>`)}</div>
-  <div style="margin-top:10px"><button class="btn-ghost" ${onAct('click',mdAllowanceAdd)}>+ row</button></div>
-  <div class="sub" style="margin-top:22px">What the current values produce</div>
-  <div class="customer-table-wrap">${slFromTable('mdAllowance',`<table><thead><tr><th>Case</th><th>Allowance per side</th></tr></thead>
-  <tbody>${MD_ALLOWANCE_SAMPLES.map(s=>{
-    const r=ShapeModule.productionAllowanceRule(s.op,s.mm,s.scope);
-    return `<tr><td>${esc(s.label)}</td><td>${r.ok?`<b class="mono">${r.value?'+'+esc(dimIn(r.value)):'0″'}</b>`:'<span class="pill warn">no rule — cutting is blocked</span>'}</td></tr>`;
-  }).join('')}</tbody></table>`)}</div>`;
+ const rows=mdAllowanceRows(),gaps=mdAllowanceGaps(),d=mdAllowanceDraft,c=mdAllowanceCheck;
+ const gapOf=op=>(gaps.find(g=>g.op===op)||{}).mm||[];
+ const groups=SHAPE_EDGE_OPS.map(op=>{
+  /* Внутри группы — Monolithic, потом Laminated (сортировка при входе); правка не двигает строку до выхода. */
+  const rs=rows.filter(r=>r.op===op),list=rs;
+  const open=mdAllowanceOpen.has(op)||!!d&&d.op===op,miss=gapOf(op);
+  const vals=[...new Set(rs.map(r=>{const p=fabParseDimStrict(String(r.allowance));return p.ok?(p.v?dimIn(p.v):'0″'):String(r.allowance);}))];
+  const head=`<tr class="md-allow-group" data-md-allow-group="${esc(op)}"><td colspan="5"><button type="button" class="md-allow-tog" aria-expanded="${open}" ${onAct('click',mdAllowanceToggle,op)}>${open?'▾':'▸'} <b>${esc(op)}</b></button> <span class="md-allow-n">${rs.length} row${rs.length===1?'':'s'}</span> <span class="mut mono">${esc(vals.join(' · '))||'—'}</span>${miss.length?` <span class="pill warn">No rule: ${esc(miss.join(', '))} mm</span>`:''}</td>
+   <td>${d?'':`<button type="button" class="gb-link" data-md-allow-group-add ${onAct('click',mdAllowanceAdd,op)}>+ row</button>`}</td></tr>`;
+  return head+(open?(d&&d.op===op?mdAllowanceDraftHTML(d,true):'')+list.map(mdAllowanceRowHTML).join(''):'');
+ }).join('');
+ const allOpen=SHAPE_EDGE_OPS.every(o=>mdAllowanceOpen.has(o));
+ const r=ShapeModule.productionAllowanceRule(c.op,+c.mm,c.scope);
+ return `<div class="md-toolbar"><span class="mut">Extra glass per side, so the edge finishes to size · laminated: per ply · narrowest row wins</span><span class="sp"></span><button class="sm" data-md-allow-all ${onAct('click',mdAllowanceToggle,'*')}>${allOpen?'Collapse all':'Expand all'}</button>${d?'':`<button class="pri" data-md-allow-new-btn ${onAct('click',mdAllowanceAdd,'')}>+ New</button>`}</div>
+  ${gaps.length?`<div class="sales-pricing-warning" data-md-allow-gaps><b>No rule — cutting is blocked</b><span>${gaps.map(g=>esc(g.op)+': '+esc(g.mm.join(', '))+' mm').join('<br>')}</span></div>`:''}
+  <div class="customer-table-wrap"><table class="md-allow-table" data-md-allow><thead><tr><th>Measured by</th><th>Thickness from, mm</th><th>to, mm</th><th>Allowance per side</th><th>Preview</th><th></th></tr></thead>
+  <tbody>${d&&!d.op?mdAllowanceDraftHTML(d,false):''}${groups}</tbody>
+  <tfoot><tr class="sl-foot"><td colspan="6" class="sl-foot-head"><b>${rows.length} rows · ${SHAPE_EDGE_OPS.filter(op=>rows.some(x=>x.op===op)).length} operations</b></td></tr></tfoot></table></div>
+  <div class="sub" style="margin-top:22px">Check</div>
+  <div class="md-allow-check" data-md-allow-check>
+   <label>Operation<select ${onAct('change',mdAllowanceCheckSet,'op',EL_VALUE)}>${SHAPE_EDGE_OPS.map(o=>`<option value="${esc(o)}" ${o===c.op?'selected':''}>${esc(o)}</option>`).join('')}</select></label>
+   <label>Glass<select ${onAct('change',mdAllowanceCheckSet,'scope',EL_VALUE)}>${MD_ALLOWANCE_SCOPES.map(s=>`<option value="${s.k}" ${s.k===c.scope?'selected':''}>${s.k==='lami'?'Laminated':'Monolithic'}</option>`).join('')}</select></label>
+   <label>${c.scope==='lami'?'Ply, mm':'Thickness, mm'}<input type="number" step="0.1" min="0" value="${esc(c.mm)}" ${onAct('change',mdAllowanceCheckSet,'mm',EL_VALUE)}></label>
+   <span class="md-allow-result" data-md-allow-result>${r.ok?`<b class="mono">${r.value?'+'+esc(dimIn(r.value)):'0″'}</b> <span class="mut">per side</span>`:'<span class="pill warn">No rule — cutting is blocked</span>'}</span>
+  </div>`;
+}
+function mdAllowanceCheckSet(field,v){
+ if(field==='op'&&SHAPE_EDGE_OPS.indexOf(v)>=0)mdAllowanceCheck.op=v;
+ else if(field==='scope')mdAllowanceCheck.scope=v==='lami'?'lami':'mono';
+ else if(field==='mm')mdAllowanceCheck.mm=String(v==null?'':v).trim();
+ render();
+}
+/* Проверка строки: перевёрнутый диапазон молча выбросил бы строку из
+   расчёта, слишком большой припуск — опечатка. Ответ — текст отказа или null. */
+function mdAllowanceProblem(row){
+ if(SHAPE_EDGE_OPS.indexOf(row.op)<0)return 'Pick an operation';
+ const lo=+row.minMm,hi=+row.maxMm;
+ if(String(row.minMm).trim()===''||String(row.maxMm).trim()===''||!isFinite(lo)||!isFinite(hi)||lo<0||hi<0)return 'Thickness: enter from and to, mm';
+ if(hi<lo)return 'Thickness: from is above to';
+ const p=fabParseDimStrict(String(row.allowance==null?'':row.allowance).trim());
+ if(!p.ok||!(p.v>=0))return 'Allowance: a number, like 1/16';
+ if(p.v>SHAPE_ALLOWANCE_MAX_IN)return 'Allowance: too much';
+ return null;
 }
 function mdAllowanceSet(id,field,v){
  const row=(DB.edgeAllowance||[]).find(x=>x.id===id);if(!row)return;
- const typed=String(v==null?'':v).trim();
- if(field==='op'){
-  if(SHAPE_EDGE_OPS.indexOf(typed)<0){render();return;}
-  row.op=typed;
- }else if(field==='scope'){
-  row.scope=typed==='lami'?'lami':'mono';
- }else if(field==='minMm'||field==='maxMm'){
-  const n=+typed;
-  if(!isFinite(n)||n<0){render();return;}
-  /* Перевёрнутый диапазон молча выбросил бы строку из расчёта — правку не
-     принимаем, старое значение остаётся на экране. */
-  const lo=field==='minMm'?n:+row.minMm,hi=field==='maxMm'?n:+row.maxMm;
-  if(hi<lo){render();return;}
-  row[field]=n;
- }else if(field==='allowance'){
-  const p=fabParseDimStrict(typed);
-  if(!p.ok||!(p.v>=0)||p.v>SHAPE_ALLOWANCE_MAX_IN){render();return;}
-  row.allowance=typed;
- }else return;
+ const typed=String(v==null?'':v).trim(),next=Object.assign({},row);
+ if(field==='op')next.op=typed;
+ else if(field==='scope')next.scope=typed==='lami'?'lami':'mono';
+ else if(field==='minMm'||field==='maxMm')next[field]=typed===''?typed:+typed;
+ else if(field==='allowance')next.allowance=typed;
+ else return;
+ /* Неверную правку не принимаем — старое значение остаётся на экране. */
+ if(mdAllowanceProblem(next)){render();return;}
+ row[field]=next[field];
  normalizeEdgeAllowance();touch();render();
 }
-function mdAllowanceAdd(){
+function mdAllowanceAdd(op){op=SHAPE_EDGE_OPS.indexOf(op)>=0?op:'';mdAllowanceDraft={op,scope:op&&shapeIsLamiOnlyOp(op)?'lami':'mono',minMm:'',maxMm:'',allowance:''};if(op)mdAllowanceOpen.add(op);render();}
+/* Работу выбрали в строке ввода над группами — строка переезжает в свою группу. */
+function mdAllowanceDraftOp(v){if(!mdAllowanceDraft)return;mdAllowanceDraftSet('op',v);if(mdAllowanceDraft.op){mdAllowanceOpen.add(mdAllowanceDraft.op);render();}}
+function mdAllowanceAddCancel(){mdAllowanceDraft=null;render();}
+/* Поля строки ввода — без перерисовки: введённое не теряется. */
+function mdAllowanceDraftSet(field,v){if(mdAllowanceDraft)mdAllowanceDraft[field]=String(v==null?'':v).trim();}
+function mdAllowanceAddSave(){
+ const d=mdAllowanceDraft;if(!d)return;
+ const row={op:d.op,scope:d.scope==='lami'?'lami':'mono',minMm:d.minMm===''?'':+d.minMm,maxMm:d.maxMm===''?'':+d.maxMm,allowance:d.allowance,note:''};
+ const bad=mdAllowanceProblem(row),e=document.getElementById('e_mdAllow');
+ if(bad){if(e)fail(e,bad);return;}
  const rows=Array.isArray(DB.edgeAllowance)?DB.edgeAllowance:(DB.edgeAllowance=[]);
  let id='ALW-OWN-1',i=1;
  while(rows.some(r=>r&&r.id===id))id='ALW-OWN-'+(++i);
- rows.push({id:id,op:'Flat Polish',scope:'mono',minMm:0,maxMm:1000,allowance:'1/16',note:''});
+ rows.push(Object.assign({id},row));
+ /* Новая строка остаётся наверху, где её вводили, до следующего входа. */
+ mdAllowanceRows();mdAllowanceOrder.unshift(id);mdAllowanceOpen.add(row.op);mdAllowanceDraft=null;
  normalizeEdgeAllowance();touch();render();
 }
 function mdAllowanceRemove(id){
@@ -1219,7 +1288,13 @@ const MD_CATALOGUES=[
 ];
 /* Свою единицу продажи держат плёнка и части обвязки (этап 3 плана Master
    Data): газ, герметики, осушитель продаются за ft², дюйм периметра, вес. */
-const MD_CAT_SALE_UNIT=['interlayerProduct','gasProduct','sealantProduct','iguPart'];
+const MD_CAT_SALE_UNIT=['interlayerProduct','gasProduct','sealantProduct','iguPart','fritProduct','spandrelProduct'];
+/* За что цена айтема: Sales unit карточки (пусто — sq ft), склад — штука. */
+function mdCatPriceUnit(kind,x){
+ if(MD_CAT_SALE_UNIT.includes(kind))return x&&x.salesUnit?mdUnitName(x.salesUnit):'sq ft';
+ return kind==='stockItem'?'each':'';
+}
+function mdPriceUnitSync(v){const el=document.querySelector('[data-md-price-unit]');if(el)el.textContent='per '+(v?mdUnitName(v):'sq ft');}
 function mdCatDef(){return MD_CATALOGUES.find(c=>c.k===mdCatKind)||MD_CATALOGUES[0];}
 function mdCatRows(){return Array.isArray(DB[mdCatKind])?DB[mdCatKind]:[];}
 function mdCatIsColour(){return mdCatKind==='spandrelColour';}
@@ -1292,7 +1367,7 @@ function mdCatRowHTML(x){
   <td class="mono">${x.code?raw(x.code):'<span class="mut">—</span>'}</td>
   ${colour?`<td>${x.family?raw(x.family):'<span class="mut">—</span>'}</td><td class="mut">${raw(scope)}</td>`
           :`<td>${x.supplier?raw(x.supplier):'<span class="mut">—</span>'}</td>
-            <td class="mono">${x.salePrice==null?'<span class="mut">—</span>':esc(Number(x.salePrice).toFixed(2))}</td>`}
+            <td class="mono">${x.salePrice==null?'<span class="mut">—</span>':esc(Number(x.salePrice).toFixed(2))+(mdCatPriceUnit(mdCatKind,x)?'<div class="mut small">per '+esc(mdCatPriceUnit(mdCatKind,x))+'</div>':'')}</td>`}
   <td><span class="pill ${x.active===false?'warn':'ok'}">${x.active===false?'inactive':'active'}</span></td>
   <td style="white-space:nowrap"><button class="sm" ${onAct('click',mdCatEditRow,String(x.id??''))}>Edit</button><button class="sm dl" ${onAct('click',mdCatDelete,String(x.id??''))}>×</button></td></tr>`;
 }
@@ -1342,7 +1417,7 @@ function mdCatForm(){
     <div><label>Unit area over, ft²</label><input id="md_ruleOver" type="number" step="any" min="0" value="${v(r.rule.areaOver)}" placeholder="no limit"></div>
     <div><label>Unit area under, ft²</label><input id="md_ruleUnder" type="number" step="any" min="0" value="${v(r.rule.areaUnder)}" placeholder="no limit"></div>
     ${r.rule.kind==='percent'?`<div><label>Order</label><input id="md_rulePriority" type="number" step="1" value="${v(r.rule.priority)}"><div class="hint">Smaller first</div></div>
-    <div><label class="chk"><input type="checkbox" id="md_ruleOnTop" ${r.rule.onTop?'checked':''}> On top of earlier surcharges</label></div>`:''}`:''}
+    <div><label class="md-chk-space" aria-hidden="true">&nbsp;</label><label class="chk"><input type="checkbox" id="md_ruleOnTop" ${r.rule.onTop?'checked':''}> On top of earlier surcharges</label></div>`:''}`:''}
    </div>`;
   const prices=`${r.rule?'<p class="mut">Value: Applies tab.</p>':`<label>Price by glass thickness</label>
    ${slFromTable('mdTiers',`<table class="md-work-tiers" data-md-tiers><thead><tr><th>From, mm</th><th>To, mm</th><th>Price, CAD</th><th></th></tr></thead><tbody>
@@ -1352,6 +1427,7 @@ function mdCatForm(){
    <div class="grid">
     <div><label>Round quantity up to</label><input id="md_catRoundTo" type="number" step="any" min="0" value="${v(r.roundTo)}" placeholder="no rounding"><div class="hint">In the work's unit</div></div>
     <div><label>Min charge, CAD</label><input id="md_catMinCharge" type="number" step="0.01" min="0" value="${v(r.minCharge)}" placeholder="no minimum"><div class="hint">Per unit</div></div>
+    ${r.unit==='ft²'?`<div><label>Min area, ft²</label><input id="md_catMinArea" type="number" step="any" min="0" value="${v(r.minAreaFt2)}" placeholder="real area"><div class="hint">Order can change</div></div>`:''}
    </div>`}
    ${isNew||r.rule?'':mdPriceListsHTML('service:'+r.id)}`;
   return mdCardHTML({form:'work',crumb:['Works',r.rule?'Surcharges':'Works'],title:isNew?'New work':raw(r.name||r.id),
@@ -1373,8 +1449,12 @@ function mdCatForm(){
    ${mdField('Spandrel',`<select id="md_catProduct"><option value="" ${r.productId?'':'selected'}>— any spandrel —</option>${(DB.spandrelProduct||[]).map(p=>`<option value="${esc(p.id)}" ${p.id===r.productId?'selected':''}>${esc(p.name)}</option>`).join('')}</select>`,'Empty — any spandrel.')}
    ${f.status}</div>`}]);
  f.supplier=mdField('Supplier',`<input id="md_catSupplier" value="${esc(r.supplier||'')}">`);
- f.price=mdField('Price, CAD',`<input id="md_catPrice" type="number" step="0.01" min="0" value="${r.salePrice==null?'':r.salePrice}">`,'Empty — Rate required.');
- f.unit=MD_CAT_SALE_UNIT.includes(mdCatKind)?mdField('Sales unit',`<select id="md_salesunit"><option value="">sq ft</option>${mdUnitOptions(r.salesUnit)}</select>`):'';
+ /* Цена всегда со своей единицей (владелец 17.11.2026: «есть цена, а за что —
+    непонятно»): подпись следует за Sales unit. */
+ f.price=mdField(`Price, CAD <span data-md-price-unit>per ${esc(mdCatPriceUnit(mdCatKind,r))}</span>`,`<input id="md_catPrice" type="number" step="0.01" min="0" value="${r.salePrice==null?'':r.salePrice}">`,'Empty — Rate required.');
+ /* Фрит и спандрел — строка начисления: ft², погонный дюйм периметра или штука на лайт. */
+ const glaze=mdCatKind==='fritProduct'||mdCatKind==='spandrelProduct';
+ f.unit=MD_CAT_SALE_UNIT.includes(mdCatKind)?mdField('Sales unit',`<select id="md_salesunit" ${onAct('change',mdPriceUnitSync,EL_VALUE)}><option value="">sq ft</option>${glaze?mdUnitOptions(r.salesUnit).split('</option>').filter(o=>/value="(inch|each)"/.test(o)).map(o=>o+'</option>').join(''):mdUnitOptions(r.salesUnit)}</select>`,glaze?'Perimeter: inch · per lite: each':''):'';
  f.ownLine=`<div style="grid-column:1/-1"><label class="chk"><input type="checkbox" id="md_catOwnLine" ${r.sellsAsOwnLine?'checked':''}> Sells as its own order line</label><div class="hint">Sold as-is: quantity and price.</div></div>`;
  f.work=MD_CAT_WORK.includes(mdCatKind)?mdField('Work',`<select id="md_catWork"><option value="">— no work —</option>${(DB.serviceRate||[]).filter(w=>w&&!w.rule).map(w=>`<option value="${esc(w.id)}" ${w.id===r.workId?'selected':''}>${esc(w.name)}${w.station?' · '+esc(w.station):''}</option>`).join('')}</select>`,'Station in the route'):'';
  /* Плёнка — большая карточка: вкладки как у рамки. Плотность — норма
@@ -1389,10 +1469,10 @@ function mdCatForm(){
  f.density=mdCatKind==='gasProduct'?mdField('Density, kg/m³',`<input id="md_catDensity" type="number" step="any" min="0" value="${r.densityKgM3==null?'':r.densityKgM3}" placeholder="unknown">`,'Gas weight = density × cavity volume.'):'';
  /* Части обвязки продаются за свою единицу — те же вкладки, что у рамки. */
  if(f.unit)return card([
-  {k:'general',label:'General',html:`<div class="grid">${f.name}${f.code}${f.supplier}${mdStationViaHTML(mdCatKind)}${f.status}${f.ownLine}</div>`},
+  {k:'general',label:'General',html:`<div class="grid">${f.name}${f.code}${f.supplier}${mdStationViaHTML(mdCatKind)}${f.work}${f.status}${f.ownLine}</div>`},
   {k:'units',label:'Units',html:`<div class="grid">${f.unit}</div>`},
   {k:'measure',label:'Measurements',html:`<div class="grid">${f.density}${mdSaleRulesFields(r,['minAreaFt2','minWidthIn','minHeightIn','maxWidthIn','maxHeightIn'])}</div>`,missing:mdCatKind==='gasProduct'&&r.densityKgM3==null},
-  {k:'prices',label:'Prices',html:`<div class="grid">${f.price}${mdSaleRulesFields(r,['minCharge'])}</div>${isNew?'':mdPriceListsHTML('item:'+mdCatKind+':'+r.id)}`,missing:r.salePrice==null}]);
+  {k:'prices',label:'Prices',html:`<div class="grid">${f.price}${glaze?'':mdSaleRulesFields(r,['minCharge'])}</div>${isNew?'':mdPriceListsHTML('item:'+mdCatKind+':'+r.id)}`,missing:r.salePrice==null}]);
  /* Stock item (пункт 4; владелец 30.10.2026 — C2 + C3): вид сверху, вкладки
     General · Measurements · Stock · Prices. Вид — прежняя свободная
     подкатегория кнопками; свой вид — + New kind. */
@@ -1503,13 +1583,14 @@ function mdWorkDraftRead(keep){
   useTiers=[{id:'flat',from:null,to:null,price:r.rule?(p0===undefined?first.price:p0):null}];
   unit=kind==='percent'?'%':'ft²';
  }else if(r.rule)useTiers=[{id:'flat',from:null,to:null,price:null}];
- const roundTo=num('md_catRoundTo'),minCharge=num('md_catMinCharge');
+ const roundTo=num('md_catRoundTo'),minCharge=num('md_catMinCharge'),minArea=num('md_catMinArea');
  const next=Object.assign({},r,{name:mdVal('md_catName'),unit:unit,station:mdVal('md_catStation'),tiers:useTiers,rule,
   roundTo:rule?null:roundTo===undefined?r.roundTo:roundTo,minCharge:rule?null:minCharge===undefined?r.minCharge:minCharge,
+  minAreaFt2:rule?null:minArea===undefined?(r.minAreaFt2==null?null:r.minAreaFt2):minArea,
   appliesBy:appliesBy,family:appliesBy?(document.getElementById('md_catFamily')?mdVal('md_catFamily'):r.family||'hole'):'',
   appliesFrom:appliesBy?(from===undefined?r.appliesFrom:from):null,appliesTo:appliesBy?(to===undefined?r.appliesTo:to):null,
   note:mdVal('md_catNote'),active:mdVal('md_catActive')!=='0'});
- if(useTiers.some(t=>bad(t.from)||bad(t.to)||bad(t.price))||[next.appliesFrom,next.appliesTo,next.roundTo,next.minCharge].some(bad)||rule&&[rule.areaOver,rule.areaUnder].some(bad))next.bad='Numbers must be 0 or more, or empty';
+ if(useTiers.some(t=>bad(t.from)||bad(t.to)||bad(t.price))||[next.appliesFrom,next.appliesTo,next.roundTo,next.minCharge,next.minAreaFt2].some(bad)||rule&&[rule.areaOver,rule.areaUnder].some(bad))next.bad='Numbers must be 0 or more, or empty';
  if(keep){mdCatDraft=Object.assign({},next);delete mdCatDraft.bad;}
  return next;
 }

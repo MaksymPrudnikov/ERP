@@ -506,7 +506,7 @@ salesLineChargeRowsRaw=function(line,draft,order){
   /* Сервисы, добавленные руками (sales/extra-services), от контура не
      зависят — до выхода по его отсутствию. */
   if(typeof salesExtraServiceRows==='function')salesExtraServiceRows(line,order).forEach(function(row){rows.push(row);});
-  var shape=draft||salesLineGeometryShape(line),ctx=salesPricingThickness(line,order);if(!shape)return rows.filter(function(x){return x.basis>0;});
+  var shape=draft||salesLineGeometryShape(line),ctx=salesPricingThickness(line,order);if(!shape)return salesWorkMinArea(line,rows,order).filter(function(x){return x.basis>0;});
   var items=saved&&Array.isArray(saved.manufacturingItems)?saved.manufacturingItems:[];
   /* Разбор меток общий с обычной веткой расчёта — см. salesManufacturingChargeRows.
      Считается ПО СТЁКЛАМ: отверстие и петля делаются на каждом физическом
@@ -565,8 +565,19 @@ salesLineChargeRowsRaw=function(line,draft,order){
     if(cutout)salesPerGlassRows(line,function(c){return [salesChargeRow('FEATURE:cutout:'+salesRateBandKey('cutout',c),'Cutout',cutout,'pc',salesCatalogRate('cutout',c),'Shape feature')];},order).forEach(function(row){rows.push(row);});
     salesPerGlassRows(line,function(c){return salesNotchChargeRows(saved,c);},order).forEach(function(row){rows.push(row);});
   }
-  return rows.filter(function(row){return row.basis>0;});
+  return salesWorkMinArea(line,rows,order).filter(function(row){return row.basis>0;});
 };
+/* Минимум площади работы Works за ft² (владелец 17.11.2026): своя карточка
+   работы или число заказа по макапу, от стекла не зависит. Фрит и спандрел
+   (GLAZE) считают свой минимум сами. Пустая карточка — по настоящей площади. */
+function salesWorkMinArea(line,rows,order){
+  return rows.map(function(row){
+    if(!row||row.unit!=='ft²'||!row.svc||!(row.basis>0)||String(row.key).indexOf('GLAZE:')===0)return row;
+    var w=salesServiceRateRow(row.svc);if(!w)return row;
+    var min=salesOrderMinFor(order,line&&line.makeupId,'serviceRate:'+w.id,function(){return w.minAreaFt2==null?null:w.minAreaFt2;}).value;
+    return min!=null&&min>row.basis?Object.assign({},row,{basis:min,min:min}):row;
+  });
+}
 
 /* Массовое изменение теперь ПИШЕТ обработку в формы выбранных строк, а не
    вешает на строку ссылку на набор. Набор стал рецептом: применили — операции

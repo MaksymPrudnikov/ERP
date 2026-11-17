@@ -1313,19 +1313,34 @@ function salesGlazingChargeRows(line,areaFt2,order){
    const k='frit:'+id;if(!frit[k]){frit[k]={id:id,qty:0};seq.push(k);}frit[k].qty++;
   }
  });
+ /* Единица продажи и минимум — свои у каждого фрита и спандрела (владелец
+    17.11.2026: «вдруг я хочу чарджить за периметр»; «каждый сервис —
+    самодостаточный айтем»). Площадь — коммерческая, как у стекла и в Spiel
+    (стороны вверх до дюйма, вверх до десятой ft²), не меньше минимума
+    карточки или числа заказа по макапу. Периметр — как у материалов. */
+ const a=salesLineAreas(line,order),base=a&&a.valid?a.rounded:area;
  seq.forEach(function(k){
-  const isFrit=k.indexOf('frit:')===0;
+  const isFrit=k.indexOf('frit:')===0,table=isFrit?'fritProduct':'spandrelProduct';
   const g=isFrit?frit[k]:spandrel[k];
-  const prod=mdById(isFrit?'fritProduct':'spandrelProduct',g.id),lp=prod?salesPriceListFor('item:'+(isFrit?'fritProduct':'spandrelProduct')+':'+prod.id,undefined,salesOrderCustomerId(order)):null;
+  const prod=mdById(table,g.id),lp=prod?salesPriceListFor('item:'+table+':'+prod.id,undefined,salesOrderCustomerId(order)):null;
+  const unit=prod?salesGlazeUnit(salesItemSaleRules(table,prod,'sqft',order).unit):'sqft';
+  let per;
+  if(unit==='inch')per=a&&a.valid?a.perimeterIn:0;
+  else if(unit==='each')per=1;
+  else{const min=prod?salesOrderMinFor(order,m.id,table+':'+prod.id,()=>prod.minAreaFt2==null?null:prod.minAreaFt2).value:null;per=Math.max(base,min||0);}
   rows.push(salesChargeRow(
    'GLAZE:'+k,
    (prod?(prod.name||prod.code):(isFrit?'Frit':'Spandrel'))+(g.qty>1?' × '+g.qty+' glass layers':''),
-   +(area*g.qty).toFixed(4),'ft²',
+   +(per*g.qty).toFixed(4),unit==='inch'?'in':unit==='each'?'pc':'ft²',
    lp?lp.price:(prod&&prod.salePrice!=null)?prod.salePrice:null,
    'Makeup',lp?lp.listId:'',prod&&prod.workId||''));
  });
  return rows;
 }
+/* Фрит и спандрел продаются за ft², погонный дюйм периметра или штуку на
+   лайт: строки начислений знают только ft², in и pc. */
+const SALES_GLAZE_UNITS=['sqft','inch','each'];
+function salesGlazeUnit(u){return SALES_GLAZE_UNITS.includes(u)?u:'sqft';}
 /* Площадь строки: у фигурной детали её считает Shape, у прямоугольной она
    выводится из габаритов. Начисления за остекление нужны в обоих случаях —
    фрит наносят и на прямоугольник, у которого никакого Shape нет. */
