@@ -26,6 +26,27 @@ module.exports=async function({page,eq}){
  });
  eq('four days of the shop with inventory: no failures, stock agrees with the layouts, every stage to look at',out,
   {fails:{},counted:true,mins:true,receipts:true,pos:true,scans:true,sheets:true,lost:0,offset:true,noOdd:true,stages:true,final:true,guide:true});
+ /* Кромка генератора — как в счёте ERP (аудит Codex 17.11.2026: CNC Shape
+    Polish 1972,12″ против 1980″): прямоугольник — каждая сторона вверх до
+    дюйма, фигура (и прямоугольник с радиусами или пескоструем) — контур
+    юнита целиком вверх до дюйма. Дюймы стёкол юнита = строка EDGE. */
+ const edge=await t.p.evaluate(()=>{
+  const one=(code,ht)=>[{code,ht}];
+  const specs=[
+   {unit:'single',panes:one('10CLEAR','HT-FT'),w:30.375,h:30.375,qty:1,shape:'circle',edge:'cnc'},
+   {unit:'single',panes:one('10CLEAR','HT-FT'),w:34,h:78.375,qty:1,shape:'notch',edge:'polish'},
+   {unit:'single',panes:one('10CLEAR','HT-FT'),w:22,h:32.125,qty:1,edge:'polish',radius:true},
+   {unit:'single',panes:one('10CLEAR','HT-FT'),w:22.5,h:70.25,qty:1,edge:'polish',sand:true},
+   {unit:'single',panes:one('6CLEAR','HT-AN'),w:8.375,h:20.625,qty:1,edge:'polish'},
+   {unit:'double',panes:[{code:'4E272',ht:'HT-AN'},{code:'4CLEAR',ht:'HT-AN'}],w:30.5,h:40.25,qty:1,shape:'raked'}];
+  const id=SIM.order(specs),o=salesRecord(id);glassPieceEnsure(o);const map=glassPieceMap(id);
+  return o.lines.map(l=>{
+   const sim=glassBatchComponents(o,l).filter(c=>!c.missing).reduce((n,c)=>n+SIM.pieceInfo(map.get(c.key).ids[0]).perim,0);
+   const erp=salesLineChargeRows(l,o).filter(r=>/^EDGE:/.test(r.key)).reduce((n,r)=>n+r.basis,0);
+   return Math.abs(sim-erp)<0.01?'same':sim+' / ERP '+erp;
+  });
+ });
+ eq('sim edge inches per unit = the EDGE line of the ERP bill: CNC circle, notch, radius, sandblast, plain rectangle, raked IGU',edge,['same','same','same','same','same','same']);
  eq('sim inventory has no JavaScript errors',t.errs,[]);await t.c.close();
  /* Выдано, срок оплаты прошёл, денег нет. Неделя до 13.10: выданный за
     наличные долг клиент гасит — тогда добор ставит короткий срок (Net 3)
