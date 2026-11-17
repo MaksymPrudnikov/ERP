@@ -1,6 +1,6 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 5.325 · 17 ноября 2026 — Master Data: Cutting allowance своим пунктом дерева (строка ввода по Add, Check); цена со своей единицей, Frit и Spandrel — за sq ft, дюйм периметра или штуку; минимум площади у каждого айтема и работы свой, число заказа по макапу главнее, общего минимума нет.
+Версия 5.326 · 17 ноября 2026 — Sales: Priority ставит Due date рабочими днями (Normal 7, Rush 3, Critical 1 — Data → Setup), без Due date заказ не пишется; колонка Notes и окно заметки; Shape всегда открывается с чистого; подсказки Shift+click убраны.
 
 ## Как читать
 
@@ -96,6 +96,11 @@
 - **Статусы** New → Verified → Batched → Ready → Picked up / Delivered → Closed; Cancelled. Батч закрывает строку
   (размер, Makeup, фигура, кромка): изменение — новая строка или новый заказ; количество в батче — только вниз, пока
   не порезано (06.10). Строку с живым сканом не менять. Hold и статусы пишутся сразу, без Save (15.09).
+- **Priority ставит Due date** (17.11): Normal 7, Rush 3, Critical 1 рабочий день Пн–Пт (`salesDueDate`,
+  `sales/order-setup.js`; числа — Data → Setup); новый заказ — от создания, копия — дата исходного, из квоты — от
+  конвертации; смена Priority считает заново от сегодня (`salesPriorityChange`). Без Due date Save — «Enter the Due Date.».
+- **Notes** (17.11): колонка Sales за Invoice, две строки, окно ввода по клику и правым кликом Note… (`salesNoteOpen`).
+- **Shape с чистого** (17.11): все входы зовут `shapeFreshUi()` (views/sales-shape-ui.js) — Designer, панели закрыты.
 - **PO у всех клиентов** (29–30.10): без PO Save — «Enter the Customer PO.»; Verify / батч / выдача старого заказа —
   окно «PO missing» только с Back; квоте и черновику PO не нужен, Convert спрашивает PO. Галочка PO Required ни на что
   не влияет — «Save as Draft и PO у всех» (2026-10).

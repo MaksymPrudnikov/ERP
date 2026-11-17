@@ -172,13 +172,14 @@ module.exports=async function({page,eq,ok}){
  eq('после IGU: «Waiting here» юнитами, «Mark 1 unit done» пишет оба лайта, «U1» с клавиатуры двигает юнит, на карточке — «Unit sticker»',await t.p.evaluate(()=>{
   unReset();const u=unOrder(),ids=[u.lite(0,1),u.lite(1,1),u.lite(0,2),u.lite(1,2)];
   ids.forEach(x=>['CUT','ARRIS','HEAT','IGU'].forEach(st=>unScan(st,x)));unLogin('SHIPR','Sam R.');
-  const row=document.querySelector('[data-station-here]'),text=[...row.children].slice(1).map(td=>td.textContent).join('|');
+  /* Срок — последняя ячейка: у заказа он есть всегда (17.11.2026), здесь важно только, что он показан. */
+  const row=document.querySelector('[data-station-here]'),cells=[...row.children].slice(1).map(td=>td.textContent),text=cells.slice(0,-1).join('|')+'|'+(cells[cells.length-1]?'due':'');
   row.click();const acts=[...document.querySelectorAll('.st-here-acts button')].map(b=>b.textContent);document.querySelector('[data-station-here-mark]').click();
   const moved=DB.stationScan.filter(s=>s.station==='SHIPR').length,manual=DB.stationScan.filter(s=>s.station==='SHIPR').every(s=>s.manual);
   stationSubmit('U2');const byU={kind:stationLast.check.kind,moved:DB.stationScan.filter(s=>s.station==='SHIPR').length,manual:DB.stationScan.filter(s=>s.station==='SHIPR').slice(-2).map(s=>s.manual).join()};
   document.querySelector('[data-station-unit-reprint]').click();const printed=window.unPrinted,label=!!document.querySelector('.stk-print-page');stkPrintCleanup();
   unOut();return {text,acts,moved,manual,byU,printed,label};
- }),{text:'Line 1 · 37 × 71|Unit · 6CLEAR / 6Q240|B-0001|2|',acts:['✓ Mark 1 unit done','Print a new unit sticker','Drawing'],moved:2,manual:true,byU:{kind:'ok',moved:4,manual:'true,true'},printed:1,label:true});
+ }),{text:'Line 1 · 37 × 71|Unit · 6CLEAR / 6Q240|B-0001|2|due',acts:['✓ Mark 1 unit done','Print a new unit sticker','Drawing'],moved:2,manual:true,byU:{kind:'ok',moved:4,manual:'true,true'},printed:1,label:true});
 
  eq('поздняя долли забирает оба слоя LAM: отдельный ламинат и ламинированный лайт внутри IGU',await t.p.evaluate(()=>{
   const result=[];for(const type of ['single','double']){

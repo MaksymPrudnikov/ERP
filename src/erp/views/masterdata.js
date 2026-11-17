@@ -160,6 +160,8 @@ function viewMdSetup(){
   <button type="button" data-setup-card-add ${onAct('click',orderSetupCardAdd)}>+ Card</button>
   <h3>Weights</h3><p class="mut">Unit weight on orders and stickers.</p>
   <div class="grid">${(()=>{const g=(DB.materialWeightRates||[]).find(r=>r.key==='glass');return `<div><label>Glass density, kg/m³</label><input type="number" min="0" step="any" data-setup-density value="${g&&g.rate!=null?g.rate:''}" placeholder="unknown" ${onAct('change',mdWeightSet,'glass',EL_VALUE,1)}></div>`;})()}</div>
+  <h3>Due date</h3><p class="mut">Set by Priority · business days, Mon–Fri.</p>
+  <div class="grid">${[['dueNormalDays','Normal'],['dueRushDays','Rush'],['dueCriticalDays','Critical']].map(([k,l])=>`<div><label>${l}, days</label><input type="number" min="0" step="1" data-setup="${k}" value="${s[k]}" ${onAct('change',orderSetupSet,String(k),EL_VALUE)}></div>`).join('')}</div>
   <h3>Frit</h3><p class="mut">Prefilled on a new frit lite.</p>
   <div class="grid">
    <div><label>Dot, mm</label><input type="number" min="0.1" step="0.1" data-setup="fritDotMm" value="${s.fritDotMm}" ${onAct('change',orderSetupSet,'fritDotMm',EL_VALUE)}></div>

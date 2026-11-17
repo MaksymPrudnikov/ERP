@@ -43,6 +43,9 @@ const SALES_LIST_COLUMNS=[
     Invoice клиенту (журнал заказа); Not invoiced — всё выдано, счёта не было.
     07.11.2026 — видна сразу, за Status, с фильтром ▾ как у других колонок. */
  {k:'invoice',label:'Invoice',type:'list',def:true},
+ /* Заметка заказа (владелец 17.11.2026: «не хватает ячейки NOTE для самого
+    заказа»): узкая, две строки, наведи — весь текст; клик — окно ввода. */
+ {k:'notes',label:'Notes',type:'text',def:true},
  {k:'priority',label:'Priority',type:'list',def:true},
  {k:'glass',label:'Glass',type:'text',def:true},
  {k:'orderItems',label:'Order Items',type:'text',def:true},
@@ -71,8 +74,7 @@ const SALES_LIST_COLUMNS=[
  {k:'billed',label:'Picked up',type:'date'},
  {k:'payDue',label:'Payment due',type:'date'},
  {k:'daysLate',label:'Days late',type:'number'},
- {k:'holdReason',label:'Hold reason',type:'text'},
- {k:'notes',label:'Notes',type:'text'}
+ {k:'holdReason',label:'Hold reason',type:'text'}
 ];
 const SALES_LIST_OPS={
  text:[['contains','Contains'],['notContains','Does not contain'],['startsWith','Starts with'],['endsWith','Ends with'],['equals','Equals'],['notEqual','Not equal'],['empty','Is empty'],['notEmpty','Is not empty']],
@@ -85,8 +87,9 @@ const SALES_LIST_PRESETS=[['today','Today'],['yesterday','Yesterday'],['thisWeek
 const SALES_LIST_DUE_PRESETS=[['overdue','Overdue'],['today','Today'],['next7','Next 7 days'],['next30','Next 30 days'],['thisMonth','This month'],['nextMonth','Next month']];
 const SALES_HOLD_REASONS=['Waiting for payment','Customer asked to wait','Sizes or drawing to confirm','Credit check'];
 /* Sales: колонка прячется на экране уже этой ширины (владелец, 2.11.2026).
-   Created — до 1820 (07.11.2026): место колонке Invoice, таблица без прокрутки. */
-const SALES_LIST_NARROW={orderItems:1800,glass:1620,created:1820,priority:1400,area:1400,units:1200,po:1200,receipts:1200};
+   Created — до 1820 (07.11.2026): место колонке Invoice, таблица без прокрутки.
+   17.11.2026 — место колонке Notes: Area ft² прячется уже 1960, Notes видна с 1560. */
+const SALES_LIST_NARROW={notes:1560,orderItems:1800,glass:1620,created:1820,priority:1400,area:1960,units:1200,po:1200,receipts:1200};
 /* Show at bottom: что считать под колонкой. Таблицы с итогом salesListFooter. */
 const SALES_LIST_CALC_NUMBER=[['sum','Sum'],['avg','Average'],['count','Count'],['min','Min'],['max','Max'],['none','None']];
 const SALES_LIST_CALC_TEXT=[['count','Count'],['unique','Unique'],['none','None']];
@@ -167,6 +170,9 @@ function salesListCleanPrefs(p){
  if(salesListScope()==='sales'){
   if(p.invoiceShown!==true){const i=cols.findIndex(c=>c.k==='invoice');if(i>=0){const c=cols.splice(i,1)[0];c.on=true;const at=cols.findIndex(x=>x.k==='status');cols.splice(at>=0?at+1:cols.length,0,c);}}
   clean.invoiceShown=true;
+  /* Notes (17.11.2026) — так же: один раз включается и встаёт за Invoice. */
+  if(p.notesShown!==true){const i=cols.findIndex(c=>c.k==='notes');if(i>=0){const c=cols.splice(i,1)[0];c.on=true;const at=cols.findIndex(x=>x.k==='invoice');cols.splice(at>=0?at+1:cols.length,0,c);}}
+  clean.notesShown=true;
  }
  return clean;
 }
@@ -540,6 +546,7 @@ function salesListCell(info,col){
   case 'created':case 'due':case 'validUntil':case 'updated':case 'billed':case 'payDue':return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;
   case 'status':return `<td>${q?salesQuoteGroupPill(o):salesStatusPill(o)}${!q&&o.onHold?' <span class="pill hold">On Hold</span>':''}</td>`;
   case 'invoice':return `<td>${salesInvoicePill(o,v)}</td>`;
+  case 'notes':return info.n?'<td></td>':`<td class="sl-notes" data-order-note="${esc(o.id)}" ${onActStop('click',salesNoteOpen,String(o.id))}><span class="sl-note-text" title="${esc(v)}">${v?raw(v):'<span class="mut">—</span>'}</span></td>`;
   case 'glass':case 'orderItems':return `<td><span class="sl-glass" title="${esc(v)}">${raw(v||'—')}</span></td>`;
   case 'weight':return salesListWeightCell(v,info.memo.weightInfo);
   case 'daysLate':return `<td class="n">${v?`<b class="fin-due">${v} d</b>`:'<span class="mut">—</span>'}</td>`;
@@ -629,7 +636,7 @@ function salesListView(){
  },cols.length+2);
  const empty=`<tr><td colspan="${cols.length+2}" class="empty">${all.length?'Nothing matches the filters.':'No Sales Orders yet'}</td></tr>`;
  const wide=window.innerWidth>=1600,dateBtn=salesListDateButton(),chips=salesStatusChips(shown);salesListChipsNow=chips;
- return `<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">${salesListShowButton()}${openBtn}${deleteBtn}${holdBtn}${stickersBtn}${estBtn}${prodBtn}<span class="sales-toolbar-sp"></span>${wide?'':dateBtn}<button ${onAct('click',salesOrderNew,'quote')}>+ New Quote</button><button class="pri" ${onAct('click',salesOrderNew,'order')}>+ New Sales Order</button></div><div class="sl-filter-row">${salesQuickHTML(filtered,anyDate,{cur:salesStatusFilter?'-':quick,set:salesQuickPick,name:salesListShortLabel,invoice:true})}${salesListStatusPills(chips)}${wide?`<span class="sales-toolbar-sp"></span>${dateBtn}`:''}</div>${salesListStatusRow(chips)}${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${cw?cwTableClass('sales'):''}"${cw?cwTableAttrs('sales',keys):''}>${cw?cwColgroup('sales',keys):''}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" ${onAct('click',salesListToggleAll,EL_CHECKED)}><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" ${onAct('click',salesListOpenColumns,EVENT)}>${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
+ return `<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">${salesListShowButton()}${openBtn}${deleteBtn}${holdBtn}${stickersBtn}${estBtn}${prodBtn}<span class="sales-toolbar-sp"></span>${wide?'':dateBtn}<button ${onAct('click',salesOrderNew,'quote')}>+ New Quote</button><button class="pri" ${onAct('click',salesOrderNew,'order')}>+ New Sales Order</button></div><div class="sl-filter-row">${salesQuickHTML(filtered,anyDate,{cur:salesStatusFilter?'-':quick,set:salesQuickPick,name:salesListShortLabel,invoice:true})}${salesListStatusPills(chips)}${wide?`<span class="sales-toolbar-sp"></span>${dateBtn}`:''}</div>${salesListStatusRow(chips)}${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${cw?cwTableClass('sales'):''}"${cw?cwTableAttrs('sales',keys):''}>${cw?cwColgroup('sales',keys):''}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" ${onAct('click',salesListToggleAll,EL_CHECKED)}><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" ${onAct('click',salesListOpenColumns,EVENT)}>${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${salesNoteDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
 }
 
 /* ------------------------------ Меню ----------------------------------- */
@@ -755,7 +762,7 @@ function salesListMoveColumnTo(from,to,after){
  const [c]=cols.splice(a,1),b=cols.findIndex(x=>x.k===to);if(b<0){cols.splice(a,0,c);return;}
  cols.splice(after?b+1:b,0,c);salesListSavePrefs();render();
 }
-const SALES_LIST_WIDTH={type:76,number:96,customer:110,po:88,created:92,due:84,status:140,priority:84,glass:150,orderItems:160,batch:110,unitType:96,readyQty:80,units:76,area:92,total:100,receipts:100,balance:100,invoice:126};
+const SALES_LIST_WIDTH={type:76,number:96,customer:110,po:88,created:92,due:84,status:140,priority:84,glass:150,orderItems:160,batch:110,unitType:96,readyQty:80,units:76,area:92,total:100,receipts:100,balance:100,invoice:126,notes:100};
 cwRegister('sales',{
  widths:()=>salesListLoadPrefs().widths||{},
  save:w=>{const p=salesListLoadPrefs();if(Object.keys(w).length)p.widths=w;else delete p.widths;salesListSavePrefs();},
@@ -831,7 +838,7 @@ function salesListContextHTML(m,style){
  const q=salesIsQuote(o),ids=salesListSelectedOrders(),many=ids.length>1&&ids.includes(o.id);
  const item=(act,label,cls)=>`<button type="button" role="menuitem" class="${cls||''}" data-menu="${act}" ${onAct('click',salesListMenuRun,String(act))}>${label}</button>`;
  const hold=q?'':o.onHold?item('release',many?'Release · '+ids.length+' orders':'Release'):item('hold',many?'⛔ On Hold… · '+ids.length+' orders':'⛔ On Hold…');
- return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${item('copy','Copy')}${!q&&typeof salesProdOpen==='function'?item('production','Production'):''}${typeof orderLogOpen==='function'?item('log','Activity log'):''}${orderEmailLatest(o)?item('email','Open email'):''}${typeof skipAllowed==='function'&&!many&&skipAllowed()&&skipCanOpen(o)?item('skip','Skip…'):''}${hold}<hr>${item('documents','Documents')}${item('drawings','Drawings')}${typeof salesCutEstimateOpen==='function'&&cutEstUsable(o)?item('cutpreview',salesCutEstimateIds().length>1?'Cut preview · '+salesCutEstimateIds().length+' selected':'Cut preview'):''}${!q&&o.status!=='cancelled'?item('stickers','Print stickers…'):''}${!q&&typeof productionUnbatchAllowed==='function'&&productionUnbatchAllowed()&&productionUnbatchCanOpen(o)?item('unbatch','Unbatch order…'):''}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
+ return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${item('copy','Copy')}${!q&&typeof salesProdOpen==='function'?item('production','Production'):''}${typeof orderLogOpen==='function'?item('log','Activity log'):''}${!many?item('note','Note…'):''}${orderEmailLatest(o)?item('email','Open email'):''}${typeof skipAllowed==='function'&&!many&&skipAllowed()&&skipCanOpen(o)?item('skip','Skip…'):''}${hold}<hr>${item('documents','Documents')}${item('drawings','Drawings')}${typeof salesCutEstimateOpen==='function'&&cutEstUsable(o)?item('cutpreview',salesCutEstimateIds().length>1?'Cut preview · '+salesCutEstimateIds().length+' selected':'Cut preview'):''}${!q&&o.status!=='cancelled'?item('stickers','Print stickers…'):''}${!q&&typeof productionUnbatchAllowed==='function'&&productionUnbatchAllowed()&&productionUnbatchCanOpen(o)?item('unbatch','Unbatch order…'):''}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
 }
 function salesListMenuRun(act){
  const m=salesListMenu;salesListMenu=null;
@@ -842,6 +849,7 @@ function salesListMenuRun(act){
  else if(act==='copy')salesCopyOrder(o.id);
  else if(act==='production')salesProdOpen(o.id);
  else if(act==='log')orderLogOpen(o.id);
+ else if(act==='note')salesNoteOpen(o.id);
  else if(act==='email'){const e=orderEmailLatest(o);if(e)window.open(orderEmailUrl(e),'_blank','noopener');render();}
  else if(act==='skip')skipOpen(o.id);
  else if(act==='hold')salesHoldOpen(ids.filter(id=>!held(id)));
@@ -879,6 +887,24 @@ function salesHoldOtherInput(v){
   d.choice=SALES_HOLD_REASONS.length;
   document.querySelectorAll('.sl-hold-choice').forEach((el,i)=>{el.classList.toggle('on',i===SALES_HOLD_REASONS.length);const r=el.querySelector('input[type=radio]');if(r)r.checked=i===SALES_HOLD_REASONS.length;});
  }
+}
+/* Окно заметки заказа: из правого клика Note… и по клику на ячейку Notes. */
+let salesNoteDialog=null;
+function salesNoteOpen(id){const o=(DB.salesOrder||[]).find(x=>x.id===id);if(!o)return;salesListMenu=null;salesNoteDialog={id,text:o.notes||''};render();setTimeout(()=>{const t=document.getElementById('salesNoteText');if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length);}},0);}
+function salesNoteClose(){salesNoteDialog=null;render();}
+function salesNoteInput(v){if(salesNoteDialog)salesNoteDialog.text=v;}
+function salesNoteSave(){
+ const d=salesNoteDialog;if(!d)return;const o=(DB.salesOrder||[]).find(x=>x.id===d.id);salesNoteDialog=null;if(!o){render();return;}
+ const text=String(d.text||'').trim(),now=new Date().toISOString();
+ if(text!==(o.notes||'')){o.notes=text;o.updatedAt=now;if(soDraft&&soDraft.id===o.id){soDraft.notes=text;soDraft.updatedAt=now;}touch();}
+ render();
+}
+function salesNoteDialogHTML(){
+ const d=salesNoteDialog;if(!d)return '';const o=(DB.salesOrder||[]).find(x=>x.id===d.id);if(!o)return '';
+ return `<div class="sales-service-modal-back sales-dialog-back" ${onActSelf('click',salesNoteClose)}><div class="sales-service-modal sales-dialog sl-note-dialog" role="dialog" aria-modal="true" aria-label="Order note">
+  <div class="sales-service-modal-head"><h3>Note · ${raw(o.businessNumber||'Auto Number')}</h3><button type="button" aria-label="Close" ${onAct('click',salesNoteClose)}>×</button></div>
+  <div class="sales-dialog-body"><p class="mut">${raw(salesCustomerDisplay(o.customerId)||'—')}</p><textarea id="salesNoteText" rows="7" ${onAct('input',salesNoteInput,EL_VALUE)}>${esc(d.text)}</textarea></div>
+  <div class="sales-dialog-actions"><button type="button" ${onAct('click',salesNoteClose)}>Cancel</button><button type="button" class="pri" data-note-save ${onAct('click',salesNoteSave)}>Save</button></div></div></div>`;
 }
 function salesHoldDialogHTML(){
  const d=salesHoldDialog;if(!d)return '';

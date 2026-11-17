@@ -37,7 +37,7 @@ module.exports=async function({page,eq}){
    money:['grand','balance','price','subtotal','amount'].filter(k=>text.toLowerCase().includes('"'+k)),other:mb('lookup',{from:'mary@chen.example'}).rows.length};
  }),{step:4,rows:['4502 Verified 0/3','4471 New 0/3'],open:2,counts:[],known:['4471','4502'],linked:0,money:[],other:0});
  eq('Мост, шаг 4: у клиента больше трёх открытых — три строки, счётчик по статусам, known все; черновик и чужие заказы не в счёт',await run(()=>{
-  const ids=[mbOrder(mbC,{customerPo:'P-1',dueDate:'2026-12-01'}),mbOrder(mbC,{customerPo:'P-2',dueDate:'2026-11-25'}),mbOrder(mbC,{customerPo:'P-3'})];mbOrder(mbD,{customerPo:'D-1'});
+  const ids=[mbOrder(mbC,{customerPo:'P-1',dueDate:'2026-12-01'}),mbOrder(mbC,{customerPo:'P-2',dueDate:'2026-11-25'}),mbOrder(mbC,{customerPo:'P-3',dueDate:'2027-01-15'})];mbOrder(mbD,{customerPo:'D-1'});
   const d=mbOrder(mbC,{customerPo:'P-DRAFT'});salesRecord(d).isDraft=true;touch();window.mbMany=ids;
   const r=mb('lookup',{from:'john@abcglass.example'});
   return {rows:r.rows.map(x=>x.po+' '+x.progress.status),open:r.openCount,counts:r.counts.map(c=>c.label+' '+c.count),known:r.known.length,draft:r.known.some(k=>k.po==='P-DRAFT'||k.po==='D-1')};

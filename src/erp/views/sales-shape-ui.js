@@ -20,7 +20,6 @@ let sDimEdit=null,sMetricDimEdit=null;
    дюймов. Старые сдвиги −/+ этого браузера (sMetricOffsets) читаются только
    для дюймов — shapeLayoutAdoptLegacy переносит их в форму. */
 var SHAPE_METRIC_STORAGE_KEY='glass_erp_shape_metric_detail',SHAPE_METRIC_OFFSETS_STORAGE_KEY='glass_erp_shape_metric_offsets_v1',sMetricDetail=false,sMetricOffsets={};
-try{sMetricDetail=localStorage.getItem(SHAPE_METRIC_STORAGE_KEY)==='1';}catch(e){}
 try{var metricStored=JSON.parse(localStorage.getItem(SHAPE_METRIC_OFFSETS_STORAGE_KEY)||'{}');if(metricStored&&typeof metricStored==='object')sMetricOffsets=metricStored;}catch(e){}
 function setShapeMetricDetail(value){
   sMetricDetail=!!value;sMetricDimEdit=null;
@@ -210,8 +209,18 @@ function viewShapeSkill(){
 }
 
 function openShapeNewPicked(){openShapeNew(document.getElementById('s_new_type').value);}
-function openShapeNew(type){shapeResetMarkAnchors();sEdit='new';sView='production';sWorkspaceTab='designer';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;sFeatureExpandedId=null;sSourceOpen=false;sManufacturingOpen=false;sManufacturingPlace=null;sManufacturingSelected=null;sManufacturingCustomId=null;sDimEdit=null;sDraft=newShapeDef(type||'smart');sDraft.name=shapePresetInfo(sDraft.type).label;if(typeof setSidebarCollapsed==='function')setSidebarCollapsed(true,false);render();}
-function openShapeEdit(i){shapeResetMarkAnchors();sEdit=i;sView='production';sWorkspaceTab='designer';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;sFeatureExpandedId=null;sSourceOpen=false;sManufacturingOpen=false;sManufacturingPlace=null;sManufacturingSelected=null;sManufacturingCustomId=null;sDimEdit=null;sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(DB.shapeDef[i])));if(typeof setSidebarCollapsed==='function')setSidebarCollapsed(true,false);render();}
+/* Shape всегда открывается с чистого (владелец 17.11.2026: «меню входа в шейп
+   помнит прошлое окно, а зачем? лучше всегда новое»): вкладка Designer, все
+   панели закрыты, место метки, правка размера, Muntin, Lite split, печать и
+   Metric detail — заново. Зовут все входы: библиотека, Sales, NCR/Recut. */
+function shapeFreshUi(){
+ shapeResetMarkAnchors();sWorkspaceTab='designer';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;sFeatureExpandedId=null;sSourceOpen=false;
+ sManufacturingOpen=false;sManufacturingPlace=null;sManufacturingSelected=null;sManufacturingCustomId=null;sDimEdit=null;sMetricDimEdit=null;
+ sLayoutEdit=null;sLayoutDrag=null;shapeDimUi=true;sPrintMenu=false;sLiteSplitOpen=false;sMuntinOpen=false;sMetricDetail=false;
+ if(typeof shapeProdExceptionsOpen!=='undefined'){shapeProdExceptionsOpen=false;shapeProdSelectedEdgeId=null;}
+}
+function openShapeNew(type){shapeFreshUi();sEdit='new';sView='production';sDraft=newShapeDef(type||'smart');sDraft.name=shapePresetInfo(sDraft.type).label;if(typeof setSidebarCollapsed==='function')setSidebarCollapsed(true,false);render();}
+function openShapeEdit(i){shapeFreshUi();sEdit=i;sView='production';sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(DB.shapeDef[i])));if(typeof setSidebarCollapsed==='function')setSidebarCollapsed(true,false);render();}
 function shapeFileSizeText(bytes){
   var n=Math.max(0,+bytes||0);if(n<1024)return Math.round(n)+' B';if(n<1024*1024)return (n/1024).toFixed(n<10240?1:0)+' KB';return (n/(1024*1024)).toFixed(1)+' MB';
 }

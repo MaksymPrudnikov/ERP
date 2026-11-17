@@ -34,7 +34,8 @@ module.exports=async function({page,eq,ok}){
   };
  });
  await init();
- const HEADS=['Type','Number','Customer','PO','Created','Due','Status','Invoice','Priority','Glass','Order Items','Units','Area ft²','Total','Receipts','Balance'];
+ /* Notes — за Invoice; Area ft² на этой ширине уступает ей место (владелец 17.11.2026, SALES_LIST_NARROW). */
+ const HEADS=['Type','Number','Customer','PO','Created','Due','Status','Invoice','Notes','Priority','Glass','Order Items','Units','Total','Receipts','Balance'];
 
  eq('колонки по умолчанию как на макете; Type — только когда видны и заказы, и квоты; строки поиска нет',await t.p.evaluate(()=>{
   slSeed();const heads=slHeads();
@@ -102,7 +103,7 @@ module.exports=async function({page,eq,ok}){
   return {ops,chip,active,presets,vals};
  }),{ops:['startsWith','gt','gte','lt','lte','eq','ne','between','empty'],chip:'Total: > $1,000.00 and < $1,000,000.00',active:true,presets:9,vals:['New','Not sent']});
 
- const MOVED=['Type','Number','Customer','PO','Created','Due','Status','Invoice','Order Items','Units','Total','Area ft²','Receipts','Balance','Weight kg'];
+ const MOVED=['Type','Number','Customer','PO','Created','Due','Status','Invoice','Notes','Order Items','Units','Total','Receipts','Balance','Weight kg'];
  eq('колонки: скрыть Priority и Glass, включить Weight, поднять Total',await t.p.evaluate(()=>{
   salesListSetColumn('priority',false);salesListSetColumn('glass',false);salesListSetColumn('weight',true);salesListMoveColumn('total',-1);
   return slHeads();
@@ -140,7 +141,7 @@ module.exports=async function({page,eq,ok}){
  }),{range:4,btnBefore:'On Hold (2)',choices:5,held:[true,true],reason:['Credit check','Credit check'],red:2,btnAfter:'Release (2)',bar:true,
   title:'Order 76002 is On Hold',buttons:['Back','Release hold'],released:[false,false],status:'new',work:false});
 
- eq('правая кнопка мыши на строке: Open, Copy, Production, Activity log, Skip…, On Hold…, Documents, Drawings, Cut preview, Print stickers…, Unbatch order…, Cancel order, Delete; On Hold… открывает окно для этой строки',await t.p.evaluate(()=>{
+ eq('правая кнопка мыши на строке: Open, Copy, Production, Activity log, Note…, Skip…, On Hold…, Documents, Drawings, Cut preview, Print stickers…, Unbatch order…, Cancel order, Delete; On Hold… открывает окно для этой строки',await t.p.evaluate(()=>{
   const id=slByNum('76004').id,tr=document.querySelector(`[data-order-row="${id}"]`);
   tr.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:200,clientY:200}));
   const items=[...document.querySelectorAll('.sl-ctx [data-menu]')].map(x=>x.dataset.menu);
@@ -154,7 +155,7 @@ module.exports=async function({page,eq,ok}){
   const drawings=!!docState&&docState.kind==='drawings'&&!!soDraft&&soDraft.id===id&&document.querySelectorAll('[data-doc-drawing]').length===1;
   docClose();soEdit=null;soDraft=null;tab='sales';subtab='orders';salesListSel=new Set();render();
   return {items,dlg,closed:!document.querySelector('.sl-hold-dialog'),drawings};
- }),{items:['open','copy','production','log','skip','hold','documents','drawings','cutpreview','stickers','unbatch','cancel','delete'],dlg:true,closed:true,drawings:true});
+ }),{items:['open','copy','production','log','note','skip','hold','documents','drawings','cutpreview','stickers','unbatch','cancel','delete'],dlg:true,closed:true,drawings:true});
 
  eq('цвет строки: Batched — серая, On Hold — красная',await t.p.evaluate(()=>{
   slByNum('76004').status='batched';render();
@@ -236,7 +237,7 @@ module.exports=async function({page,eq,ok}){
   salesListPrefs=null;render();const after=document.querySelectorAll('[data-status-chip]').length;
   all().click();return {one,reset,hidden,saved,after,shown:document.querySelectorAll('[data-status-chip]').length>0};
  }),{one:1,reset:{quick:'all',status:'',chips:true},hidden:0,saved:true,after:0,shown:true});
- const WIDTHS={1920:[],1800:['created'],1799:['orderItems','created'],1620:['orderItems','created'],1600:['orderItems','glass','created'],1440:['orderItems','glass','created'],1399:['orderItems','glass','created','priority','area'],1280:['orderItems','glass','created','priority','area'],1199:['orderItems','glass','created','priority','area','units','po','receipts'],1024:['orderItems','glass','created','priority','area','units','po','receipts']};
+ const WIDTHS={1920:['area'],1800:['created','area'],1799:['orderItems','created','area'],1620:['orderItems','created','area'],1600:['orderItems','glass','created','area'],1440:['notes','orderItems','glass','created','area'],1399:['notes','orderItems','glass','created','priority','area'],1280:['notes','orderItems','glass','created','priority','area'],1199:['notes','orderItems','glass','created','priority','area','units','po','receipts'],1024:['notes','orderItems','glass','created','priority','area','units','po','receipts']};
  await t.p.evaluate(()=>{slCleanup();const a=slCustomer('Very Long Customer Name Architectural Glass And Mirror Incorporated');slOrder(a,{days:1,po:'PO-123456789012345'});salesShow={orders:true,quotes:false,ncr:false};render();});
  for(const w of Object.keys(WIDTHS).map(Number)){
   await t.p.setViewportSize({width:w,height:900});await t.p.waitForFunction(x=>innerWidth===x,w);
