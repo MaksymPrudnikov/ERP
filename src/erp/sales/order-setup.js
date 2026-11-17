@@ -22,7 +22,9 @@ const ORDER_SETUP_DEFAULT={
  cardNetworks:[{id:'visa',name:'Visa card fee',rate:2.34},{id:'mastercard',name:'Mastercard fee',rate:2.39},{id:'amex',name:'American Express fee',rate:3.15}],
  deliveryOn:false,deliveryAmount:0,
  skidDepositOn:false,skidDepositAmount:0,
- fritDotMm:5,fritMargin16:16,fritCorner:'Top right'
+ fritDotMm:5,fritMargin16:16,fritCorner:'Top right',
+ /* Due date по приоритету — рабочих дней Пн–Пт (владелец 17.11.2026). */
+ dueNormalDays:7,dueRushDays:3,dueCriticalDays:1
 };
 /* Что может входить в базу сбора, кроме Subtotal. */
 const ORDER_CHARGE_BASE_PARTS={hst:['energy','delivery'],card:['energy','hst','delivery']};
@@ -38,6 +40,7 @@ function normalizeOrderSetup(){
  });
  out.fritDotMm=out.fritDotMm>0?out.fritDotMm:d.fritDotMm;
  out.fritMargin16=Math.round(out.fritMargin16);
+ ['dueNormalDays','dueRushDays','dueCriticalDays'].forEach(k=>{out[k]=Math.round(out[k]);});
  out.fritCorner=FRIT_MARGIN_CORNERS.includes(s.fritCorner)?s.fritCorner:d.fritCorner;
  /* Списка карт нет вовсе (старая база) — засев; список очищен руками —
     остаётся пустым: комиссии тогда нет, пока её не заведут. */
@@ -51,6 +54,16 @@ function normalizeOrderSetup(){
 }
 normalizeOrderSetup();
 function orderSetup(){return DB.orderSetup||ORDER_SETUP_DEFAULT;}
+/* Due date по приоритету (владелец 17.11.2026): Normal 7, Rush 3, Critical 1
+   рабочих дней (Пн–Пт, праздники не считаем) от дня from (пусто — сегодня).
+   Числа — Data → Setup. Ответ — 'YYYY-MM-DD' по местному времени. */
+function salesDueDays(priority){const s=orderSetup();return priority==='critical'?s.dueCriticalDays:priority==='rush'?s.dueRushDays:s.dueNormalDays;}
+function salesDueDate(priority,from){
+ const d=from?new Date(from):new Date();if(isNaN(d))return '';
+ d.setHours(12,0,0,0);let n=Math.max(0,Math.round(+salesDueDays(priority)||0));
+ while(n>0){d.setDate(d.getDate()+1);const w=d.getDay();if(w!==0&&w!==6)n--;}
+ const p=x=>String(x).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+}
 function orderSetupNetwork(id){return orderSetup().cardNetworks.find(x=>x.id===id)||null;}
 function orderSetupBase(kind){const s=orderSetup(),key=kind+'On';return ORDER_CHARGE_BASE_PARTS[kind].filter(p=>s[key+p[0].toUpperCase()+p.slice(1)]);}
 /* Снимок для нового заказа: ставки, первая карта списка, база сборов. */

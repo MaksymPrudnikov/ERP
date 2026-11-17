@@ -151,7 +151,7 @@ function salesOpenRecutShape(id,liteIndex){
  const copy=normalizeShapeDef(JSON.parse(JSON.stringify(base)));copy.id=newShapeId();copy.ownerLineId=l.id;
  if(!recutHasShape(r))copy.name='Recut '+r.no+' · Line '+r.line+(lite==null?'':' · Lite '+(lite+1));
  salesBridge=Object.assign({kind:'shape',lineId:l.id,recutId:r.id},lite==null?{}:{liteIndex:lite});
- tab='configurators';subtab='shape';sView='setup';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;
+ tab='configurators';subtab='shape';shapeFreshUi();sView='setup';
  sEdit='new';sDraft=copy;salesApplyLineGlassThicknessToShape(view,sDraft,lite);soEdgeworkLineId=null;
  render();return true;
 }

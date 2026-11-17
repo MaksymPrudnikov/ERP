@@ -458,7 +458,7 @@ function simPage() {
     });
     soDraft.lines.forEach((l, i) => shapeLine(l, specs[i]));
     salesApplyCustomerDefaults(c.id);
-    Object.assign(soDraft, { customerPo: extra.po || '', dueDate: extra.due || '', priority: extra.priority || 'normal', notes: extra.notes || '' });
+    Object.assign(soDraft, { customerPo: extra.po || '', dueDate: extra.due || salesDueDate(extra.priority || 'normal'), priority: extra.priority || 'normal', notes: extra.notes || '' });
     if (extra.delivery) soDraft.delivery = extra.delivery;
     /* Свои цены клиента: скидка на стекло — цена лайта; полировка за $0. */
     if (c.discount < 1) soDraft.makeups.forEach(m => m.panes.forEach(p => { const cat = salesPaneCatalogPrice(p); if (cat != null) p.priceOverride = round2(cat * c.discount); }));

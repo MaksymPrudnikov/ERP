@@ -183,7 +183,9 @@ module.exports=async function({page,eq,ok}){
 
  eq('Конструктор: строки без даты — строкой «No date», итог равен сумме строк; пустой фильтр «Is any of» ничего не отсекает',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer({legalName:'North Shore Windows'}),who={id:'u1',name:'Andrei'};
-  const a=rbOrder(c,'6CLEAR','double',[[30,40,1]],{dueDate:repAddDays(finToday(),3)}),b=rbOrder(c,'6CLEAR','double',[[30,40,1]],{dueDate:''});
+  const a=rbOrder(c,'6CLEAR','double',[[30,40,1]],{dueDate:repAddDays(finToday(),3)}),b=rbOrder(c,'6CLEAR','double',[[30,40,1]],{dueDate:repAddDays(finToday(),5)});
+  /* Заказ без срока — старый, до 17.11.2026: теперь без Due date Save не пишет. */
+  salesRecord(b).dueDate='';touch();
   const q=repQuery({source:'orders',dims:['due:month'],metrics:['count']}),sum=q.keys.reduce((n,k)=>n+q.rowTotals.get(k)[0],0);
   rbBatch([a]);rbIds(a).forEach(p=>rbGo('CUT',p,who));
   const all=repQuery({source:'glass',date:{preset:'all'},metrics:['count']}).total[0],empty=repQuery({source:'glass',date:{preset:'all'},metrics:['count'],filters:[{f:'station',op:'in',v:[]}]}).total[0];

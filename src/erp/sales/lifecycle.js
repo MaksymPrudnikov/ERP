@@ -467,7 +467,9 @@ function salesConvertQuoteRecord(id,po){
     оплаты и журналом), не вся база; запись не прошла — всё как было. */
  const out=storageCommand(()=>{
   const now=new Date().toISOString();
-  const copy=salesCopySalesRecord(quote,{kind:'order',status:'new',statusDates:{new:now},businessNumber:nextSalesOrderNumber(),fromQuoteId:quote.id,wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',createdAt:now,updatedAt:now,customerPo:poText});
+  const copy=salesCopySalesRecord(quote,{kind:'order',status:'new',statusDates:{new:now},businessNumber:nextSalesOrderNumber(),fromQuoteId:quote.id,wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',createdAt:now,updatedAt:now,customerPo:poText,
+   /* Срок заказа из квоты — от дня конвертации; будущий срок, вписанный в квоту, остаётся. */
+   dueDate:quote.dueDate&&quote.dueDate>=now.slice(0,10)?quote.dueDate:salesDueDate(quote.priority,now)});
   const order=normalizeSalesOrder(copy);DB.salesOrder.push(order);
   if(typeof finCaptureTerms==='function')finCaptureTerms(order);
   quote.status='won';quote.wonOrderId=copy.id;quote.statusDates=Object.assign({},quote.statusDates,{won:now});quote.updatedAt=now;
