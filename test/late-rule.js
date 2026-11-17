@@ -49,6 +49,17 @@ module.exports=async function({page,eq}){
   const left=rbIds(id).filter(p=>!unitCancelledSet(salesRecord(id)).has(p));left.forEach(p=>lrReady(p,-4));
   return {cancelled:!!cancelled&&cancelled.ok!==false,left:left.length,state:lrState(id)};
  }),{cancelled:true,left:1,state:'On time'});
+ eq('Late 5: выдача частями и Recut на остаток — пока переделка в очереди, а срок прошёл, заказ Late; готова — Late по её дню (аудит 17.11.2026)',await t.p.evaluate(()=>{
+  oqReset();DB.recut=[];DB.ncr=[];const c=oqCustomer({legalName:'Late Five'}),id=lrOrder(c,2,-3);rbBatch([id]);
+  rbIds(id).forEach(p=>lrReady(p,-5));const o=salesRecord(id);
+  const made=shippingCreate({customerId:o.customerId,method:'pickup',shipTo:{address1:'Fixture job site'},date:lrDay(-5),items:shippingAvailable(o).slice(0,1).map(shippingItem),extras:[]});
+  const sent=made.ok&&shippingMarkShipped(made.value.id).ok,before=lrState(id),status=salesRecord(id).status;
+  const l=salesRecord(id).lines[0],reason=ncrReasonsFor('OFFICE',{activeOnly:true})[0];
+  recutCreate({orderId:id,where:'OFFICE',reasonId:reason.id,lines:{[l.id]:{on:true,qty:1,which:'unit'}}});
+  const waiting=lrState(id);
+  glassBatchAssign(glassBatchRows([salesRecord(id)]),{});recutPieces(DB.recut[0]).forEach(p=>lrReady(p,-1));
+  return {sent,status,before,waiting,after:lrState(id)};
+ }),{sent:true,status:'shipping',before:'On time',waiting:'Late +3',after:'Late +2'});
  eq('late-rule: no page errors',t.errs,[]);
  await t.c.close();
 };

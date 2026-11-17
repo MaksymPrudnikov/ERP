@@ -70,8 +70,9 @@ Under the card, next to **Open in ERP**, there are two buttons:
   it. You can add to the text or change it before sending.
 - **Paperclip** — the order documents as PDF: Work order, Order confirmation, Proforma invoice, Invoice (it appears
   when the customer has received the last unit), **Drawings** — the drawings of every order line in one file, every
-  sent Packing slip. Drawings take a few seconds; a file over 24 MB is too big for Gmail and is saved to Downloads. Pick one — the file is attached to the reply.
-  If Gmail does not take it, the file is saved to Downloads and the panel tells you to drag it into the reply.
+  sent Packing slip. Pick one — the file goes into the reply, as with Gmail's Attach files; nothing is saved to
+  Downloads. Drawings take a few seconds. A file over 25 MB Gmail itself turns into a Google Drive link. If Gmail
+  does not take the file, the panel says so — click again.
 - You send it yourself, with Send in Gmail.
 - **Edit templates in ERP ↗** at the bottom of the texts opens Master Data → Email templates (with the Master Data
   tick). How to write your own template — [masterdata.en.md](masterdata.en.md), section Company & print.

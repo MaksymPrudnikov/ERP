@@ -15,7 +15,7 @@ const ERP_MATCH = [
 /* Что открыть, если вкладки ERP нет. */
 const ERP_OPEN = 'https://marketing-farm.agency/dist/GLASS_ERP.html';
 /* После этих команд человек продолжает в ERP — её вкладка выходит вперёд. */
-const ERP_FOCUS = ['openOrder', 'openCustomer', 'newOrder'];
+const ERP_FOCUS = ['openOrder', 'openCustomer', 'newOrder', 'openTemplates'];
 
 async function ask(tab, m) {
   try { return await chrome.tabs.sendMessage(tab.id, m); } catch (e) { return null; }

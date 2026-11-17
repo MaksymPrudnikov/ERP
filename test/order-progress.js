@@ -21,6 +21,12 @@ module.exports=async function({page,eq}){
   const id=opNew();oqThrough(id,'verified');const rows=glassBatchRows([salesRecord(id)]);glassBatchAssign(rows.slice(0,1),{deferTouch:true});touch();
   return {pieces:rows.length,p:opU(id)};
  }),{pieces:6,p:{status:'Batched',u:[3,0,0,1,2],done:0,sum:true}});
+ eq('Прогресс: в батче по одному стеклу каждого юнита (второе ждёт) — все юниты в производстве, «не начато» нет (аудит 17.11.2026, M1)',await run(()=>{
+  const id=opNew();oqThrough(id,'verified');const rows=glassBatchRows([salesRecord(id)]),n=new Map();rows.forEach(r=>n.set(r.key,(n.get(r.key)||0)+1));
+  const keys=[[...n].find(([k,c])=>c===2)[0],[...n].find(([k,c])=>c===1)[0]];
+  glassBatchAssign(rows.filter(r=>keys.includes(r.key)),{deferTouch:true});touch();
+  return {batched:rows.filter(r=>keys.includes(r.key)).length,p:opU(id)};
+ }),{batched:3,p:{status:'Batched',u:[3,0,0,3,0],done:0,sum:true}});
  eq('Прогресс: весь заказ в батче — все юниты в производстве; станции — те же клетки, что на доске Production',await run(()=>{
   const id=opNew();oqThrough(id,'batched');window.opB=id;
   const p=salesOrderProgress(salesRecord(id)),x=prodBoard().find(r=>r.o.id===id);

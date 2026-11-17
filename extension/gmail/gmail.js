@@ -26,7 +26,9 @@
     body: 'div.a3s',
     /* Поле ответа и кнопка Reply под перепиской. */
     compose: 'div[contenteditable="true"][role="textbox"]',
-    reply: 'span.ams.bkH'
+    reply: 'span.ams.bkH',
+    /* Кнопка Attach files в поле ответа (скрепка Gmail). */
+    attach: '[command="Files"], [aria-label^="Attach files"]'
   };
   const ADDRESS = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
   const TEXTS = {
@@ -48,7 +50,9 @@
     const id = parts.length > 1 && parts[0] !== 'settings' ? parts[parts.length - 1] : '';
     return /^[A-Za-z0-9_-]{14,80}$/.test(id) ? id : '';
   }
-  function account() { const m = ADDRESS.exec(document.title || ''); return m ? m[0].toLowerCase() : ''; }
+  /* Ящик — последний адрес в заголовке вкладки («<тема> - <ящик> - Gmail»):
+     адрес в теме письма за ящик не принимается (аудит 17.11.2026, M3). */
+  function account() { const all = (document.title || '').match(new RegExp(ADDRESS.source, 'g')); return all ? all[all.length - 1].toLowerCase() : ''; }
   function readThread() {
     const threadId = threadToken(), subj = threadId && document.querySelector(SEL.subject);
     if (!subj) return null;
@@ -121,12 +125,13 @@
   async function act(m, after) {
     if (st.busy) return;
     st.busy = true; st.note = ''; render();
-    const r = await send(m);
-    st.busy = false;
+    let r;
+    try { r = await send(m); } finally { st.busy = false; }
     if (r && r.error) st.note = TEXTS[r.error] || r.error;
     else if (after) after(r);
     render();
-    if (r && r.ok && m.req === 'linkEmail') refresh(true);
+    /* Новый заказ ветки получает её письма в журнал (аудит 17.11.2026, L1). */
+    if (r && r.ok && m.req === 'linkEmail') { st.logged = ''; refresh(true); }
   }
   const email = () => cur && cur.email;
   const openOrder = id => act({ req: 'openOrder', orderId: id });
@@ -170,26 +175,32 @@
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
     return new File([bytes], doc.name, { type: 'application/pdf' });
   }
-  function download(file) {
-    const a = document.createElement('a'), url = URL.createObjectURL(file);
-    a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  /* Кнопка Attach files того ответа, где поле: ищем вверх от поля. */
+  function attachButton(c) {
+    for (let e = c; e && e !== document.body; e = e.parentElement) { const b = e.querySelector(SEL.attach); if (b) return b; }
+    return null;
+  }
+  function press(el) {
+    ['mousedown', 'mouseup', 'click'].forEach(type => el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window })));
   }
   const count = (text, name) => text.split(name).length - 1;
-  /* PDF к ответу — как если бы его перетащили мышкой. Не появился в ответе за
-     три секунды — файл сохраняется в Загрузки, его перетаскивают сами. */
-  const GMAIL_MAX = 24 * 1024 * 1024;
+  /* PDF к ответу: кнопка Attach files ответа, а файл кладёт gmail-attach.js
+     (мир страницы) вместо окна выбора; нет кнопки или файл не появился — как
+     если бы его перетащили мышкой. В Загрузки не сохраняем (владелец,
+     16.11.2026: «не хотел бы скачивать файл — чтобы он ложился в письмо»):
+     не вышло — панель так и говорит. Больше 25 МБ Gmail сам кладёт ссылкой
+     на Google Drive. */
   async function attachFile(file) {
-    /* Больше 25 МБ Gmail вложением не берёт — сразу в Загрузки. */
-    if (file.size > GMAIL_MAX) { download(file); return 'big'; }
     const c = await composeOpen();
-    if (!c) { download(file); return 'saved'; }
-    const before = count(document.body.innerText, file.name), dt = new DataTransfer();
+    if (!c) return 'noreply';
+    const before = count(document.body.innerText, file.name), shown = async ms => { for (let i = 0; i < ms / 100; i++) { await sleep(100); if (count(document.body.innerText, file.name) > before) return true; } return false; };
+    const btn = attachButton(c);
+    /* Сообщение доходит до страницы не сразу — кнопку жмём после него. */
+    if (btn) { window.postMessage({ gf: 'attach-file', file }, location.origin); await sleep(50); press(btn); if (await shown(8000)) return 'attached'; }
+    const dt = new DataTransfer();
     dt.items.add(file);
     ['dragenter', 'dragover', 'drop'].forEach(type => c.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt })));
-    for (let i = 0; i < 30; i++) { await sleep(100); if (count(document.body.innerText, file.name) > before) return 'attached'; }
-    download(file);
-    return 'saved';
+    return await shown(3000) ? 'attached' : 'failed';
   }
   async function menu(kind, orderId) {
     if (st.menu && st.menu.kind === kind && st.menu.orderId === orderId) { st.menu = null; render(); return; }
@@ -199,28 +210,53 @@
     if (r && r.error) { st.menu = null; st.note = TEXTS[r.error] || r.error; render(); return; }
     st.menu.items = kind === 'text' ? r.templates : r.docs; st.menu.canEdit = !!r.canEdit; render();
   }
+  /* PDF приходит частями (мост, part): большой файл одним сообщением между
+     вкладками не пролезает (аудит 17.11.2026, M2). */
+  async function fetchDoc(orderId, key) {
+    const r = await send({ req: 'document', orderId, key });
+    if (!r || r.error || !r.parts) return r || { error: 'closed' };
+    let data = '';
+    for (let i = 0; i < r.parts; i++) {
+      const p = await send({ req: 'part', file: r.file, i });
+      if (!p || p.error || typeof p.data !== 'string') return { error: (p && p.error) || 'failed' };
+      data += p.data;
+    }
+    return Object.assign({}, r, { data });
+  }
+  /* Пока ERP готовила текст или PDF, человек мог открыть другое письмо —
+     тогда в его ответ ничего не кладём (аудит 17.11.2026, P1). */
+  const sameThread = t => !!cur && cur.email.threadId === t;
+  const MOVED = 'You opened another email. Open the first one and try again.';
   async function pick(item) {
     const m = st.menu;
     if (!m || st.busy) return;
+    const thread = cur && cur.email.threadId;
     st.busy = true; st.note = ''; st.info = ''; render();
-    if (m.kind === 'text') {
-      const r = await send({ req: 'reply', orderId: m.orderId, templateId: item.id, from: email() ? email().from : '' });
-      if (r && r.error) st.note = TEXTS[r.error] || r.error;
-      else if (await insertText(r.text)) { st.info = r.name + ' — in the reply'; send({ req: 'mailLog', orderId: m.orderId, kind: 'text', note: 'Template: ' + r.name }); }
-      else st.note = 'Open the reply in Gmail first.';
-    } else {
-      st.info = 'Preparing ' + item.label + '…'; render();
-      const r = await send({ req: 'document', orderId: m.orderId, key: item.key });
-      st.info = '';
-      if (r && r.error) st.note = TEXTS[r.error] || r.error;
-      else {
-        const how = await attachFile(fileOf(r));
-        const mb = Math.round(r.data.length * 3 / 4 / 1048576);
-        st.info = how === 'attached' ? r.name + ' — attached' : how === 'big' ? r.name + ' is ' + mb + ' MB — too big for Gmail, saved to Downloads' : r.name + ' saved to Downloads — drag it into the reply';
-        send({ req: 'mailLog', orderId: m.orderId, kind: 'doc', note: r.label });
+    try {
+      if (m.kind === 'text') {
+        const r = await send({ req: 'reply', orderId: m.orderId, templateId: item.id, from: email() ? email().from : '' });
+        if (r && r.error) st.note = TEXTS[r.error] || r.error;
+        else if (!sameThread(thread)) st.note = MOVED;
+        else if (await insertText(r.text)) { st.info = r.name + ' — in the reply'; send({ req: 'mailLog', orderId: m.orderId, kind: 'text', note: 'Template: ' + r.name }); }
+        else st.note = 'Open the reply in Gmail first.';
+      } else {
+        st.info = 'Preparing ' + item.label + '…'; render();
+        const r = await fetchDoc(m.orderId, item.key);
+        st.info = '';
+        if (r && r.error) st.note = TEXTS[r.error] || r.error;
+        else if (!sameThread(thread)) st.note = MOVED;
+        else {
+          const how = await attachFile(fileOf(r));
+          if (how === 'attached') { st.info = r.name + ' — attached' + (r.note ? ' · ' + r.note : ''); send({ req: 'mailLog', orderId: m.orderId, kind: 'doc', note: r.label }); }
+          else st.note = how === 'noreply' ? 'Open the reply in Gmail first.' : 'Gmail did not take ' + r.name + '. Try again.';
+        }
       }
+    } catch (e) {
+      st.info = ''; st.note = TEXTS.failed;
+    } finally {
+      /* Что бы ни случилось — кнопки панели снова нажимаются (аудит 17.11.2026, L4). */
+      st.busy = false; st.menu = null; render();
     }
-    st.busy = false; st.menu = null; render();
   }
 
   /* ------------------------------ Вид ---------------------------------- */

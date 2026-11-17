@@ -10,7 +10,8 @@
         бланков (erp/documents, erp/shipping/print), вход и доступ
    OUT: ответ window {gf:'mail-reply', id, req, res}; mailBridgeHandle(m) —
         тот же ответ вызовом (тесты). Чтение: lookup, orders, search,
-        templates, reply, documents, document (PDF base64; чертежи — Promise). Команды:
+        templates, reply, documents, document (имя и число частей PDF; чертежи —
+        Promise), part (часть PDF base64). Команды:
         openOrder, openCustomer, newOrder, linkEmail, mailLog, threadLog,
         openTemplates
    Заказчик задания, 15.11.2026: панель показывает то, что относится к
@@ -156,15 +157,32 @@ function mailDocList(o){
 }
 function mailDocuments(m){const o=mailOrderOf(m);return o?{docs:mailDocList(o)}:{error:'missing'};}
 function mailBase64(bytes){let s='';for(let i=0;i<bytes.length;i+=0x8000)s+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));return btoa(s);}
+/* PDF отдаётся панели частями: файл кладётся сюда, ответ на document —
+   имя и число частей, каждая часть — запрос part. Большой PDF одним
+   сообщением между вкладками не пролезает (аудит 17.11.2026, M2). Файл
+   живёт до последней части, но не дольше 3 минут. */
+const MAIL_PART=4*1048576,MAIL_FILE_TTL=180000,mailFiles=new Map();
+function mailFileKeep(name,label,bytes){
+ const now=Date.now();mailFiles.forEach((f,k)=>{if(now-f.at>MAIL_FILE_TTL)mailFiles.delete(k);});
+ const id='F'+now.toString(36)+Math.random().toString(36).slice(2,6),data=mailBase64(bytes);
+ mailFiles.set(id,{data,at:now});
+ return {name,label,file:id,size:bytes.length,parts:Math.max(1,Math.ceil(data.length/MAIL_PART))};
+}
+function mailPart(m){
+/* Номер файла — поле file: id сообщения занят пересылкой (extension/gmail/erp.js). */
+ const f=mailFiles.get(String(m.file||'')),i=Math.floor(+m.i);if(!f||!(i>=0))return {error:'The file is gone. Try again.'};
+ const data=f.data.slice(i*MAIL_PART,(i+1)*MAIL_PART);if((i+1)*MAIL_PART>=f.data.length)mailFiles.delete(String(m.file));
+ return {data};
+}
 function mailDocument(m){
  const o=mailOrderOf(m),key=String(m.key||'');if(!o)return {error:'missing'};
  const d=mailDocList(o).find(x=>x.key===key);if(!d||d.off)return {error:'This document is not available for the order.'};
  /* Чертежи рисуются картинками — не сразу: ответ — Promise (мост ждёт его). */
- if(key==='drawings')return docDrawingsPdf(o).then(r=>({name:r.name,label:'Drawings · '+r.sheets+(r.sheets===1?' sheet':' sheets'),data:mailBase64(r.bytes)}),e=>({error:e&&e.message||'The drawings could not be prepared.'}));
+ if(key==='drawings')return docDrawingsPdf(o).then(r=>Object.assign(mailFileKeep(r.name,'Drawings · '+r.sheets+(r.sheets===1?' sheet':' sheets'),r.bytes),{note:[r.missing.length?(r.missing.length===1?'line ':'lines ')+r.missing.join(', ')+' — no drawing':'',r.skipped?r.skipped+(r.skipped===1?' sheet':' sheets')+' could not be drawn':''].filter(Boolean).join(' · ')}),e=>({error:e&&e.message||'The drawings could not be prepared.'}));
  let pages,name,title;
  if(key.startsWith('ps:')){const s=shippingFind(key.slice(3));pages=shippingPages(shippingDocument(s));title='Packing slip '+s.number;name=title.replace(/[^A-Za-z0-9]+/g,'_')+'.pdf';}
  else{pages=docPages(Object.assign(docBuildModel(key,o,docDefaultOptions(key)),{form:''}));title=docKindLabel(key)+' '+(o.businessNumber||'draft');name=docFileName(key,o);}
- return {name,label:d.label+(key.startsWith('ps:')?' '+d.hint:''),data:mailBase64(docPdfBytes(pages,{title}))};
+ return mailFileKeep(name,d.label+(key.startsWith('ps:')?' '+d.hint:''),docPdfBytes(pages,{title}));
 }
 /* Журнал заказа: что сделали кнопками панели. */
 const MAIL_LOG_KINDS={text:'Reply text',doc:'Document attached'};
@@ -178,6 +196,15 @@ function mailLog(m){
    Только время, кто и тема — текста письма мост не получает. Запись одна на
    письмо и заказ: id события несёт номер письма. */
 const MAIL_LOG_WHATS=['Customer email','Reply sent','Reply text','Document attached','Email linked','Email removed'];
+/* Наше письмо — с ящика, открытого в Gmail, или с адреса нашего домена,
+   которого нет у клиента заказа (ответили с другого адреса компании). Ящик
+   не узнали — наше всё, чего нет в карточке клиента. */
+function mailDomain(a){return String(a||'').split('@')[1]||'';}
+function mailIsOurs(o,from,acc){
+ if(acc&&from===acc)return true;
+ const c=(DB.customer||[]).find(x=>x.id===o.customerId);if(c&&mailCustomerEmails(c).has(from))return false;
+ return !acc||mailDomain(from)===mailDomain(acc);
+}
 function mailThreadLog(m){
  const threadId=orderEmailId(m.threadId),acc=orderEmailAddress(m.account),subject=orderEmailText(m.subject,160);
  if(!threadId)return {error:'missing'};
@@ -185,9 +212,9 @@ function mailThreadLog(m){
  const have=new Set((DB.orderEvent||[]).map(e=>e.id)),add=[];
  (Array.isArray(m.messages)?m.messages:[]).slice(0,200).forEach(x=>{
   const id=orderEmailId(x&&x.id),from=orderEmailAddress(x&&x.from),at=orderEmailIso(x&&x.at);if(!id||!from||!at)return;
-  const ours=!!acc&&from===acc,name=orderEmailText(x.name,60);
+  const name=orderEmailText(x.name,60);
   orders.forEach(o=>{const eid='OEM-'+o.id+'-'+id;if(have.has(eid))return;have.add(eid);
-   add.push({id:eid,at,orderId:o.id,no:String(o.businessNumber||''),what:ours?'Reply sent':'Customer email',note:subject,by:(name&&name!==from?name+' · ':'')+from,byId:''});});
+   add.push({id:eid,at,orderId:o.id,no:String(o.businessNumber||''),what:mailIsOurs(o,from,acc)?'Reply sent':'Customer email',note:subject,by:(name&&name!==from?name+' · ':'')+from,byId:''});});
  });
  if(!add.length)return {ok:true,added:0};
  const r=storageCommand(()=>{if(!Array.isArray(DB.orderEvent))DB.orderEvent=[];add.forEach(e=>DB.orderEvent.push(e));return true;},{orderEvent:add.map(e=>e.id)});
@@ -204,7 +231,7 @@ function mailOpenTemplates(){
  if(typeof mdLeave==='function'&&!mdLeave())return {ok:true};
  tab='masterdata';mdTab='emails';render();return {ok:true};
 }
-const MAIL_READ={lookup:mailLookup,orders:mailOrders,search:mailSearch,templates:mailTemplatesList,reply:mailReply,documents:mailDocuments,document:mailDocument},
+const MAIL_READ={lookup:mailLookup,orders:mailOrders,search:mailSearch,templates:mailTemplatesList,reply:mailReply,documents:mailDocuments,document:mailDocument,part:mailPart},
  MAIL_DO={openOrder:mailOpenOrder,openCustomer:mailOpenCustomer,newOrder:mailNewOrder,linkEmail:mailLinkEmail,mailLog,threadLog:mailThreadLog,openTemplates:mailOpenTemplates};
 /* Шаг 0. Вход включён, а человека нет — signin; вошёл без Sales — access. */
 function mailBridgeGate(){

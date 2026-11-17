@@ -171,7 +171,8 @@ A row is an order with a due date. **On time** — made it, **Late** — did not
 - The due date has passed and the order is not ready — it is already Late.
 - **Remake before handout (Recut)**: the date of the last glass counts, the remake included. Ready on September 30,
   one glass broke, the new one is ready on October 12 with a due date of October 8 — the order is Late. While the
-  remake waits for a batch, the order is not counted as ready either.
+  remake waits for a batch, the order is not counted as ready either — also when part of the units is already handed
+  out.
 - **NCR after handout**: the original order stays On time. The remake is a separate order with no due date and is
   not counted in On time %.
 - **Handout in parts**: the last glass counts. The rest is ready by the due date — On time, later — Late.

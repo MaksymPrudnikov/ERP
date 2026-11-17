@@ -3,8 +3,8 @@
    выдаче, в производстве и ещё не начато, где стекло по станциям; и адрес
    #order=<номер>, который открывает заказ (задание docs/ЗАДАЧА_ПОЧТА_ЗАКАЗЫ.md,
    этап 2).
-   IN : заказ; shippingSummary (erp/shipping/data), glassBatchRemaining и
-        glassCutKeys (erp/production/glass-batches), prodBoard
+   IN : заказ; shippingSummary (erp/shipping/data), glassCutKeys, glassBatchActive,
+        glassCancelledSlots, glassCutByScan (erp/production/glass-batches), prodBoard
         (views/production-board), salesStatusLabel (erp/sales/lifecycle),
         archiveIndex (erp/archive), location.hash
    OUT: salesOrderProgress(o), salesLineProgress(o) — то же по строкам;
@@ -20,14 +20,26 @@
    Юнит, у которого в батче хотя бы одно стекло, — уже в производстве.
    Отменённые юниты в total не входят; товары склада (extraItems) — отдельно.
    ============================================================================ */
-/* Сколько юнитов строки ещё не начато: целые юниты, чьё режущееся стекло не
-   в батче. Стекло без резки (COG) батча не ждёт — оно в производстве, как
-   только заказ дошёл до цеха. */
+/* Сколько юнитов строки ещё не начато: юниты, у которых ни одно режущееся
+   стекло не в батче и не порезано сканом; отменённый юнит не считается.
+   Юнит, у которого в батче хоть одно стекло, — уже в производстве (раньше
+   остаток делился на число стёкол юнита, и юнит с одним стеклом в батче
+   выходил «не начатым» — аудит 17.11.2026, M1). Стекло без резки (COG)
+   батча не ждёт — оно в производстве, как только заказ дошёл до цеха. */
 function salesProgressNotStarted(o,l,left,active){
  if(left<=0)return 0;
- const keys=glassCutKeys(o,l).size;
- if(!keys)return GLASS_WAITING_STATUSES.includes(o.status)?0:left;
- return Math.min(left,Math.floor(glassBatchRemaining(o,l,active)/keys));
+ const keys=[...glassCutKeys(o,l)];
+ if(!keys.length)return GLASS_WAITING_STATUSES.includes(o.status)?0:left;
+ if(!l.batchManaged&&salesLineLocked(l))return 0;
+ active=active||glassBatchActive(o.id);
+ const cancelled=glassCancelledSlots(o),cut=glassCutByScan();let pieces=null;
+ const scanned=(k,u)=>{if(!cut.size)return false;pieces=pieces||glassPieceMap(o.id);const id=glassPieceAt(pieces.get(k),u);return !!id&&cut.has(id);};
+ let n=0;
+ for(let u=1;u<=l.qty;u++){
+  if(keys.every(k=>cancelled.has(k+'|'+u)))continue;
+  if(!keys.some(k=>active.has(k+'|'+u)||scanned(k,u)))n++;
+ }
+ return Math.min(left,n);
 }
 function salesProgressStations(o){
  const x=typeof prodBoard==='function'?prodBoard().find(r=>r.o.id===o.id):null;if(!x)return [];
