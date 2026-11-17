@@ -286,8 +286,9 @@ function salesOrderSaveCommand(opts){
  if(!customer.contacts.some(x=>x.id===soDraft.customerContactId))soDraft.customerContactId=customerPrimaryContact(customer).id||'';
  /* 29.10.2026 — у всех клиентов: «PO для всех обязательно». */
  if(!salesIsQuote(soDraft)&&!String(soDraft.customerPo||'').trim())return fail(e,'Enter the Customer PO.');
- /* Без Due date заказ не пишется (владелец 17.11.2026); Priority ставит её сам. */
- if(!salesIsQuote(soDraft)&&!String(soDraft.dueDate||'').trim())return fail(e,'Enter the Due Date.');
+ /* Без Due date заказ не пишется (владелец 17.11.2026); Priority ставит её сам.
+    Кроме переделки NCR: она — свой заказ без срока и в On time % не входит (правило Late, 16.11.2026). */
+ if(!salesIsQuote(soDraft)&&!soDraft.remakeNcrId&&!String(soDraft.dueDate||'').trim())return fail(e,'Enter the Due Date.');
  previousOrder=DB.salesOrder.find(o=>o.id===soDraft.id);
  const shippingError=shippingSaveGuard(soDraft,previousOrder);if(shippingError)return fail(e,shippingError);
  if(previousOrder&&previousOrder.customerId!==soDraft.customerId&&finOrderReceiptIds(soDraft.id).length)return fail(e,'This order has payment records. Its customer cannot change.');

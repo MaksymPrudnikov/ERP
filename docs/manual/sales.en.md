@@ -13,7 +13,7 @@ Owner, 17 Nov 2026: Priority comes first and sets the due date by itself.
   from a quote — from the conversion day; a future date written in the quote stays.
 - The date can be changed by hand. Changing Priority again counts the date anew from today — a hand-set date too.
 - **An order without a Due date is not saved**: “Enter the Due Date.” A quote does not need one. An NCR remake order
-  gets the Rush date (3 business days).
+  has no due date (it is not in On time %) and is saved without one.
 - Example: an order created on Friday 20 Nov — Normal → Tuesday 1 Dec, Rush → Wednesday 25 Nov, Critical → Monday 23 Nov.
 
 ## Order note (Notes)
