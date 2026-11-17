@@ -65,7 +65,20 @@ function salesMinAreaParts(order,m,rounded){
   const b=x.byMakeup&&x.byMakeup[m.id];if(!b||!b.parts)return;
   Object.keys(b.parts).forEach(k=>{if(out[k]==null||b.parts[k]>out[k])out[k]=b.parts[k];});
  });
+ /* Число заказа по макапу (order.minArea, 17.11.2026) главнее всего. */
+ const own=salesOrderArg(order)&&salesOrderArg(order).minArea,mine=own&&own[m.id];
+ if(mine)Object.keys(mine).forEach(k=>{out[k]=mine[k];});
  return out;
+}
+/* Минимум одного айтема или работы в заказе: число заказа по макапу, иначе
+   карточка (замороженная в priceBook на Save). null — по настоящей площади.
+   Каждый сам по себе (владелец 17.11.2026: «каждый сервис считается как
+   самодостаточный айтем, а не зависящий от другого»). */
+function salesOrderMinFor(order,makeupId,key,card){
+ const o=salesOrderArg(order),own=o&&o.minArea&&o.minArea[makeupId];
+ if(own&&own[key]!=null)return {value:own[key],order:true};
+ const v=salesBook('minArea:'+key,card,o);
+ return {value:v==null?null:+v,order:false};
 }
 /* Надбавка словами: «+50% · > 60 ft²», «min 4 ft²», «Off»; o — числа
    заказа поверх каталога x. */
@@ -80,14 +93,24 @@ function salesSurchargeShown(x,o){return salesSurchargeParts(x,o).filter(Boolean
 function salesSurchargeLogNotes(a,b){
  const ra=a&&a.surchargeRates||{},rb=b&&b.surchargeRates||{};
  const ids=[...new Set(Object.keys(ra).concat(Object.keys(rb)))].filter(id=>JSON.stringify(ra[id]||null)!==JSON.stringify(rb[id]||null));
- if(!ids.length)return [];
+ if(!ids.length)return salesOrderMinLogNotes(a,b);
  const cat=new Map(salesSurchargeCatalog(b).map(x=>[x.id,x]));
  return ids.filter(id=>cat.has(id)).map(id=>{
   const x=cat.get(id),pa=salesSurchargeParts(x,ra[id]),pb=salesSurchargeParts(x,rb[id]),off=pa.length===1||pb.length===1;
   const pick=p=>(off?p:p.filter((v,i)=>pa[i]!==pb[i])).filter(Boolean).join(' · ');
   const main=pa.join()===pb.join()?'':x.name+': '+pick(pa)+' → '+pick(pb);
   return [main].concat(salesMinAreaLogNotes(x,ra[id],rb[id],b));
- }).flat().filter(Boolean);
+ }).flat().concat(salesOrderMinLogNotes(a,b)).filter(Boolean);
+}
+/* Минимум заказа по макапу (order.minArea, 17.11.2026): «Minimum area · 3CL ·
+   6CLEAR: — → 1 ft²». */
+function salesOrderMinLogNotes(a,b){
+ const ma=a&&a.minArea||{},mb=b&&b.minArea||{},out=[],v=n=>n==null?'—':String(n);
+ [...new Set(Object.keys(ma).concat(Object.keys(mb)))].forEach(mid=>{
+  const m=salesMakeupById(b,mid)||salesMakeupById(a,mid),name=m?salesMakeupSummary(m):mid,pa=ma[mid]||{},pb=mb[mid]||{};
+  [...new Set(Object.keys(pa).concat(Object.keys(pb)))].forEach(k=>{if((pa[k]??null)!==(pb[k]??null))out.push('Minimum area · '+name+' · '+salesMinAreaPartName(k)+': '+v(pa[k])+' → '+v(pb[k])+' ft²');});
+ });
+ return out;
 }
 /* Минимум по макапу и материалу — «Minimum area · 3CL: 4 → 1 ft²»; пусто — «—». */
 function salesMinAreaLogNotes(x,oa,ob,order){

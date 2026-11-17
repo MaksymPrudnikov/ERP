@@ -20,7 +20,7 @@ const MD_CATALOG_TREE=[
  ['Surface',[['fritProduct','Frit','works'],['spandrelProduct','Spandrel','works'],['spandrelColour','Spandrel colours','works']]],
  ['Hardware',[['hardwareModel','Hinges, clamps, patches','hardware']]],
  ['Stock',[['stockItem','Stock items','materials','stock']]],
- ['Services',[['serviceRate','Works','works'],['heatTreatment','Heat treatment','works']]],
+ ['Services',[['serviceRate','Works','works'],['heatTreatment','Heat treatment','works'],['edgeAllowance','Cutting allowance','works']]],
  ['Recipes',[['surroundRecipe','IGU surround','materials','igu']]]
 ];
 const MD_CATALOG_TABS=['materials','works','hardware'];
@@ -37,6 +37,7 @@ function mdCatalogGo(key){
  const hit=MD_CATALOG_TREE.flatMap(g=>g[1]).find(n=>n[0]===key);if(!hit)return;
  if(mdSetTab(hit[2])===false)return;
  if(hit[2]==='materials'){if(mdMatSwitch(hit[3],key)===false)return;}else if(hit[2]==='works')mdCatKind=key;
+ if(typeof mdAllowanceEnter==='function')mdAllowanceEnter();
  mdCatalogQuery='';mdCatalogAll=false;mdCatalogLimit=0;mdPeek='';if(typeof mdGlassLimit!=='undefined')mdGlassLimit=MD_PAGE;render();
 }
 function mdFilmDensity(x){const r=(DB.materialWeightRates||[]).find(r=>r.key==='film:'+x.id);return r?mdNonNeg(r.rate):null;}
@@ -48,6 +49,7 @@ function mdCatalogHealth(node){
  if(node==='glassProduct')return [['No price',n(g=>g.salePriceAnnealed==null&&g.salePriceTempered==null)],['No short name',n(g=>!g.shortName)]];
  if(node==='spacerVariant')return [['No price',n(x=>x.salePrice==null)],['No weight',n(x=>x.weightG==null)],['Not measured',n(x=>x.weightG!=null&&!x.weightMeasured)],['No recipe',n(x=>!surroundRecipeById(x.recipeId))]];
  if(node==='serviceRate')return [['No station',n(w=>!w.rule&&!w.station)]];
+ if(node==='edgeAllowance')return [['No rule',mdAllowanceGaps().reduce((a,g)=>a+g.mm.length,0)]];
  /* Плотность плёнки и газа — вес заказов (пункт 14): пусто — вес Partial. */
  if(node==='interlayerProduct')return [['No price',n(x=>x.salePrice==null)],['No density',n(x=>mdFilmDensity(x)==null)]];
  if(node==='gasProduct')return [['No price',n(x=>x.salePrice==null)],['No density',n(x=>x.densityKgM3==null)]];
@@ -58,7 +60,7 @@ function mdCatalogHealth(node){
 let mdCatalogLimit=0;
 /* Поиск: имя, код, поставщик. node — только этот раздел (P4-R1), без
    него — весь каталог. */
-function mdCatalogMatch(x,q){return !!x&&[x.name,x.code,x.shortName,x.id,x.supplier,x.manufacturer,x.productCode,x.subcategory].join(' ').toLowerCase().includes(q);}
+function mdCatalogMatch(x,q){return !!x&&[x.op,x.name,x.code,x.shortName,x.id,x.supplier,x.manufacturer,x.productCode,x.subcategory].join(' ').toLowerCase().includes(q);}
 function mdCatalogSearch(q,node){
  q=q.trim().toLowerCase();if(!q)return [];
  const out=[];
@@ -75,7 +77,7 @@ function mdCatalogScope(all){mdCatalogAll=!!all;mdCatalogLimit=0;render();docume
 /* + New при поиске и пустой выдаче — в открытом разделе (P4-R3). */
 function mdCatalogNew(node){
  mdCatalogGo(node);
- ({glassProduct:mdGlassNew,glassSheet:mdSheetNew,spacerVariant:mdSpacerNew,hardwareModel:mdHwModelNew,surroundRecipe:mdRecipeNew}[node]||mdCatNew)();
+ ({glassProduct:mdGlassNew,glassSheet:mdSheetNew,spacerVariant:mdSpacerNew,hardwareModel:mdHwModelNew,surroundRecipe:mdRecipeNew,edgeAllowance:mdAllowanceAdd}[node]||mdCatNew)();
 }
 function mdCatalogSearchChange(el){
  mdCatalogQuery=el.value;mdCatalogLimit=0;const pos=el.selectionStart;render();
@@ -85,7 +87,7 @@ function mdCatalogSearchChange(el){
 function mdCatalogOpen(t,id){
  mdCatalogGo(t);
  if(t==='glassProduct')mdGlassEdit(id);else if(t==='spacerVariant')mdSpacerEditRow(id);else if(t==='glassSheet')mdSheetEditRow(id);
- else if(t==='hardwareModel')mdHwModelEditRow(id);else if(t==='surroundRecipe')mdRecipeShow(id);else mdCatEditRow(id);
+ else if(t==='hardwareModel')mdHwModelEditRow(id);else if(t==='surroundRecipe')mdRecipeShow(id);else if(t!=='edgeAllowance')mdCatEditRow(id);
 }
 /* Рецепт правится прямо в своей карточке: Open — к ней на экране. */
 function mdRecipeShow(id){
@@ -148,7 +150,7 @@ function viewMdCatalog(pills){
  let body;
  if(q&&!own)body=`<div class="md-toolbar"><span class="mut" data-md-search-count>${hits.length} found${mdCatalogAll?' in all catalog':' in '+esc(label)}</span><span class="sp"></span>${newBtn}</div><div class="customer-table-wrap"><table data-md-search><thead><tr><th>Type</th><th>Name</th><th>Code</th><th></th></tr></thead><tbody>${hits.slice(0,mdCatalogLimit||MD_PAGE).map(h=>`<tr><td>${esc(h.label)}</td><td><b>${raw(h.x.name||h.x.id)}</b></td><td class="mono">${raw(h.x.code||h.x.productCode||'')}</td><td><button class="sm" ${onAct('click',mdCatalogOpen,String(h.t??''),String(h.x.id??''))}>Open</button></td></tr>`).join('')||'<tr><td colspan="4" class="empty">Nothing found</td></tr>'}</tbody></table></div>${hits.length>(mdCatalogLimit||MD_PAGE)?`<div class="md-more"><button class="sm" data-md-more ${onAct('click',mdCatalogMore)}>Show ${Math.min(MD_PAGE,hits.length-(mdCatalogLimit||MD_PAGE))} more</button></div>`:''}`;
  else if(mdTab==='hardware')body=viewMdHardware();
- else if(mdTab==='works')body=viewMdCatalogues()+(mdCatEdit===null&&mdCatKind==='serviceRate'?viewMdAllowance():'');
+ else if(mdTab==='works')body=mdCatKind==='edgeAllowance'?viewMdAllowance():viewMdCatalogues();
  else{const hit=mdMatResolve(mdMatCategory,mdMatView).hit;body=hit.view?({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer,recipe:viewMdRecipes})[hit.view]():viewMdCatalogues();}
  /* Боковая карточка отмеченной строки (владельцу нравится, 03.11.2026); Hide preview в шапке прячет. */
  const peek=mdPeek&&mdPreview&&!open&&(!q||own)?mdPeekHTML():'';

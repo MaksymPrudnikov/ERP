@@ -58,28 +58,22 @@ The Surcharges button above the lines. Surcharges are Data → Works items with 
 Numbers in the window apply to this order only: Data → Works, price lists and other orders do not change. Empty —
 the catalog number, 0 or the switch — not charged, Reset to Catalog — back to the catalog.
 
-### Minimum area — overall, per makeup and per material
+### Minimum area — each item and work has its own
 
-Owner, 8 Nov 2026: the overall minimum is visible, details open on click.
+Owner, 17 Nov 2026: what is set in the order wins over Master Data — 1 for the glass means 1 ft², not 4; every
+service is billed on its own, not through another item.
 
-1. **Overall** — the Minimum area row, e.g. 4 ft²: a unit under 4 ft² is billed as 4 ft².
-2. **▸ By makeup** under the name opens the makeups of this order (only those used in lines). Each has its own
-   field: empty — the overall minimum; 1 — units of this makeup are billed from 1 ft²; 0 — no minimum. This order
-   shows how many lines of the makeup were raised to the minimum.
-3. **▸** next to a makeup opens its build: glass (both plies for laminated), interlayer, spacer. Each material has
-   its own minimum in its sales unit: ft² for what is sold by area, a length unit (in, ft, m) for what is sold by
-   length. Empty — as the makeup. Materials sold per piece or by weight are not listed: they have no minimum.
-
-How it is calculated:
-
-- Unit Billable Area = the larger of the rounded area and the makeup minimum (empty — the overall one). All
-  materials and per-ft² work use it.
-- A material with its own minimum is billed from the unit's rounded area (by length — from its own length), but not
-  below its minimum. Example: makeup 4 ft², glass 6CLEAR has its own 2 ft² — a 0.9 ft² unit pays the glass for 2 ft²
-  and the rest for 4 ft².
-- The catalog minimum on the material card (Data → Materials: Min area, Min charge) works as before while the
-  material has no number of its own in the order.
-- Changes go to the order Activity log: "Minimum area · 3CL: — → 1 ft²".
+- The **Minimum area** table at the top of the window: the makeups of this order and under each its glass (both plies
+  for laminated), interlayer, spacer, frit, spandrel and the Works billed per ft² from this makeup's lines. **Card** —
+  the item's or work's own minimum, **This order** — a number for this order only: empty — the card, 0 — by the real
+  area. **Lines** — how many lines of the makeup are under that minimum.
+- Each is billed on its own: glass 4, spandrel 3 — a 2.4 ft² piece pays the glass for 4 ft² and the spandrel for 3.
+  Works billed per inch or per piece (Rough Arris etc.) are not affected.
+- The area is commercial: sides up to an inch, up to a tenth of ft² (as Spiel). Spiel invoice of 17 Nov 2026, 6 mm
+  tempered spandrel, 19 3/4 × 16 5/8 → 20 × 17 = 2.4 ft²: glass 4 × 7.65 = 30.60, Backpainting 4 × 2.95 = 11.80.
+- There is no overall minimum any more. An order saved earlier keeps its snapshot: it shows the old Minimum area row
+  with “▸ By makeup” instead of the table — the numbers are those of its Save.
+- Changes go to the order log (Activity log): “Minimum area · 3CL · 6CLEAR: — → 1 ft²”.
 - Released with a balance ("… anyway" in the balance window) — a **Released with balance due** line in the Activity
   log: amount, button, who pressed ([finance.en.md](finance.en.md), "Release with a balance due").
 

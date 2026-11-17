@@ -76,7 +76,7 @@ module.exports=async function({page,eq}){
   mdSetTab('materials');mdMatSwitch('lamination','interlayerProduct');mdCatEditRow(DB.interlayerProduct[0].id);render();
   const via=document.querySelector('[data-md-station-via]').textContent.replace(/\s+/g,' ').trim();mdCatEdit=null;mdCatDraft=null;tab='dashboard';render();
   return [polish.includes('Flat Polish'),cerp.includes('Frit · '),lam.includes('Interlayers'),igu.includes('Spacers')&&igu.includes('Gas'),par>1,via];
- }),[true,true,true,true,true,'StationLAMFrom work Lamination']);
+ }),[true,true,true,true,true,'StationLAMSet in Works → Lamination']);
 
  /* Этап 5, часть 1: Data → Setup — сборы заказа и умолчания фрита. */
  eq('Setup: ставки, карта и база сборов — снимок нового заказа; старый заказ держит свой; журнал пишет правку',await t.p.evaluate(()=>{

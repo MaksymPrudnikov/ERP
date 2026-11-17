@@ -815,6 +815,9 @@ function normalizeServiceRate(r){
   /* Округление количества вверх до шага (1 — до целого дюйма) и минимальная
      сумма за юнит. Пусто — без округления и без минимума. */
   roundTo:num(r.roundTo)||null,minCharge:num(r.minCharge),
+  /* Свой минимум площади работы за ft² (владелец 17.11.2026): пусто — по
+     настоящей площади, от стекла не зависит. */
+  minAreaFt2:num(r.minAreaFt2),
   rule:normalizeServiceRule(r.rule),
   minutesPerUnit:num(r.minutesPerUnit),setupMinutes:num(r.setupMinutes),
   note:mdString(r.note),active:r.active!==false

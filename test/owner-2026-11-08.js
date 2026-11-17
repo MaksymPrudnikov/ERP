@@ -4,6 +4,9 @@
 module.exports=async function({page,eq}){
  console.log('owner 2026-11-08');
  const t=await page(undefined,{width:1500,height:1000});await require('./optimization-fixture')(t.p);
+ /* Общий минимум площади выключен правкой данных 12 (17.11.2026); здесь
+    проверяется сама надбавка Minimum area — включаем её. */
+ await t.p.evaluate(()=>{const w=(DB.serviceRate||[]).find(r=>r&&r.id==='minArea');if(w)w.active=true;});
  const run=fn=>t.p.evaluate(fn).catch(e=>({error:String(e.message).split('\n')[0]}));
  await t.p.evaluate(()=>{
   window.o8Lam=i=>{const g=glassProductByCode('6CLEAR'),pn=salesDefaultPane(i);pn.category='laminated';['outer','inner'].forEach(k=>Object.assign(pn.laminated[k],{glassProductId:g.id,thicknessMm:6,heatTreatmentId:'HT-FT'}));pn.laminated.interlayers=[normalizeSalesInterlayer({productId:'INT-EVA-CL',layers:2})];return normalizeSalesPane(pn,i);};

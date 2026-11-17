@@ -28,7 +28,8 @@ Tables work as in Sales ([lists.en.md](lists.en.md)); fields in settings rows ar
 
 - **On the left — the tree** with counts of active rows: **Items** (Glass, Supply points), **IGU parts** (Spacers, Gas,
   Sealants, IGU parts), **Lamination** (Interlayers), **Surface** (Frit, Spandrel, Spandrel colours), **Hardware**
-  (Hinges, clamps, patches), **Stock** (Stock items), **Services** (Works, Heat treatment), **Recipes** (IGU surround).
+  (Hinges, clamps, patches), **Stock** (Stock items), **Services** (Works, Heat treatment, Cutting allowance),
+  **Recipes** (IGU surround).
   Under the tree — how much glass is “kept in stock” and supply rows without a product.
 - **On top** — catalog warnings (No price, No short name and so on — they only warn; a click filters) and search: in the
   open section or **All catalog** (the whole catalog with a Type column). **+ New** creates in the open section.
@@ -55,6 +56,16 @@ Tables work as in Sales ([lists.en.md](lists.en.md)); fields in settings rows ar
 - **Spacers, Gas, Sealants, IGU parts, Interlayers, Frit, Spandrel** — cards with tabs (General, Units, Measurements,
   Purchase, Prices, Stock, Consumption): stock and purchase unit, pack size, film density, consumption. Their stock is in
   Inventory → Consumables.
+- **A price always shows its unit**: the card says “Price, CAD per sq ft” (from Sales unit on the Units tab), the list
+  shows the number and “per sq ft”, “per each” under it. Empty Sales unit — sq ft (owner, 17 Nov 2026).
+- **Frit and Spandrel** are sold per **sq ft**, **inch** (perimeter, each side up to a whole inch) or **each** (one per
+  lite) — Units tab. The area is the glass one: sides up to an inch, up to a tenth of ft². Work — the route station.
+- **Gas, Sealants, IGU parts** have no station of their own: they go to IGU assembly. The card shows Station and a
+  **Set in Works → IGU Assembly** link — change the assembly station there and the whole IGU goes to it.
+- **Min area, ft²** (Measurements tab) — the minimum area of this item: a smaller piece is billed from it. Each item
+  has its own and does not depend on the glass or other items: glass 4, Spandrel 3 — spandrel is billed from 3.
+  Empty — by the real area. An order can change it for itself (Sales → Surcharges). There is no overall minimum any
+  more (owner, 17 Nov 2026); on the switch glass, films, IGU parts, frit and spandrel got 4, spacers 1.
 - **Spandrel colours** — the palette with manufacturer codes. Used rows are switched off, not deleted.
 - **Hardware** — Kind → series → models (hinges, clamps, patches). Models: Model, Kind, Series, On the drawing, Glass
   thickness, Supplier code, On drawings, Status. We do not sell hardware — only the cutouts for it; cutout prices are in
@@ -69,7 +80,16 @@ Tables work as in Sales ([lists.en.md](lists.en.md)); fields in settings rows ar
   by thickness — rows “from–to mm → price”, as many as needed; one row without limits is one price for everything. An
   overlap or a gap in thicknesses is a warning (the order line will show Rate required); saving is not blocked. A work
   without a station is not lost: the sheet prints “NO STATION”, Save warns.
+  A work billed per ft² (Heat Soak, Shape Unit, sandblasting…) has **Min area, ft²** on the Prices tab: its own
+  minimum, empty — by the real area (set to 4 on the 17 Nov 2026 switch).
 - **Heat treatment** — tempering types.
+- **Cutting allowance** — how much bigger the glass is cut per side so the edge finishes to size. A row: work ·
+  Monolithic (by the glass thickness) or Laminated · ply (by the ply thickness) · thickness from–to, mm · allowance.
+  When several rows match, the narrowest wins: a wide row is the default, a narrow one the exception. **+ New** opens
+  an entry row on top: it reaches the table and the calculation only on **Add**. Editing a row does not move it while
+  you are on the screen; the order is refreshed on the next visit. **Check** at the bottom — pick a work, the glass
+  and a thickness to see the allowance. Catalog works and thicknesses without a row show in red on top as “No rule —
+  cutting is blocked”: such glass will not go to cutting.
 - **IGU surround** (Recipes) — the IGU surround recipe: spacer, sealant and gas consumption is counted from it.
 
 ## Prices
