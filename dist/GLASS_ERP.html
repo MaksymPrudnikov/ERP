@@ -8,7 +8,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-K0pWRlq0Z0E4/YZPCFrF7dhyjD198gBJAFqv6sICt/o=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-wCnlaWkBAZDYv/fFJMYHD3McySYEKj2gU8y02qenoko=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GLASS ERP — Glazing System</title>
 <style>
@@ -4380,7 +4380,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='09791bdabc27';
+var ERP_BUILD='2f675bb24e19';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -26041,7 +26041,7 @@ function docPdfBytes(pages,info){
    IN : заказ; salesLineDrawing, salesLineStepSheets (листы строк и стёкол
         ступенчатого юнита), salesSheetFitDrawing; стили страницы
    OUT: docDrawingSheetsOf(order) — листы заказа; docDrawingsPdf(order) →
-        Promise {name, bytes, sheets}
+        Promise {name, bytes, sheets, skipped, missing — номера строк без чертежа}
    Владелец, 16.11.2026: «чертежи логично прикреплять все сразу к целому
    заказу одним PDF». Recut — переделки цеха, клиенту не нужны: только
    строки заказа. Лист с ошибкой геометрии в PDF не попадает.
@@ -26053,7 +26053,15 @@ function docPdfBytes(pages,info){
 /* Как лист в окне Drawings (.doc-drawing): 850 × 1100 и поле 34 px — на бумаге 0,34″. */
 const DOC_DRAW_PX={w:850,h:1100},DOC_DRAW_PAD=34,DOC_DRAW_SCALE=2,DOC_DRAW_JPEG=0.86;
 /* Листы в порядке окна Drawings: строка, за ней листы её стёкол. */
+/* Клиенту — базовый вид из Forms → Drawing: кнопка Metric detail редактора
+   фигуры (своя у компьютера, мм-вид) на PDF не влияет (владелец, 16.11.2026:
+   «почему открыло чертёж в мм, а не базово в инчах»). */
 function docDrawingSheetsOf(o){
+ const metric=typeof sMetricDetail!=='undefined'&&sMetricDetail;
+ if(metric)sMetricDetail=false;
+ try{return docDrawingSheetsBase(o);}finally{if(metric)sMetricDetail=true;}
+}
+function docDrawingSheetsBase(o){
  const lines=o&&o.lines||[],lites=l=>typeof salesLineStepSheets==='function'?salesLineStepSheets(l,o):[];
  return lines.flatMap((l,i)=>[{i,l,lite:null}].concat(lites(l).map(k=>({i,l,lite:k}))))
   .map(x=>{const d=salesLineDrawing(x.l,null,x.lite,o);return d&&d.html?{i:x.i,lite:x.lite,html:d.html,land:/class="print-shape-sheet[^"]*\bdw-land\b/.test(d.html)}:null;})
@@ -26061,8 +26069,8 @@ function docDrawingSheetsOf(o){
 }
 /* Правила стилей, что касаются листа в host: обычные — если находят что-то
    внутри (::before и :hover — по самому элементу: штриховка распорки),
-   :root/html/body — переменные и шрифт, @font-face — шрифты, @media
-   screen — как на экране. Чужой файл стилей пропускается. */
+   :root/html/body — переменные и шрифт, @font-face — шрифты, @media — те,
+   что верны на экране сейчас. Чужой файл стилей пропускается. */
 const DOC_DRAW_PSEUDO=/::?(before|after|marker|placeholder|first-line|first-letter|hover|focus|focus-visible|focus-within|active|visited)\b/g;
 function docDrawingCss(host){
  const one=s=>{try{return !!host.querySelector(s.replace(DOC_DRAW_PSEUDO,'')||'*');}catch(e){return false;}};
@@ -26070,7 +26078,8 @@ function docDrawingCss(host){
  const walk=rules=>{for(const r of rules){
   if(r.type===1){if(hit(r.selectorText))out.push(r.cssText);}
   else if(r.type===5)out.push(r.cssText);
-  else if(r.type===4){if(!/print/.test(r.media.mediaText)||/screen/.test(r.media.mediaText))walk(r.cssRules);}
+  /* @media — как на этом экране сейчас (картинка листа своей ширины не знает). */
+  else if(r.type===4){const mt=r.media.mediaText;if(!/\bprint\b/.test(mt)&&window.matchMedia(mt).matches)walk(r.cssRules);}
  }};
  for(const s of document.styleSheets){let rules;try{rules=s.cssRules;}catch(e){continue;}if(rules)walk(rules);}
  return out.join('\n');
@@ -26100,10 +26109,16 @@ async function docDrawingJpeg(sheet){
 }
 async function docDrawingsPdf(o){
  const sheets=docDrawingSheetsOf(o);if(!sheets.length)throw new Error('The order has no drawings.');
- const pages=[];
- for(const s of sheets){const src=await docDrawingJpeg(s);pages.push(Object.assign({items:[{t:'img',src,x:0,y:0,w:DOC_PAGE.w,h:DOC_PAGE.h}]},s.land?{rotate:90}:{}));}
+ /* Строка без чертежа (нет формы, ошибка геометрии) — в PDF её нет; номера
+    таких строк — в ответе, панель их называет (аудит 17.11.2026). */
+ const drawn=new Set(sheets.filter(s=>s.lite==null).map(s=>s.i)),missing=(o.lines||[]).map((l,i)=>i).filter(i=>!drawn.has(i)).map(i=>i+1);
+ /* Лист, который не нарисовался, пропускается — остальные чертежи клиент
+    получает (аудит 17.11.2026, L8); сколько пропущено — в ответе. */
+ const pages=[];let skipped=0;
+ for(const s of sheets){let src;try{src=await docDrawingJpeg(s);}catch(e){skipped++;continue;}pages.push(Object.assign({items:[{t:'img',src,x:0,y:0,w:DOC_PAGE.w,h:DOC_PAGE.h}]},s.land?{rotate:90}:{}));}
+ if(!pages.length)throw new Error('The drawings could not be drawn.');
  const title='Drawings '+(o.businessNumber||'draft');
- return {name:title.replace(/[^A-Za-z0-9]+/g,'_')+'.pdf',bytes:docPdfBytes(pages,{title}),sheets:sheets.length};
+ return {name:title.replace(/[^A-Za-z0-9]+/g,'_')+'.pdf',bytes:docPdfBytes(pages,{title}),sheets:pages.length,skipped,missing};
 }
 
 /* ==== src/erp/documents/forms.js ==== */
@@ -53658,8 +53673,8 @@ function validateShipmentPayload(src){
    выдаче, в производстве и ещё не начато, где стекло по станциям; и адрес
    #order=<номер>, который открывает заказ (задание docs/ЗАДАЧА_ПОЧТА_ЗАКАЗЫ.md,
    этап 2).
-   IN : заказ; shippingSummary (erp/shipping/data), glassBatchRemaining и
-        glassCutKeys (erp/production/glass-batches), prodBoard
+   IN : заказ; shippingSummary (erp/shipping/data), glassCutKeys, glassBatchActive,
+        glassCancelledSlots, glassCutByScan (erp/production/glass-batches), prodBoard
         (views/production-board), salesStatusLabel (erp/sales/lifecycle),
         archiveIndex (erp/archive), location.hash
    OUT: salesOrderProgress(o), salesLineProgress(o) — то же по строкам;
@@ -53675,14 +53690,26 @@ function validateShipmentPayload(src){
    Юнит, у которого в батче хотя бы одно стекло, — уже в производстве.
    Отменённые юниты в total не входят; товары склада (extraItems) — отдельно.
    ============================================================================ */
-/* Сколько юнитов строки ещё не начато: целые юниты, чьё режущееся стекло не
-   в батче. Стекло без резки (COG) батча не ждёт — оно в производстве, как
-   только заказ дошёл до цеха. */
+/* Сколько юнитов строки ещё не начато: юниты, у которых ни одно режущееся
+   стекло не в батче и не порезано сканом; отменённый юнит не считается.
+   Юнит, у которого в батче хоть одно стекло, — уже в производстве (раньше
+   остаток делился на число стёкол юнита, и юнит с одним стеклом в батче
+   выходил «не начатым» — аудит 17.11.2026, M1). Стекло без резки (COG)
+   батча не ждёт — оно в производстве, как только заказ дошёл до цеха. */
 function salesProgressNotStarted(o,l,left,active){
  if(left<=0)return 0;
- const keys=glassCutKeys(o,l).size;
- if(!keys)return GLASS_WAITING_STATUSES.includes(o.status)?0:left;
- return Math.min(left,Math.floor(glassBatchRemaining(o,l,active)/keys));
+ const keys=[...glassCutKeys(o,l)];
+ if(!keys.length)return GLASS_WAITING_STATUSES.includes(o.status)?0:left;
+ if(!l.batchManaged&&salesLineLocked(l))return 0;
+ active=active||glassBatchActive(o.id);
+ const cancelled=glassCancelledSlots(o),cut=glassCutByScan();let pieces=null;
+ const scanned=(k,u)=>{if(!cut.size)return false;pieces=pieces||glassPieceMap(o.id);const id=glassPieceAt(pieces.get(k),u);return !!id&&cut.has(id);};
+ let n=0;
+ for(let u=1;u<=l.qty;u++){
+  if(keys.every(k=>cancelled.has(k+'|'+u)))continue;
+  if(!keys.some(k=>active.has(k+'|'+u)||scanned(k,u)))n++;
+ }
+ return Math.min(left,n);
 }
 function salesProgressStations(o){
  const x=typeof prodBoard==='function'?prodBoard().find(r=>r.o.id===o.id):null;if(!x)return [];
@@ -53879,7 +53906,7 @@ const MAIL_TPL_FIELDS=[
   ['ready','Units ready to ship',c=>mailTplNum(c.u().ready)],
   ['in production','Units in the shop',c=>mailTplNum(c.u().inProduction)],
   ['not started','Units not in production yet',c=>mailTplNum(c.u().notStarted)],
-  ['back order','Units not shipped yet',c=>{const u=c.u();return typeof u.total==='number'?String(u.total-(u.shipped||0)):'';}],
+  ['back order','Units not shipped yet',c=>{const u=c.u();return !salesIsQuote(c.o)&&typeof u.total==='number'?String(u.total-(u.shipped||0)):'';}],
   ['cancelled','Cancelled units',c=>String((c.o.cancellations||[]).reduce((n,x)=>n+(x.units||[]).length,0))],
   ['where is the glass','Stations where lites wait',c=>(c.p().stations||[]).filter(s=>s.waiting).map(s=>s.code+' — '+s.waiting+(s.waiting===1?' lite':' lites')).join(', ')]
  ]},
@@ -53942,7 +53969,8 @@ function mailTplRender(text,o,opts){
         бланков (erp/documents, erp/shipping/print), вход и доступ
    OUT: ответ window {gf:'mail-reply', id, req, res}; mailBridgeHandle(m) —
         тот же ответ вызовом (тесты). Чтение: lookup, orders, search,
-        templates, reply, documents, document (PDF base64; чертежи — Promise). Команды:
+        templates, reply, documents, document (имя и число частей PDF; чертежи —
+        Promise), part (часть PDF base64). Команды:
         openOrder, openCustomer, newOrder, linkEmail, mailLog, threadLog,
         openTemplates
    Заказчик задания, 15.11.2026: панель показывает то, что относится к
@@ -54088,15 +54116,32 @@ function mailDocList(o){
 }
 function mailDocuments(m){const o=mailOrderOf(m);return o?{docs:mailDocList(o)}:{error:'missing'};}
 function mailBase64(bytes){let s='';for(let i=0;i<bytes.length;i+=0x8000)s+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));return btoa(s);}
+/* PDF отдаётся панели частями: файл кладётся сюда, ответ на document —
+   имя и число частей, каждая часть — запрос part. Большой PDF одним
+   сообщением между вкладками не пролезает (аудит 17.11.2026, M2). Файл
+   живёт до последней части, но не дольше 3 минут. */
+const MAIL_PART=4*1048576,MAIL_FILE_TTL=180000,mailFiles=new Map();
+function mailFileKeep(name,label,bytes){
+ const now=Date.now();mailFiles.forEach((f,k)=>{if(now-f.at>MAIL_FILE_TTL)mailFiles.delete(k);});
+ const id='F'+now.toString(36)+Math.random().toString(36).slice(2,6),data=mailBase64(bytes);
+ mailFiles.set(id,{data,at:now});
+ return {name,label,file:id,size:bytes.length,parts:Math.max(1,Math.ceil(data.length/MAIL_PART))};
+}
+function mailPart(m){
+/* Номер файла — поле file: id сообщения занят пересылкой (extension/gmail/erp.js). */
+ const f=mailFiles.get(String(m.file||'')),i=Math.floor(+m.i);if(!f||!(i>=0))return {error:'The file is gone. Try again.'};
+ const data=f.data.slice(i*MAIL_PART,(i+1)*MAIL_PART);if((i+1)*MAIL_PART>=f.data.length)mailFiles.delete(String(m.file));
+ return {data};
+}
 function mailDocument(m){
  const o=mailOrderOf(m),key=String(m.key||'');if(!o)return {error:'missing'};
  const d=mailDocList(o).find(x=>x.key===key);if(!d||d.off)return {error:'This document is not available for the order.'};
  /* Чертежи рисуются картинками — не сразу: ответ — Promise (мост ждёт его). */
- if(key==='drawings')return docDrawingsPdf(o).then(r=>({name:r.name,label:'Drawings · '+r.sheets+(r.sheets===1?' sheet':' sheets'),data:mailBase64(r.bytes)}),e=>({error:e&&e.message||'The drawings could not be prepared.'}));
+ if(key==='drawings')return docDrawingsPdf(o).then(r=>Object.assign(mailFileKeep(r.name,'Drawings · '+r.sheets+(r.sheets===1?' sheet':' sheets'),r.bytes),{note:[r.missing.length?(r.missing.length===1?'line ':'lines ')+r.missing.join(', ')+' — no drawing':'',r.skipped?r.skipped+(r.skipped===1?' sheet':' sheets')+' could not be drawn':''].filter(Boolean).join(' · ')}),e=>({error:e&&e.message||'The drawings could not be prepared.'}));
  let pages,name,title;
  if(key.startsWith('ps:')){const s=shippingFind(key.slice(3));pages=shippingPages(shippingDocument(s));title='Packing slip '+s.number;name=title.replace(/[^A-Za-z0-9]+/g,'_')+'.pdf';}
  else{pages=docPages(Object.assign(docBuildModel(key,o,docDefaultOptions(key)),{form:''}));title=docKindLabel(key)+' '+(o.businessNumber||'draft');name=docFileName(key,o);}
- return {name,label:d.label+(key.startsWith('ps:')?' '+d.hint:''),data:mailBase64(docPdfBytes(pages,{title}))};
+ return mailFileKeep(name,d.label+(key.startsWith('ps:')?' '+d.hint:''),docPdfBytes(pages,{title}));
 }
 /* Журнал заказа: что сделали кнопками панели. */
 const MAIL_LOG_KINDS={text:'Reply text',doc:'Document attached'};
@@ -54110,6 +54155,15 @@ function mailLog(m){
    Только время, кто и тема — текста письма мост не получает. Запись одна на
    письмо и заказ: id события несёт номер письма. */
 const MAIL_LOG_WHATS=['Customer email','Reply sent','Reply text','Document attached','Email linked','Email removed'];
+/* Наше письмо — с ящика, открытого в Gmail, или с адреса нашего домена,
+   которого нет у клиента заказа (ответили с другого адреса компании). Ящик
+   не узнали — наше всё, чего нет в карточке клиента. */
+function mailDomain(a){return String(a||'').split('@')[1]||'';}
+function mailIsOurs(o,from,acc){
+ if(acc&&from===acc)return true;
+ const c=(DB.customer||[]).find(x=>x.id===o.customerId);if(c&&mailCustomerEmails(c).has(from))return false;
+ return !acc||mailDomain(from)===mailDomain(acc);
+}
 function mailThreadLog(m){
  const threadId=orderEmailId(m.threadId),acc=orderEmailAddress(m.account),subject=orderEmailText(m.subject,160);
  if(!threadId)return {error:'missing'};
@@ -54117,9 +54171,9 @@ function mailThreadLog(m){
  const have=new Set((DB.orderEvent||[]).map(e=>e.id)),add=[];
  (Array.isArray(m.messages)?m.messages:[]).slice(0,200).forEach(x=>{
   const id=orderEmailId(x&&x.id),from=orderEmailAddress(x&&x.from),at=orderEmailIso(x&&x.at);if(!id||!from||!at)return;
-  const ours=!!acc&&from===acc,name=orderEmailText(x.name,60);
+  const name=orderEmailText(x.name,60);
   orders.forEach(o=>{const eid='OEM-'+o.id+'-'+id;if(have.has(eid))return;have.add(eid);
-   add.push({id:eid,at,orderId:o.id,no:String(o.businessNumber||''),what:ours?'Reply sent':'Customer email',note:subject,by:(name&&name!==from?name+' · ':'')+from,byId:''});});
+   add.push({id:eid,at,orderId:o.id,no:String(o.businessNumber||''),what:mailIsOurs(o,from,acc)?'Reply sent':'Customer email',note:subject,by:(name&&name!==from?name+' · ':'')+from,byId:''});});
  });
  if(!add.length)return {ok:true,added:0};
  const r=storageCommand(()=>{if(!Array.isArray(DB.orderEvent))DB.orderEvent=[];add.forEach(e=>DB.orderEvent.push(e));return true;},{orderEvent:add.map(e=>e.id)});
@@ -54136,7 +54190,7 @@ function mailOpenTemplates(){
  if(typeof mdLeave==='function'&&!mdLeave())return {ok:true};
  tab='masterdata';mdTab='emails';render();return {ok:true};
 }
-const MAIL_READ={lookup:mailLookup,orders:mailOrders,search:mailSearch,templates:mailTemplatesList,reply:mailReply,documents:mailDocuments,document:mailDocument},
+const MAIL_READ={lookup:mailLookup,orders:mailOrders,search:mailSearch,templates:mailTemplatesList,reply:mailReply,documents:mailDocuments,document:mailDocument,part:mailPart},
  MAIL_DO={openOrder:mailOpenOrder,openCustomer:mailOpenCustomer,newOrder:mailNewOrder,linkEmail:mailLinkEmail,mailLog,threadLog:mailThreadLog,openTemplates:mailOpenTemplates};
 /* Шаг 0. Вход включён, а человека нет — signin; вошёл без Sales — access. */
 function mailBridgeGate(){
@@ -56023,7 +56077,8 @@ function repOrderFacts(){
     ещё в Ready, но не готов — срок считается по последнему стеклу, включая переделку. */
  const recutOrders=new Set((DB.recut||[]).map(r=>r.orderId));
  const pickupReady=(o,done,shipped)=>{
-  if(o.status==='ready'&&recutOrders.has(o.id)&&recutForOrder(o.id).some(r=>recutStatus(r)==='In queue'))return '';
+  /* И после выдачи частями (Shipping): остаток с переделкой в очереди ещё не готов (аудит 17.11.2026). */
+  if((o.status==='ready'||o.status==='shipping')&&recutOrders.has(o.id)&&recutForOrder(o.id).some(r=>recutStatus(r)==='In queue'))return '';
   if(o.status==='ready')return salesListIsoDay(o.statusDates&&o.statusDates.ready)||repDay(readyAt.get(o.id)||'');
   if(done||o.status==='shipping'&&(()=>{const q=shippingSummary(o);return q.glass>0&&q.physicalReady+q.lines.reduce((n,r)=>n+r.shipped,0)>=q.glass;})())return repDay(readyAt.get(o.id)||'')||shipped;
   return '';
