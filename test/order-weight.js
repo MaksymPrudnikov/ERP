@@ -140,7 +140,7 @@ module.exports=async function({page,eq}){
   const check=window.GF_SCOPE_CHECK;window.GF_SCOPE_CHECK=false;readScope(()=>salesOrderWeight(o));window.GF_SCOPE_CHECK=check;const used=plans;window.salesEffectiveCuttingPlan=keep;
   o.lines.forEach(l=>{delete l.measure.lites;});DB.dataFix=10;applyDataFixes();
   return {stored:o.lines.every(l=>Array.isArray(l.measure.lites)&&l.measure.lites.length>0),plans:used,fix:DB.dataFix,same:owW(o).kg===before};
- }),{stored:true,plans:0,fix:11,same:true});
+ }),{stored:true,plans:0,fix:12,same:true});
 
  await run(()=>{owSetup();window.owF5=owOrder();return storageFlush();});
  await t.p.reload();await t.p.evaluate(()=>window.storageReady);await require('./optimization-fixture')(t.p);await setup();

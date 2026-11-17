@@ -314,8 +314,8 @@ const DATA_FIXES=[
 /* Номера правок кодом (не строкой таблицы): 4 — sfSplitEdgeFix, 6 —
    приоритет раскроя, 7 — стекло COG, 8 — прайс заказа, 9 — количества работ
    в строке, 10 — наш код стекла в PO поставщику, 11 — геометрия лайтов для
-   веса в строке (applyDataFixes). */
-const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),11);
+   веса в строке, 12 — минимум площади у каждого айтема и работы (applyDataFixes). */
+const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),12);
 function applyDataFixes(){
  const have=Number.isInteger(+DB.dataFix)&&+DB.dataFix>0?+DB.dataFix:0;
  if(have>=DATA_FIX_VERSION)return false;
@@ -359,6 +359,22 @@ function applyDataFixes(){
     (line.measure.lites, пункт 14): владелец — «если данные с фигуры уже
     получены, зачем её пересчитывать». Только строкам, чья запись верна. */
  if(have<11&&typeof salesLineLiteGeo==='function')readScope(()=>(DB.salesOrder||[]).forEach(o=>{if(o&&typeof o==='object'&&Array.isArray(o.lines))o.lines.forEach(l=>{if(!l||!l.measure||l.measure.lites)return;try{if(salesMeasureFor(l,o)){l.measure.lites=salesLineLiteGeo(l,o);changed++;}}catch(e){console.warn('lites '+(o.businessNumber||o.id)+': '+e.message);}});}));
+ /* Номер 12 · 17 ноября 2026. Общего минимума площади больше нет (владелец:
+    «минимальную задаёт айтем, то что в заказе — главнее»): своё число у
+    каждого айтема и работы за ft². Стёклам, плёнкам, обвязке, фриту,
+    спандрелу и работам за ft² — 4, распоркам — 1; только пустым: своё число
+    владелец мог уже вписать. Общая надбавка Minimum area выключается.
+    Сохранённые заказы держат свой снимок (priceBook) и не меняются. */
+ if(have<12){
+  const area=x=>{const u=typeof mdUnit==='function'?mdUnit(x.salesUnit):null;return !x.salesUnit||!!u&&u.calc==='area';};
+  ['glassProduct','interlayerProduct','gasProduct','sealantProduct','iguPart','fritProduct','spandrelProduct','spacerVariant'].forEach(t=>(Array.isArray(DB[t])?DB[t]:[]).forEach(x=>{
+   if(x&&typeof x==='object'&&x.minAreaFt2==null&&area(x)){x.minAreaFt2=t==='spacerVariant'?1:4;changed++;}}));
+  (DB.serviceRate||[]).forEach(w=>{
+   if(!w||typeof w!=='object')return;
+   if(w.rule&&w.rule.kind==='minArea'){if(w.active!==false){w.active=false;changed++;}return;}
+   if(!w.rule&&w.unit==='ft²'&&w.minAreaFt2==null){w.minAreaFt2=4;changed++;}
+  });
+ }
  DB.dataFix=DATA_FIX_VERSION;
  console.info('data fixes '+have+' \u2192 '+DATA_FIX_VERSION+': '+changed+' values');
  return true;

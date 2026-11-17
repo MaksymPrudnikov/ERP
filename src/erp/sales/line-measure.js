@@ -48,6 +48,8 @@ function salesMeasureSig(line,order){
     отпечатки заказов без них прежние. */
  const parts=[own,shape(line.shapeRef),lites,salesMeasurePart(m),order.customerId||'',salesMeasurePart(order.serviceSets||[]),salesMeasurePart(order.priceBook||{})];
  if(order.surchargeRates)parts.push(salesMeasurePart(order.surchargeRates));
+ /* Минимум площади заказа по макапу (17.11.2026) — только когда он есть. */
+ if(order.minArea)parts.push('min:'+salesMeasurePart(order.minArea));
  /* Фигура по режущему прямоугольнику — только у новых заказов: отпечатки старых прежние. */
  if(order.shapeCut)parts.push('shape-cut');
  /* Новое правило количеств (дюймы кромки как в Spiel, 02.11.2026): записанные
