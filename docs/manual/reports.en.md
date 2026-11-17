@@ -176,7 +176,10 @@ A row is an order with a due date. **On time** — made it, **Late** — did not
 - **NCR after handout**: the original order stays On time. The remake is a separate order with no due date and is
   not counted in On time %.
 - **Handout in parts**: the last glass counts. The rest is ready by the due date — On time, later — Late.
-- **Cancelled units** are not waited for: the rest is ready by the due date — On time.
+- **Cancelled units** are not waited for: the rest is ready by the due date — On time. One exception: a unit's glass
+  broke, its Recut waits for a batch, and the customer cancels that unit. The cancellation takes the new Recut glass,
+  but the Recut still shows In queue, and the order is Late. It is rare — Late is corrected by hand (owner,
+  November 17, 2026).
 
 ## 6. Custom metric
 

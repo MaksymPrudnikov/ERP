@@ -477,6 +477,10 @@ function simPage() {
   const SPEC = new Map();     /* lineId → {spec, orderId} */
   const PIECE = new Map();    /* G-… → {o, l, key, idx, ply, mm, w, h, area, perim, ht, edge, holes} */
   function lineSpecs(id, specs) { const o = salesRecord(id); o.lines.forEach((l, i) => SPEC.set(l.id, { spec: specs[i], orderId: id })); }
+  /* Заказ из заданных строк и счёт генератора по стеклу — для проверки
+     test/sim-inventory: кромка генератора против строки EDGE счёта ERP. */
+  SIM.order = specs => { const id = draftOrder(CUST[0], specs, { kind: 'order', po: 'PO-1', due: '' }); lineSpecs(id, specs); return id; };
+  SIM.pieceInfo = id => pieceInfo(id);
   function pieceInfo(id) {
     let p = PIECE.get(id); if (p) return p;
     const h = glassLookup(id); if (!h || h.kind !== 'glass') return null;
@@ -489,7 +493,17 @@ function simPage() {
        счёте ERP: правило рынка (владелец, 09.11.2026). Точный периметр
        давал расхождение 1% по кромке в --check (аудит Codex 09.11.2026). */
     let area = w * hh / 144, perim = circle ? Math.PI * w : 2 * (Math.ceil(w - 1e-9) + Math.ceil(hh - 1e-9));
-    if (spec.shape) { try { const sh = salesShapeByRef(l.shapeRef), r = sh && ShapeModule.compute(sh); if (r && r.valid && r.area > 0) { area = r.area / 144; const len = (r.edges || []).reduce((n, e) => n + (+e.length || 0), 0); if (len > 0) perim = len; } } catch (e) {} }
+    /* Кромка фигуры — контур целиком вверх до целого дюйма, как в счёте ERP
+       (salesWholeInches при записи строки). Фигура для ERP — всё, что не
+       чистый прямоугольник (salesPlainRect): и прямоугольник с радиусами или
+       пескоструем. ERP округляет строку юнита: у пакета из n стёкол одной
+       толщины — сумму их контуров. Точный контур давал CNC Shape Polish
+       1972,12″ против 1980″ отчёта (аудит Codex 17.11.2026). */
+    if (spec.shape || spec.radius || spec.sand) { try { const sh = salesShapeByRef(l.shapeRef), r = sh && ShapeModule.compute(sh); if (r && r.valid && r.area > 0) {
+      if (spec.shape) area = r.area / 144;
+      const len = (r.edges || []).reduce((n, e) => n + (+e.length || 0), 0), n = (spec.panes || []).length || 1;
+      if (len > 0 && !salesPlainRect(sh)) perim = salesWholeInches(len * n) / n;
+    } } catch (e) {} }
     const pane = spec.panes ? spec.panes[c ? c.index : 0] || spec.panes[0] : { ht: 'HT-AN' };
     p = { o: h.orderId, l: h.lineId, key: h.key, unit: h.unit, idx: c ? c.index : 0, ply: c ? c.ply : '', glass: c ? c.glass : '', mm, w, h: hh, area, perim, ht: spec.lam ? spec.lam.ht : pane.ht,
       edge: spec.edge || (spec.unit === 'single' ? '' : 'arris'), lamiPolish: !!spec.lamiPolish, holes: (spec.holes || 0) + (spec.hinges || 0), igu: spec.unit !== 'single', shape: spec.shape || '' };
