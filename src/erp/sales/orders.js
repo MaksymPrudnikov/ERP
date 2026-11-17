@@ -286,6 +286,8 @@ function salesOrderSaveCommand(opts){
  if(!customer.contacts.some(x=>x.id===soDraft.customerContactId))soDraft.customerContactId=customerPrimaryContact(customer).id||'';
  /* 29.10.2026 — у всех клиентов: «PO для всех обязательно». */
  if(!salesIsQuote(soDraft)&&!String(soDraft.customerPo||'').trim())return fail(e,'Enter the Customer PO.');
+ /* Без Due date заказ не пишется (владелец 17.11.2026); Priority ставит её сам. */
+ if(!salesIsQuote(soDraft)&&!String(soDraft.dueDate||'').trim())return fail(e,'Enter the Due Date.');
  previousOrder=DB.salesOrder.find(o=>o.id===soDraft.id);
  const shippingError=shippingSaveGuard(soDraft,previousOrder);if(shippingError)return fail(e,shippingError);
  if(previousOrder&&previousOrder.customerId!==soDraft.customerId&&finOrderReceiptIds(soDraft.id).length)return fail(e,'This order has payment records. Its customer cannot change.');
@@ -1693,7 +1695,7 @@ function salesOpenLiteShape(lineId,liteIndex){if(salesLockedLineGuard((soDraft.l
  if(!shape)return alert('Line needs Width and Height first.');
  const i=DB.shapeDef.findIndex(function(x){return x.id===shape.id;});
  salesBridge={kind:'shape',lineId:line.id,liteIndex:liteIndex};
- tab='configurators';subtab='shape';sView='setup';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;
+ tab='configurators';subtab='shape';shapeFreshUi();sView='setup';
  sEdit=i;sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(shape)));
  salesApplyLineGlassThicknessToShape(line,sDraft,liteIndex);
  soEdgeworkLineId=null;
@@ -1878,7 +1880,7 @@ function salesLineBaseEdgeworkOps(line,order){
  return op?[shapeNormalizeOp(op)].filter(Boolean):[];
 }
 function salesOrderConfigureShape(i){
- const line=soDraft.lines[i];if(!line||salesLockedLineGuard(line))return;salesBridge={kind:'shape',lineId:line.id};tab='configurators';subtab='shape';sView='setup';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;
+ const line=soDraft.lines[i];if(!line||salesLockedLineGuard(line))return;salesBridge={kind:'shape',lineId:line.id};tab='configurators';subtab='shape';shapeFreshUi();sView='setup';
  const current=salesShapeByRef(line.shapeRef);if(current){const idx=DB.shapeDef.findIndex(s=>s.id===current.id);sEdit=idx;sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(current)));}
  else{sEdit='new';sDraft=newShapeDef('rectangle');sDraft.name=(soDraft.businessNumber||'SO')+' · '+(line.mark||('Line '+(i+1)));if(line.width16)sDraft.w=salesDimFrom16(line.width16);if(line.height16)sDraft.h=salesDimFrom16(line.height16);}
  salesApplyLineGlassThicknessToShape(line,sDraft);

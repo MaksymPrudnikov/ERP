@@ -670,7 +670,7 @@ function nextSalesOrderNumber(){let max=Math.max(76001,typeof archiveFloor==='fu
 /* shapeCut — заказ создан после правила 09.11.2026: стекло фигуры — по
    режущему прямоугольнику модуля реза (erp/sales/line-metrics). У заказа,
    записанного раньше, метки нет: он по габариту, его суммы не меняются. */
-function newSalesOrderDraft(kind){const now=new Date().toISOString(),o=normalizeSalesOrder({kind:kind==='quote'?'quote':'order',priority:'normal',branch:'Infinity Glass Group Inc',delivery:'pickup',currency:'CAD',orderCharges:salesOrderChargeDefaults(),shapeCut:true,createdAt:now,updatedAt:now,makeups:[{code:'A',unitType:'double'}],lines:[]});o.lines.push(normalizeSalesOrderLine({makeupId:o.makeups[0].id,qty:1}));return o;}
+function newSalesOrderDraft(kind){const now=new Date().toISOString(),o=normalizeSalesOrder({kind:kind==='quote'?'quote':'order',priority:'normal',branch:'Infinity Glass Group Inc',delivery:'pickup',currency:'CAD',orderCharges:salesOrderChargeDefaults(),shapeCut:true,createdAt:now,updatedAt:now,makeups:[{code:'A',unitType:'double'}],lines:[]});o.lines.push(normalizeSalesOrderLine({makeupId:o.makeups[0].id,qty:1}));if(kind!=='quote'&&typeof salesDueDate==='function')o.dueDate=salesDueDate(o.priority);return o;}
 function salesCustomerDisplay(id){const c=(DB.customer||[]).find(x=>x.id===id);return c?(c.displayName||c.legalName||c.code):'';}
 function salesMakeupById(order,id){return (order&&order.makeups||[]).find(m=>m.id===id)||null;}
 /* Позицию каталога, на которую ссылается хоть один Makeup, удалять нельзя:

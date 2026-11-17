@@ -236,3 +236,8 @@ th.n .sl-th [data-cw-label]:has(.sl-qf){flex:1 1 auto}th.n .sl-qf{text-align:rig
 .sales-prod-modal{width:min(1000px,96vw)}.sales-prod-table td.pb-st,.sales-prod-table th.pb-st{text-align:center}
 .sales-prod-line td{background:var(--surface-2);font-weight:600}.sales-prod-glass td:first-child{padding-left:26px;border-left:3px solid var(--accent-line)}
 .sales-prod-empty{padding:18px 4px}.sales-prod-own{font-weight:700;color:var(--accent)}
+/* Notes заказа (17.11.2026): узкая, две строки, полный текст — при наведении. */
+.sl-notes{cursor:pointer}
+.sl-note-text{display:-webkit-box;max-width:100%;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;word-break:break-word;font-size:12px;line-height:1.3}
+.sl-notes:hover .sl-note-text{color:var(--accent)}
+.sl-note-dialog textarea{width:100%;min-height:150px;resize:vertical}

@@ -3,6 +3,38 @@
 Orders and quotes: customer, makeups (what a unit is built from), lines with sizes, work and price. This page covers
 the price windows people edit most: order surcharges, line services and how a makeup is written.
 
+## Order header: Priority and Due date
+
+Owner, 17 Nov 2026: Priority comes first and sets the due date by itself.
+
+- First **Priority**, then **Due Date \***. Priority sets the date: **Normal — 7, Rush — 3, Critical — 1** business
+  day (Monday–Friday, holidays are not counted). The numbers are edited in **Data → Setup → Due date**.
+- A new order gets the date at once, from the day it is created. A copied order keeps the original date (a 100 % copy). An order
+  from a quote — from the conversion day; a future date written in the quote stays.
+- The date can be changed by hand. Changing Priority again counts the date anew from today — a hand-set date too.
+- **An order without a Due date is not saved**: “Enter the Due Date.” A quote does not need one.
+- Example: an order created on Friday 20 Nov — Normal → Tuesday 1 Dec, Rush → Wednesday 25 Nov, Critical → Monday 23 Nov.
+
+## Order note (Notes)
+
+- The **Notes** column in the Sales list stands right after Invoice. Narrow (100 px), two lines of text; if it
+  does not fit, hover to see all of it.
+- Typing is in its own window: **click the Notes cell** or right-click the order → **Note…**. Save writes the note at
+  once without opening the order; the change shows in the order log (Activity log: Edited · notes).
+- The same field is **Order Notes** at the bottom of the order form.
+- On screens narrower than 1560 px the column hides like other narrow columns (⚙ Columns brings it back).
+
+## Shape opens clean
+
+Owner, 17 Nov 2026: the Shape window should not remember the previous one. Every entry to Shape — from an order line,
+a lite, NCR / Recut, the library — opens the Designer tab with all panels closed, Metric detail off and no mark waiting
+for a place.
+
+## Selecting rows
+
+Shift+click selects rows from the last ticked one to this one — in order lines, Optimization → To batch and the lists.
+There is no hint about it on screen (owner, 17 Nov 2026).
+
 ## How a makeup is written
 
 A makeup in the strip above the lines, in an order line, on a sticker, packing slip, invoice and Work order is one

@@ -70,8 +70,8 @@ module.exports=async function({page,eq}){
   salesListSetFilter(salesListColumns()[1].k,null);slScopePin='';box.remove();
   return {heads,btns,wrap,before,check,btn,after};
  }),{heads:['Item','Amount'],btns:2,wrap:true,before:['a','lnk','b'],check:true,btn:true,after:['b']});
- eq('Sales: Columns has the order fields that were not on screen — Account, Contact, Currency, Picked up, Payment due, Days late, Hold reason, Notes',await t.p.evaluate(()=>SALES_LIST_COLUMNS.filter(c=>['account','contact','currency','billed','payDue','daysLate','holdReason','notes'].includes(c.k)).map(c=>c.label+(c.def?' on':''))),
-  ['Account','Contact','Currency','Picked up','Payment due','Days late','Hold reason','Notes']);
+ eq('Sales: Columns has the order fields that were not on screen — Account, Contact, Currency, Picked up, Payment due, Days late, Hold reason; Notes on screen (17.11.2026)',await t.p.evaluate(()=>SALES_LIST_COLUMNS.filter(c=>['account','contact','currency','billed','payDue','daysLate','holdReason','notes'].includes(c.k)).map(c=>c.label+(c.def?' on':''))),
+  ['Notes on','Account','Contact','Currency','Picked up','Payment due','Days late','Hold reason']);
  /* Настоящая мышь (08.11.2026, владелец: «выделяется, но не работает как быстрый
     поиск»): нажатие на заголовок начинает перенос колонки и захватывает
     указатель на th — клик приходит в ячейку, а не в название. Проверки выше
