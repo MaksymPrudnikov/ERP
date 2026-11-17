@@ -8,7 +8,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-FiHlxCX6FyL3K5fSA3XH/62uuX4qUymYdbW/h/B76Sc=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-Nn1tPM0lYGY8JIGfIv6/TzfbdBO6UNa8ILISPXKBrps=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GLASS ERP — Glazing System</title>
 <style>
@@ -2119,6 +2119,11 @@ th.n .sl-th [data-cw-label]:has(.sl-qf){flex:1 1 auto}th.n .sl-qf{text-align:rig
 .sales-prod-modal{width:min(1000px,96vw)}.sales-prod-table td.pb-st,.sales-prod-table th.pb-st{text-align:center}
 .sales-prod-line td{background:var(--surface-2);font-weight:600}.sales-prod-glass td:first-child{padding-left:26px;border-left:3px solid var(--accent-line)}
 .sales-prod-empty{padding:18px 4px}.sales-prod-own{font-weight:700;color:var(--accent)}
+/* Notes заказа (17.11.2026): узкая, две строки, полный текст — при наведении. */
+.sl-notes{cursor:pointer}
+.sl-note-text{display:-webkit-box;max-width:100%;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;word-break:break-word;font-size:12px;line-height:1.3}
+.sl-notes:hover .sl-note-text{color:var(--accent)}
+.sl-note-dialog textarea{width:100%;min-height:150px;resize:vertical}
 
 /* ---- src/styles/col-widths.css ---- */
 /* Ширина и порядок колонок (views/col-widths): Sales и Order Lines одинаково. */
@@ -4405,7 +4410,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='f3303785360b';
+var ERP_BUILD='5b833a87de9e';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -13554,7 +13559,9 @@ const ORDER_SETUP_DEFAULT={
  cardNetworks:[{id:'visa',name:'Visa card fee',rate:2.34},{id:'mastercard',name:'Mastercard fee',rate:2.39},{id:'amex',name:'American Express fee',rate:3.15}],
  deliveryOn:false,deliveryAmount:0,
  skidDepositOn:false,skidDepositAmount:0,
- fritDotMm:5,fritMargin16:16,fritCorner:'Top right'
+ fritDotMm:5,fritMargin16:16,fritCorner:'Top right',
+ /* Due date по приоритету — рабочих дней Пн–Пт (владелец 17.11.2026). */
+ dueNormalDays:7,dueRushDays:3,dueCriticalDays:1
 };
 /* Что может входить в базу сбора, кроме Subtotal. */
 const ORDER_CHARGE_BASE_PARTS={hst:['energy','delivery'],card:['energy','hst','delivery']};
@@ -13570,6 +13577,7 @@ function normalizeOrderSetup(){
  });
  out.fritDotMm=out.fritDotMm>0?out.fritDotMm:d.fritDotMm;
  out.fritMargin16=Math.round(out.fritMargin16);
+ ['dueNormalDays','dueRushDays','dueCriticalDays'].forEach(k=>{out[k]=Math.round(out[k]);});
  out.fritCorner=FRIT_MARGIN_CORNERS.includes(s.fritCorner)?s.fritCorner:d.fritCorner;
  /* Списка карт нет вовсе (старая база) — засев; список очищен руками —
     остаётся пустым: комиссии тогда нет, пока её не заведут. */
@@ -13583,6 +13591,16 @@ function normalizeOrderSetup(){
 }
 normalizeOrderSetup();
 function orderSetup(){return DB.orderSetup||ORDER_SETUP_DEFAULT;}
+/* Due date по приоритету (владелец 17.11.2026): Normal 7, Rush 3, Critical 1
+   рабочих дней (Пн–Пт, праздники не считаем) от дня from (пусто — сегодня).
+   Числа — Data → Setup. Ответ — 'YYYY-MM-DD' по местному времени. */
+function salesDueDays(priority){const s=orderSetup();return priority==='critical'?s.dueCriticalDays:priority==='rush'?s.dueRushDays:s.dueNormalDays;}
+function salesDueDate(priority,from){
+ const d=from?new Date(from):new Date();if(isNaN(d))return '';
+ d.setHours(12,0,0,0);let n=Math.max(0,Math.round(+salesDueDays(priority)||0));
+ while(n>0){d.setDate(d.getDate()+1);const w=d.getDay();if(w!==0&&w!==6)n--;}
+ const p=x=>String(x).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+}
 function orderSetupNetwork(id){return orderSetup().cardNetworks.find(x=>x.id===id)||null;}
 function orderSetupBase(kind){const s=orderSetup(),key=kind+'On';return ORDER_CHARGE_BASE_PARTS[kind].filter(p=>s[key+p[0].toUpperCase()+p.slice(1)]);}
 /* Снимок для нового заказа: ставки, первая карта списка, база сборов. */
@@ -14376,7 +14394,7 @@ function nextSalesOrderNumber(){let max=Math.max(76001,typeof archiveFloor==='fu
 /* shapeCut — заказ создан после правила 09.11.2026: стекло фигуры — по
    режущему прямоугольнику модуля реза (erp/sales/line-metrics). У заказа,
    записанного раньше, метки нет: он по габариту, его суммы не меняются. */
-function newSalesOrderDraft(kind){const now=new Date().toISOString(),o=normalizeSalesOrder({kind:kind==='quote'?'quote':'order',priority:'normal',branch:'Infinity Glass Group Inc',delivery:'pickup',currency:'CAD',orderCharges:salesOrderChargeDefaults(),shapeCut:true,createdAt:now,updatedAt:now,makeups:[{code:'A',unitType:'double'}],lines:[]});o.lines.push(normalizeSalesOrderLine({makeupId:o.makeups[0].id,qty:1}));return o;}
+function newSalesOrderDraft(kind){const now=new Date().toISOString(),o=normalizeSalesOrder({kind:kind==='quote'?'quote':'order',priority:'normal',branch:'Infinity Glass Group Inc',delivery:'pickup',currency:'CAD',orderCharges:salesOrderChargeDefaults(),shapeCut:true,createdAt:now,updatedAt:now,makeups:[{code:'A',unitType:'double'}],lines:[]});o.lines.push(normalizeSalesOrderLine({makeupId:o.makeups[0].id,qty:1}));if(kind!=='quote'&&typeof salesDueDate==='function')o.dueDate=salesDueDate(o.priority);return o;}
 function salesCustomerDisplay(id){const c=(DB.customer||[]).find(x=>x.id===id);return c?(c.displayName||c.legalName||c.code):'';}
 function salesMakeupById(order,id){return (order&&order.makeups||[]).find(m=>m.id===id)||null;}
 /* Позицию каталога, на которую ссылается хоть один Makeup, удалять нельзя:
@@ -15232,7 +15250,9 @@ function salesConvertQuoteRecord(id,po){
     оплаты и журналом), не вся база; запись не прошла — всё как было. */
  const out=storageCommand(()=>{
   const now=new Date().toISOString();
-  const copy=salesCopySalesRecord(quote,{kind:'order',status:'new',statusDates:{new:now},businessNumber:nextSalesOrderNumber(),fromQuoteId:quote.id,wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',createdAt:now,updatedAt:now,customerPo:poText});
+  const copy=salesCopySalesRecord(quote,{kind:'order',status:'new',statusDates:{new:now},businessNumber:nextSalesOrderNumber(),fromQuoteId:quote.id,wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',createdAt:now,updatedAt:now,customerPo:poText,
+   /* Срок заказа из квоты — от дня конвертации; будущий срок, вписанный в квоту, остаётся. */
+   dueDate:quote.dueDate&&quote.dueDate>=now.slice(0,10)?quote.dueDate:salesDueDate(quote.priority,now)});
   const order=normalizeSalesOrder(copy);DB.salesOrder.push(order);
   if(typeof finCaptureTerms==='function')finCaptureTerms(order);
   quote.status='won';quote.wonOrderId=copy.id;quote.statusDates=Object.assign({},quote.statusDates,{won:now});quote.updatedAt=now;
@@ -20130,6 +20150,9 @@ function salesOrderSaveCommand(opts){
  if(!customer.contacts.some(x=>x.id===soDraft.customerContactId))soDraft.customerContactId=customerPrimaryContact(customer).id||'';
  /* 29.10.2026 — у всех клиентов: «PO для всех обязательно». */
  if(!salesIsQuote(soDraft)&&!String(soDraft.customerPo||'').trim())return fail(e,'Enter the Customer PO.');
+ /* Без Due date заказ не пишется (владелец 17.11.2026); Priority ставит её сам.
+    Кроме переделки NCR: она — свой заказ без срока и в On time % не входит (правило Late, 16.11.2026). */
+ if(!salesIsQuote(soDraft)&&!soDraft.remakeNcrId&&!String(soDraft.dueDate||'').trim())return fail(e,'Enter the Due Date.');
  previousOrder=DB.salesOrder.find(o=>o.id===soDraft.id);
  const shippingError=shippingSaveGuard(soDraft,previousOrder);if(shippingError)return fail(e,shippingError);
  if(previousOrder&&previousOrder.customerId!==soDraft.customerId&&finOrderReceiptIds(soDraft.id).length)return fail(e,'This order has payment records. Its customer cannot change.');
@@ -21552,7 +21575,7 @@ function salesOpenLiteShape(lineId,liteIndex){if(salesLockedLineGuard((soDraft.l
  if(!shape)return alert('Line needs Width and Height first.');
  const i=DB.shapeDef.findIndex(function(x){return x.id===shape.id;});
  salesBridge={kind:'shape',lineId:line.id,liteIndex:liteIndex};
- tab='configurators';subtab='shape';sView='setup';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;
+ tab='configurators';subtab='shape';shapeFreshUi();sView='setup';
  sEdit=i;sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(shape)));
  salesApplyLineGlassThicknessToShape(line,sDraft,liteIndex);
  soEdgeworkLineId=null;
@@ -21737,7 +21760,7 @@ function salesLineBaseEdgeworkOps(line,order){
  return op?[shapeNormalizeOp(op)].filter(Boolean):[];
 }
 function salesOrderConfigureShape(i){
- const line=soDraft.lines[i];if(!line||salesLockedLineGuard(line))return;salesBridge={kind:'shape',lineId:line.id};tab='configurators';subtab='shape';sView='setup';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;
+ const line=soDraft.lines[i];if(!line||salesLockedLineGuard(line))return;salesBridge={kind:'shape',lineId:line.id};tab='configurators';subtab='shape';shapeFreshUi();sView='setup';
  const current=salesShapeByRef(line.shapeRef);if(current){const idx=DB.shapeDef.findIndex(s=>s.id===current.id);sEdit=idx;sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(current)));}
  else{sEdit='new';sDraft=newShapeDef('rectangle');sDraft.name=(soDraft.businessNumber||'SO')+' · '+(line.mark||('Line '+(i+1)));if(line.width16)sDraft.w=salesDimFrom16(line.width16);if(line.height16)sDraft.h=salesDimFrom16(line.height16);}
  salesApplyLineGlassThicknessToShape(line,sDraft);
@@ -27888,6 +27911,9 @@ function salesCustomerPick(id){
 /* Поле шапки заказа пишет прямо в черновик soDraft (core/actions): k — имя
    поля, v — значение. …Render — ещё и перерисовать (валюта, срок квоты). */
 function salesDraftSet(k,v){soDraft[k]=v;}
+/* Priority ставит Due date сама: рабочие дни от сегодня (Data → Setup); руками
+   дату можно поменять, новая смена приоритета считает заново (17.11.2026). */
+function salesPriorityChange(v){soDraft.priority=v;soDraft.dueDate=salesDueDate(v);render();}
 function salesDraftSetRender(k,v){soDraft[k]=v;render();}
 function salesOrderEditor(){
  /* Заказ из архива (erp/archive): закрыто всё, кроме кнопок шапки — его
@@ -27895,7 +27921,7 @@ function salesOrderEditor(){
  const o=soDraft,c=salesFindCustomer(o.customerId),title=salesOrderTitle(o),ro=salesOrderReadOnly(o),av=typeof archiveViewing==='function'&&archiveViewing(o),q=salesIsQuote(o),fromQuote=o.fromQuoteId?((DB.salesOrder||[]).find(x=>x.id===o.fromQuoteId)||{}).businessNumber:'',customerFlags=c?`${c.onHold?'<span class="pill bad">On Hold</span>':''}${c.poRequired?'<span class="pill warn">PO Required</span>':''}${c.isProspect?'<span class="pill info">Prospect</span>':''}`:'';
  return `<div class="sales-order-editor"><div class="sales-editor-top"><div><div class="sales-order-title"><h3>${esc(title)}</h3>${salesStatusPill(q?salesQuoteShown(o):o)}${!q&&o.onHold?'<span class="pill hold" data-hold-pill>On Hold</span>':''}${customerFlags}</div><div class="mut mono">${esc(q?salesQuoteShown(o).id:o.id)}${fromQuote?' · from quote '+raw(fromQuote):''}${(e=>e&&e.by?`<span data-created-by> · Created by ${esc(e.by)} · ${esc(salesListShortDay(salesListIsoDay(e.at)))}</span>`:'')(orderCreatedBy(q?salesQuoteShown(o).id:o.id))}</div></div>${q?'':av?`<div inert>${salesPaymentStrip(o)}</div>`:salesPaymentStrip(o)}<div class="sales-editor-actions">${salesHeaderActions(o)}</div></div>
  ${ro?salesMailStrip(o):''}${av?'<div class="sales-readonly" inert>':''}${salesCopyStrip(o)}${salesHoldBar(o)}${shippingOrderStrip(o)}${salesStatusStepper(o)}${salesLockBar(o)}${typeof ncrOrderStrip==='function'?ncrOrderStrip(o):''}${ro&&!av?'<div class="sales-readonly" inert>':''}
- <div class="sales-header-compact so-head${q?' q':''}${soContactOpen&&c||soMailOpen?' has-contact':''}"><div><label for="so_customer">Customer *</label>${salesCustomerField()}</div><div><label>Customer PO</label><input value="${esc(o.customerPo)}" ${onAct('input',salesDraftSet,'customerPo',EL_VALUE)}></div><div><label>Due Date</label><input type="date" value="${esc(o.dueDate)}" ${onAct('change',salesDraftSet,'dueDate',EL_VALUE)}></div><div><label>Priority</label><select ${onAct('change',salesDraftSet,'priority',EL_VALUE)}><option value="normal" ${o.priority==='normal'?'selected':''}>Normal</option><option value="rush" ${o.priority==='rush'?'selected':''}>Rush</option><option value="critical" ${o.priority==='critical'?'selected':''}>Critical</option></select></div><div><label>Delivery</label><select ${onAct('change',salesDraftSet,'delivery',EL_VALUE)}><option value="pickup" ${o.delivery==='pickup'?'selected':''}>Pickup</option><option value="delivery" ${o.delivery==='delivery'?'selected':''}>Delivery</option></select></div><div><label>Currency</label><select ${onAct('change',salesDraftSetRender,'currency',EL_VALUE)}><option ${o.currency==='CAD'?'selected':''}>CAD</option><option ${o.currency==='USD'?'selected':''}>USD</option></select></div><div><label>Branch</label><input value="${esc(o.branch)}" ${onAct('input',salesDraftSet,'branch',EL_VALUE)}></div>${q?`<div><label>Valid until</label><input type="date" data-quote-valid value="${esc(o.validUntil)}" title="Empty: the send date plus ${salesQuoteValidDays()} days" ${onAct('change',salesDraftSetRender,'validUntil',EL_VALUE)}></div>`:''}</div>
+ <div class="sales-header-compact so-head${q?' q':''}${soContactOpen&&c||soMailOpen?' has-contact':''}"><div><label for="so_customer">Customer *</label>${salesCustomerField()}</div><div><label>Customer PO</label><input value="${esc(o.customerPo)}" ${onAct('input',salesDraftSet,'customerPo',EL_VALUE)}></div><div><label>Priority</label><select ${onAct('change',salesPriorityChange,EL_VALUE)}><option value="normal" ${o.priority==='normal'?'selected':''}>Normal</option><option value="rush" ${o.priority==='rush'?'selected':''}>Rush</option><option value="critical" ${o.priority==='critical'?'selected':''}>Critical</option></select></div><div><label>Due Date${q?'':' *'}</label><input type="date" data-so-due value="${esc(o.dueDate)}" ${onAct('change',salesDraftSet,'dueDate',EL_VALUE)}></div><div><label>Delivery</label><select ${onAct('change',salesDraftSet,'delivery',EL_VALUE)}><option value="pickup" ${o.delivery==='pickup'?'selected':''}>Pickup</option><option value="delivery" ${o.delivery==='delivery'?'selected':''}>Delivery</option></select></div><div><label>Currency</label><select ${onAct('change',salesDraftSetRender,'currency',EL_VALUE)}><option ${o.currency==='CAD'?'selected':''}>CAD</option><option ${o.currency==='USD'?'selected':''}>USD</option></select></div><div><label>Branch</label><input value="${esc(o.branch)}" ${onAct('input',salesDraftSet,'branch',EL_VALUE)}></div>${q?`<div><label>Valid until</label><input type="date" data-quote-valid value="${esc(o.validUntil)}" title="Empty: the send date plus ${salesQuoteValidDays()} days" ${onAct('change',salesDraftSetRender,'validUntil',EL_VALUE)}></div>`:''}</div>
  ${salesContactRow(o,c)}${salesMailRow(o)}${salesPriceListStrip(o)}${q?'':salesDepositHint(o)}${c&&c.onHold?'<div class="sales-hold">Customer on hold</div>':''}
  ${salesGlassSectionHTML()}
  ${salesExtraItemsSection()}
@@ -28515,7 +28541,6 @@ let sDimEdit=null,sMetricDimEdit=null;
    дюймов. Старые сдвиги −/+ этого браузера (sMetricOffsets) читаются только
    для дюймов — shapeLayoutAdoptLegacy переносит их в форму. */
 var SHAPE_METRIC_STORAGE_KEY='glass_erp_shape_metric_detail',SHAPE_METRIC_OFFSETS_STORAGE_KEY='glass_erp_shape_metric_offsets_v1',sMetricDetail=false,sMetricOffsets={};
-try{sMetricDetail=localStorage.getItem(SHAPE_METRIC_STORAGE_KEY)==='1';}catch(e){}
 try{var metricStored=JSON.parse(localStorage.getItem(SHAPE_METRIC_OFFSETS_STORAGE_KEY)||'{}');if(metricStored&&typeof metricStored==='object')sMetricOffsets=metricStored;}catch(e){}
 function setShapeMetricDetail(value){
   sMetricDetail=!!value;sMetricDimEdit=null;
@@ -28705,8 +28730,18 @@ function viewShapeSkill(){
 }
 
 function openShapeNewPicked(){openShapeNew(document.getElementById('s_new_type').value);}
-function openShapeNew(type){shapeResetMarkAnchors();sEdit='new';sView='production';sWorkspaceTab='designer';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;sFeatureExpandedId=null;sSourceOpen=false;sManufacturingOpen=false;sManufacturingPlace=null;sManufacturingSelected=null;sManufacturingCustomId=null;sDimEdit=null;sDraft=newShapeDef(type||'smart');sDraft.name=shapePresetInfo(sDraft.type).label;if(typeof setSidebarCollapsed==='function')setSidebarCollapsed(true,false);render();}
-function openShapeEdit(i){shapeResetMarkAnchors();sEdit=i;sView='production';sWorkspaceTab='designer';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;sFeatureExpandedId=null;sSourceOpen=false;sManufacturingOpen=false;sManufacturingPlace=null;sManufacturingSelected=null;sManufacturingCustomId=null;sDimEdit=null;sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(DB.shapeDef[i])));if(typeof setSidebarCollapsed==='function')setSidebarCollapsed(true,false);render();}
+/* Shape всегда открывается с чистого (владелец 17.11.2026: «меню входа в шейп
+   помнит прошлое окно, а зачем? лучше всегда новое»): вкладка Designer, все
+   панели закрыты, место метки, правка размера, Muntin, Lite split, печать и
+   Metric detail — заново. Зовут все входы: библиотека, Sales, NCR/Recut. */
+function shapeFreshUi(){
+ shapeResetMarkAnchors();sWorkspaceTab='designer';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;sFeatureExpandedId=null;sSourceOpen=false;
+ sManufacturingOpen=false;sManufacturingPlace=null;sManufacturingSelected=null;sManufacturingCustomId=null;sDimEdit=null;sMetricDimEdit=null;
+ sLayoutEdit=null;sLayoutDrag=null;shapeDimUi=true;sPrintMenu=false;sLiteSplitOpen=false;sMuntinOpen=false;sMetricDetail=false;
+ if(typeof shapeProdExceptionsOpen!=='undefined'){shapeProdExceptionsOpen=false;shapeProdSelectedEdgeId=null;}
+}
+function openShapeNew(type){shapeFreshUi();sEdit='new';sView='production';sDraft=newShapeDef(type||'smart');sDraft.name=shapePresetInfo(sDraft.type).label;if(typeof setSidebarCollapsed==='function')setSidebarCollapsed(true,false);render();}
+function openShapeEdit(i){shapeFreshUi();sEdit=i;sView='production';sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(DB.shapeDef[i])));if(typeof setSidebarCollapsed==='function')setSidebarCollapsed(true,false);render();}
 function shapeFileSizeText(bytes){
   var n=Math.max(0,+bytes||0);if(n<1024)return Math.round(n)+' B';if(n<1024*1024)return (n/1024).toFixed(n<10240?1:0)+' KB';return (n/(1024*1024)).toFixed(1)+' MB';
 }
@@ -31805,9 +31840,9 @@ function salesMakeupBarHTML(){
   /* Один Makeup — менять не на что (владелец, 30.10.2026: «какой смысл от
      окна Makeup, если сейчас только 1 мейкап, она ещё и визуально большая»):
      полосы нет; выбрали строки — узкая полоса с числом и Edgework. */
-  if(soDraft.makeups.length<2)return salesServiceVisibleSelected().length?`<div class='mk-bar mk-bar-one' data-mk-bar><span class='mk-live' data-mk-live>${salesBulkLiveHTML()}</span><span class='mk-grow'></span>${salesBulkServiceControls()}<span class='mk-hint'>Shift+click — range</span></div>${salesServiceBulkPreviewHtml()}`:'';
+  if(soDraft.makeups.length<2)return salesServiceVisibleSelected().length?`<div class='mk-bar mk-bar-one' data-mk-bar><span class='mk-live' data-mk-live>${salesBulkLiveHTML()}</span><span class='mk-grow'></span>${salesBulkServiceControls()}</div>${salesServiceBulkPreviewHtml()}`:'';
   var n=soDraft.lines.length,field=function(k,v,ph){return `<input class='mk-num' data-mk-field='${k}' inputmode='numeric' value='${esc(v)}' placeholder='${ph}' aria-label='${k==='from'?'From line':'To line'}' ${onAct('input',salesRangeInput,String(k),EL_VALUE)} ${onAct('keydown',salesRangeKey,EVENT)}>`;};
-  return `<div class='mk-bar' data-mk-bar><b class='mk-title'>Makeup</b><span>Lines</span>${field('from',soRangeFrom,'1')}<span>to</span>${field('to',soRangeTo,String(n))}<span class='mk-arrow'>→</span><select class='mk-sel' data-mk-makeup aria-label='Makeup' ${onAct('change',salesBulkPickMakeup,EL_VALUE)}><option value=''>—</option>${soDraft.makeups.map(function(m){return `<option value='${esc(m.id)}' ${soBulkMakeupId===m.id?'selected':''}>${esc(m.code)}${salesMakeupGlassText(m)?' · '+esc(salesMakeupGlassText(m)):''}</option>`;}).join('')}</select><span class='mk-live' data-mk-live>${salesBulkLiveHTML()}</span><span class='mk-grow'></span>${salesBulkServiceControls()}<span class='mk-hint'>Shift+click — range</span></div>${salesServiceBulkPreviewHtml()}`;
+  return `<div class='mk-bar' data-mk-bar><b class='mk-title'>Makeup</b><span>Lines</span>${field('from',soRangeFrom,'1')}<span>to</span>${field('to',soRangeTo,String(n))}<span class='mk-arrow'>→</span><select class='mk-sel' data-mk-makeup aria-label='Makeup' ${onAct('change',salesBulkPickMakeup,EL_VALUE)}><option value=''>—</option>${soDraft.makeups.map(function(m){return `<option value='${esc(m.id)}' ${soBulkMakeupId===m.id?'selected':''}>${esc(m.code)}${salesMakeupGlassText(m)?' · '+esc(salesMakeupGlassText(m)):''}</option>`;}).join('')}</select><span class='mk-live' data-mk-live>${salesBulkLiveHTML()}</span><span class='mk-grow'></span>${salesBulkServiceControls()}</div>${salesServiceBulkPreviewHtml()}`;
 }
 
 /* Ссылки на набор у строки больше нет — бейдж показывает, ОТКУДА пришла
@@ -33446,6 +33481,8 @@ function viewMdSetup(){
   <button type="button" data-setup-card-add ${onAct('click',orderSetupCardAdd)}>+ Card</button>
   <h3>Weights</h3><p class="mut">Unit weight on orders and stickers.</p>
   <div class="grid">${(()=>{const g=(DB.materialWeightRates||[]).find(r=>r.key==='glass');return `<div><label>Glass density, kg/m³</label><input type="number" min="0" step="any" data-setup-density value="${g&&g.rate!=null?g.rate:''}" placeholder="unknown" ${onAct('change',mdWeightSet,'glass',EL_VALUE,1)}></div>`;})()}</div>
+  <h3>Due date</h3><p class="mut">Set by Priority · business days, Mon–Fri.</p>
+  <div class="grid">${[['dueNormalDays','Normal'],['dueRushDays','Rush'],['dueCriticalDays','Critical']].map(([k,l])=>`<div><label>${l}, days</label><input type="number" min="0" step="1" data-setup="${k}" value="${s[k]}" ${onAct('change',orderSetupSet,String(k),EL_VALUE)}></div>`).join('')}</div>
   <h3>Frit</h3><p class="mut">Prefilled on a new frit lite.</p>
   <div class="grid">
    <div><label>Dot, mm</label><input type="number" min="0.1" step="0.1" data-setup="fritDotMm" value="${s.fritDotMm}" ${onAct('change',orderSetupSet,'fritDotMm',EL_VALUE)}></div>
@@ -37693,6 +37730,9 @@ const SALES_LIST_COLUMNS=[
     Invoice клиенту (журнал заказа); Not invoiced — всё выдано, счёта не было.
     07.11.2026 — видна сразу, за Status, с фильтром ▾ как у других колонок. */
  {k:'invoice',label:'Invoice',type:'list',def:true},
+ /* Заметка заказа (владелец 17.11.2026: «не хватает ячейки NOTE для самого
+    заказа»): узкая, две строки, наведи — весь текст; клик — окно ввода. */
+ {k:'notes',label:'Notes',type:'text',def:true},
  {k:'priority',label:'Priority',type:'list',def:true},
  {k:'glass',label:'Glass',type:'text',def:true},
  {k:'orderItems',label:'Order Items',type:'text',def:true},
@@ -37721,8 +37761,7 @@ const SALES_LIST_COLUMNS=[
  {k:'billed',label:'Picked up',type:'date'},
  {k:'payDue',label:'Payment due',type:'date'},
  {k:'daysLate',label:'Days late',type:'number'},
- {k:'holdReason',label:'Hold reason',type:'text'},
- {k:'notes',label:'Notes',type:'text'}
+ {k:'holdReason',label:'Hold reason',type:'text'}
 ];
 const SALES_LIST_OPS={
  text:[['contains','Contains'],['notContains','Does not contain'],['startsWith','Starts with'],['endsWith','Ends with'],['equals','Equals'],['notEqual','Not equal'],['empty','Is empty'],['notEmpty','Is not empty']],
@@ -37735,8 +37774,9 @@ const SALES_LIST_PRESETS=[['today','Today'],['yesterday','Yesterday'],['thisWeek
 const SALES_LIST_DUE_PRESETS=[['overdue','Overdue'],['today','Today'],['next7','Next 7 days'],['next30','Next 30 days'],['thisMonth','This month'],['nextMonth','Next month']];
 const SALES_HOLD_REASONS=['Waiting for payment','Customer asked to wait','Sizes or drawing to confirm','Credit check'];
 /* Sales: колонка прячется на экране уже этой ширины (владелец, 2.11.2026).
-   Created — до 1820 (07.11.2026): место колонке Invoice, таблица без прокрутки. */
-const SALES_LIST_NARROW={orderItems:1800,glass:1620,created:1820,priority:1400,area:1400,units:1200,po:1200,receipts:1200};
+   Created — до 1820 (07.11.2026): место колонке Invoice, таблица без прокрутки.
+   17.11.2026 — место колонке Notes: Area ft² прячется уже 1960, Notes видна с 1560. */
+const SALES_LIST_NARROW={notes:1560,orderItems:1800,glass:1620,created:1820,priority:1400,area:1960,units:1200,po:1200,receipts:1200};
 /* Show at bottom: что считать под колонкой. Таблицы с итогом salesListFooter. */
 const SALES_LIST_CALC_NUMBER=[['sum','Sum'],['avg','Average'],['count','Count'],['min','Min'],['max','Max'],['none','None']];
 const SALES_LIST_CALC_TEXT=[['count','Count'],['unique','Unique'],['none','None']];
@@ -37817,6 +37857,9 @@ function salesListCleanPrefs(p){
  if(salesListScope()==='sales'){
   if(p.invoiceShown!==true){const i=cols.findIndex(c=>c.k==='invoice');if(i>=0){const c=cols.splice(i,1)[0];c.on=true;const at=cols.findIndex(x=>x.k==='status');cols.splice(at>=0?at+1:cols.length,0,c);}}
   clean.invoiceShown=true;
+  /* Notes (17.11.2026) — так же: один раз включается и встаёт за Invoice. */
+  if(p.notesShown!==true){const i=cols.findIndex(c=>c.k==='notes');if(i>=0){const c=cols.splice(i,1)[0];c.on=true;const at=cols.findIndex(x=>x.k==='invoice');cols.splice(at>=0?at+1:cols.length,0,c);}}
+  clean.notesShown=true;
  }
  return clean;
 }
@@ -38190,6 +38233,7 @@ function salesListCell(info,col){
   case 'created':case 'due':case 'validUntil':case 'updated':case 'billed':case 'payDue':return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;
   case 'status':return `<td>${q?salesQuoteGroupPill(o):salesStatusPill(o)}${!q&&o.onHold?' <span class="pill hold">On Hold</span>':''}</td>`;
   case 'invoice':return `<td>${salesInvoicePill(o,v)}</td>`;
+  case 'notes':return info.n?'<td></td>':`<td class="sl-notes" data-order-note="${esc(o.id)}" ${onActStop('click',salesNoteOpen,String(o.id))}><span class="sl-note-text" title="${esc(v)}">${v?raw(v):'<span class="mut">—</span>'}</span></td>`;
   case 'glass':case 'orderItems':return `<td><span class="sl-glass" title="${esc(v)}">${raw(v||'—')}</span></td>`;
   case 'weight':return salesListWeightCell(v,info.memo.weightInfo);
   case 'daysLate':return `<td class="n">${v?`<b class="fin-due">${v} d</b>`:'<span class="mut">—</span>'}</td>`;
@@ -38279,7 +38323,7 @@ function salesListView(){
  },cols.length+2);
  const empty=`<tr><td colspan="${cols.length+2}" class="empty">${all.length?'Nothing matches the filters.':'No Sales Orders yet'}</td></tr>`;
  const wide=window.innerWidth>=1600,dateBtn=salesListDateButton(),chips=salesStatusChips(shown);salesListChipsNow=chips;
- return `<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">${salesListShowButton()}${openBtn}${deleteBtn}${holdBtn}${stickersBtn}${estBtn}${prodBtn}<span class="sales-toolbar-sp"></span>${wide?'':dateBtn}<button ${onAct('click',salesOrderNew,'quote')}>+ New Quote</button><button class="pri" ${onAct('click',salesOrderNew,'order')}>+ New Sales Order</button></div><div class="sl-filter-row">${salesQuickHTML(filtered,anyDate,{cur:salesStatusFilter?'-':quick,set:salesQuickPick,name:salesListShortLabel,invoice:true})}${salesListStatusPills(chips)}${wide?`<span class="sales-toolbar-sp"></span>${dateBtn}`:''}</div>${salesListStatusRow(chips)}${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${cw?cwTableClass('sales'):''}"${cw?cwTableAttrs('sales',keys):''}>${cw?cwColgroup('sales',keys):''}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" ${onAct('click',salesListToggleAll,EL_CHECKED)}><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" ${onAct('click',salesListOpenColumns,EVENT)}>${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
+ return `<div class="card sales-list-card sl-foot-pin"><div class="sales-toolbar">${salesListShowButton()}${openBtn}${deleteBtn}${holdBtn}${stickersBtn}${estBtn}${prodBtn}<span class="sales-toolbar-sp"></span>${wide?'':dateBtn}<button ${onAct('click',salesOrderNew,'quote')}>+ New Quote</button><button class="pri" ${onAct('click',salesOrderNew,'order')}>+ New Sales Order</button></div><div class="sl-filter-row">${salesQuickHTML(filtered,anyDate,{cur:salesStatusFilter?'-':quick,set:salesQuickPick,name:salesListShortLabel,invoice:true})}${salesListStatusPills(chips)}${wide?`<span class="sales-toolbar-sp"></span>${dateBtn}`:''}</div>${salesListStatusRow(chips)}${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table${cw?cwTableClass('sales'):''}"${cw?cwTableAttrs('sales',keys):''}>${cw?cwColgroup('sales',keys):''}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" ${onAct('click',salesListToggleAll,EL_CHECKED)}><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" ${onAct('click',salesListOpenColumns,EVENT)}>${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${salesNoteDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
 }
 
 /* ------------------------------ Меню ----------------------------------- */
@@ -38405,7 +38449,7 @@ function salesListMoveColumnTo(from,to,after){
  const [c]=cols.splice(a,1),b=cols.findIndex(x=>x.k===to);if(b<0){cols.splice(a,0,c);return;}
  cols.splice(after?b+1:b,0,c);salesListSavePrefs();render();
 }
-const SALES_LIST_WIDTH={type:76,number:96,customer:110,po:88,created:92,due:84,status:140,priority:84,glass:150,orderItems:160,batch:110,unitType:96,readyQty:80,units:76,area:92,total:100,receipts:100,balance:100,invoice:126};
+const SALES_LIST_WIDTH={type:76,number:96,customer:110,po:88,created:92,due:84,status:140,priority:84,glass:150,orderItems:160,batch:110,unitType:96,readyQty:80,units:76,area:92,total:100,receipts:100,balance:100,invoice:126,notes:100};
 cwRegister('sales',{
  widths:()=>salesListLoadPrefs().widths||{},
  save:w=>{const p=salesListLoadPrefs();if(Object.keys(w).length)p.widths=w;else delete p.widths;salesListSavePrefs();},
@@ -38481,7 +38525,7 @@ function salesListContextHTML(m,style){
  const q=salesIsQuote(o),ids=salesListSelectedOrders(),many=ids.length>1&&ids.includes(o.id);
  const item=(act,label,cls)=>`<button type="button" role="menuitem" class="${cls||''}" data-menu="${act}" ${onAct('click',salesListMenuRun,String(act))}>${label}</button>`;
  const hold=q?'':o.onHold?item('release',many?'Release · '+ids.length+' orders':'Release'):item('hold',many?'⛔ On Hold… · '+ids.length+' orders':'⛔ On Hold…');
- return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${item('copy','Copy')}${!q&&typeof salesProdOpen==='function'?item('production','Production'):''}${typeof orderLogOpen==='function'?item('log','Activity log'):''}${orderEmailLatest(o)?item('email','Open email'):''}${typeof skipAllowed==='function'&&!many&&skipAllowed()&&skipCanOpen(o)?item('skip','Skip…'):''}${hold}<hr>${item('documents','Documents')}${item('drawings','Drawings')}${typeof salesCutEstimateOpen==='function'&&cutEstUsable(o)?item('cutpreview',salesCutEstimateIds().length>1?'Cut preview · '+salesCutEstimateIds().length+' selected':'Cut preview'):''}${!q&&o.status!=='cancelled'?item('stickers','Print stickers…'):''}${!q&&typeof productionUnbatchAllowed==='function'&&productionUnbatchAllowed()&&productionUnbatchCanOpen(o)?item('unbatch','Unbatch order…'):''}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
+ return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${item('copy','Copy')}${!q&&typeof salesProdOpen==='function'?item('production','Production'):''}${typeof orderLogOpen==='function'?item('log','Activity log'):''}${!many?item('note','Note…'):''}${orderEmailLatest(o)?item('email','Open email'):''}${typeof skipAllowed==='function'&&!many&&skipAllowed()&&skipCanOpen(o)?item('skip','Skip…'):''}${hold}<hr>${item('documents','Documents')}${item('drawings','Drawings')}${typeof salesCutEstimateOpen==='function'&&cutEstUsable(o)?item('cutpreview',salesCutEstimateIds().length>1?'Cut preview · '+salesCutEstimateIds().length+' selected':'Cut preview'):''}${!q&&o.status!=='cancelled'?item('stickers','Print stickers…'):''}${!q&&typeof productionUnbatchAllowed==='function'&&productionUnbatchAllowed()&&productionUnbatchCanOpen(o)?item('unbatch','Unbatch order…'):''}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
 }
 function salesListMenuRun(act){
  const m=salesListMenu;salesListMenu=null;
@@ -38492,6 +38536,7 @@ function salesListMenuRun(act){
  else if(act==='copy')salesCopyOrder(o.id);
  else if(act==='production')salesProdOpen(o.id);
  else if(act==='log')orderLogOpen(o.id);
+ else if(act==='note')salesNoteOpen(o.id);
  else if(act==='email'){const e=orderEmailLatest(o);if(e)window.open(orderEmailUrl(e),'_blank','noopener');render();}
  else if(act==='skip')skipOpen(o.id);
  else if(act==='hold')salesHoldOpen(ids.filter(id=>!held(id)));
@@ -38529,6 +38574,24 @@ function salesHoldOtherInput(v){
   d.choice=SALES_HOLD_REASONS.length;
   document.querySelectorAll('.sl-hold-choice').forEach((el,i)=>{el.classList.toggle('on',i===SALES_HOLD_REASONS.length);const r=el.querySelector('input[type=radio]');if(r)r.checked=i===SALES_HOLD_REASONS.length;});
  }
+}
+/* Окно заметки заказа: из правого клика Note… и по клику на ячейку Notes. */
+let salesNoteDialog=null;
+function salesNoteOpen(id){const o=(DB.salesOrder||[]).find(x=>x.id===id);if(!o)return;salesListMenu=null;salesNoteDialog={id,text:o.notes||''};render();setTimeout(()=>{const t=document.getElementById('salesNoteText');if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length);}},0);}
+function salesNoteClose(){salesNoteDialog=null;render();}
+function salesNoteInput(v){if(salesNoteDialog)salesNoteDialog.text=v;}
+function salesNoteSave(){
+ const d=salesNoteDialog;if(!d)return;const o=(DB.salesOrder||[]).find(x=>x.id===d.id);salesNoteDialog=null;if(!o){render();return;}
+ const text=String(d.text||'').trim(),now=new Date().toISOString();
+ if(text!==(o.notes||'')){o.notes=text;o.updatedAt=now;if(soDraft&&soDraft.id===o.id){soDraft.notes=text;soDraft.updatedAt=now;}touch();}
+ render();
+}
+function salesNoteDialogHTML(){
+ const d=salesNoteDialog;if(!d)return '';const o=(DB.salesOrder||[]).find(x=>x.id===d.id);if(!o)return '';
+ return `<div class="sales-service-modal-back sales-dialog-back" ${onActSelf('click',salesNoteClose)}><div class="sales-service-modal sales-dialog sl-note-dialog" role="dialog" aria-modal="true" aria-label="Order note">
+  <div class="sales-service-modal-head"><h3>Note · ${raw(o.businessNumber||'Auto Number')}</h3><button type="button" aria-label="Close" ${onAct('click',salesNoteClose)}>×</button></div>
+  <div class="sales-dialog-body"><p class="mut">${raw(salesCustomerDisplay(o.customerId)||'—')}</p><textarea id="salesNoteText" rows="7" ${onAct('input',salesNoteInput,EL_VALUE)}>${esc(d.text)}</textarea></div>
+  <div class="sales-dialog-actions"><button type="button" ${onAct('click',salesNoteClose)}>Cancel</button><button type="button" class="pri" data-note-save ${onAct('click',salesNoteSave)}>Save</button></div></div></div>`;
 }
 function salesHoldDialogHTML(){
  const d=salesHoldDialog;if(!d)return '';
@@ -45255,7 +45318,7 @@ function viewGlassBatches(){
  return `<section class="optimization-queue glass-batches">${b?`<div class="page-head${cutHead?' cut-page-head-wrap':''}"><div class="gb-page-title">${b?'<button type="button" class="gb-link" '+onAct('click',optimizationSetTab,'production')+'>‹ Batches</button>':''}<h2>${esc(title)}</h2>${head}</div>${cutHead||statusBadge}</div>`:''}
  ${b?batchesTabs:''}
  <div class="card oq-card${b?'':' sales-list-card sl-foot-pin'}${cutHead?' cut-card':''}">${b&&glassBatchDetailTab==='optimization'?viewCutLayout(b):b&&glassBatchDetailTab==='history'?history:`<div class="oq-toolbar${b?'':' sales-toolbar'}">${materialSelect}${registry?salesListDateButton('created'):''}${b?'<span class="sp"></span>':'<span class="sales-toolbar-sp"></span>'}${b?`<button type="button" data-open-cut title="Cutting screen with this batch" ${onAct('click',glassBatchOpenCut,String(b.number??''))}>Open on ${esc(stationCutCode())}</button>`:''}${registry?'':`<b class="oq-sel" data-glass-selected>${n} pcs selected</b><button type="button" class="sl-quiet" data-glass-action="${scope==='glassQueue'?'create':'unbatch'}" ${n?'':'disabled'} ${scope==='glassQueue'?onAct('click',glassBatchCreateSelected):onAct('click',glassBatchUnbatchSelected)}>${scope==='glassQueue'?'Create batch':'Unbatch selected'}</button>`}</div>${b?'':glassBatchTabs()}${salesListFilterChips()}${table}<div class="gb-footer">${footer}</div>${pager}`}
- ${b||registry?'':'<p class="gb-note">Shift+click — range</p>'}</div>
+ </div>
  ${b&&glassBatchDetailTab==='contents'?`<div class="card gb-waiting" data-still-waiting><h3>Still waiting in these orders</h3><p>${waiting.length?waiting.map(([g,c])=>esc(g)+': '+c+' pcs').join(' · '):'Nothing waiting.'}</p><button type="button" class="gb-link" ${onAct('click',optimizationSetTab,'batch')}>Back to glass queue</button></div>`:''}
  ${salesListMenuHTML(infos)}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</section>`;
 }
@@ -46945,7 +47008,7 @@ function salesOpenRecutShape(id,liteIndex){
  const copy=normalizeShapeDef(JSON.parse(JSON.stringify(base)));copy.id=newShapeId();copy.ownerLineId=l.id;
  if(!recutHasShape(r))copy.name='Recut '+r.no+' · Line '+r.line+(lite==null?'':' · Lite '+(lite+1));
  salesBridge=Object.assign({kind:'shape',lineId:l.id,recutId:r.id},lite==null?{}:{liteIndex:lite});
- tab='configurators';subtab='shape';sView='setup';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;
+ tab='configurators';subtab='shape';shapeFreshUi();sView='setup';
  sEdit='new';sDraft=copy;salesApplyLineGlassThicknessToShape(view,sDraft,lite);soEdgeworkLineId=null;
  render();return true;
 }
