@@ -236,7 +236,18 @@ function cutSheetOptions(glassCode){
   .sort((a,b)=>b.w*b.h-a.w*a.h||String(a.supplier).localeCompare(String(b.supplier)))
   .forEach(s=>{const k=cutSheetKey(s);if(!seen.has(k)){seen.add(k);out.push(s);}});
  (typeof cutShopSizes==='function'?cutShopSizes():[]).forEach(s=>{const k=cutSheetKey(s);if(!seen.has(k)){seen.add(k);out.push({w:s.w,h:s.h,supplier:'',productCode:glassCode,shop:true});}});
+ /* Листы этого стекла, что лежат на складе, подставляются сами (владелец
+    17.11.2026: «те что есть в стоке — чтобы подставлялись сами для возможности
+    оптимизации»). Размера нет в поставках — берётся не больше, чем лежит. */
+ cutStockSheetSizes(glassCode).forEach(s=>{const k=cutSheetKey(s);if(!seen.has(k)){seen.add(k);out.push({w:s.w,h:s.h,supplier:'',productCode:glassCode,fromStock:true,onRack:s.onRack});}});
  return out;
+}
+/* Листы стекла на складе (erp/inventory/sheets): размер и сколько лежит. Один
+   раз за отрисовку — склад считается по всем движениям. */
+function cutStockSheetSizes(glassCode){
+ if(typeof invSheetRows!=='function')return [];
+ const all=typeof readOn==='function'&&readOn()?readMemo('cutStockSheetSizes',[],()=>invSheetRows()):invSheetRows(),code=String(glassCode||'').toUpperCase();
+ return all.filter(r=>r&&r.code.toUpperCase()===code&&!r.sizeMissing&&r.onRack>0).map(r=>({w:Math.max(r.w,r.h),h:Math.min(r.w,r.h),onRack:r.onRack}));
 }
 /* Ключ размера: «130x96». Второй лист того же размера со своими Trim и
    Border — «130x96#2»: «хочу добавить новый лист с теми же размерами, только
@@ -371,12 +382,17 @@ function cutStockPieces(glassCode,mm,exceptBatch){
   .sort((a,b)=>b.w*b.h-a.w*a.h||a.key.localeCompare(b.key));
 }
 function cutStockFor(glassCode,pick,mm,batch){
- const rows=cutSheetOptions(glassCode);if(!rows.length)return [];
- const own=pick&&Array.isArray(pick.sizes)?pick.sizes:null;
+ const rows=cutSheetOptions(glassCode),own=pick&&Array.isArray(pick.sizes)?pick.sizes:null;
+ /* Свои размеры батча (cutAddBatchSize) — только в этом прогоне. */
+ const mine=(own||[]).filter(x=>x&&x.own&&+x.w>0&&+x.h>0);
+ if(!rows.length&&!mine.length)return [];
  const out=rows.map(r=>{
   const set=own&&own.find(x=>x&&x.key===cutSheetKey(r));
-  return cutInsetRow({key:cutSheetKey(r),w:r.w,h:r.h,supplier:r.supplier,limit:set&&+set.limit>0?Math.floor(+set.limit):0,off:!!(set&&set.off)},set);
+  /* Лист со склада, которого нет в поставках: по умолчанию — сколько лежит. */
+  const limit=set&&+set.limit>0?Math.floor(+set.limit):r.fromStock&&!(set&&set.limit===0&&set.touched)?Math.floor(+r.onRack||0):0;
+  return cutInsetRow({key:cutSheetKey(r),w:r.w,h:r.h,supplier:r.supplier,limit,off:!!(set&&set.off)},set);
  }).filter(r=>!r.off);
+ mine.filter(x=>!x.off).forEach(x=>out.push(cutInsetRow({key:x.key,w:+x.w,h:+x.h,supplier:'',limit:+x.limit>0?Math.floor(+x.limit):0,off:false,own:true},x)));
  /* Строки «+ same size» этого прогона. */
  (own||[]).filter(x=>x&&x.base&&+x.w>0&&+x.h>0&&!x.off).forEach(x=>out.push(cutInsetRow({key:x.key,w:+x.w,h:+x.h,supplier:'',limit:+x.limit>0?Math.floor(+x.limit):0,off:false,base:x.base},x)));
  /* Отмеченные куски стока — штучные листы; площадь у них своя, поэтому
@@ -1674,9 +1690,29 @@ function cutStockSplit(number,glass,sheetNo,index,axis,size){
    и черновик сразу пересобирается по новым значениям (cutPlanRedraft).
    Минимальный остаток стёкла не двигает — его можно менять и в собранном:
    меняются только подсказки остатков. */
+/* Свой размер листа — только этого батча и этого стекла (владелец 17.11.2026:
+   «создам выдуманный размер — он всегда подтягивается и везде, а касалось
+   только этого батча»). Для всех батчей размер заводят в Master Data → Cutting. */
+function cutAddBatchSize(number,glass,w,h){
+ const a=typeof cutIn==='function'?cutIn(w,null):+w,b=typeof cutIn==='function'?cutIn(h,null):+h;
+ if(!(a>0&&b>0))return {error:'Enter the sheet size, for example 130 × 96.'};
+ if(a>400||b>400)return {error:'Sheet size is in inches, for example 130 × 96.'};
+ const open=cutPlanEditable(number);if(open.error)return open;const plan=open.plan,pick=cutRunPick(plan,glass);
+ const size={w:Math.max(a,b),h:Math.min(a,b)},key=cutSheetKey(size);
+ if(cutSheetOptions(glass).some(r=>cutSheetKey(r)===key)||(pick.sizes||[]).some(x=>x&&x.key===key))return {error:'This sheet size is already there.'};
+ if(!Array.isArray(pick.sizes))pick.sizes=cutSheetOptions(glass).map(r=>({key:cutSheetKey(r),limit:0,off:false}));
+ pick.sizes.push({key,own:true,w:size.w,h:size.h,limit:0,off:false});
+ return Object.assign(cutPlanRedraft(number),{key});
+}
+function cutRemoveBatchSize(number,glass,key){
+ const open=cutPlanEditable(number);if(open.error)return open;
+ const pick=cutRunPick(open.plan,glass);pick.sizes=(pick.sizes||[]).filter(x=>x&&x.key!==key&&cutBaseKey(x.key)!==key);
+ return cutPlanRedraft(number);
+}
 function cutAddSameSize(number,glass,key){
  const open=cutPlanEditable(number);if(open.error)return open;const plan=open.plan;
- const base=cutBaseKey(key),opt=cutSheetOptions(glass).find(r=>cutSheetKey(r)===base);if(!opt)return {error:'No such sheet size.'};
+ const base=cutBaseKey(key),mine=((plan.sheetPick&&plan.sheetPick[glass]||{}).sizes||[]).find(x=>x&&x.own&&x.key===base);
+ const opt=cutSheetOptions(glass).find(r=>cutSheetKey(r)===base)||mine;if(!opt)return {error:'No such sheet size.'};
  const pick=cutRunPick(plan,glass);
  if(!Array.isArray(pick.sizes))pick.sizes=cutSheetOptions(glass).map(r=>({key:cutSheetKey(r),limit:0,off:false}));
  let n=2;while(pick.sizes.some(x=>x&&x.key===base+'#'+n))n++;
@@ -1888,7 +1924,7 @@ function cutSetStock(number,glass,key,field,value){
  const pick=cutRunPick(plan,glass);
  if(!Array.isArray(pick.sizes))pick.sizes=cutSheetOptions(glass).map(r=>({key:cutSheetKey(r),limit:0,off:false}));
  let row=pick.sizes.find(x=>x&&x.key===key);if(!row){row={key,limit:0,off:false};pick.sizes.push(row);}
- if(field==='limit'){const n=Math.floor(+value);row.limit=Number.isFinite(n)&&n>0?n:0;}
+ if(field==='limit'){const n=Math.floor(+value);row.limit=Number.isFinite(n)&&n>0?n:0;row.touched=true;}
  if(field==='off')row.off=!!value;
  if(field==='first')pick.sizes=[row].concat(pick.sizes.filter(x=>x!==row));
  /* Пусто — снова значение из Master Data. */

@@ -286,7 +286,8 @@ module.exports=async function({page,eq,ok}){
   /* Лист лёжа, ноль слева внизу, обрезка кромки — сплошной вектор (для станка), без пунктира. */
   const tl=document.querySelector('.cut-paper [data-cut-edge]'),vb=document.querySelector('.cut-paper svg').getAttribute('viewBox').split(' ').map(Number);
   const sheetView={landscape:vb[2]>vb[3],trim:!!tl&&!tl.hasAttribute('stroke-dasharray'),dashed:document.querySelectorAll('.cut-paper [stroke-dasharray]').length,zero:[...document.querySelectorAll('.cut-paper text')].some(x=>x.textContent==='0')&&/^X \d/.test([...document.querySelectorAll('.cut-paper text')].map(x=>x.textContent).find(x=>/^X /.test(x))||'')};
-  const edgeHeads=[...document.querySelectorAll('.cut-edge-head')],paramHeads=edgeHeads.length===6&&edgeHeads.every(x=>getComputedStyle(x).textAlign==='center'&&x.children.length===2);
+  /* Панель листов — вариант C (17.11.2026): заголовки одной строкой, без подписей-подсказок. */
+  const paramHeads=JSON.stringify([...document.querySelectorAll('[data-cut-params] thead th')].map(x=>x.textContent))===JSON.stringify(['','Sheet, in','In stock','Qty','Offset','Trim X','Trim Y','Border X','Border Y','Min dist','This batch',''])&&!document.querySelector('.cut-hint');
   const id=document.querySelector('[data-cut-list]').dataset.cutList;cutUiPick(id);
   const actions=!!document.querySelector('[data-cut-actions]'),highlighted=!!document.querySelector('[data-cut-list="'+id+'"].on')&&!!document.querySelector('[data-cut-piece="'+id+'"].sel');
   document.querySelector('[data-cut-take]').click();
@@ -377,13 +378,17 @@ module.exports=async function({page,eq,ok}){
    error:!!document.querySelector('[data-cut-error]'),shop:cutShopSizes().map(x=>x.key),stockRow:!!document.querySelector('[data-cut-stock="130x96"]'),
    russian:/[А-яЁё]/.test(document.querySelector('.oq-card').innerText)};
  }),{none:'No sheet size for 6CLEAR. Add one below.',shownError:false,needText:true,inches:'Sheet size is in inches, for example 130 × 96.',
-  laid:2,size:'130x96',gone:true,error:false,shop:['130x96'],stockRow:true,russian:false});
+  laid:2,size:'130x96',gone:true,error:false,shop:[],stockRow:true,russian:false});
 
- eq('размер с экрана прогона и из Master Data: добавить, повтор и ошибка, убрать; сброс таблицы цеха размеры не трогает',await t.p.evaluate(()=>{
+ eq('размер с экрана прогона — только этого батча; размер из Master Data: добавить, повтор и ошибка, убрать; сброс таблицы цеха размеры не трогает',await t.p.evaluate(()=>{
   const b=DB.glassBatch[0];cutPlanReset(b.number);render();
-  document.getElementById('cutRunSizeW').value='144';document.getElementById('cutRunSizeH').value='96';document.querySelector('[data-cut-size-new]').click();
-  const run=[...document.querySelectorAll('[data-cut-stock]')].map(r=>r.dataset.cutStock);
-  const dup=cutShopSizeAdd('96','130').error,bad=cutShopSizeAdd('abc','96').error;
+  /* Размер с экрана прогона — только этого батча (17.11.2026): в общий список цеха не идёт. */
+  document.getElementById('cutRunSizeW').value='202';document.getElementById('cutRunSizeH').value='180';document.querySelector('[data-cut-size-new]').click();
+  const own=[...document.querySelectorAll('[data-cut-stock]')].map(r=>r.dataset.cutStock).includes('202x180')&&!!document.querySelector('[data-cut-stock="202x180"] .pill')&&!cutShopSizes().some(x=>x.key==='202x180');
+  const g=cutPlanFor(b.number).groups[0].glass,elsewhere=cutStockFor(g,null).some(x=>x.key==='202x180');
+  cutShopSizeAdd('144','96');render();
+  const run=[...document.querySelectorAll('[data-cut-stock]')].map(r=>r.dataset.cutStock).filter(k=>k!=='202x180');
+  const dup=cutShopSizeAdd('96','144').error,bad=cutShopSizeAdd('abc','96').error;cutShopSizeAdd('130','96');
   cutSheetTrimSet('144x96','borderY','2');
   tab='masterdata';mdSetTab('cutting');
   const rows=[...document.querySelectorAll('[data-cut-sheet-row]')].map(r=>r.dataset.cutSheetRow+' '+r.children[2].textContent);
@@ -397,8 +402,8 @@ module.exports=async function({page,eq,ok}){
   const removed=cutShopSizes().map(x=>x.key),edgesGone=cutSheetTrim('144x96');
   invGo('sheets');tab='masterdata';mdSetTab('cutting');render();
   document.querySelector('[data-cut-reset]').click();
-  return {run,dup,bad,rows,added,mdError,removed,edgesGone,afterReset:cutShopSizes().map(x=>x.key)};
- }),{run:['144x96','130x96'],dup:'This sheet size is already there.',bad:'Enter the sheet size, for example 130 × 96.',
+  return {own,elsewhere,run,dup,bad,rows,added,mdError,removed,edgesGone,afterReset:cutShopSizes().map(x=>x.key)};
+ }),{own:true,elsewhere:false,run:['144x96','130x96'],dup:'This sheet size is already there.',bad:'Enter the sheet size, for example 130 × 96.',
   rows:['144x96 All glass','130x96 All glass'],added:['144x96','130x96','130x84'],mdError:'This sheet size is already there.',
   removed:['130x96','130x84'],edgesGone:null,afterReset:['130x96','130x84']});
 

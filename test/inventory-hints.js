@@ -31,7 +31,7 @@ module.exports=async function({page,eq}){
  eq('before Build each size shows what is free; a size never counted says not counted in grey',await t.p.evaluate(()=>{
   ihReset();ihRec([{qty:10,unit:'sheet',widthIn:144,heightIn:96}]);invCountSave({'6CLEAR|144x96':'10'});const n=ihBatch();ihOpen(n);
   return {a:ihHint('144x96'),b:ihHint('130x96'),short:ihShort()};
- }),{a:['free 10',false,false],b:['not counted',false,true],short:''});
+ }),{a:['free 10',false,false],b:['free 0 · not counted',false,true],short:''});
 
  eq('after Build: need · free for this batch; cutting a sheet lowers need',await t.p.evaluate(()=>{
   ihReset();ihRec([{qty:10,unit:'sheet',widthIn:144,heightIn:96}]);invCountSave({'6CLEAR|144x96':'10'});const n=ihBatch();cutPlanRun(n);ihOpen(n);
@@ -47,7 +47,7 @@ module.exports=async function({page,eq}){
 
  eq('glass never counted: need · not counted in grey and no Short line',await t.p.evaluate(()=>{
   ihReset();const n=ihBatch();cutPlanRun(n);ihOpen(n);return {hint:ihHint('144x96'),short:ihShort()};
- }),{hint:['need 3 · not counted',false,true],short:''});
+ }),{hint:['need 3 · free 0 · not counted',false,true],short:''});
 
  eq('without Inventory access the layout shows no stock hints',await t.p.evaluate(()=>{
   ihReset();const n=ihBatch();cutPlanRun(n);const a=window.accessCan;window.accessCan=k=>k!=='inventory';
@@ -62,6 +62,17 @@ module.exports=async function({page,eq}){
   purFulfilDraft.data.lines[0].unit='sheet';purFulfilRefresh();const sheetUnit=hint();
   return {list,before,after,sheetUnit};
  }),{list:1,before:true,after:false,sheetUnit:false});
+
+ /* Владелец 17.11.2026: «те что есть в стоке — чтобы подставлялись сами для
+    возможности оптимизации»; колонка In stock — число и пометка not counted. */
+ eq('sheets in stock of a size that is not in supply join the batch by themselves, Qty = what lies there; In stock shows the number',await t.p.evaluate(()=>{
+  ihReset();ihRec([{qty:5,unit:'sheet',widthIn:120,heightIn:84}]);const n=ihBatch();ihOpen(n);
+  const row=cutStockFor('6CLEAR',cutPlanFor(n).sheetPick['6CLEAR'],6,n).find(x=>x.key==='120x84');
+  const shown=!!document.querySelector('[data-cut-stock="120x84"]'),qty=(document.querySelector('[data-cut-stock="120x84"] [data-cut-qty]')||{}).value;
+  const inStock=(document.querySelector('[data-cut-instock="120x84"]')||{}).textContent;
+  cutSetStock(n,'6CLEAR','120x84','limit','');const all=cutStockFor('6CLEAR',cutPlanFor(n).sheetPick['6CLEAR'],6,n).find(x=>x.key==='120x84').limit;
+  return {limit:row&&row.limit,shown,qty,inStock,all};
+ }),{limit:5,shown:true,qty:'5',inStock:'free 5 · not counted',all:0});
 
  eq('inventory hints have no JavaScript errors',t.errs,[]);await t.c.close();
 };
