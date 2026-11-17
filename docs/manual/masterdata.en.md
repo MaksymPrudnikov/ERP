@@ -86,7 +86,9 @@ Tables work as in Sales ([lists.en.md](lists.en.md)); fields in settings rows ar
 - **Cutting allowance** — how much bigger the glass is cut per side so the edge finishes to size. A row: work ·
   Monolithic (by the glass thickness) or Laminated · ply (by the ply thickness) · thickness from–to, mm · allowance.
   When several rows match, the narrowest wins: a wide row is the default, a narrow one the exception. **+ New** opens
-  an entry row on top: it reaches the table and the calculation only on **Add**. Editing a row does not move it while
+  an entry row on top (rows are grouped by work — owner, 17 Nov 2026, variant C: the group header shows how many rows
+  and its allowances in one line, ▸ collapses, **Expand all** opens all; inside — Monolithic, then Laminated · ply;
+  **+ row** in a group header opens the entry row inside that group): it reaches the table and the calculation only on **Add**. Editing a row does not move it while
   you are on the screen; the order is refreshed on the next visit. **Check** at the bottom — pick a work, the glass
   and a thickness to see the allowance. Catalog works and thicknesses without a row show in red on top as “No rule —
   cutting is blocked”: such glass will not go to cutting.

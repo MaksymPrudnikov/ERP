@@ -1018,7 +1018,7 @@ let mdAllowanceDraft=null,mdAllowanceOrder=null,mdAllowanceCheck={op:'Flat Polis
 function mdAllowanceSorted(){
  return (DB.edgeAllowance||[]).slice().sort((a,b)=>
   SHAPE_EDGE_OPS.indexOf(a.op)-SHAPE_EDGE_OPS.indexOf(b.op)
-  ||String(a.scope).localeCompare(String(b.scope))
+  ||(a.scope==='lami')-(b.scope==='lami')
   ||(+a.minMm)-(+b.minMm));
 }
 /* Строки в порядке экрана: зафиксированный при входе, чужие новые (вторая
@@ -1046,30 +1046,51 @@ function mdAllowanceGaps(){
 }
 function mdAllowanceOpOptions(v){return `<option value="" ${v?'':'selected'}>—</option>`+SHAPE_EDGE_OPS.map(o=>`<option value="${esc(o)}" ${o===v?'selected':''}>${esc(o)}</option>`).join('');}
 function mdAllowanceScopeOptions(v){return MD_ALLOWANCE_SCOPES.map(s=>`<option value="${s.k}" ${s.k===v?'selected':''}>${esc(s.label)}</option>`).join('');}
+/* Группы по работе (владелец 17.11.2026, вариант C: «просто полотно, в котором
+   нет понимания»): заголовок группы — работа, сколько строк, её припуски одной
+   строкой и + row; внутри — Monolithic, потом Laminated · ply. Группа
+   сворачивается; раскрытые помнятся до выхода из Data. */
+let mdAllowanceOpen=new Set();
+function mdAllowanceToggle(op){if(op==='*'){const all=SHAPE_EDGE_OPS.every(o=>mdAllowanceOpen.has(o));mdAllowanceOpen=new Set(all?[]:SHAPE_EDGE_OPS);}else if(mdAllowanceOpen.has(op))mdAllowanceOpen.delete(op);else mdAllowanceOpen.add(op);render();}
+function mdAllowanceRange(r){const lo=+r.minMm,hi=+r.maxMm;return hi>=1000?(lo>0?lo+'+ mm':'any'):lo+'–'+hi+' mm';}
+function mdAllowanceRowHTML(r){
+ const id=String(r.id??'');
+ return `<tr data-md-allow-row="${esc(r.id)}">
+   <td class="md-allow-scope"><select aria-label="Measured by" ${onAct('change',mdAllowanceSet,id,'scope',EL_VALUE)}>${mdAllowanceScopeOptions(r.scope)}</select></td>
+   <td><input class="md-mm" type="number" step="0.1" min="0" aria-label="Thickness from, mm" value="${esc(String(r.minMm))}" ${onAct('change',mdAllowanceSet,id,'minMm',EL_VALUE)}></td>
+   <td><input class="md-mm" type="number" step="0.1" min="0" aria-label="Thickness to, mm" value="${esc(String(r.maxMm))}" ${onAct('change',mdAllowanceSet,id,'maxMm',EL_VALUE)}></td>
+   <td><input class="md-allow-val" aria-label="Allowance per side" value="${esc(String(r.allowance))}" placeholder="1/16" ${onAct('change',mdAllowanceSet,id,'allowance',EL_VALUE)}></td>
+   <td>${mdAllowanceShow(r.allowance)}${r.note?` <span class="mut">${esc(r.note)}</span>`:''}</td>
+   <td><button class="btn-ghost" aria-label="Remove row" ${onAct('click',mdAllowanceRemove,id)}>×</button></td></tr>`;
+}
+/* Строка ввода — внутри своей группы (или над группами, пока работа не выбрана). */
+function mdAllowanceDraftHTML(d,inGroup){
+ return `<tr class="md-allow-new" data-md-allow-new>
+   <td class="md-allow-scope">${inGroup?'':`<select aria-label="Operation" ${onAct('change',mdAllowanceDraftOp,EL_VALUE)}>${mdAllowanceOpOptions(d.op)}</select> `}<select aria-label="Measured by" ${onAct('change',mdAllowanceDraftSet,'scope',EL_VALUE)}>${mdAllowanceScopeOptions(d.scope)}</select></td>
+   <td><input class="md-mm" type="number" step="0.1" min="0" aria-label="Thickness from, mm" placeholder="from" value="${esc(d.minMm)}" ${onAct('change',mdAllowanceDraftSet,'minMm',EL_VALUE)}></td>
+   <td><input class="md-mm" type="number" step="0.1" min="0" aria-label="Thickness to, mm" placeholder="to" value="${esc(d.maxMm)}" ${onAct('change',mdAllowanceDraftSet,'maxMm',EL_VALUE)}></td>
+   <td><input class="md-allow-val" aria-label="Allowance per side" value="${esc(d.allowance)}" placeholder="1/16" ${onAct('change',mdAllowanceDraftSet,'allowance',EL_VALUE)}></td>
+   <td colspan="2"><span class="md-allow-new-acts"><button class="pri sm" data-md-allow-add ${onAct('click',mdAllowanceAddSave)}>Add</button><button class="sm" ${onAct('click',mdAllowanceAddCancel)}>Cancel</button></span><span class="err" id="e_mdAllow"></span></td></tr>`;
+}
 function viewMdAllowance(){
  const rows=mdAllowanceRows(),gaps=mdAllowanceGaps(),d=mdAllowanceDraft,c=mdAllowanceCheck;
- const draft=d?`<div class="md-allow-new" data-md-allow-new>
-   <label>Operation<select ${onAct('change',mdAllowanceDraftSet,'op',EL_VALUE)}>${mdAllowanceOpOptions(d.op)}</select></label>
-   <label>Measured by<select ${onAct('change',mdAllowanceDraftSet,'scope',EL_VALUE)}>${mdAllowanceScopeOptions(d.scope)}</select></label>
-   <label>Thickness from, mm<input type="number" step="0.1" min="0" value="${esc(d.minMm)}" ${onAct('change',mdAllowanceDraftSet,'minMm',EL_VALUE)}></label>
-   <label>to, mm<input type="number" step="0.1" min="0" value="${esc(d.maxMm)}" ${onAct('change',mdAllowanceDraftSet,'maxMm',EL_VALUE)}></label>
-   <label>Allowance per side<input value="${esc(d.allowance)}" placeholder="1/16" ${onAct('change',mdAllowanceDraftSet,'allowance',EL_VALUE)}></label>
-   <span class="md-allow-new-acts"><button class="pri" data-md-allow-add ${onAct('click',mdAllowanceAddSave)}>Add</button><button ${onAct('click',mdAllowanceAddCancel)}>Cancel</button></span>
-   <div class="err" id="e_mdAllow"></div></div>`:'';
+ const gapOf=op=>(gaps.find(g=>g.op===op)||{}).mm||[];
+ const groups=SHAPE_EDGE_OPS.map(op=>{
+  /* Внутри группы — Monolithic, потом Laminated (сортировка при входе); правка не двигает строку до выхода. */
+  const rs=rows.filter(r=>r.op===op),list=rs;
+  const open=mdAllowanceOpen.has(op)||!!d&&d.op===op,miss=gapOf(op);
+  const vals=[...new Set(rs.map(r=>{const p=fabParseDimStrict(String(r.allowance));return p.ok?(p.v?dimIn(p.v):'0″'):String(r.allowance);}))];
+  const head=`<tr class="md-allow-group" data-md-allow-group="${esc(op)}"><td colspan="5"><button type="button" class="md-allow-tog" aria-expanded="${open}" ${onAct('click',mdAllowanceToggle,op)}>${open?'▾':'▸'} <b>${esc(op)}</b></button> <span class="md-allow-n">${rs.length} row${rs.length===1?'':'s'}</span> <span class="mut mono">${esc(vals.join(' · '))||'—'}</span>${miss.length?` <span class="pill warn">No rule: ${esc(miss.join(', '))} mm</span>`:''}</td>
+   <td>${d?'':`<button type="button" class="gb-link" data-md-allow-group-add ${onAct('click',mdAllowanceAdd,op)}>+ row</button>`}</td></tr>`;
+  return head+(open?(d&&d.op===op?mdAllowanceDraftHTML(d,true):'')+list.map(mdAllowanceRowHTML).join(''):'');
+ }).join('');
+ const allOpen=SHAPE_EDGE_OPS.every(o=>mdAllowanceOpen.has(o));
  const r=ShapeModule.productionAllowanceRule(c.op,+c.mm,c.scope);
- return `<div class="md-toolbar"><span class="mut">Extra glass per side, so the edge finishes to size · laminated: per ply · narrowest row wins</span><span class="sp"></span>${d?'':`<button class="pri" data-md-allow-new-btn ${onAct('click',mdAllowanceAdd)}>+ New</button>`}</div>
+ return `<div class="md-toolbar"><span class="mut">Extra glass per side, so the edge finishes to size · laminated: per ply · narrowest row wins</span><span class="sp"></span><button class="sm" data-md-allow-all ${onAct('click',mdAllowanceToggle,'*')}>${allOpen?'Collapse all':'Expand all'}</button>${d?'':`<button class="pri" data-md-allow-new-btn ${onAct('click',mdAllowanceAdd,'')}>+ New</button>`}</div>
   ${gaps.length?`<div class="sales-pricing-warning" data-md-allow-gaps><b>No rule — cutting is blocked</b><span>${gaps.map(g=>esc(g.op)+': '+esc(g.mm.join(', '))+' mm').join('<br>')}</span></div>`:''}
-  ${draft}
-  <div class="customer-table-wrap">${slFromTable('mdOperations',`<table data-md-allow><thead><tr><th>Operation</th><th>Measured by</th><th>Thickness from, mm</th><th>to, mm</th><th>Allowance per side</th><th>Preview</th><th></th></tr></thead>
-  <tbody>${rows.map(r=>`<tr data-md-allow-row="${esc(r.id)}">
-   <td><select ${onAct('change',mdAllowanceSet,String(r.id??''),'op',EL_VALUE)}>${SHAPE_EDGE_OPS.map(o=>`<option value="${esc(o)}" ${o===r.op?'selected':''}>${esc(o)}</option>`).join('')}</select></td>
-   <td><select ${onAct('change',mdAllowanceSet,String(r.id??''),'scope',EL_VALUE)}>${mdAllowanceScopeOptions(r.scope)}</select></td>
-   <td><input class="md-mm" type="number" step="0.1" min="0" style="width:78px" value="${esc(String(r.minMm))}" ${onAct('change',mdAllowanceSet,String(r.id??''),'minMm',EL_VALUE)}></td>
-   <td><input class="md-mm" type="number" step="0.1" min="0" style="width:78px" value="${esc(String(r.maxMm))}" ${onAct('change',mdAllowanceSet,String(r.id??''),'maxMm',EL_VALUE)}></td>
-   <td><input style="width:92px" value="${esc(String(r.allowance))}" placeholder="1/16" ${onAct('change',mdAllowanceSet,String(r.id??''),'allowance',EL_VALUE)}></td>
-   <td>${mdAllowanceShow(r.allowance)}${r.note?`<div class="mut">${esc(r.note)}</div>`:''}</td>
-   <td><button class="btn-ghost" ${onAct('click',mdAllowanceRemove,String(r.id??''))}>×</button></td>
-  </tr>`).join('')}</tbody></table>`)}</div>
+  <div class="customer-table-wrap"><table class="md-allow-table" data-md-allow><thead><tr><th>Measured by</th><th>Thickness from, mm</th><th>to, mm</th><th>Allowance per side</th><th>Preview</th><th></th></tr></thead>
+  <tbody>${d&&!d.op?mdAllowanceDraftHTML(d,false):''}${groups}</tbody>
+  <tfoot><tr class="sl-foot"><td colspan="6" class="sl-foot-head"><b>${rows.length} rows · ${SHAPE_EDGE_OPS.filter(op=>rows.some(x=>x.op===op)).length} operations</b></td></tr></tfoot></table></div>
   <div class="sub" style="margin-top:22px">Check</div>
   <div class="md-allow-check" data-md-allow-check>
    <label>Operation<select ${onAct('change',mdAllowanceCheckSet,'op',EL_VALUE)}>${SHAPE_EDGE_OPS.map(o=>`<option value="${esc(o)}" ${o===c.op?'selected':''}>${esc(o)}</option>`).join('')}</select></label>
@@ -1109,7 +1130,9 @@ function mdAllowanceSet(id,field,v){
  row[field]=next[field];
  normalizeEdgeAllowance();touch();render();
 }
-function mdAllowanceAdd(){mdAllowanceDraft={op:'',scope:'mono',minMm:'',maxMm:'',allowance:''};render();}
+function mdAllowanceAdd(op){op=SHAPE_EDGE_OPS.indexOf(op)>=0?op:'';mdAllowanceDraft={op,scope:op&&shapeIsLamiOnlyOp(op)?'lami':'mono',minMm:'',maxMm:'',allowance:''};if(op)mdAllowanceOpen.add(op);render();}
+/* Работу выбрали в строке ввода над группами — строка переезжает в свою группу. */
+function mdAllowanceDraftOp(v){if(!mdAllowanceDraft)return;mdAllowanceDraftSet('op',v);if(mdAllowanceDraft.op){mdAllowanceOpen.add(mdAllowanceDraft.op);render();}}
 function mdAllowanceAddCancel(){mdAllowanceDraft=null;render();}
 /* Поля строки ввода — без перерисовки: введённое не теряется. */
 function mdAllowanceDraftSet(field,v){if(mdAllowanceDraft)mdAllowanceDraft[field]=String(v==null?'':v).trim();}
@@ -1123,7 +1146,7 @@ function mdAllowanceAddSave(){
  while(rows.some(r=>r&&r.id===id))id='ALW-OWN-'+(++i);
  rows.push(Object.assign({id},row));
  /* Новая строка остаётся наверху, где её вводили, до следующего входа. */
- mdAllowanceRows();mdAllowanceOrder.unshift(id);mdAllowanceDraft=null;
+ mdAllowanceRows();mdAllowanceOrder.unshift(id);mdAllowanceOpen.add(row.op);mdAllowanceDraft=null;
  normalizeEdgeAllowance();touch();render();
 }
 function mdAllowanceRemove(id){

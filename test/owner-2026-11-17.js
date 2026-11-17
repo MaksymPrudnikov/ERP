@@ -22,11 +22,22 @@ module.exports=async function({page,eq}){
   document.querySelector('[data-md-allow-add]').click();
   const id=DB.edgeAllowance[DB.edgeAllowance.length-1].id,first=()=>document.querySelector('[data-md-allow-row]').getAttribute('data-md-allow-row');
   const top=first()===id;
-  const other=[...document.querySelectorAll('[data-md-allow-row]')][3].getAttribute('data-md-allow-row');
-  mdAllowanceSet(other,'op','Beveling');
-  const stays=[...document.querySelectorAll('[data-md-allow-row]')][3].getAttribute('data-md-allow-row')===other;
-  return {underWorks,screen,draft,notYet,refused,added:DB.edgeAllowance.length===n0+1,top,stays};
- }),{underWorks:false,screen:true,draft:true,notYet:true,refused:'Pick an operation',added:true,top:true,stays:true});
+  const other=[...document.querySelectorAll('[data-md-allow-row]')][2].getAttribute('data-md-allow-row');
+  mdAllowanceSet(other,'scope','lami');
+  const stays=[...document.querySelectorAll('[data-md-allow-row]')][2].getAttribute('data-md-allow-row')===other;
+  const groups=[...document.querySelectorAll('[data-md-allow-group]')].map(g=>g.getAttribute('data-md-allow-group'));
+  mdAllowanceToggle('Mitering');const closed=!document.querySelector('[data-md-allow-group="Mitering"] + tr[data-md-allow-row]');
+  return {underWorks,screen,draft,notYet,refused,added:DB.edgeAllowance.length===n0+1,top,stays,groups,closed};
+ }),{underWorks:false,screen:true,draft:true,notYet:true,refused:'Pick an operation',added:true,top:true,stays:true,
+  groups:['Rough Arris','Flat Polish','CNC Shape Polish','Mitering','Beveling','Lami Polish','CNC Lami Polish'],closed:true});
+
+ eq('+ row в группе — строка ввода внутри группы с её работой; Expand all раскрывает все группы',await run(()=>{
+  tab='masterdata';mdCatalogGo('edgeAllowance');
+  document.querySelector('[data-md-allow-group="Beveling"] [data-md-allow-group-add]').click();
+  const draft=document.querySelector('[data-md-allow-group="Beveling"] + tr[data-md-allow-new]'),op=mdAllowanceDraft.op;
+  mdAllowanceAddCancel();mdAllowanceOpen=new Set();render();document.querySelector('[data-md-allow-all]').click();
+  return {inGroup:!!draft,op,rows:document.querySelectorAll('[data-md-allow-row]').length===DB.edgeAllowance.length};
+ }),{inGroup:true,op:'Beveling',rows:true});
 
  eq('Check: работа + толщина + монолит/ламинат → припуск; нет правила — «No rule — cutting is blocked» и строкой над таблицей',await run(()=>{
   tab='masterdata';const keep=DB.edgeAllowance;DB.edgeAllowance=keep.filter(r=>r.op!=='Lami Polish');normalizeEdgeAllowance();mdCatalogGo('edgeAllowance');

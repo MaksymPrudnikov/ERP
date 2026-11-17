@@ -77,7 +77,7 @@ function mdCatalogScope(all){mdCatalogAll=!!all;mdCatalogLimit=0;render();docume
 /* + New при поиске и пустой выдаче — в открытом разделе (P4-R3). */
 function mdCatalogNew(node){
  mdCatalogGo(node);
- ({glassProduct:mdGlassNew,glassSheet:mdSheetNew,spacerVariant:mdSpacerNew,hardwareModel:mdHwModelNew,surroundRecipe:mdRecipeNew,edgeAllowance:mdAllowanceAdd}[node]||mdCatNew)();
+ ({glassProduct:mdGlassNew,glassSheet:mdSheetNew,spacerVariant:mdSpacerNew,hardwareModel:mdHwModelNew,surroundRecipe:mdRecipeNew,edgeAllowance:()=>mdAllowanceAdd('')}[node]||mdCatNew)();
 }
 function mdCatalogSearchChange(el){
  mdCatalogQuery=el.value;mdCatalogLimit=0;const pos=el.selectionStart;render();
