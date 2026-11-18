@@ -8,7 +8,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-m2hXN/YhIhMp4DhTYUQDhgMXLNMCSDE1pToc7uyHkBE=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-3tdADS+VL0HCZSvHJHkhf9t4uG0RHD6CRk7JN1ZtGms=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GLASS ERP — Glazing System</title>
 <style>
@@ -4428,7 +4428,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='5c4d1dcd428b';
+var ERP_BUILD='403f13e9c4d4';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -20075,6 +20075,9 @@ function salesCopyOrderDraft(src){
  const copy=salesCopySalesRecord(src,{businessNumber:'',status:salesIsQuote(src)?'open':'new',statusDates:{},batchNo:'',batchHistory:[],unbatchHistory:[],productionUnbatchVerify:false,fulfilledVia:'',fromQuoteId:'',wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',
   onHold:false,holdReason:'',holdAt:'',remakeNcrId:'',noCharge:false,cancellations:[],adjustments:[],emails:[],createdAt:'',updatedAt:''});
  delete copy.isDraft;
+ /* Срок копии — от дня создания по её Priority (владелец 18.11.2026: «копия
+    получает дату от дня создания»), а не прошедший срок исходного. */
+ if(!salesIsQuote(src))copy.dueDate=salesDueDate(copy.priority);
  copy.lines.forEach(l=>{Object.assign(l,{batchManaged:false,onHold:false,holdReason:'',holdAt:'',cutStartedAt:'',batchNo:''});});
  return normalizeSalesOrder(copy);
 }
@@ -23153,7 +23156,12 @@ function salesLineMaterials(m,areas,order){
   for(let k=at;k<out.rows.length;k++)out.rows[k].cavity=i;
  });
  out.amount=salesExact(out.amount+plain*areas.billable);
- out.total=out.rows.some(r=>r.special)&&areas.billable>0?Math.round(out.amount/areas.billable*100)/100:Math.round(plain*100)/100;
+ /* Площадь стекла к оплате (аудит 18.11.2026): у лайта свой минимум карточки
+    (стекло 4 ft²), Billable юнита его не знает. Бланк, отмена юнита и ставка
+    за ft² берут её, чтобы ft² × ставка сходилось с суммой. Только показ —
+    деньги считают строки выше. */
+ out.billed=out.rows.reduce((n,r)=>r.pane!=null&&r.unit==='sqft'&&r.qty>n?r.qty:n,areas.billable);
+ out.total=out.rows.some(r=>r.special)&&out.billed>0?Math.round(out.amount/out.billed*100)/100:Math.round(plain*100)/100;
  return out;
 }
 /* Мин. и макс. размер айтема — только предупреждение (владелец, 22.10.2026). */
@@ -23190,7 +23198,7 @@ function salesLinePriceLive(line,order){
     берёт их отсюда, а не считает второй раз (фигура — самое дорогое).
     materials, services, base, unit — точные суммы на юнит; exact — точная
     сумма строки, в итог заказа идёт она; line — она же в центах для показа. */
- const out={areas:areas,materialRate:rate.total,materialRows:rate.rows,chargeRows:services.rows,materials:salesExact(materials),services:salesExact(services.total/q),base:base,adjustments:adjustments,unit:incomplete?null:running,exact:incomplete?null:salesExact(running*live),line:incomplete?null:salesCents(running*live),knownSubtotal:running,complete:!incomplete,unsupportedCurrency:unsupportedCurrency,missingMaterials:!m||!rate.known,missingServices:services.unpriced,qty:live,ordered:q,cancelled:q-live};
+ const out={areas:areas,materialRate:rate.total,billedArea:areas.valid?rate.billed:null,materialRows:rate.rows,chargeRows:services.rows,materials:salesExact(materials),services:salesExact(services.total/q),base:base,adjustments:adjustments,unit:incomplete?null:running,exact:incomplete?null:salesExact(running*live),line:incomplete?null:salesCents(running*live),knownSubtotal:running,complete:!incomplete,unsupportedCurrency:unsupportedCurrency,missingMaterials:!m||!rate.known,missingServices:services.unpriced,qty:live,ordered:q,cancelled:q-live};
  /* Цена руками: итоговая цена юнита, наценки к ней не прибавляются; расчёт
     остаётся для справки (computedUnit). */
  if(line.priceManual!=null&&Number.isFinite(+line.priceManual)&&+line.priceManual>=0){const v=salesMoney(+line.priceManual);Object.assign(out,{manual:true,computedUnit:out.unit,adjustments:[],unit:v,exact:salesExact(v*live),line:salesCents(v*live),complete:true,unsupportedCurrency:false});}
@@ -25251,10 +25259,12 @@ function docSaleItem(model,line,index,order){
  if(p.cancelled)it.qty='Qty '+p.ordered+' · '+p.cancelled+' cancelled';
  const glassLine=p.manual?p.line:p.complete?salesCents(p.materials*q):null;
  /* Строки бланка — на всю позицию, как в Spiel: 149.20 ft² × ставка. */
- const areaAll=a.valid?docNum(a.billable*q,2)+' ft²':'';
+ /* Площадь к оплате — по строкам материалов (минимум карточки стекла,
+    аудит 18.11.2026): ft² × ставка в бланке сходится с суммой строки. */
+ const bill=p.billedArea!=null?p.billedArea:a.billable,areaAll=a.valid?docNum(bill*q,2)+' ft²':'';
  it.amount=mode==='none'?null:mode==='glass'?docMoney(glassLine):docMoney(p.line);
  const bits=[];
- if(opts.billableArea&&a.valid)bits.push('Billable '+docNum(a.billable,1)+' ft²'+(q>1?' × '+q+' = '+areaAll:''));
+ if(opts.billableArea&&a.valid)bits.push('Billable '+docNum(bill,1)+' ft²'+(q>1?' × '+q+' = '+areaAll:''));
  /* Галочка Weight per unit / per line предлагается и бланкам продаж (пункт 14). */
  if(opts.weight)bits.push('Weight '+docLineWeightText(salesLineWeight(line,order),q,opts));
  if(opts.perFt2&&['split','glass','unit'].includes(mode)&&!p.missingMaterials&&a.valid)bits.push('glass '+docMoney(p.materialRate)+'/ft²');
@@ -25270,14 +25280,20 @@ function docSaleItem(model,line,index,order){
   const mat=[],svc=[];
   (m?m.panes:[]).forEach((pn,i)=>{
    const rate=pn.priceOverride!=null?pn.priceOverride:salesPaneCatalogPrice(pn,order),heat=docHeatName(pn.category==='laminated'?(pn.laminated||{}).outer:pn);
-   mat.push({desc:'Lite '+(i+1)+' · '+docPaneName(pn)+(heat?' · '+heat:''),basis:areaAll,rate:rate==null?'':docMoney(rate),value:rate==null||!a.valid?null:salesCents(rate*a.billable*q),required:rate==null});
+   /* Лайт со своим минимумом или единицей — сумма его строк материалов,
+      ft² — его площадь к оплате; без них — ставка × площадь, как было. */
+   const rs=(p.materialRows||[]).filter(r=>r.pane===i&&r.cavity==null),own=rs.length&&rs.some(r=>r.special)&&rs.every(r=>r.amount!=null);
+   const ft2=own?rs.reduce((n,r)=>r.unit==='sqft'&&r.qty>n?r.qty:n,0):0;
+   mat.push({desc:'Lite '+(i+1)+' · '+docPaneName(pn)+(heat?' · '+heat:''),basis:ft2?docNum(ft2*q,2)+' ft²':areaAll,rate:rate==null?'':docMoney(rate),value:rate==null||!a.valid?null:own?salesCents(rs.reduce((n,r)=>n+r.amount,0)*q):salesCents(rate*a.billable*q),required:rate==null});
   });
   (m?m.cavities:[]).forEach((c,i)=>{
    /* Обвязка по частям рецепта: сумма частей этой камеры, в том числе за
       дюйм периметра или штуку (erp/masterdata/surround). */
    const rate=c.priceOverride!=null?c.priceOverride:salesCavityCatalogPrice(c,order),parts=(p.materialRows||[]).filter(r=>r.cavity===i);
    const value=!a.valid||parts.some(r=>r.amount==null)?null:salesCents(parts.reduce((n,r)=>n+r.amount,0)*q);
-   mat.push({desc:'Cavity '+(i+1)+' · '+docCavityText(c),basis:areaAll,rate:rate==null?'':docMoney(rate)+(salesCavityOtherUnits(c,order)?' +':''),value:value,required:value==null});
+   /* ft² камеры — её частей за ft² (у распорки свой минимум), не стекла. */
+   const cft2=parts.reduce((n,r)=>r.unit==='sqft'&&r.qty>n?r.qty:n,0);
+   mat.push({desc:'Cavity '+(i+1)+' · '+docCavityText(c),basis:cft2?docNum(cft2*q,2)+' ft²':a.valid?docNum(a.billable*q,2)+' ft²':'',rate:rate==null?'':docMoney(rate)+(salesCavityOtherUnits(c,order)?' +':''),value:value,required:value==null});
   });
   services.forEach(s=>svc.push({desc:s.label,basis:docBasis(s.basis*q,s.unit),rate:s.rate==null?'':docMoney(s.rate),value:s.value,required:s.rate==null}));
   if(mat.length)it.groups.push({label:'Materials',rows:mat.map(fmt)});
@@ -39424,16 +39440,19 @@ function unitCharge(o,l,u,at){
  if(!p.complete)return {stage,after,charge:null,glass:null,works:null};
  if(joined)return {stage,after,charge:p.unit,glass:null,works:null};
  /* Стекло: порезано — цена отожжённого, прошло печь — цена закалённого. */
- const area=p.areas.billable,money=v=>v==null?null:+v,lam=salesRouteStationOf('lamination','LAM'),glued=new Set();let glass=0,known=true;
+ /* Площадь лайта к оплате — как в цене заказа: строка материала со своим
+    минимумом (стекло 4 ft², аудит 18.11.2026); нет строки — Billable юнита. */
+ const area=(c,whole)=>(p.materialRows||[]).reduce((n,r)=>r.pane===c.index&&r.unit==='sqft'&&(whole||!c.ply||!r.ply||r.ply===c.ply)&&r.qty>n?r.qty:n,0)||p.areas.billable;
+ const money=v=>v==null?null:+v,lam=salesRouteStationOf('lamination','LAM'),glued=new Set();let glass=0,known=true;
  seen.forEach(x=>{
   if(!x.c||!x.scans.length)return;const spec=x.c.spec||{},g=glassProductById(spec.glassProductId);
   /* Плиты уже склеены — лайт идёт целиком, с плёнкой. */
   if(x.c.ply){const plies=seen.filter(y=>y.c&&y.c.paneId===x.c.paneId);
-   if(plies.length>1&&plies.every(y=>y.scans.some(s=>s.station===lam&&s.joined))){if(glued.has(x.c.paneId))return;glued.add(x.c.paneId);const v=x.c.pane.priceOverride!=null?x.c.pane.priceOverride:salesPaneCatalogPrice(x.c.pane,o);if(v==null)known=false;else glass+=v*area;return;}}
+   if(plies.length>1&&plies.every(y=>y.scans.some(s=>s.station===lam&&s.joined))){if(glued.has(x.c.paneId))return;glued.add(x.c.paneId);const v=x.c.pane.priceOverride!=null?x.c.pane.priceOverride:salesPaneCatalogPrice(x.c.pane,o);if(v==null)known=false;else glass+=v*area(x.c,true);return;}}
   const full=x.c.ply?salesPlyPrice(spec,o):(x.c.pane.priceOverride!=null?x.c.pane.priceOverride:salesPaneCatalogPrice(x.c.pane,o));
   /* Цену продавца не превышаем: отожжённое по прайсу — не дороже цены лайта в заказе. */
   const an=g?salesGlassSalePrice(g,false,o):null,rate=x.tempered||full==null?money(full):money(an!=null?Math.min(an,full):full);
-  if(rate==null)known=false;else glass+=rate*area;
+  if(rate==null)known=false;else glass+=rate*area(x.c);
  });
  if(!known)return {stage,after,charge:null,glass:null,works:null};
  /* Работы строки — доля стёкол юнита, прошедших станцию этой работы до at. */
@@ -41188,16 +41207,18 @@ function cutSheetOptions(glassCode){
  (typeof cutShopSizes==='function'?cutShopSizes():[]).forEach(s=>{const k=cutSheetKey(s);if(!seen.has(k)){seen.add(k);out.push({w:s.w,h:s.h,supplier:'',productCode:glassCode,shop:true});}});
  /* Листы этого стекла, что лежат на складе, подставляются сами (владелец
     17.11.2026: «те что есть в стоке — чтобы подставлялись сами для возможности
-    оптимизации»). Размера нет в поставках — берётся не больше, чем лежит. */
- cutStockSheetSizes(glassCode).forEach(s=>{const k=cutSheetKey(s);if(!seen.has(k)){seen.add(k);out.push({w:s.w,h:s.h,supplier:'',productCode:glassCode,fromStock:true,onRack:s.onRack});}});
+    оптимизации»). Размера нет в поставках — берётся не больше, чем свободно
+    (владелец 18.11.2026): лежит минус занятое раскроями других батчей. */
+ cutStockSheetSizes(glassCode).forEach(s=>{const k=cutSheetKey(s);if(!seen.has(k)){seen.add(k);out.push({w:s.w,h:s.h,supplier:'',productCode:glassCode,fromStock:true,onRack:s.onRack,free:s.free,batches:s.batches});}});
  return out;
 }
-/* Листы стекла на складе (erp/inventory/sheets): размер и сколько лежит. Один
-   раз за отрисовку — склад считается по всем движениям. */
+/* Листы стекла на складе (erp/inventory/sheets): размер, сколько лежит,
+   свободно и сколько занял раскрой каждого батча. Один раз за отрисовку —
+   склад считается по всем движениям. */
 function cutStockSheetSizes(glassCode){
  if(typeof invSheetRows!=='function')return [];
  const all=typeof readOn==='function'&&readOn()?readMemo('cutStockSheetSizes',[],()=>invSheetRows()):invSheetRows(),code=String(glassCode||'').toUpperCase();
- return all.filter(r=>r&&r.code.toUpperCase()===code&&!r.sizeMissing&&r.onRack>0).map(r=>({w:Math.max(r.w,r.h),h:Math.min(r.w,r.h),onRack:r.onRack}));
+ return all.filter(r=>r&&r.code.toUpperCase()===code&&!r.sizeMissing&&r.onRack>0).map(r=>({w:Math.max(r.w,r.h),h:Math.min(r.w,r.h),onRack:r.onRack,free:r.free,batches:r.batches}));
 }
 /* Ключ размера: «130x96». Второй лист того же размера со своими Trim и
    Border — «130x96#2»: «хочу добавить новый лист с теми же размерами, только
@@ -41338,9 +41359,12 @@ function cutStockFor(glassCode,pick,mm,batch){
  if(!rows.length&&!mine.length)return [];
  const out=rows.map(r=>{
   const set=own&&own.find(x=>x&&x.key===cutSheetKey(r));
-  /* Лист со склада, которого нет в поставках: по умолчанию — сколько лежит. */
-  const limit=set&&+set.limit>0?Math.floor(+set.limit):r.fromStock&&!(set&&set.limit===0&&set.touched)?Math.floor(+r.onRack||0):0;
-  return cutInsetRow({key:cutSheetKey(r),w:r.w,h:r.h,supplier:r.supplier,limit,off:!!(set&&set.off)},set);
+  /* Лист со склада, которого нет в поставках: по умолчанию — сколько свободно
+     этому батчу (его собственный раскрой не в счёт). Свободных нет — размер
+     снят, пока человек сам не отметит его (on) или не впишет Qty. */
+  const auto=r.fromStock&&!(set&&set.limit===0&&set.touched),free=auto?Math.max(0,Math.floor(+r.free||0)+((r.batches&&r.batches.get(batch))||0)):0;
+  const limit=set&&+set.limit>0?Math.floor(+set.limit):auto?free:0;
+  return cutInsetRow({key:cutSheetKey(r),w:r.w,h:r.h,supplier:r.supplier,limit,off:!!(set&&set.off)||auto&&!limit&&!(set&&set.on)},set);
  }).filter(r=>!r.off);
  mine.filter(x=>!x.off).forEach(x=>out.push(cutInsetRow({key:x.key,w:+x.w,h:+x.h,supplier:'',limit:+x.limit>0?Math.floor(+x.limit):0,off:false,own:true},x)));
  /* Строки «+ same size» этого прогона. */
@@ -42875,7 +42899,8 @@ function cutSetStock(number,glass,key,field,value){
  if(!Array.isArray(pick.sizes))pick.sizes=cutSheetOptions(glass).map(r=>({key:cutSheetKey(r),limit:0,off:false}));
  let row=pick.sizes.find(x=>x&&x.key===key);if(!row){row={key,limit:0,off:false};pick.sizes.push(row);}
  if(field==='limit'){const n=Math.floor(+value);row.limit=Number.isFinite(n)&&n>0?n:0;row.touched=true;}
- if(field==='off')row.off=!!value;
+ /* Отметил руками — лист со склада без свободных тоже идёт (on). */
+ if(field==='off'){row.off=!!value;if(value)delete row.on;else row.on=true;}
  if(field==='first')pick.sizes=[row].concat(pick.sizes.filter(x=>x!==row));
  /* Пусто — снова значение из Master Data. */
  if(rowField){if(edge==null)delete row[field];else row[field]=edge;}
@@ -48485,7 +48510,7 @@ function cutUiBatchSizeDrop(glass,key){cutUiRun(()=>cutRemoveBatchSize(cutUi.bat
 /* Стёкла батча, для которых не нашлось ни одного размера листа. */
 function cutNeedList(b,plan,pieces){
  const pick=g=>plan&&plan.sheetPick&&plan.sheetPick[g]||null;
- return [...new Set((pieces||cutPiecesOf(b.number,plan&&plan.settings||{})).filter(p=>!p.off).map(p=>p.glass))].filter(g=>!cutStockFor(g,pick(g)).length).sort();
+ return [...new Set((pieces||cutPiecesOf(b.number,plan&&plan.settings||{})).filter(p=>!p.off).map(p=>p.glass))].filter(g=>!cutStockFor(g,pick(g),undefined,b.number).length).sort();
 }
 function cutNeedSizes(b,plan,pieces){
  const need=cutNeedList(b,plan,pieces);
@@ -56722,7 +56747,7 @@ function repSoldLine(o,l,cad,put){
   if(r.cavity!=null&&r.price===0&&!r.amount&&r.table!=='spacerVariant')return;
   if(r.cavity!=null){const x=r.itemId&&mdById(r.table,r.itemId),t=typeof CONS_TABLES!=='undefined'&&CONS_TABLES.find(c=>c[0]===r.table);
    add({category:'IGU surround',type:t?t[1]:'Surround',product:x?x.name:'Surround · price by hand',unitName,qty,amount:money(r.amount),spacerFt:r.table==='spacerVariant'&&a.valid?a.perimeterIn/12*live:0});return;}
-  if(r.table==='interlayerProduct'){const x=mdById('interlayerProduct',r.itemId),layers=r.layers||1,lam=bill*live,sq=unitName==='ft²';
+  if(r.table==='interlayerProduct'){const x=mdById('interlayerProduct',r.itemId),layers=r.layers||1,lam=(sqFt=>sqFt*live)(r.unit==='sqft'&&r.qty!=null?r.qty:bill),sq=unitName==='ft²';
    add({category:'Interlayer',type:x&&x.family||'Interlayer',product:x?x.name:'Interlayer',unitName,qty:sq?lam*layers:qty,amount:money(r.amount),lamFt2:lam,filmFt2:lam*layers});return;}
   const ply=pane&&r.ply?(pane.laminated||{})[r.ply]:pane,g=r.itemId&&glassProductById(r.itemId);
   /* Ламинат одной ценой руками: обе плиты — одной строкой. */
