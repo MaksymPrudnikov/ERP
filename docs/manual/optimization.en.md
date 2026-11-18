@@ -46,8 +46,9 @@ Owner, 17 Nov 2026: variant C with the stock column, no hints on screen — the 
 - **Glass supply points** (Data → Glass → Supply points) — first.
 - **Shop sizes** (Data → Production → Cutting / Inventory → Sheet sizes) — for any glass and every batch.
 - **Stock**: a size of this glass that lies in stock (Inventory) joins by itself, even if it is not in supply. Its Qty
-  defaults to how many sheets lie there, so the layout does not count on sheets that do not exist; clear Qty for no
-  limit.
+  defaults to how many sheets are **free** (owner, 18 Nov 2026): in stock minus the sheets other batches' built layouts
+  already took (this batch's own layout does not count). None free — the box is unchecked until you check it by
+  hand. Clear Qty for no limit.
 - **A batch size**: the row at the bottom of the table — length × width, **+ Add sheet size**. It belongs to this batch
   and this glass only, marked **this batch**; it never reaches other batches or Master Data. × removes it while nothing
   is laid on it. Needed in every batch — add it in Data → Cutting.
@@ -69,7 +70,7 @@ Owner, 17 Nov 2026: variant C with the stock column, no hints on screen — the 
 | This batch | After Build: sheets of this size · used % · waste % · waste ft². |
 
 Empty Trim / Border / Min dist — the Master Data value for this thickness; **Reset to Master Data** brings back all
-edges and rules of this glass.
+edges and rules of this glass — and removes its **this batch** sizes and **+ same size** rows.
 
 ### Leftover kept if — which leftover goes to stock
 

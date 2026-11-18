@@ -218,7 +218,7 @@ function cutUiBatchSizeDrop(glass,key){cutUiRun(()=>cutRemoveBatchSize(cutUi.bat
 /* Стёкла батча, для которых не нашлось ни одного размера листа. */
 function cutNeedList(b,plan,pieces){
  const pick=g=>plan&&plan.sheetPick&&plan.sheetPick[g]||null;
- return [...new Set((pieces||cutPiecesOf(b.number,plan&&plan.settings||{})).filter(p=>!p.off).map(p=>p.glass))].filter(g=>!cutStockFor(g,pick(g)).length).sort();
+ return [...new Set((pieces||cutPiecesOf(b.number,plan&&plan.settings||{})).filter(p=>!p.off).map(p=>p.glass))].filter(g=>!cutStockFor(g,pick(g),undefined,b.number).length).sort();
 }
 function cutNeedSizes(b,plan,pieces){
  const need=cutNeedList(b,plan,pieces);

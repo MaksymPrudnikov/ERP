@@ -314,7 +314,12 @@ function salesLineMaterials(m,areas,order){
   for(let k=at;k<out.rows.length;k++)out.rows[k].cavity=i;
  });
  out.amount=salesExact(out.amount+plain*areas.billable);
- out.total=out.rows.some(r=>r.special)&&areas.billable>0?Math.round(out.amount/areas.billable*100)/100:Math.round(plain*100)/100;
+ /* Площадь стекла к оплате (аудит 18.11.2026): у лайта свой минимум карточки
+    (стекло 4 ft²), Billable юнита его не знает. Бланк, отмена юнита и ставка
+    за ft² берут её, чтобы ft² × ставка сходилось с суммой. Только показ —
+    деньги считают строки выше. */
+ out.billed=out.rows.reduce((n,r)=>r.pane!=null&&r.unit==='sqft'&&r.qty>n?r.qty:n,areas.billable);
+ out.total=out.rows.some(r=>r.special)&&out.billed>0?Math.round(out.amount/out.billed*100)/100:Math.round(plain*100)/100;
  return out;
 }
 /* Мин. и макс. размер айтема — только предупреждение (владелец, 22.10.2026). */
@@ -351,7 +356,7 @@ function salesLinePriceLive(line,order){
     берёт их отсюда, а не считает второй раз (фигура — самое дорогое).
     materials, services, base, unit — точные суммы на юнит; exact — точная
     сумма строки, в итог заказа идёт она; line — она же в центах для показа. */
- const out={areas:areas,materialRate:rate.total,materialRows:rate.rows,chargeRows:services.rows,materials:salesExact(materials),services:salesExact(services.total/q),base:base,adjustments:adjustments,unit:incomplete?null:running,exact:incomplete?null:salesExact(running*live),line:incomplete?null:salesCents(running*live),knownSubtotal:running,complete:!incomplete,unsupportedCurrency:unsupportedCurrency,missingMaterials:!m||!rate.known,missingServices:services.unpriced,qty:live,ordered:q,cancelled:q-live};
+ const out={areas:areas,materialRate:rate.total,billedArea:areas.valid?rate.billed:null,materialRows:rate.rows,chargeRows:services.rows,materials:salesExact(materials),services:salesExact(services.total/q),base:base,adjustments:adjustments,unit:incomplete?null:running,exact:incomplete?null:salesExact(running*live),line:incomplete?null:salesCents(running*live),knownSubtotal:running,complete:!incomplete,unsupportedCurrency:unsupportedCurrency,missingMaterials:!m||!rate.known,missingServices:services.unpriced,qty:live,ordered:q,cancelled:q-live};
  /* Цена руками: итоговая цена юнита, наценки к ней не прибавляются; расчёт
     остаётся для справки (computedUnit). */
  if(line.priceManual!=null&&Number.isFinite(+line.priceManual)&&+line.priceManual>=0){const v=salesMoney(+line.priceManual);Object.assign(out,{manual:true,computedUnit:out.unit,adjustments:[],unit:v,exact:salesExact(v*live),line:salesCents(v*live),complete:true,unsupportedCurrency:false});}

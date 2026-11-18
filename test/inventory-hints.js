@@ -74,5 +74,19 @@ module.exports=async function({page,eq}){
   return {limit:row&&row.limit,shown,qty,inStock,all};
  }),{limit:5,shown:true,qty:'5',inStock:'free 5 · not counted',all:0});
 
+ /* Владелец 18.11.2026 (аудит): Qty по умолчанию — сколько свободно, а не
+    сколько лежит: листы, занятые раскроем другого батча, не в счёт; свой
+    раскрой батча — в счёт; свободных нет — размер снят, отметил руками — идёт. */
+ eq('a stock size counts only free sheets: another batch layout takes them, its own layout does not; none free — off until checked by hand',await t.p.evaluate(()=>{
+  ihReset();ihRec([{qty:7,unit:'sheet',widthIn:120,heightIn:84}]);
+  const a=ihBatch();cutSetStock(a,'6CLEAR','144x96','off',true);cutPlanRun(a);const used=cutPlanFor(a).groups[0].sheets.length;
+  const lim=n=>{const r=cutStockFor('6CLEAR',cutPlanFor(n).sheetPick['6CLEAR'],6,n).find(x=>x.key==='120x84');return r?r.limit:'off';};
+  const b=ihBatch(),own=lim(a),other=lim(b)===7-used;
+  ihReset();ihRec([{qty:3,unit:'sheet',widthIn:120,heightIn:84}]);
+  const c=ihBatch();cutSetStock(c,'6CLEAR','144x96','off',true);cutPlanRun(c);const d=ihBatch(),none=lim(d);
+  cutSetStock(d,'6CLEAR','120x84','off',false);const checked=lim(d);
+  return {used:used>0&&used<7,own,other,none,checked};
+ }),{used:true,own:7,other:true,none:'off',checked:0});
+
  eq('inventory hints have no JavaScript errors',t.errs,[]);await t.c.close();
 };

@@ -238,16 +238,18 @@ function cutSheetOptions(glassCode){
  (typeof cutShopSizes==='function'?cutShopSizes():[]).forEach(s=>{const k=cutSheetKey(s);if(!seen.has(k)){seen.add(k);out.push({w:s.w,h:s.h,supplier:'',productCode:glassCode,shop:true});}});
  /* Листы этого стекла, что лежат на складе, подставляются сами (владелец
     17.11.2026: «те что есть в стоке — чтобы подставлялись сами для возможности
-    оптимизации»). Размера нет в поставках — берётся не больше, чем лежит. */
- cutStockSheetSizes(glassCode).forEach(s=>{const k=cutSheetKey(s);if(!seen.has(k)){seen.add(k);out.push({w:s.w,h:s.h,supplier:'',productCode:glassCode,fromStock:true,onRack:s.onRack});}});
+    оптимизации»). Размера нет в поставках — берётся не больше, чем свободно
+    (владелец 18.11.2026): лежит минус занятое раскроями других батчей. */
+ cutStockSheetSizes(glassCode).forEach(s=>{const k=cutSheetKey(s);if(!seen.has(k)){seen.add(k);out.push({w:s.w,h:s.h,supplier:'',productCode:glassCode,fromStock:true,onRack:s.onRack,free:s.free,batches:s.batches});}});
  return out;
 }
-/* Листы стекла на складе (erp/inventory/sheets): размер и сколько лежит. Один
-   раз за отрисовку — склад считается по всем движениям. */
+/* Листы стекла на складе (erp/inventory/sheets): размер, сколько лежит,
+   свободно и сколько занял раскрой каждого батча. Один раз за отрисовку —
+   склад считается по всем движениям. */
 function cutStockSheetSizes(glassCode){
  if(typeof invSheetRows!=='function')return [];
  const all=typeof readOn==='function'&&readOn()?readMemo('cutStockSheetSizes',[],()=>invSheetRows()):invSheetRows(),code=String(glassCode||'').toUpperCase();
- return all.filter(r=>r&&r.code.toUpperCase()===code&&!r.sizeMissing&&r.onRack>0).map(r=>({w:Math.max(r.w,r.h),h:Math.min(r.w,r.h),onRack:r.onRack}));
+ return all.filter(r=>r&&r.code.toUpperCase()===code&&!r.sizeMissing&&r.onRack>0).map(r=>({w:Math.max(r.w,r.h),h:Math.min(r.w,r.h),onRack:r.onRack,free:r.free,batches:r.batches}));
 }
 /* Ключ размера: «130x96». Второй лист того же размера со своими Trim и
    Border — «130x96#2»: «хочу добавить новый лист с теми же размерами, только
@@ -388,9 +390,12 @@ function cutStockFor(glassCode,pick,mm,batch){
  if(!rows.length&&!mine.length)return [];
  const out=rows.map(r=>{
   const set=own&&own.find(x=>x&&x.key===cutSheetKey(r));
-  /* Лист со склада, которого нет в поставках: по умолчанию — сколько лежит. */
-  const limit=set&&+set.limit>0?Math.floor(+set.limit):r.fromStock&&!(set&&set.limit===0&&set.touched)?Math.floor(+r.onRack||0):0;
-  return cutInsetRow({key:cutSheetKey(r),w:r.w,h:r.h,supplier:r.supplier,limit,off:!!(set&&set.off)},set);
+  /* Лист со склада, которого нет в поставках: по умолчанию — сколько свободно
+     этому батчу (его собственный раскрой не в счёт). Свободных нет — размер
+     снят, пока человек сам не отметит его (on) или не впишет Qty. */
+  const auto=r.fromStock&&!(set&&set.limit===0&&set.touched),free=auto?Math.max(0,Math.floor(+r.free||0)+((r.batches&&r.batches.get(batch))||0)):0;
+  const limit=set&&+set.limit>0?Math.floor(+set.limit):auto?free:0;
+  return cutInsetRow({key:cutSheetKey(r),w:r.w,h:r.h,supplier:r.supplier,limit,off:!!(set&&set.off)||auto&&!limit&&!(set&&set.on)},set);
  }).filter(r=>!r.off);
  mine.filter(x=>!x.off).forEach(x=>out.push(cutInsetRow({key:x.key,w:+x.w,h:+x.h,supplier:'',limit:+x.limit>0?Math.floor(+x.limit):0,off:false,own:true},x)));
  /* Строки «+ same size» этого прогона. */
@@ -1925,7 +1930,8 @@ function cutSetStock(number,glass,key,field,value){
  if(!Array.isArray(pick.sizes))pick.sizes=cutSheetOptions(glass).map(r=>({key:cutSheetKey(r),limit:0,off:false}));
  let row=pick.sizes.find(x=>x&&x.key===key);if(!row){row={key,limit:0,off:false};pick.sizes.push(row);}
  if(field==='limit'){const n=Math.floor(+value);row.limit=Number.isFinite(n)&&n>0?n:0;row.touched=true;}
- if(field==='off')row.off=!!value;
+ /* Отметил руками — лист со склада без свободных тоже идёт (on). */
+ if(field==='off'){row.off=!!value;if(value)delete row.on;else row.on=true;}
  if(field==='first')pick.sizes=[row].concat(pick.sizes.filter(x=>x!==row));
  /* Пусто — снова значение из Master Data. */
  if(rowField){if(edge==null)delete row[field];else row[field]=edge;}

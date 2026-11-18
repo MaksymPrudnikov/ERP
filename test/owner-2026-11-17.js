@@ -123,5 +123,14 @@ module.exports=async function({page,eq}){
   salesDraftDrop(true);return {parts,stored,cleared,log:log.length===1&&/^Minimum area · .* → 2 ft²$/.test(log[0])};
  }),{parts:['glassProduct','spandrelProduct'],stored:2,cleared:true,log:true});
 
+ /* Аудит 18.11.2026: бланк с разбивкой — ft² стекла к оплате (минимум
+    карточки), а не настоящая площадь юнита: ft² × ставка сходится с суммой. */
+ eq('бланк: деталь 12×12 — Billable 4.0 ft², стекло 4.00 ft² × 7.65 = 30.60, ставка за ft² 7.65',await run(()=>{
+  const {o,m,g}=o17Order([[12,12]]);const p=m.panes[0];Object.assign(p,{category:'vision',glassProductId:g.id});
+  const l=o.lines[0],it=docSaleItem({opts:{basisRate:true,billableArea:true},mode:'full'},l,0,o),pr=salesLineCommercialPrice(l,o);
+  const lite=it.groups[0].rows[0],r={bill:it.sub[0].text,basis:lite.basis,amount:lite.amount,rate:pr.materialRate,materials:pr.materials};
+  salesDraftDrop(true);return r;
+ }),{bill:'Billable 4.0 ft²',basis:'4.00 ft²',amount:'$30.60',rate:7.65,materials:30.6});
+
  eq('правки 17.11 без ошибок страницы',t.errs,[]);await t.c.close();
 };

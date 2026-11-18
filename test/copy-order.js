@@ -28,15 +28,15 @@ module.exports=async function({page,eq}){
   return {after:b[b.indexOf('Documents')+1],quote,fresh,menu};
  },ids.c),{after:'Copy',quote:true,fresh:false,menu:['Open','Copy']});
 
- eq('Copy: копия на 100 % — клиент, контакт, PO, срок, приоритет, Notes, строки, Makeup, формы, склад, цены заказа, ручная цена и надбавки; новые номера записи, строк и фигур; полоса Copy of; в базе ничего не прибавилось',await run(()=>{
+ eq('Copy: копия на 100 % — клиент, контакт, PO, приоритет (срок — от дня создания копии, владелец 18.11.2026), Notes, строки, Makeup, формы, склад, цены заказа, ручная цена и надбавки; новые номера записи, строк и фигур; полоса Copy of; в базе ничего не прибавилось',await run(()=>{
   const id=coFull(),src=salesRecord(id),n=DB.salesOrder.length,num=nextSalesOrderNumber();
   tab='sales';salesOrderEdit(id);coClick();const d=soDraft,strip=document.querySelector('[data-copy-strip]');
-  const r={edit:soEdit,kind:d.kind,status:d.status,number:d.businessNumber,content:salesQuoteContentKey(d)===salesQuoteContentKey(src),contact:d.customerContactId===src.customerContactId,
-   po:d.customerPo,due:d.dueDate,manual:d.lines[0].priceManual,surcharge:d.surchargeRates,items:d.extraItems.map(x=>[x.itemId,x.qty].join()),book:JSON.stringify(d.priceBook)===JSON.stringify(src.priceBook),
+  const r={edit:soEdit,kind:d.kind,status:d.status,number:d.businessNumber,content:salesQuoteContentKey(Object.assign({},d,{dueDate:src.dueDate}))===salesQuoteContentKey(src),contact:d.customerContactId===src.customerContactId,
+   po:d.customerPo,due:d.dueDate===salesDueDate(src.priority)&&d.dueDate!==src.dueDate,manual:d.lines[0].priceManual,surcharge:d.surchargeRates,items:d.extraItems.map(x=>[x.itemId,x.qty].join()),book:JSON.stringify(d.priceBook)===JSON.stringify(src.priceBook),
    total:finOrderTotals(d).grand===finOrderTotals(src).grand,ids:d.id!==src.id&&d.lines.every((l,i)=>l.id!==src.lines[i].id&&l.shapeRef.id!==src.lines[i].shapeRef.id&&salesShapeByRef(l.shapeRef).ownerLineId===l.id),
    strip:!!strip&&strip.textContent==='Copy of '+src.businessNumber+'Not saved yet',state:document.querySelector('[data-order-state]').textContent,added:DB.salesOrder.length-n,num:nextSalesOrderNumber()===num};
   salesDraftDrop(true);return r;
- }),{edit:'new',kind:'order',status:'new',number:'',content:true,contact:true,po:'GL-2291',due:'2026-11-06',manual:150,surcharge:{largeUnit:{value:40}},items:['STK-CO,2'],book:true,total:true,ids:true,
+ }),{edit:'new',kind:'order',status:'new',number:'',content:true,contact:true,po:'GL-2291',due:true,manual:150,surcharge:{largeUnit:{value:40}},items:['STK-CO,2'],book:true,total:true,ids:true,
   strip:true,state:'Unsaved changes',added:0,num:true});
 
  eq('Copy: исполнение не переносится — отгруженный и оплаченный заказ → копия New без батча, Hold и блокировок, Qty полные; Save — следующий номер, своё стекло, без оплат и отгрузок; исходный не изменился',await run(()=>{
