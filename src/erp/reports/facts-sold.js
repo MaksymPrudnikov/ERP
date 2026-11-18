@@ -97,7 +97,7 @@ function repSoldLine(o,l,cad,put){
   if(r.cavity!=null&&r.price===0&&!r.amount&&r.table!=='spacerVariant')return;
   if(r.cavity!=null){const x=r.itemId&&mdById(r.table,r.itemId),t=typeof CONS_TABLES!=='undefined'&&CONS_TABLES.find(c=>c[0]===r.table);
    add({category:'IGU surround',type:t?t[1]:'Surround',product:x?x.name:'Surround · price by hand',unitName,qty,amount:money(r.amount),spacerFt:r.table==='spacerVariant'&&a.valid?a.perimeterIn/12*live:0});return;}
-  if(r.table==='interlayerProduct'){const x=mdById('interlayerProduct',r.itemId),layers=r.layers||1,lam=bill*live,sq=unitName==='ft²';
+  if(r.table==='interlayerProduct'){const x=mdById('interlayerProduct',r.itemId),layers=r.layers||1,lam=(sqFt=>sqFt*live)(r.unit==='sqft'&&r.qty!=null?r.qty:bill),sq=unitName==='ft²';
    add({category:'Interlayer',type:x&&x.family||'Interlayer',product:x?x.name:'Interlayer',unitName,qty:sq?lam*layers:qty,amount:money(r.amount),lamFt2:lam,filmFt2:lam*layers});return;}
   const ply=pane&&r.ply?(pane.laminated||{})[r.ply]:pane,g=r.itemId&&glassProductById(r.itemId);
   /* Ламинат одной ценой руками: обе плиты — одной строкой. */

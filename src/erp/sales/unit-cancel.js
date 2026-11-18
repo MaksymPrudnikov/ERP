@@ -71,16 +71,19 @@ function unitCharge(o,l,u,at){
  if(!p.complete)return {stage,after,charge:null,glass:null,works:null};
  if(joined)return {stage,after,charge:p.unit,glass:null,works:null};
  /* Стекло: порезано — цена отожжённого, прошло печь — цена закалённого. */
- const area=p.areas.billable,money=v=>v==null?null:+v,lam=salesRouteStationOf('lamination','LAM'),glued=new Set();let glass=0,known=true;
+ /* Площадь лайта к оплате — как в цене заказа: строка материала со своим
+    минимумом (стекло 4 ft², аудит 18.11.2026); нет строки — Billable юнита. */
+ const area=(c,whole)=>(p.materialRows||[]).reduce((n,r)=>r.pane===c.index&&r.unit==='sqft'&&(whole||!c.ply||!r.ply||r.ply===c.ply)&&r.qty>n?r.qty:n,0)||p.areas.billable;
+ const money=v=>v==null?null:+v,lam=salesRouteStationOf('lamination','LAM'),glued=new Set();let glass=0,known=true;
  seen.forEach(x=>{
   if(!x.c||!x.scans.length)return;const spec=x.c.spec||{},g=glassProductById(spec.glassProductId);
   /* Плиты уже склеены — лайт идёт целиком, с плёнкой. */
   if(x.c.ply){const plies=seen.filter(y=>y.c&&y.c.paneId===x.c.paneId);
-   if(plies.length>1&&plies.every(y=>y.scans.some(s=>s.station===lam&&s.joined))){if(glued.has(x.c.paneId))return;glued.add(x.c.paneId);const v=x.c.pane.priceOverride!=null?x.c.pane.priceOverride:salesPaneCatalogPrice(x.c.pane,o);if(v==null)known=false;else glass+=v*area;return;}}
+   if(plies.length>1&&plies.every(y=>y.scans.some(s=>s.station===lam&&s.joined))){if(glued.has(x.c.paneId))return;glued.add(x.c.paneId);const v=x.c.pane.priceOverride!=null?x.c.pane.priceOverride:salesPaneCatalogPrice(x.c.pane,o);if(v==null)known=false;else glass+=v*area(x.c,true);return;}}
   const full=x.c.ply?salesPlyPrice(spec,o):(x.c.pane.priceOverride!=null?x.c.pane.priceOverride:salesPaneCatalogPrice(x.c.pane,o));
   /* Цену продавца не превышаем: отожжённое по прайсу — не дороже цены лайта в заказе. */
   const an=g?salesGlassSalePrice(g,false,o):null,rate=x.tempered||full==null?money(full):money(an!=null?Math.min(an,full):full);
-  if(rate==null)known=false;else glass+=rate*area;
+  if(rate==null)known=false;else glass+=rate*area(x.c);
  });
  if(!known)return {stage,after,charge:null,glass:null,works:null};
  /* Работы строки — доля стёкол юнита, прошедших станцию этой работы до at. */

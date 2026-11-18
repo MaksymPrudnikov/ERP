@@ -193,6 +193,9 @@ function salesCopyOrderDraft(src){
  const copy=salesCopySalesRecord(src,{businessNumber:'',status:salesIsQuote(src)?'open':'new',statusDates:{},batchNo:'',batchHistory:[],unbatchHistory:[],productionUnbatchVerify:false,fulfilledVia:'',fromQuoteId:'',wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',
   onHold:false,holdReason:'',holdAt:'',remakeNcrId:'',noCharge:false,cancellations:[],adjustments:[],emails:[],createdAt:'',updatedAt:''});
  delete copy.isDraft;
+ /* Срок копии — от дня создания по её Priority (владелец 18.11.2026: «копия
+    получает дату от дня создания»), а не прошедший срок исходного. */
+ if(!salesIsQuote(src))copy.dueDate=salesDueDate(copy.priority);
  copy.lines.forEach(l=>{Object.assign(l,{batchManaged:false,onHold:false,holdReason:'',holdAt:'',cutStartedAt:'',batchNo:''});});
  return normalizeSalesOrder(copy);
 }

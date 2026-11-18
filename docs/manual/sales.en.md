@@ -9,7 +9,7 @@ Owner, 17 Nov 2026: Priority comes first and sets the due date by itself.
 
 - First **Priority**, then **Due Date \***. Priority sets the date: **Normal — 7, Rush — 3, Critical — 1** business
   day (Monday–Friday, holidays are not counted). The numbers are edited in **Data → Setup → Due date**.
-- A new order gets the date at once, from the day it is created. A copied order keeps the original date (a 100 % copy). An order
+- A new order gets the date at once, from the day it is created. A copied order also counts from the day the copy is made, by its Priority (owner, 18 Nov 2026), not the original's past date. An order
   from a quote — from the conversion day; a future date written in the quote stays.
 - The date can be changed by hand. Changing Priority again counts the date anew from today — a hand-set date too.
 - **An order without a Due date is not saved**: “Enter the Due Date.” A quote does not need one. An NCR remake order

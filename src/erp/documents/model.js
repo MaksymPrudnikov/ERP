@@ -163,10 +163,12 @@ function docSaleItem(model,line,index,order){
  if(p.cancelled)it.qty='Qty '+p.ordered+' · '+p.cancelled+' cancelled';
  const glassLine=p.manual?p.line:p.complete?salesCents(p.materials*q):null;
  /* Строки бланка — на всю позицию, как в Spiel: 149.20 ft² × ставка. */
- const areaAll=a.valid?docNum(a.billable*q,2)+' ft²':'';
+ /* Площадь к оплате — по строкам материалов (минимум карточки стекла,
+    аудит 18.11.2026): ft² × ставка в бланке сходится с суммой строки. */
+ const bill=p.billedArea!=null?p.billedArea:a.billable,areaAll=a.valid?docNum(bill*q,2)+' ft²':'';
  it.amount=mode==='none'?null:mode==='glass'?docMoney(glassLine):docMoney(p.line);
  const bits=[];
- if(opts.billableArea&&a.valid)bits.push('Billable '+docNum(a.billable,1)+' ft²'+(q>1?' × '+q+' = '+areaAll:''));
+ if(opts.billableArea&&a.valid)bits.push('Billable '+docNum(bill,1)+' ft²'+(q>1?' × '+q+' = '+areaAll:''));
  /* Галочка Weight per unit / per line предлагается и бланкам продаж (пункт 14). */
  if(opts.weight)bits.push('Weight '+docLineWeightText(salesLineWeight(line,order),q,opts));
  if(opts.perFt2&&['split','glass','unit'].includes(mode)&&!p.missingMaterials&&a.valid)bits.push('glass '+docMoney(p.materialRate)+'/ft²');
@@ -182,14 +184,20 @@ function docSaleItem(model,line,index,order){
   const mat=[],svc=[];
   (m?m.panes:[]).forEach((pn,i)=>{
    const rate=pn.priceOverride!=null?pn.priceOverride:salesPaneCatalogPrice(pn,order),heat=docHeatName(pn.category==='laminated'?(pn.laminated||{}).outer:pn);
-   mat.push({desc:'Lite '+(i+1)+' · '+docPaneName(pn)+(heat?' · '+heat:''),basis:areaAll,rate:rate==null?'':docMoney(rate),value:rate==null||!a.valid?null:salesCents(rate*a.billable*q),required:rate==null});
+   /* Лайт со своим минимумом или единицей — сумма его строк материалов,
+      ft² — его площадь к оплате; без них — ставка × площадь, как было. */
+   const rs=(p.materialRows||[]).filter(r=>r.pane===i&&r.cavity==null),own=rs.length&&rs.some(r=>r.special)&&rs.every(r=>r.amount!=null);
+   const ft2=own?rs.reduce((n,r)=>r.unit==='sqft'&&r.qty>n?r.qty:n,0):0;
+   mat.push({desc:'Lite '+(i+1)+' · '+docPaneName(pn)+(heat?' · '+heat:''),basis:ft2?docNum(ft2*q,2)+' ft²':areaAll,rate:rate==null?'':docMoney(rate),value:rate==null||!a.valid?null:own?salesCents(rs.reduce((n,r)=>n+r.amount,0)*q):salesCents(rate*a.billable*q),required:rate==null});
   });
   (m?m.cavities:[]).forEach((c,i)=>{
    /* Обвязка по частям рецепта: сумма частей этой камеры, в том числе за
       дюйм периметра или штуку (erp/masterdata/surround). */
    const rate=c.priceOverride!=null?c.priceOverride:salesCavityCatalogPrice(c,order),parts=(p.materialRows||[]).filter(r=>r.cavity===i);
    const value=!a.valid||parts.some(r=>r.amount==null)?null:salesCents(parts.reduce((n,r)=>n+r.amount,0)*q);
-   mat.push({desc:'Cavity '+(i+1)+' · '+docCavityText(c),basis:areaAll,rate:rate==null?'':docMoney(rate)+(salesCavityOtherUnits(c,order)?' +':''),value:value,required:value==null});
+   /* ft² камеры — её частей за ft² (у распорки свой минимум), не стекла. */
+   const cft2=parts.reduce((n,r)=>r.unit==='sqft'&&r.qty>n?r.qty:n,0);
+   mat.push({desc:'Cavity '+(i+1)+' · '+docCavityText(c),basis:cft2?docNum(cft2*q,2)+' ft²':a.valid?docNum(a.billable*q,2)+' ft²':'',rate:rate==null?'':docMoney(rate)+(salesCavityOtherUnits(c,order)?' +':''),value:value,required:value==null});
   });
   services.forEach(s=>svc.push({desc:s.label,basis:docBasis(s.basis*q,s.unit),rate:s.rate==null?'':docMoney(s.rate),value:s.value,required:s.rate==null}));
   if(mat.length)it.groups.push({label:'Materials',rows:mat.map(fmt)});
