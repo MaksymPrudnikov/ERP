@@ -404,7 +404,7 @@ function cutStockFor(glassCode,pick,mm,batch){
     укладчик берёт их, только если так уходит меньше квадратных футов. */
  (cutEstIs(batch)?[]:cutStockPieces(glassCode,mm,batch)).forEach(r=>{
   const set=own&&own.find(x=>x&&x.key===r.key);
-  if(set&&set.off===false)out.push({key:r.key,w:r.w,h:r.h,supplier:'',limit:1,off:false,stock:true});
+  if(set&&set.off===false)out.push(cutInsetRow({key:r.key,w:r.w,h:r.h,supplier:'',limit:1,off:false,stock:true},set));
  });
  if(own&&own.length)out.sort((a,b)=>{
   const ia=own.findIndex(x=>x&&x.key===a.key),ib=own.findIndex(x=>x&&x.key===b.key);
@@ -1378,9 +1378,18 @@ function cutSettingsOf(number){const p=cutPlanFor(number);return p&&p.settings&&
    В базу пишется только в самом конце: прерванный Build ничего не меняет.
    cutPlanRun — то же разом. */
 const CUT_FILL_WEIGHT=40;
-function* cutPlanSteps(number,probe,quick){
+/* restOnly — Build the rest (владелец, 18.11.2026): «то, что оптимизировано, в
+   старый лист не положишь — не влезло при оптимизации; класть на стоковые и
+   на новые листы, но стоковые нужно выбирать». Все листы собранного раскроя
+   стоят как есть (на время прогона — как заблокированные), укладчик берёт
+   только стёкла без листа и только отмеченные размеры и куски S-. */
+function* cutPlanSteps(number,probe,quick,restOnly){
  if(!cutEstIs(number)&&!glassBatchFind(number))return {error:'Batch not found.'};
  const settings=cutSettingsOf(number),prev=cutPlanFor(number);
+ if(restOnly){
+  if(!prev||prev.reset)return {error:'Build the layout first.'};
+  if(cutPlanStale(number))return {error:'Batch changed after the layout. Reset, then Build.'};
+ }
  const all=cutPiecesOf(number,settings),live=all.filter(p=>!p.off);
  if(!live.length)return {error:'No glass to optimize.'};
  const sets=[],missing=[];
@@ -1389,15 +1398,22 @@ function* cutPlanSteps(number,probe,quick){
   /* probe — прикидка «а что если»: свои параметры, в базу ничего не пишется. */
   const glass=list[0].glass,mm=list[0].mm;
   const own=(prev&&prev.sheetPick&&prev.sheetPick[glass])||null,pick=probe?probe(glass,own):own,stock=cutStockFor(glass,pick,mm,number);
+  const old=prev&&prev.groups.find(g=>g.glass===glass&&g.mm===mm);
+  /* Build the rest: стёкла этого стекла все на листах — группа как была. */
+  if(restOnly&&old&&list.every(p=>old.sheets.some(s=>s.pieces.some(x=>x.piece===p.piece)))){sets.push({keep:JSON.parse(JSON.stringify(old))});return;}
   if(!stock.length){missing.push(glass);return;}
   const paramsFor=size=>cutRunParams(mm,size,pick);
   /* Заблокированные листы прошлого прогона остаются как есть и идут первыми. */
   const keptSheets=[],keptIds=new Set();
-  const old=prev&&prev.groups.find(g=>g.glass===glass&&g.mm===mm);
-  if(old)old.sheets.filter(s=>s.locked).forEach(s=>{
+  if(restOnly&&old)old.sheets.forEach(s=>{
+   keptSheets.push(Object.assign(JSON.parse(JSON.stringify(s)),{no:keptSheets.length+1,locked:true}));
+   s.pieces.forEach(p=>keptIds.add(p.piece));
+  });
+  else if(old)old.sheets.filter(s=>s.locked).forEach(s=>{
    const alive=s.pieces.filter(p=>list.some(x=>x.piece===p.piece));
    if(alive.length||(s.stock||[]).length){keptSheets.push({no:keptSheets.length+1,size:s.size||old.sheet,locked:true,stock:(s.stock||[]).map(x=>Object.assign({},x)),pieces:alive.map(p=>Object.assign({},p))});alive.forEach(p=>keptIds.add(p.piece));}
   });
+  const kept=restOnly&&old?old.sheets.map(s=>JSON.parse(JSON.stringify(s))):null;
   const rest=list.filter(p=>!keptIds.has(p.piece)),jobs=[];
   /* Варианты раскладки; лучший выбирает cutScore. Полосы и столбики берут
      листы по порядку склада — при нескольких размерах каждый размер по
@@ -1423,11 +1439,12 @@ function* cutPlanSteps(number,probe,quick){
   if(stock.filter(r=>!r.base).length>1||stock.some(r=>r.base))(quick?[0]:rest.length<=150?[1,2]:[1]).forEach(seed=>jobs.push({k:'fill-mix'+seed,w:CUT_FILL_WEIGHT*stock.length,steps:()=>cutPackFillSteps(rest,stock,paramsFor,keptSheets,false,seed,true,quick?CUT_FILL_PREVIEW:null)}));
   if(!quick&&rest.some(p=>p.priority>0))jobs.push({k:'fill-urgent',w:CUT_FILL_WEIGHT,steps:()=>cutPackFillSteps(rest,stock,paramsFor,keptSheets,true)});
   orders.slice(1).forEach(st=>{const tag='@'+st[0].key;strips(st,tag);columns(st,tag);});
-  sets.push({glass,mm,pick,stock,paramsFor,rest,jobs,src:new Map(rest.map(p=>[p.piece,p])),miss:new Set(),sizeOrder:old&&old.sizeOrder});
+  sets.push({glass,mm,pick,stock,paramsFor,rest,jobs,kept,src:new Map(rest.map(p=>[p.piece,p])),miss:new Set(),sizeOrder:old&&old.sizeOrder});
  });
- const total=sets.reduce((a,x)=>a+x.jobs.reduce((n,j)=>n+j.w,0),0)||1;
+ const total=sets.reduce((a,x)=>a+(x.jobs||[]).reduce((n,j)=>n+j.w,0),0)||1;
  let done=0;const groups=[];
  for(const set of sets){
+  if(set.keep){groups.push(set.keep);continue;}
   const prio=new Map(set.rest.map(p=>[p.piece,p.priority]));let win=null;
   for(const job of set.jobs){
    let packed;
@@ -1460,6 +1477,13 @@ function* cutPlanSteps(number,probe,quick){
   if(!win.g.sheets.some(s=>s.locked||(s.stock||[]).length)){
    win.g.sizeOrder=set.sizeOrder||[];cutArrangeSheets(win.g);
   }
+  /* Build the rest: прежние листы — те же байт в байт (Lock, Flip, сток), новые — за ними. */
+  if(set.kept){
+   win.g.sheets=set.kept.concat(win.g.sheets.filter(s=>!s.locked));
+   win.g.sheets.forEach((s,i)=>{s.no=i+1;});
+   win.g.sheet=set.kept[0]&&set.kept[0].size||win.g.sheet;win.g.sizeOrder=set.sizeOrder||win.g.sizeOrder;
+   cutGroupNumbers(win.g,set.paramsFor);
+  }
   groups.push(win.g);
   yield done/total;
  }
@@ -1470,12 +1494,13 @@ function* cutPlanSteps(number,probe,quick){
  /* Незаблокированный лист пересобран — его куски в стоке больше не на месте:
     снимаем их со стока, номера не выдаются повторно. */
  const cancelled=[];
- if(prev)prev.groups.forEach(g=>g.sheets.filter(s=>!s.locked).forEach(s=>(s.stock||[]).forEach(x=>{if(typeof stockOffcutCancel==='function')stockOffcutCancel(x.id);cancelled.push(x.id);})));
+ if(prev&&!restOnly)prev.groups.forEach(g=>g.sheets.filter(s=>!s.locked).forEach(s=>(s.stock||[]).forEach(x=>{if(typeof stockOffcutCancel==='function')stockOffcutCancel(x.id);cancelled.push(x.id);})));
  cutPlanRefresh(plan,all);
  cutPlanPut(number,plan);
  return {plan,cancelled};
 }
 function cutPlanRun(number){return cutDrain(cutPlanSteps(number));}
+function cutPlanRestSteps(number){return cutPlanSteps(number,null,false,true);}
 /* --------------------------- А что если ---------------------------
    Владелец, 20 сентября 2026: на его тесте обрезка кромки 7/8 снизу стоила
    4 листа из 50 — но решать, резать ли кромку, ему. Поэтому программа не
@@ -1702,17 +1727,18 @@ function cutAddBatchSize(number,glass,w,h){
  const a=typeof cutIn==='function'?cutIn(w,null):+w,b=typeof cutIn==='function'?cutIn(h,null):+h;
  if(!(a>0&&b>0))return {error:'Enter the sheet size, for example 130 × 96.'};
  if(a>400||b>400)return {error:'Sheet size is in inches, for example 130 × 96.'};
- const open=cutPlanEditable(number);if(open.error)return open;const plan=open.plan,pick=cutRunPick(plan,glass);
+ const open=cutPlanAddable(number,glass);if(open.error)return open;const plan=open.plan,pick=cutRunPick(plan,glass);
  const size={w:Math.max(a,b),h:Math.min(a,b)},key=cutSheetKey(size);
  if(cutSheetOptions(glass).some(r=>cutSheetKey(r)===key)||(pick.sizes||[]).some(x=>x&&x.key===key))return {error:'This sheet size is already there.'};
  if(!Array.isArray(pick.sizes))pick.sizes=cutSheetOptions(glass).map(r=>({key:cutSheetKey(r),limit:0,off:false}));
  pick.sizes.push({key,own:true,w:size.w,h:size.h,limit:0,off:false});
- return Object.assign(cutPlanRedraft(number),{key});
+ return Object.assign(cutPlanAdded(number,open),{key});
 }
 function cutRemoveBatchSize(number,glass,key){
- const open=cutPlanEditable(number);if(open.error)return open;
+ const open=cutPlanAddable(number,glass,key);if(open.error)return open;
+ if(open.built&&open.plan.groups.some(g=>g.glass===glass&&g.sheets.some(s=>cutBaseKey(cutSheetKey(s.size||g.sheet))===key)))return {error:'Reset the optimization to change settings.'};
  const pick=cutRunPick(open.plan,glass);pick.sizes=(pick.sizes||[]).filter(x=>x&&x.key!==key&&cutBaseKey(x.key)!==key);
- return cutPlanRedraft(number);
+ return cutPlanAdded(number,open);
 }
 function cutAddSameSize(number,glass,key){
  const open=cutPlanEditable(number);if(open.error)return open;const plan=open.plan;
@@ -1743,20 +1769,25 @@ function cutSheetDelete(number,glass,sheetNo){
  cutPlanRefresh(plan);cutSave(number);
  return {ok:true,pieces:s.pieces.length,stock:(s.stock||[]).length};
 }
-/* Пустой лист того же физического размера, что открыт сейчас: оператор может
-   собрать его руками, не сбрасывая готовый раскрой. Кусок S- со стеллажа
-   нельзя клонировать — он существует в одном экземпляре. */
-function cutSheetAdd(number,glass,sheetNo){
+/* Пустой лист: оператор собирает его руками, не сбрасывая готовый раскрой.
+   Какой — выбирает человек в меню + Sheet (владелец, 18.11.2026: «+ решает,
+   что я хочу добавить оффкат такого же размера»): размер из таблицы Sheets
+   или отмеченный кусок S-. Без key — размер открытого листа; кусок S- со
+   стеллажа один, второй такой же лист из него не сделать. */
+function cutSheetAdd(number,glass,sheetNo,key){
  const at=cutSheetAt(number,glass,sheetNo);if(!at)return {error:'No such sheet.'};
- const {plan,g,s}=at,size=Object.assign({},s.size||g.sheet);
- if(/^S-/.test(size.key||''))return {error:'A stock offcut cannot be duplicated.'};
+ const {plan,g,s}=at,pick=plan.sheetPick&&plan.sheetPick[glass],rows=cutStockFor(glass,pick,g.mm,number);
+ let size;
+ if(key){const r=rows.find(x=>x.key===key);if(!r)return {error:'Tick this sheet in Sheets first.'};size=cutSizeOf(r);}
+ else{size=Object.assign({},s.size||g.sheet);if(/^S-/.test(size.key||''))return {error:'A stock offcut cannot be duplicated.'};}
  if(!(size.w>0&&size.h>0))return {error:'This sheet has no size.'};
- const key=cutSheetKey(size),pick=plan.sheetPick&&plan.sheetPick[glass],row=cutStockFor(glass,pick,g.mm,number).find(x=>x.key===key);
- const used=g.sheets.filter(x=>cutSheetKey(x.size||g.sheet)===key).length;
+ const k=cutSheetKey(size),row=rows.find(x=>x.key===k);
+ const used=g.sheets.filter(x=>cutSheetKey(x.size||g.sheet)===k).length;
+ if(/^S-/.test(k)&&used)return {error:'This offcut is already on a sheet.'};
  if(row&&row.limit>0&&used>=row.limit)return {error:'No more sheets of this size.'};
  const sheet={no:g.sheets.length+1,size,locked:false,stock:[],pieces:[]};
  const last=g.sheets.findLastIndex(x=>cutSizeId(x.size||g.sheet)===cutSizeId(size));
- g.sheets.splice(last+1,0,sheet);g.sheets.forEach((x,i)=>{x.no=i+1;});
+ g.sheets.splice(last<0?g.sheets.length:last+1,0,sheet);g.sheets.forEach((x,i)=>{x.no=i+1;});
  cutPlanRefresh(plan);cutSave(number);return {ok:true,sheet:sheet.no};
 }
 /* Куда можно перенести лист: открытые батчи с тем же стеклом, где рез не начат. */
@@ -1916,8 +1947,28 @@ function cutRunPick(plan,glass){
  if(!plan.sheetPick||typeof plan.sheetPick!=='object')plan.sheetPick={};
  return plan.sheetPick[glass]||(plan.sheetPick[glass]={});
 }
+/* Собранный раскрой: «что уже лежит — не трогаем, новое — можно» (владелец,
+   18.11.2026). Строку размера или кусок S-, на котором нет ни одного листа,
+   можно отметить и поправить без Reset — для Build the rest; остальное — Reset. */
+function cutStockRowFree(plan,glass,key){
+ const g=plan.groups.find(x=>x.glass===glass);
+ return !g||!g.sheets.some(s=>cutSheetKey(s.size||g.sheet)===key);
+}
+/* Правка строки листов: сброшенный раскрой — черновик заново; собранный —
+   только строка без листов (key), раскладка не меняется. */
+function cutPlanAddable(number,glass,key){
+ const p=cutPlanFor(number);
+ if(!p||p.reset)return cutPlanEditable(number);
+ if(cutEstIs(number)||key&&!cutStockRowFree(p,glass,key))return {error:'Reset the optimization to change settings.'};
+ return {ok:true,plan:p,built:true};
+}
+function cutPlanAdded(number,open){
+ if(!open.built)return cutPlanRedraft(number);
+ open.plan.groups.forEach(g=>{g.pick=open.plan.sheetPick&&open.plan.sheetPick[g.glass]||null;});
+ cutPlanRefresh(open.plan);cutSave(number);return {ok:true,plan:open.plan};
+}
 function cutSetStock(number,glass,key,field,value){
- const open=cutPlanEditable(number);if(open.error)return open;const plan=open.plan;
+ const open=field==='first'?cutPlanEditable(number):cutPlanAddable(number,glass,key);if(open.error)return open;const plan=open.plan;
  let edge=null;
  /* Min dist — тоже у каждой строки размера, как на макете владельца. */
  const rowField=CUT_EDGES.includes(field)||field==='minDist'||field==='inset';
@@ -1935,7 +1986,7 @@ function cutSetStock(number,glass,key,field,value){
  if(field==='first')pick.sizes=[row].concat(pick.sizes.filter(x=>x!==row));
  /* Пусто — снова значение из Master Data. */
  if(rowField){if(edge==null)delete row[field];else row[field]=edge;}
- return cutPlanRedraft(number);
+ return cutPlanAdded(number,open);
 }
 const CUT_RUN_FIELDS=['trimX','trimY','borderX','borderY','minDist','minOffcutW','minOffcutH','minOffcutFt2','rotate'];
 function cutSetParam(number,glass,field,value){

@@ -25,7 +25,7 @@ function mdRecipeCard(r){
  const users=mdRecipeUsers(r.id),fixed=p=>p==='spacer'||p==='gas';
  const missing=r.rows.filter(x=>!fixed(x.part)&&x.amount==null).length;
  const cell=(x,i)=>fixed(x.part)
-  ?`<td colspan="2" class="mut">${x.part==='spacer'?'Weight from the spacer card':'Density from the gas card × cavity volume'}</td>`
+  ?`<td class="mut">${x.part==='spacer'?'Weight from the spacer card':'Density from the gas card × cavity volume'}</td><td></td>`
   :`<td><input type="number" min="0" step="any" style="width:90px" value="${x.amount==null?'':x.amount}" placeholder="unknown" ${onAct('change',mdRecipeRowSet,String(r.id??''),i,'amount',EL_VALUE)}></td>
     <td><select ${onAct('change',mdRecipeRowSet,String(r.id??''),i,'per',EL_VALUE)}>${Object.keys(SURROUND_PER).map(k=>`<option value="${k}" ${k===x.per?'selected':''}>${esc(SURROUND_PER[k])}</option>`).join('')}</select></td>`;
  return `<div class="card" data-recipe="${esc(r.id)}" data-md-row="surroundRecipe:${esc(r.id)}" style="margin:12px 0">
@@ -39,7 +39,7 @@ function mdRecipeCard(r){
    <td><input type="number" min="0" step="any" style="width:70px" value="${x.wastePct==null?'':x.wastePct}" placeholder="0" ${onAct('change',mdRecipeRowSet,String(r.id??''),i,'wastePct',EL_VALUE)}></td>
    <td><button class="sm dl" ${onAct('click',mdRecipeRowDelete,String(r.id??''),i)}>×</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">no parts</td></tr>'}
   </tbody></table>`)}</div>
-  <div class="row"><button class="sm" ${onAct('click',mdRecipeRowAdd,String(r.id??''))}>+ Part</button><button class="sm dl" ${onAct('click',mdRecipeDelete,String(r.id??''))}>Delete recipe</button></div>
+  <div class="row"><button class="sm" ${onAct('click',mdRecipeRowAdd,String(r.id??''))}>+ Part</button><button class="sm dl" data-md-bar ${onAct('click',mdRecipeDelete,String(r.id??''))}>Delete recipe</button></div>
  </div>`;
 }
 function mdRecipeNew(){

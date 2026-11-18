@@ -650,7 +650,8 @@ module.exports=async function({page,eq,ok}){
   stockUiRelease(id,b2.number);
   const back=cutStockPieces('6CLEAR',6,b3.number).map(x=>x.key),free=!document.querySelector('[data-stock-in]');
   return {offered,picked,reset,where,forOther,used,back,free,russian:/[А-яЁё]/.test(document.querySelector('.oq-card').innerText)};
- }),{offered:['B-0003','B-0002'],picked:'S-0000001:false',reset:true,where:'Picked for B-0002',forOther:[],used:true,back:['S-0000001'],free:true,russian:false});
+ /* Собранный раскрой B-0002 не сбрасывается (18.11.2026): кусок встаёт отмеченным для Build the rest. */
+ }),{offered:['B-0003','B-0002'],picked:'S-0000001:false',reset:false,where:'Picked for B-0002',forOther:[],used:true,back:['S-0000001'],free:true,russian:false});
 
  eq('журнал стока (Optimization → Stock): что лежит, откуда и когда; возврат в отход снимает кусок и с листа',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,60,5],[50,50,2]]);const b=DB.glassBatch[0];
@@ -709,16 +710,18 @@ module.exports=async function({page,eq,ok}){
   return {info:/→ B-0002/.test(info),rec:[rec.batch,rec.sheet,rec.status].join(),sheetStock:sh.stock.map(x=>x.id),locked:sh.locked,opened:glassBatchOpenNumber,tab:glassBatchDetailTab,paper:!!document.querySelector('.cut-paper')};
  }),{info:true,rec:'B-0002,1,stock',sheetStock:['S-0000001'],locked:true,opened:'B-0002',tab:'optimization',paper:true});
 
- eq('кнопки − / + удаляют лист и добавляют пустой лист текущего размера для ручной раскладки',await t.p.evaluate(()=>{
+ /* + Sheet ▾ (владелец, 18.11.2026): размер пустого листа выбирают в меню. */
+ eq('кнопки − / + Sheet ▾ удаляют лист и добавляют пустой лист выбранного размера для ручной раскладки',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,60,3]]);const b=DB.glassBatch[0];
   const plan=cutPlanRun(b.number).plan,g=plan.groups[0],n=g.sheets.length,key=cutSheetKey(g.sheets[0].size||g.sheet);
   glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:g.glass,sheet:1,sel:'',drag:''};render();
   const minus=document.querySelector('[data-cut-sheet-delete]'),plus=document.querySelector('[data-cut-sheet-add]'),labels={minus:minus.textContent.trim(),plus:plus.textContent.trim(),minusTitle:minus.title,plusTitle:plus.title};
-  plus.click();const added=cutPlanFor(b.number).groups[0],addedOne=added.sheets.length===n+1,empty=added.sheets[added.sheets.length-1],opened=cutUi.sheet;
+  plus.click();document.querySelector('#cutMenu [data-cut-sheet-add-key="'+key+'"]').click();
+  const added=cutPlanFor(b.number).groups[0],addedOne=added.sheets.length===n+1,empty=added.sheets[added.sheets.length-1],opened=cutUi.sheet;
   document.querySelector('[data-cut-sheet-delete]').click();const after=cutPlanFor(b.number).groups[0];
   return {labels,added:addedOne,empty:empty.pieces.length===0&&(empty.stock||[]).length===0,sameSize:cutSheetKey(empty.size)===key,
    opened:opened===empty.no,deleted:after.sheets.length===n,numbers:after.sheets.every((s,i)=>s.no===i+1)};
- }),{labels:{minus:'−',plus:'+',minusTitle:'Delete sheet',plusTitle:'Add empty sheet'},added:true,empty:true,sameSize:true,opened:true,deleted:true,numbers:true});
+ }),{labels:{minus:'−',plus:'+ Sheet ▾',minusTitle:'Delete sheet',plusTitle:'Add empty sheet'},added:true,empty:true,sameSize:true,opened:true,deleted:true,numbers:true});
 
  eq('очередь резки собирает размеры в цельные блоки; стрелки меняют порядок без перестановки стекла',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctSheet('6CLEAR',96,144);ctOrder([[20,20,4]]);

@@ -165,10 +165,12 @@ function viewMdCatalog(pills){
   </div>${peek}</div>${mdPeek?`<style>[data-md-row="${esc(mdPeek).replace(/"/g,'')}"]>td{background:var(--accent-soft)}</style>`:''}`;
 }
 /* Кнопки отмеченной строки — в шапку: те же кнопки строки (Edit, Discontinue,
-   ×…), нажатие идёт в них; в строке они скрыты. Ничего не отмечено — серые. */
+   ×…), нажатие идёт в них; в строке они скрыты. Ничего не отмечено — серые.
+   Строка-карточка (рецепт IGU surround) — только её кнопки data-md-bar: × строк
+   деталей внутри карточки давали шесть «Delete» без подписи (владелец, 18.11.2026). */
 function mdSyncBar(){
  const bar=document.querySelector('[data-md-acts]');if(!bar)return;
- const tr=mdPeek&&document.querySelector('[data-md-row="'+mdPeek.replace(/"/g,'')+'"]'),btns=tr?[...tr.querySelectorAll('td:last-child>button')]:[];
+ const tr=mdPeek&&document.querySelector('[data-md-row="'+mdPeek.replace(/"/g,'')+'"]'),btns=tr?[...tr.querySelectorAll(tr.tagName==='TR'?':scope>td:last-child>button':'[data-md-bar]')]:[];
  const i=mdPeek.indexOf(':'),t=mdPeek.slice(0,i),id=mdPeek.slice(i+1);
  bar.innerHTML='';
  const add=(label,fn,cls,dis)=>{const b=document.createElement('button');b.type='button';b.className='sl-quiet'+(cls?' '+cls:'');b.textContent=label;b.disabled=!!dis;if(fn)b.onclick=fn;bar.appendChild(b);};
