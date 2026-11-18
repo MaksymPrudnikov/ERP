@@ -172,5 +172,23 @@ module.exports=async function({page,eq}){
   return {crumb,h2,tabs,outside,labels,total,cur,aligned:Math.abs(a-b)<1,compact:tall<=90};
  }),{crumb:'Batches ›',h2:'Batch B-0001',tabs:['Contents','History','Optimization'],outside:false,labels:['Used %','Used','Scrap','Net','Net %','Sheets','Pieces','To stock'],total:8,cur:8,aligned:true,compact:true});
 
+ /* Аудит PR #483 (19.11.2026): полка за лимитом строк — только заголовок, не
+    «Nothing matches the filters»; Cut size виден целиком, таблица в блоке. */
+ eq('glass list: a shelf past the row limit shows its head and Show more, not Nothing matches',await t.p.evaluate(()=>{
+  const n=osBuilt();osOpen(n);cutUi.listLimit=3;render();
+  const side=document.querySelector('.cut-side');
+  const heads=[...side.querySelectorAll('.cut-list-head')].map(h=>h.textContent.trim());
+  return {heads,rows:side.querySelectorAll('tr[data-cut-list]').length,nothing:/Nothing matches/.test(side.textContent),more:!!side.querySelector('[data-cut-list-more]')};
+ }),{heads:['Not on a sheet · 8','On sheets · 4'],rows:3,nothing:false,more:true});
+ eq('glass list: the longest sheet size fits Cut size, and the table fits its block',await t.p.evaluate(()=>{
+  const n=osBuilt();osOpen(n);
+  const td=document.querySelector('tr[data-cut-list] td:nth-child(3)'),cs=getComputedStyle(td),s=document.createElement('span');
+  s.style.cssText='position:absolute;visibility:hidden;white-space:nowrap;font:'+cs.font;s.textContent='143 15/16 × 95 15/16″';document.body.appendChild(s);
+  const need=s.getBoundingClientRect().width;s.remove();
+  const room=td.getBoundingClientRect().width-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight);
+  const tbl=document.querySelector('.cut-side .cut-list').getBoundingClientRect(),box=document.querySelector('.cut-side-scroll').getBoundingClientRect();
+  return {size:need<=room,inside:tbl.right<=box.right+1};
+ }),{size:true,inside:true});
+
  eq('optimization stock sheets has no JavaScript errors',t.errs,[]);await t.c.close();
 };

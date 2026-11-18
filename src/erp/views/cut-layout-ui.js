@@ -1062,12 +1062,13 @@ let cutListCtx=null;
    сортировка общие у трёх полок (один scope cutList). */
 function cutListColumns(ctx){
  const place=p=>{const a=ctx.at.get(p.piece);return a?a.sheet.no+' · '+(a.index+1):'';};
- return [{k:'piece',label:ctx.est?'Glass':'Glass ID',type:'text',td:1,w:78,v:p=>p.piece},
-  {k:'size',label:'Cut size',type:'text',td:2,w:104,v:p=>frac16(p.w)+' × '+frac16(p.h)+(p.shape?' shape':'')},
-  {k:'order',label:'Order',type:'text',td:3,w:100,v:p=>p.order+' / '+p.line+(p.mark?' · '+p.mark:'')},
-  {k:'customer',label:'Customer',type:'text',td:4,w:76,v:p=>p.customer||''},
+ /* Cut size — целиком: «143 15/16 × 95 15/16″» ~108 px текста; место — у Glass ID и Order. */
+ return [{k:'piece',label:ctx.est?'Glass':'Glass ID',type:'text',td:1,w:72,v:p=>p.piece},
+  {k:'size',label:'Cut size',type:'text',td:2,w:124,v:p=>frac16(p.w)+' × '+frac16(p.h)+(p.shape?' shape':'')},
+  {k:'order',label:'Order',type:'text',td:3,w:76,v:p=>p.order+' / '+p.line+(p.mark?' · '+p.mark:'')},
+  {k:'customer',label:'Customer',type:'text',td:4,w:40,v:p=>p.customer||''},
   {k:'pri',label:'Pri',type:'number',td:5,w:46,v:p=>p.priority||''},
-  {k:'sheet',label:'Sheet',type:'text',td:6,w:52,v:place}];
+  {k:'sheet',label:'Sheet',type:'text',td:6,w:48,v:place}];
 }
 function cutListHTML(ctx){
  const max=cutUi.listLimit||200;
@@ -1076,12 +1077,15 @@ function cutListHTML(ctx){
  const body=groups.map(([label,list])=>{
   total+=list.length;
   if(!list.length)return '';
-  let hits=list.length;
+  let hits=list.length,pinned=false;const room=Math.max(0,max-shown);
   const table=slTable('cutList',{list,id:p=>p.piece,columns:()=>cutListColumns(ctx),rowHTML:p=>cutPieceRow(p,ctx.at.get(p.piece)||null,ctx.sel===p.piece,ctx.lock),
-   firstTd:0,lead:28,acts:8,fill:'customer',cls:'cut-list',limit:Math.max(0,max-shown),pin:ctx.sel,found:r=>{hits=r.length;},
+   firstTd:0,lead:28,acts:8,fill:'customer',cls:'cut-list',limit:room,pin:ctx.sel,found:r=>{hits=r.length;pinned=!!ctx.sel&&r.some(i=>i.o.id===ctx.sel);},
    noun:r=>r.length+' glass',empty:'Nothing matches the filters.'});
-  shown+=Math.min(hits,Math.max(0,max-shown));found+=hits;
-  return `<div class="cut-list-head"${label==='Not on a sheet'?' data-cut-waiting':''}${label==='Not cutting'?' data-cut-off':''}>${label} · ${hits<list.length?hits+' of ':''}${list.length}</div>${table}`;
+  shown+=Math.min(hits,room);found+=hits;
+  /* Лимит 200 исчерпан выше — у полки только заголовок (стёкла — по Show 200 more),
+     а не «Nothing matches the filters»: фильтр тут ни при чём. */
+  const rows=hits&&!room&&!pinned?'':table;
+  return `<div class="cut-list-head"${label==='Not on a sheet'?' data-cut-waiting':''}${label==='Not cutting'?' data-cut-off':''}>${label} · ${hits<list.length?hits+' of ':''}${list.length}</div>${rows}`;
  }).join('');
  total=found;
  /* Полоса выделения — в конце списка, прижата к низу окна списка: видна при
