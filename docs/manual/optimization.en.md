@@ -94,6 +94,27 @@ edges and rules of this glass — and removes its **this batch** sizes and **+ s
 A leftover goes to stock if it is at least **W × H** inches **or** at least the given **ft²**. Smaller — waste.
 **Rotate glass** — the optimizer may turn glass by 90°.
 
+### The batch screen: head, glass list, block sizes
+
+Owner, 18 Nov 2026: "a more compact header that doesn't eat 10–20 % of the screen"; "Used, Scrap, Net as columns";
+"filter and quick search like in Sales"; "widths and heights of the blocks".
+
+- **The head** is two lines. On the left: **Batches ›** (back to the list) and the batch number, with the **Contents ·
+  History · Optimization** switch under them. On Optimization the batch description (glass, pieces, orders, date) is
+  the number's tooltip; on Contents and History it shows.
+- **The numbers are an invisible table** centred in the free space: a labels row (Used %, Used, Scrap, Net, Net %,
+  Sheets, Pieces, To stock), then **Sheets 1–N** — the total from the first sheet to the open one — and **Sheet N** —
+  the open sheet. Buttons sit on the right on the same rows: print, Build, status; Move to batch, −, + Sheet ▾, lock.
+  On a narrow screen (tablet, phone) the rows are plain lines with labels next to the numbers.
+- **The glass list** (Not on a sheet / On sheets / Not cutting) works like a Sales table: click a column name to type a
+  filter, ▾ for conditions and value ticks, ⚙ for Columns, drag a header edge for width. One filter and sort for all
+  shelves; a shelf head says "3 of 26" when some are hidden. Dragging onto the sheet, Shift+click (in the order rows
+  stand on screen) and Pri work as before.
+- **Block sizes** — a thin line on the block edge, green on hover: right of the glass list for width, under it for
+  height; under the sheet for the sheet height (42 % of the window by default; drag it and the sheet grows, up to the
+  full width); under the offcuts table (Offcuts · to stock) and under Offcuts on the rack for their height. This
+  browser remembers the sizes; double-click a line for the default.
+
 ### On the sheet
 
 Drag glass onto the sheet, onto a sheet in the strip below or back to the list; double-click or R — rotate; right

@@ -296,7 +296,8 @@ module.exports=async function({page,eq,ok}){
   document.querySelector('[data-cut-sheet-lock]').click();const locked=document.querySelector('[data-cut-sheet-lock]').getAttribute('aria-label')==='Unlock sheet';
   document.querySelector('[data-cut-sheet-lock]').click();
   document.querySelector('[data-cut-print]').click();document.querySelector('[data-stk-print-layouts]').click();const pages=document.querySelectorAll('#cutPrintHost .cut-print-page').length;cutPrintCleanup();stkDialogClose();
-  return {stats:['Used','Scrap','Net','Net %','Sheets','Pieces','To stock'].every(x=>[...document.querySelectorAll('[data-cut-total] small')].some(e=>e.textContent===x)),rows,cur,total:/^[\d.]+%/.test(document.querySelector('[data-cut-total] [data-cut-used-pct] b').textContent),lifted,labels:/Northside/.test(svg)&&/76002/.test(svg),
+  /* Подписи — строкой заголовков над колонками (шапка-таблица, 18.11.2026). */
+  return {stats:['Used','Scrap','Net','Net %','Sheets','Pieces','To stock'].every(x=>[...document.querySelectorAll('[data-cut-head-labels] small')].some(e=>e.textContent===x)),rows,cur,total:/^[\d.]+%/.test(document.querySelector('[data-cut-total] [data-cut-used-pct] b').textContent),lifted,labels:/Northside/.test(svg)&&/76002/.test(svg),
    sheetView,paramHeads,tabs,actions,waiting,backOn,locked,pages,orders:!!document.querySelector('[data-cut-orders]'),russian:/[А-яЁё]/.test(document.querySelector('.oq-card').innerText)};
  }),{stats:true,rows:8,cur:true,total:true,lifted:{total:true,current:true,controls:true,icons:true,once:true,clean:true,fits:true},labels:true,sheetView:{landscape:true,trim:true,dashed:0,zero:true},paramHeads:true,tabs:2,actions:true,waiting:true,backOn:true,locked:true,pages:2,orders:true,russian:false});
 
@@ -305,7 +306,8 @@ module.exports=async function({page,eq,ok}){
   glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};
   const expected=no=>cutTotals([Object.assign({},g,{sheets:g.sheets.filter(x=>x.no<=no)})]);
   const read=no=>{cutUi.sheet=no;render();const row=document.querySelector('[data-cut-total]'),cur=document.querySelector('[data-cut-current]'),e=expected(no),cap=row.querySelector('.cut-tiles-cap').textContent;
-   const vals=Object.fromEntries([...row.querySelectorAll('.cut-tile')].map(x=>[x.querySelector('small').textContent,x.querySelector('b').textContent]));
+   const heads=[...document.querySelectorAll('[data-cut-head-labels] small')].map(x=>x.textContent);
+   const vals=Object.fromEntries([...row.querySelectorAll('.cut-tile')].map((x,i)=>[heads[i],x.querySelector('b').textContent]));
    return {cap,current:!!cur,vals,expected:{cap:'Sheets 1–'+no,used:cutNum(e.usedPct,1)+'%',scrap:cutNum(e.gross,1)+' ft²',net:cutNum(e.net,1)+' ft²',netPct:cutNum(e.netPct,1)+'%'}};};
   const first=read(1),second=read(2),last=read(g.sheets.length),all=cutTotals([g]);
   const ok=x=>x.current&&x.cap===x.expected.cap&&x.vals['Used %']===x.expected.used&&x.vals.Scrap===x.expected.scrap&&x.vals.Net===x.expected.net&&x.vals['Net %']===x.expected.netPct;
@@ -1428,11 +1430,13 @@ module.exports=async function({page,eq,ok}){
   const ids=()=>[...document.querySelectorAll('[data-cut-list]')].map(x=>x.dataset.cutList);
   const sizes=()=>[...document.querySelectorAll('[data-cut-list]')].map(x=>x.children[2].textContent.trim());
   const plain=ids();
-  cutUiSort('size');const asc=sizes();
-  cutUiSort('size');const desc=sizes();
-  cutUiSort('size');const off=ids();
+  /* Список на движке Sales (18.11.2026): сортировка — заголовок колонки, своя для scope cutList. */
+  const sortBy=(k,dir)=>salesListQuickWith('cutList',()=>{if(k)salesListSort(k,dir);else{salesListLoadPrefs().sort=null;salesListSavePrefs();render();}});
+  sortBy('size','asc');const asc=sizes();
+  sortBy('size','desc');const desc=sizes();
+  sortBy(null);const off=ids();
   /* Приоритет: фокус остаётся в том же поле того же стекла. */
-  cutUiSort('piece');
+  sortBy('piece','asc');
   const target=ids()[1],inp=document.querySelector('[data-cut-list="'+target+'"] [data-cut-priority]');
   inp.focus();inp.value='3';
   cutUiSet(target,'priority','3');

@@ -77,7 +77,7 @@
 /* Слева список со своей прокруткой — высотой с правую часть. Справа лист —
    главное: «пропорция +-65 справа, 35 слева, та инфа слева не так важна»
    (владелец, 18 сентября 2026). */
-.cut-grid{display:grid;grid-template-columns:minmax(0,35fr) minmax(0,65fr);gap:16px;margin-top:14px;align-items:stretch}
+.cut-grid{display:grid;grid-template-columns:var(--cut-cols,minmax(0,35fr) minmax(0,65fr));gap:16px;margin-top:14px;align-items:stretch}
 .cut-side{position:relative;min-width:0;min-height:420px}
 .cut-side-scroll{position:absolute;inset:0;overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:0 4px 8px}
 .cut-list-found{padding:2px 8px 6px;font-size:11px;color:var(--text-2)}
@@ -93,7 +93,9 @@
 .cut-list tbody tr.on td{background:var(--accent-soft);color:var(--accent)}
 .cut-list tbody tr.off td{color:var(--text-3)}
 .cut-list input[type=number],.cut-list input[data-cut-priority]{width:36px;padding:1px 3px;font-size:11px}
-.cut-list input[data-cut-priority]{text-align:center}
+.cut-list input[data-cut-priority]{text-align:center;max-width:100%;min-width:0;box-sizing:border-box}
+/* Узкая колонка: поле Pri сжимается вместе с ней, не вылезает (владелец, 18.11.2026). */
+.cut-list td{overflow:hidden}
 .cut-list .pill{font-size:10px;padding:1px 6px}
 .cut-sheet-pane{min-width:0}
 .cut-glass{margin-bottom:10px}
@@ -241,7 +243,7 @@ body.cut-dragging,body.cut-dragging *{cursor:grabbing!important}
 body.cut-full:has([data-cut-full]) .shell{grid-template-columns:minmax(0,1fr)}
 body.cut-full:has([data-cut-full]) .side,body.cut-full:has([data-cut-full]) header{display:none}
 body.cut-full:has([data-cut-full]) main{padding:12px 26px 12px 16px}
-body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr) minmax(0,65fr)}
+body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:var(--cut-cols,minmax(0,35fr) minmax(0,65fr))}
 /* Build: тонкая полоска хода в строке кнопок; экран раскроя на это время
    приглушён и не ловит мышь. */
 .cut-progress{width:180px;height:6px;border-radius:3px;background:var(--surface-3);overflow:hidden}
@@ -297,7 +299,7 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 /* В обычном окне боковое меню съедает ширину, но в основном полноэкранном
    режиме 1366 px уже хватает для полезной шапки справа от названия батча. */
 @media(min-width:1321px) and (max-width:1500px){
- body.cut-full:has([data-cut-full]) .glass-batches .page-head.cut-page-head-wrap{grid-template-columns:290px minmax(0,1fr)}
+ body.cut-full:has([data-cut-full]) .glass-batches .page-head.cut-page-head-wrap{grid-template-columns:max-content minmax(0,1fr)}
  body.cut-full:has([data-cut-full]) .cut-page-total>.cut-tiles{flex-wrap:nowrap}
  body.cut-full:has([data-cut-full]) .cut-page-total:has([data-cut-progress])>.cut-tiles{flex-wrap:wrap}
 }
@@ -346,3 +348,62 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 .cut-params .cut-size-acts button+button{margin-left:10px}
 /* Подпись пустого листа — ниже середины: размер листа в центре не перекрывается (№11, 17.11.2026). */
 .cut-empty-cap{justify-content:center;padding-top:84px}
+/* Ручки размеров блоков (владелец, 18.11.2026): тянуть — шире / выше,
+   двойной клик — как было. Тонкая черта, при наведении и тяге зелёная. */
+.cut-grip{position:relative;z-index:3;touch-action:none}
+.cut-grip::after{content:'';position:absolute;border-radius:2px;background:var(--line);transition:background .12s}
+.cut-grip:hover::after,.cut-grip.on::after{background:var(--accent)}
+.cut-grip-x{position:absolute;top:0;bottom:0;right:-12px;width:8px;cursor:col-resize}
+.cut-grip-x::after{top:40%;bottom:40%;left:3px;width:2px}
+.cut-side>.cut-grip-y{position:absolute;left:0;right:0;bottom:-12px}
+.cut-grip-y{height:8px;cursor:row-resize}
+.cut-grip-y::after{left:40%;right:40%;top:3px;height:2px}
+.cut-grip-x:hover::after,.cut-grip-x.on::after{top:0;bottom:0}
+.cut-grip-y:hover::after,.cut-grip-y.on::after{left:0;right:0}
+@media(max-width:1200px){.cut-grip-x{display:none}}
+/* Компактная шапка батча на вкладке Optimization (владелец, 18.11.2026: «хэдер
+   компактнее, чтобы цифры были меньше и не съедало 10–20 % экрана»): число и
+   подпись в одну строку, меньше шрифт и отступы, вкладки ниже. */
+.glass-batches .page-head.cut-page-head-wrap{margin-bottom:4px;gap:12px}
+.cut-page-head-wrap .cut-page-summary{gap:3px;padding:0}
+.cut-page-head-wrap .cut-page-sheet{padding-top:3px}
+.cut-page-head-wrap .cut-tile{flex-direction:row;align-items:baseline;gap:4px;min-width:0;padding:0 9px}
+.cut-page-head-wrap .cut-tile b{font-size:12px}
+.cut-page-head-wrap .cut-tile small{margin-top:0;font-size:10px}
+.cut-page-head-wrap .cut-tiles-sheet .cut-tile{min-width:0;padding:0 8px}
+.cut-page-head-wrap .cut-tiles-cap{margin-right:8px}
+.cut-page-head-wrap .cut-page-sheet-summary>b{font-size:12px}
+.cut-page-head-wrap .cut-page-summary button{padding:3px 8px;font-size:11px}
+.cut-page-head-wrap .cut-page-summary .cut-icon-btn{width:26px;height:26px}
+.cut-page-head-wrap .cut-page-summary .cut-icon-btn svg{width:14px;height:14px}
+.cut-page-head-wrap .gb-status{font-size:11px;padding:2px 8px}
+/* Невидимая таблица шапки (владелец, 18.11.2026): строки «Sheets 1–N» и
+   «Sheet N» — одни колонки; подписи в первой строке, во второй числа. */
+.cut-head-grid{display:grid;grid-template-columns:minmax(24px,1fr) max-content repeat(8,max-content) minmax(24px,1fr) max-content;row-gap:3px;align-items:center}
+.cut-head-grid .cut-hrow{display:contents}
+.cut-head-grid .cut-narrow-label{display:none}
+/* Узкий экран (планшет, телефон): колонкам не хватает ширины — строки шапки
+   обычными строками с переносом, экран не шире окна. */
+@media(max-width:1200px){
+ .cut-head-grid{display:flex;flex-direction:column;gap:6px}
+ .cut-head-grid>.cut-hrow{display:flex;flex-wrap:wrap;align-items:center;row-gap:4px;min-width:0}
+ .cut-head-grid .cut-hhead,.cut-head-grid .cut-hpad{display:none}
+ .cut-head-grid .cut-narrow-label{display:inline}
+ .cut-head-grid .cut-page-actions,.cut-head-grid .cut-page-sheet-actions{margin-left:auto;flex-wrap:wrap}
+}
+.cut-head-grid .cut-hlabel{padding:0 9px;border-left:1px solid var(--line);font-size:10px;line-height:1.1;color:var(--text-2);white-space:nowrap;letter-spacing:.02em;align-self:end}
+.cut-head-grid .cut-tile b{white-space:nowrap}
+.cut-head-grid .cut-tiles-cap,.cut-head-grid .cut-hcap{margin:0;padding-right:12px;white-space:nowrap;font-size:12px}
+.cut-head-grid .cut-hcap .cut-sheet-size{color:var(--text-2);font-size:11px}
+.cut-head-grid .cut-tile{border-left:1px solid var(--line);height:100%;align-items:center}
+.cut-head-grid [data-cut-current] .cut-tile b{font-weight:500}
+.cut-head-grid .cut-hgap{display:flex;align-items:center;gap:6px;min-width:0;padding-left:10px;justify-content:flex-start;flex-wrap:wrap}
+.cut-head-grid .cut-page-actions,.cut-head-grid .cut-page-sheet-actions{justify-self:end}
+.cut-head-grid .cut-page-problem{grid-column:1/-1}
+.glass-batches .page-head.cut-page-head-wrap{align-items:center}
+/* Список стёкол на движке Sales: одна строка фильтров на все полки, шапка
+   таблицы липнет к окну списка под шапкой полки, счётчик — в шапке полки. */
+.cut-side-scroll .sl-generic~.sl-generic .sl-chips{display:none}
+.cut-side-scroll .sl-chips{margin:0 4px 6px}
+.cut-side-scroll .sales-table-wrap{overflow:visible}
+.cut-side-scroll .cut-list tfoot{display:none}

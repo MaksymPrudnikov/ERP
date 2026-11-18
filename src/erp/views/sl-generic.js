@@ -46,7 +46,8 @@ function slCell(info,c){
 }
 /* o: {columns:()=>[...], list, id(x), sort:{k,dir}, fill — колонка во всю ширину, acts — ширина колонки кнопок справа (px), lead — ширина первой (галочка), c.w — ширина колонки, row(info)→{attrs, first, last, after(colspan) — строка под строкой},
    rowHTML(x) — готовая строка экрана: колонки берут её ячейки (td:N), firstTd/lastTd — галочка и кнопки,
-   tail(cols) — строки после списка (итог «All»), их фильтр не трогает, noun(rows), empty, widths, cls}.
+   tail(cols) — строки после списка (итог «All»), их фильтр не трогает, noun(rows), empty, widths, cls,
+   limit — сколько строк рисовать, pin — id строки, видной и за limit, found(rows) — все строки после фильтра}.
    Колонки без def видны сразу; def:false — только в ⚙ Columns. Ключ 'type' не брать: в движке он
    прячется, когда в Sales один вид (заказы без квот). */
 function slTable(scope,o){
@@ -63,7 +64,11 @@ function slTable(scope,o){
   salesListCwTable(cols.map(c=>c.k),[o.lead||44],o.acts||20,defs);
   /* Колонка, что забирает остаток ширины (как Customer в Sales): своя или первая текстовая. */
   const reg=CW_TABLES[scope];if(reg){reg.fill=o.fill||(cols0.find(c=>c.type==='text')||cols0[0]||{}).k||'';reg.trail=o.acts||20;reg.lead=[o.lead||44];}
-  const rows=salesListRows(infos);
+  /* limit — сколько строк рисовать (длинный список стёкол раскроя рисуется
+     частями); found(rows) — все строки после фильтра и сортировки. */
+  const all=salesListRows(infos),rows=o.limit!=null?all.slice(0,o.limit):all;if(o.found)o.found(all);
+  /* pin — отмеченная строка видна, даже если она за пределом limit. */
+  if(o.pin&&o.limit!=null&&!rows.some(i=>i.o.id===o.pin)){const p=all.find(i=>i.o.id===String(o.pin));if(p){if(rows.length>=o.limit)rows.pop();rows.unshift(p);}}
   if(o.rowHTML)rows.forEach(i=>{i.row=slParseRow(o.rowHTML(i.x,i.i));});
   html=salesListTableHTML({infos,rows,cls:o.cls,tail:o.tail,firstTh:o.firstTh,
    cell:(i,c)=>slCell(i,c),
