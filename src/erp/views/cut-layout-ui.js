@@ -357,6 +357,12 @@ function cutUiBuildRest(number){
 }
 /* Блок «Offcuts on the rack»: открыт / поиск / только подходящие / все. */
 function cutUiRack(field,value){cutUi['rack'+field]=value;render();}
+/* Сортировка кусков кликом по заголовку: тот же — в обратную сторону;
+   Size и ft² начинают с крупных, Stock и From — по порядку. */
+function cutUiRackSort(by){
+ const now=cutUi.rackSort||{by:'size',dir:-1};
+ cutUi.rackSort=now.by===by?{by,dir:-now.dir}:{by,dir:by==='size'||by==='ft2'?-1:1};render();
+}
 /* Лист на весь экран: меню и шапки прячутся, пока открыт раскрой. Отдельная
    вкладка опаснее: данные в одном хранилище браузера, две вкладки затёрли бы
    правки друг друга. */
@@ -1256,21 +1262,26 @@ function viewCutLayout(b){
  const pickedRows=picked.length?`<tr class="cut-stock-band" data-cut-stock-band><td colspan="12">From stock · ${picked.length} in this cut</td></tr>`+picked.map(stockRow).join(''):'';
  /* Блок кусков: свёрнут; галочка «fits not-placed glass» (есть стёкла без
     листа) — только куски, куда войдёт хоть одно из них; поиск — по размеру
-    или номеру S-; видно 7 крупных, остальное — Show all. */
+    или номеру S-. Владелец, 18.11.2026: «10 видимых, остальные скролятся;
+    сортировка важна не от номера, а от размера, и мне нужно кликать» —
+    видно 10 строк, остальные прокруткой; клик по заголовку сортирует,
+    по умолчанию Size, крупные сверху. */
  const homeless=group&&!est?waiting.filter(p=>p.glass===group.glass&&p.mm===group.mm):[],rot=group&&group.params&&group.params.rotate;
  const fitsAny=x=>homeless.some(p=>p.w<=x.w+1e-6&&p.h<=x.h+1e-6||rot&&!p.norot&&p.h<=x.w+1e-6&&p.w<=x.h+1e-6);
  const rackFit=homeless.length>0&&s.rackFit!==false,rackQ=String(s.rackQ||'').trim().toLowerCase();
  const rackText=x=>(x.id+' '+frac16(x.w)+' × '+frac16(x.h)+' '+frac16(x.w)+' x '+frac16(x.h)).toLowerCase();
- const rackShown=rack.filter(x=>(!rackFit||fitsAny(x))&&(!rackQ||rackText(x).includes(rackQ))),rackCut=s.rackAll?rackShown:rackShown.slice(0,7);
  const rackFrom=id=>{const r=(DB.stockOffcut||[]).find(o=>o&&o.id===id);return r?r.batch+(r.sheet?' · sheet '+r.sheet:''):'';};
+ const rs=s.rackSort||{by:'size',dir:-1},rackKey={id:x=>x.id,size:x=>[x.w,x.h],ft2:x=>x.w*x.h,from:x=>rackFrom(x.id)}[rs.by]||(x=>[x.w,x.h]);
+ const rackCmp=(a,c)=>{const A=rackKey(a),C=rackKey(c);const d=Array.isArray(A)?A[0]-C[0]||A[1]-C[1]:typeof A==='number'?A-C:String(A).localeCompare(String(C),undefined,{numeric:true});return d*rs.dir||a.id.localeCompare(c.id);};
+ const rackShown=rack.filter(x=>(!rackFit||fitsAny(x))&&(!rackQ||rackText(x).includes(rackQ))).sort(rackCmp);
+ const rackTh=(by,label,cls)=>`<th${cls?' class="'+cls+'"':''}><button type="button" class="gb-link cut-sort${rs.by===by?' on':''}" data-cut-rack-sort="${by}" ${onAct('click',cutUiRackSort,String(by))}>${label}${rs.by===by?(rs.dir>0?' ▲':' ▼'):''}</button></th>`;
  const rackBlock=!rack.length?'':`<div class="cut-rack" data-cut-rack>
   <div class="cut-rack-head"><button type="button" class="gb-link cut-rack-toggle" data-cut-rack-toggle aria-expanded="${!!s.rackOpen}" ${onAct('click',cutUiRack,'Open',!s.rackOpen)}><b>${s.rackOpen?'▴':'▾'} Offcuts on the rack · ${rack.length}</b></button>
    ${s.rackOpen?`<span class="sp"></span><input type="text" data-cut-rack-q value="${esc(s.rackQ||'')}" placeholder="size or S-…" aria-label="Find offcut" ${onAct('change',cutUiRack,'Q',EL_VALUE)}>
    ${homeless.length?`<label class="chk"><input type="checkbox" data-cut-rack-fit ${rackFit?'checked':''} ${onAct('change',cutUiRack,'Fit',EL_CHECKED)}> fits not-placed glass</label>`:''}`:''}</div>
-  ${s.rackOpen?`<table class="cut-stock cut-rack-list"><tbody>${rackCut.map(x=>`<tr data-cut-rack-row="${esc(x.key)}"><td><input type="checkbox" data-cut-use aria-label="Use ${esc(x.key)}" ${rowDis(x.key)} ${onAct('change',cutUiStockUse,String(group.glass??''),String(x.key??''),EL_CHECKED)}></td>
-   <td class="cut-size-name"><span class="pill ok">${esc(x.id)}</span> <b>${esc(frac16(x.w))} × ${esc(frac16(x.h))}</b></td><td class="n">${cutFt2(cutArea(x.w,x.h))} ft²</td><td class="mut">${esc(rackFrom(x.id))}</td></tr>`).join('')
-   ||'<tr><td colspan="4" class="mut">Nothing fits</td></tr>'}</tbody></table>
-   ${rackShown.length>rackCut.length?`<button type="button" class="gb-link" data-cut-rack-all ${onAct('click',cutUiRack,'All',true)}>${rackShown.length-rackCut.length} more · Show all</button>`:''}`:''}</div>`;
+  ${s.rackOpen?`<div class="cut-rack-scroll" data-cut-rack-scroll><table class="cut-stock cut-rack-list"><thead><tr><th></th>${rackTh('id','Stock')}${rackTh('size','Size')}${rackTh('ft2','ft²','n')}${rackTh('from','From')}</tr></thead><tbody>${rackShown.map(x=>`<tr data-cut-rack-row="${esc(x.key)}"><td><input type="checkbox" data-cut-use aria-label="Use ${esc(x.key)}" ${rowDis(x.key)} ${onAct('change',cutUiStockUse,String(group.glass??''),String(x.key??''),EL_CHECKED)}></td>
+   <td><span class="pill ok">${esc(x.id)}</span></td><td class="cut-size-name"><b>${esc(frac16(x.w))} × ${esc(frac16(x.h))}</b></td><td class="n">${cutFt2(cutArea(x.w,x.h))}</td><td class="mut">${esc(rackFrom(x.id))}</td></tr>`).join('')
+   ||'<tr><td colspan="5" class="mut">Nothing fits</td></tr>'}</tbody></table></div>`:''}</div>`;
  const params=group?`<div class="cut-params" data-cut-params>
   <h4 class="cut-params-head">Sheets · ${esc(glassCodeLabel(group.glass))}</h4>
   <div class="cut-stock-wrap"><table class="cut-stock"><thead><tr><th></th><th>Sheet, in</th><th>In stock</th><th>Qty</th><th>Offset</th><th>Trim X</th><th>Trim Y</th><th>Border X</th><th>Border Y</th><th>Min dist</th><th>This batch</th><th></th></tr></thead><tbody>

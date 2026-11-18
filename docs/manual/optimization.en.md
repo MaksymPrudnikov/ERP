@@ -62,7 +62,7 @@ Owner, 17 Nov 2026: variant C with the stock column, no hints on screen — the 
   becomes a batch size for every such glass.
 - **Rack pieces** (S-…) — the **Offcuts on the rack · N** block under the table, collapsed. Open it: search by size or
   S-number; **fits not-placed glass** (shown while glass is left) keeps only pieces where at least one of that glass
-  fits; the 7 largest show, the rest — **Show all**. Tick a piece — it moves into the table under the grey strip
+  fits; 10 rows show, the rest scroll. Click a header (Stock, Size, ft², From) to sort; by default Size, largest first. Tick a piece — it moves into the table under the grey strip
   **From stock · N in this cut**, one sheet each; untick it there to put it back. Its Offset is 0 until you type one,
   its edges are 0 (a rack piece is already cut). The optimizer takes a piece only if it uses fewer square feet.
   Optimization → Stock → Use in batch ticks it too, without resetting a built layout.

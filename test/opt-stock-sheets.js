@@ -71,13 +71,17 @@ module.exports=async function({page,eq}){
   const tb=document.querySelector('[data-cut-params] table.cut-stock tbody'),rows=[...tb.children].map(tr=>tr.matches('[data-cut-stock-band]')?'band':tr.matches('.cut-stock-add')?'add':tr.getAttribute('data-cut-stock'));
   const band=document.querySelector('[data-cut-stock-band]').textContent.trim(),inset=!!document.querySelector('[data-cut-stock="S-0000901"] [data-cut-inset]');
   const rack=document.querySelector('[data-cut-rack]'),closed=!rack.querySelector('[data-cut-rack-row]'),head=rack.querySelector('[data-cut-rack-toggle]').textContent.trim();
-  cutUiRack('Open',true);const fit=[...document.querySelectorAll('[data-cut-rack-row]')].map(r=>r.getAttribute('data-cut-rack-row'));
-  const more=(document.querySelector('[data-cut-rack-all]')||{}).textContent||'';
-  cutUiRack('Fit',false);const all=document.querySelectorAll('[data-cut-rack-row]').length;cutUiRack('Q','S-0000950');const q=[...document.querySelectorAll('[data-cut-rack-row]')].map(r=>r.getAttribute('data-cut-rack-row'));
+  const ids=()=>[...document.querySelectorAll('[data-cut-rack-row]')].map(r=>r.getAttribute('data-cut-rack-row'));
+  cutUiRack('Open',true);const fit=ids(),sc=getComputedStyle(document.querySelector('[data-cut-rack-scroll]')),more=[sc.maxHeight,sc.overflowY];
+  cutUiRack('Fit',false);const all=ids().length;
+  document.querySelector('[data-cut-rack-sort="size"]').click();const asc=[ids()[0],ids()[8],document.querySelector('[data-cut-rack-sort="size"]').textContent];
+  document.querySelector('[data-cut-rack-sort="id"]').click();const byId=ids()[0];
+  cutUiRack('Q','S-0000950');const q=ids();
   const rest=document.querySelector('[data-cut-rest]').textContent.replace(/\s+/g,' ').trim();
   const free=!document.querySelector('[data-cut-stock="130x96"] [data-cut-use]').disabled,laid=document.querySelector('[data-cut-stock="S-0000901"] [data-cut-use]').disabled;
-  return {rows,band,inset,closed,head,fit:fit.length,more,all,q,rest,free,laid,russian:/[А-яЁё]/.test(document.getElementById('app').innerText)};
- }),{rows:['130x96','add','band','S-0000901'],band:'From stock · 1 in this cut',inset:true,closed:true,head:'▾ Offcuts on the rack · 9',fit:7,more:'1 more · Show all',all:7,q:['S-0000950'],
+  return {rows,band,inset,closed,head,fit,more,all,asc,byId,q,rest,free,laid,russian:/[А-яЁё]/.test(document.getElementById('app').innerText)};
+ }),{rows:['130x96','add','band','S-0000901'],band:'From stock · 1 in this cut',inset:true,closed:true,head:'▾ Offcuts on the rack · 9',
+   fit:['S-0000902','S-0000903','S-0000904','S-0000905','S-0000906','S-0000907','S-0000908','S-0000909'],more:['373px','auto'],all:9,asc:['S-0000950','S-0000902','Size ▲'],byId:'S-0000902',q:['S-0000950'],
    rest:'8 glass not on a sheet · 60 × 40, 60 × 40, 60 × 40 … Tick sheets or offcuts belowBuild the rest',free:true,laid:true,russian:false});
 
  eq('Build the rest from the screen opens the first new sheet; ticking a rack offcut moves it under the strip',await t.p.evaluate(async()=>{
