@@ -45,19 +45,18 @@ function stockUiBatches(rec){
    какого-то из батчей?» (владелец, 20 сентября 2026). */
 function stockUiUse(id,number){
  const rec=stockOffcutFind(id);if(!rec)return;
- const plan=cutPlanFor(number);
- if(plan&&!plan.reset){
-  if(!confirm('Reset the optimization of '+number+' and add '+id+'? Its layout is built again.'+cutResetWarn(number)))return;
-  cutPlanReset(number);
- }
+ /* Собранный раскрой не сбрасывается: кусок встаёт отмеченным, его берёт
+    Build the rest (владелец, 18.11.2026). */
+ const plan=cutPlanFor(number),built=!!(plan&&!plan.reset);
  const r=cutSetStock(number,rec.glass,id,'off',false);
- cutNotice=r.error||'';stockInfo=r.error?null:{id,batch:number,used:true};render();
+ cutNotice=r.error||'';stockInfo=r.error?null:{id,batch:number,used:true,rest:built};render();
 }
 function stockUiRelease(id,number){
  const rec=stockOffcutFind(id);if(!rec)return;
  if(!confirm('Take '+id+' out of '+number+'?'))return;
- const plan=cutPlanFor(number);
- if(plan&&!plan.reset)cutPlanReset(number);
+ /* Кусок только отмечен — снять без Reset; лежит в раскрое — Reset. */
+ const plan=cutPlanFor(number),w=stockUiWhere(id);
+ if(plan&&!plan.reset&&w&&w.laid)cutPlanReset(number);
  const r=cutSetStock(number,rec.glass,id,'off',true);
  cutNotice=r.error||'';stockInfo=r.error?null:{id,batch:number,used:false};render();
 }
@@ -109,7 +108,7 @@ function viewStockList(){
    ${off.length?`<label class="chk"><input type="checkbox" data-stock-show-off ${stockShowOff?'checked':''} ${onAct('change',stockUiShowOff,EL_CHECKED)}> Show ${off.length} back to waste</label>`:''}</div>
    ${glassBatchTabs()}
    ${cutNotice?`<div class="ncr-error" role="alert" data-stock-error>${esc(cutNotice)}</div>`:''}
-   ${stockInfo?`<div class="cut-info" data-stock-info>${esc(stockInfo.id)} ${stockInfo.used?'→':'✕'} ${esc(stockInfo.batch)}${stockInfo.used?' · press Build there':''}
+   ${stockInfo?`<div class="cut-info" data-stock-info>${esc(stockInfo.id)} ${stockInfo.used?'→':'✕'} ${esc(stockInfo.batch)}${stockInfo.used?(stockInfo.rest?' · press Build the rest there':' · press Build there'):''}
     <button type="button" class="gb-link" data-stock-info-open ${onAct('click',stockUiOpenBatch,String(stockInfo.batch??''))}>Open ${esc(stockInfo.batch)}</button></div>`:''}
    ${table}
   </div>${typeof stkDialogHTML==='function'?stkDialogHTML():''}</section>`;

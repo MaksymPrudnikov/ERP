@@ -37,8 +37,14 @@ Owner, 17 Nov 2026: variant C with the stock column, no hints on screen — the 
 2. **Check the sheets in the table.** The tick on the left — this size may be used. Untouched, the optimizer takes all
    ticked sizes and picks the ones that use fewer square feet.
 3. **Build** lays the glass out. To change sheets or edges after Build — **Reset**, edit, Build again (while the layout
-   is built the fields are grey and “Reset to change” shows). Leftover kept if can be changed on a built layout too.
-4. **After cutting** — the Cut station screen; leftovers that meet the Leftover rule go to stock with To stock or
+   is built the fields of sizes that carry sheets are grey and “Reset to change” shows). Leftover kept if can be
+   changed on a built layout too.
+4. **Glass left “Not on a sheet”** — a yellow strip above the sheet: **N glass not on a sheet · Build the rest**. Sheets
+   already laid stay exactly as they are (owner, 18 Nov 2026: “what is optimized won't take more — it didn't fit; put
+   the rest on stock and new sheets, but stock pieces I pick”). Tick what the rest may go on: a sheet size, a batch
+   size (**+ Add sheet size** shows while glass is left) or an offcut from **Offcuts on the rack**, then **Build the
+   rest**. Rows without sheets can be ticked and edited without Reset. It never starts by itself.
+5. **After cutting** — the Cut station screen; leftovers that meet the Leftover rule go to stock with To stock or
    Split under the sheet.
 
 ### Where sheet sizes come from
@@ -49,12 +55,23 @@ Owner, 17 Nov 2026: variant C with the stock column, no hints on screen — the 
   defaults to how many sheets are **free** (owner, 18 Nov 2026): in stock minus the sheets other batches' built layouts
   already took (this batch's own layout does not count). None free — the box is unchecked until you check it by
   hand. Clear Qty for no limit.
-- **A batch size**: the row at the bottom of the table — length × width, **+ Add sheet size**. It belongs to this batch
+- **A batch size**: the row right under the sizes — length × width, **+ Add sheet size**. It belongs to this batch
   and this glass only, marked **this batch**; it never reaches other batches or Master Data. × removes it while nothing
   is laid on it. Needed in every batch — add it in Data → Cutting.
 - **No sheet size** above the sheet — a glass of the batch has no size at all: type a size and **Add and build** — it
   becomes a batch size for every such glass.
-- **Rack pieces** (S-…) — at the end of the table, one each; tick to use the piece in this layout.
+- **Rack pieces** (S-…) — the **Offcuts on the rack · N** block under the table, collapsed. Open it: search by size or
+  S-number; **fits not-placed glass** (shown while glass is left) keeps only pieces where at least one of that glass
+  fits; 10 rows show, the rest scroll. Click a header (Stock, Size, ft², From) to sort; by default Size, largest first. Tick a piece — it moves into the table under the grey strip
+  **From stock · N in this cut**, one sheet each; untick it there to put it back. Its Offset is 0 until you type one,
+  its edges are 0 (a rack piece is already cut). The optimizer takes a piece only if it uses fewer square feet.
+  Optimization → Stock → Use in batch ticks it too, without resetting a built layout.
+
+### An empty sheet by hand
+
+**+ Sheet ▾** next to − on the sheet: pick which empty sheet to add — a ticked size (with how many are left by Qty)
+or a ticked rack piece not yet on a sheet; **From stock…** opens the rack block. Drag glass onto it from “Not on a
+sheet”. A rack piece can't be copied: there is one of it.
 
 ### Table columns
 
@@ -76,6 +93,27 @@ edges and rules of this glass — and removes its **this batch** sizes and **+ s
 
 A leftover goes to stock if it is at least **W × H** inches **or** at least the given **ft²**. Smaller — waste.
 **Rotate glass** — the optimizer may turn glass by 90°.
+
+### The batch screen: head, glass list, block sizes
+
+Owner, 18 Nov 2026: "a more compact header that doesn't eat 10–20 % of the screen"; "Used, Scrap, Net as columns";
+"filter and quick search like in Sales"; "widths and heights of the blocks".
+
+- **The head** is two lines. On the left: **Batches ›** (back to the list) and the batch number, with the **Contents ·
+  History · Optimization** switch under them. On Optimization the batch description (glass, pieces, orders, date) is
+  the number's tooltip; on Contents and History it shows.
+- **The numbers are an invisible table** centred in the free space: a labels row (Used %, Used, Scrap, Net, Net %,
+  Sheets, Pieces, To stock), then **Sheets 1–N** — the total from the first sheet to the open one — and **Sheet N** —
+  the open sheet. Buttons sit on the right on the same rows: print, Build, status; Move to batch, −, + Sheet ▾, lock.
+  On a narrow screen (tablet, phone) the rows are plain lines with labels next to the numbers.
+- **The glass list** (Not on a sheet / On sheets / Not cutting) works like a Sales table: click a column name to type a
+  filter, ▾ for conditions and value ticks, ⚙ for Columns, drag a header edge for width. One filter and sort for all
+  shelves; a shelf head says "3 of 26" when some are hidden. Dragging onto the sheet, Shift+click (in the order rows
+  stand on screen) and Pri work as before.
+- **Block sizes** — a thin line on the block edge, green on hover: right of the glass list for width, under it for
+  height; under the sheet for the sheet height (42 % of the window by default; drag it and the sheet grows, up to the
+  full width); under the offcuts table (Offcuts · to stock) and under Offcuts on the rack for their height. This
+  browser remembers the sizes; double-click a line for the default.
 
 ### On the sheet
 
