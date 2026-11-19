@@ -8,7 +8,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-KN5arZzH8ZfV1+6ZIX2mON4HsRZCSm31iG9qEUCQtDo=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-j8Eorw0O+YtZnaZ0TtEUC+d3/f+kqgMEBoeHM6X4pmk=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GLASS ERP — Glazing System</title>
 <style>
@@ -4520,7 +4520,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='6f4efac0b993';
+var ERP_BUILD='90b430cebe46';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -18977,7 +18977,10 @@ function cloudUpload(){
    if(resume.device!==cloudDevice())throw new Error('Upload from another computer is not finished.');
   }
   if(!confirm(resume?'Finish sending this database to the server?\n\nThe last upload stopped halfway.':'Send this database to the server?\n\nOther computers will download it from there.'))return false;
-  await storageFlush();
+  /* Запись этого браузера не удалась (Not saved): Upload отправил бы базу без
+     незаписанного и поставил «готово» — другие ПК скачали бы неполную
+     (аудит 19.11.2026). Сначала Retry save. */
+  if(!await storageFlush())throw new Error('Not saved here. Retry save, then Upload.');
   const s=cloudSync,vers=new Map(),url=cloudConfig().url,mark={id:resume?resume.id:cloudId(),device:cloudDevice(),done:false};
   const recs=[cloudUploadMark(mark)].concat(cloudRecords(),(await storageIdbColdAll()).map(r=>({tbl:r.tbl,id:r.id,seq:r.seq,data:r.data,cold:true,month:r.month,owners:r.owners})),
    (await storageIdbArchiveAll()).map(a=>({tbl:'_archive',id:a.id,seq:0,data:JSON.stringify(a.row)})));
@@ -44743,7 +44746,10 @@ function invMoves(rackOnly){
  if(!rackOnly&&typeof invOffcutMoves==='function')invOffcutMoves().forEach(m=>out.push(m));
  /* Stock items (двери и другое, pcs): приёмка, отгрузка, пересчёт, + / −. */
  if(!rackOnly&&typeof sinvMoves==='function')sinvMoves().forEach(m=>out.push(m));
- return out.sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+ /* Новые сверху; одно и то же время (Not found и Found в одну миллисекунду) —
+    сверху то, что записано позже (тест журнала кусков падал через раз, 19.11.2026). */
+ const order=new Map(out.map((m,i)=>[m,i]));
+ return out.sort((a,b)=>String(b.at).localeCompare(String(a.at))||order.get(b)-order.get(a));
 }
 
 /* ------------------------------ Команды ------------------------------ */
