@@ -944,9 +944,7 @@ function simPage() {
     const st = shippingStations().ship, orders = shippingOrderIds(s), skids = new Set();
     s.items.forEach(i => { if (i.skid) skids.add(i.skid); });
     const cc = carrierContents();
-    /* Скид, который ещё наполняется, грузят, только если всё на нём готово:
-       с неготовым стеклом ERP отвечает «Not ready» (2 отказа на годе, аудит 19.11.2026). */
-    [...SKID].forEach(([code, x]) => { if (x.state === 'filling' && (orders.includes(x.orderId) || x.customerId === s.customerId) && (cc.get(code) || []).some(u => orders.includes(u.g.o.id))) { if (!shippingUnitsOn(code).stray.length) skids.add(code); } });
+    [...SKID].forEach(([code, x]) => { if (x.state === 'filling' && (orders.includes(x.orderId) || x.customerId === s.customerId) && (cc.get(code) || []).some(u => orders.includes(u.g.o.id))) skids.add(code); });
     asStation(st, who, '');
     skids.forEach(code => {
       at(NOW + int(2, 5) * 60000);
