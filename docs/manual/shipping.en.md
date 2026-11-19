@@ -11,6 +11,14 @@ Everything that leaves the shop: what is ready, packing slips, trucks, skids at 
 - Other sections' actions that change a PS themselves (Skip, unbatching glass, deleting an order) follow their own
   section's rules.
 
+## Glass on Hold at loading
+
+At SHIP a skid with glass of an order on Hold does not load: the screen says **ON HOLD · ASK THE OFFICE**, the hold
+reason and the glass numbers. The driver asks the office (owner, 19.11.2026: “if it presses YES, it is the office's
+responsibility and the loader's”). The office agrees — **Release** on the order (the order's log shows who), the driver
+scans the skid again. The office keeps the hold — the glass is set aside: at SHIPR pick another skid and scan the
+glass, it moves; the skid loads without it. After Release the order is Ready again when all its glass is ready.
+
 ## The screen
 
 On top — the navigation card: only the tab pills Awaiting readiness, Ready, Shipments, Delivery, Skids, Backorders,

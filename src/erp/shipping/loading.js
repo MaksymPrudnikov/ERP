@@ -9,6 +9,9 @@
    идёт в открытый PS клиента с ближайшей датой. Очередь клиента: готовый
    скид с меньшим номером грузят первым. Долг cash-клиента погрузку не
    держит — строка «Balance due — office».
+   Стекло на Hold на скиде — скид не грузится, экран говорит причину Hold и
+   «спросите офис» (владелец, 19.11.2026: «если он нажмёт ДА, тогда это
+   ответственность офиса и его как загрузчика»): «да» — Release hold в офисе.
    «Погружен» не хранится: это юнит открытого PS, прошедший станцию отгрузки.
    item.added — номер скана, которым юнит добавлен в PS: Undo этого скана его
    же и убирает. */
@@ -80,8 +83,9 @@ function shippingLoadPlan(code,tripId){
  if(skid){const x=shippingUnitsOn(skid);units=x.units;stray=x.stray;}
  else{const g=stationGlass(code),u=g&&shippingUnits(g.o).find(u=>u.pieces.includes(code));if(u&&u.ready)units=[u];else stray=[code];}
  if(stray.length){
-  const g=stationGlass(stray[0]),at=g?stationPlace(g).waiting:'';
-  return fail('shipNotReady',{ids:stray,why:g&&(g.o.onHold||g.l.onHold||unitPieceHold(g))?'hold':at&&at!==ship?at:''});
+  const g=stationGlass(stray[0]),at=g?stationPlace(g).waiting:'',held=g&&unitPieceHold(g);
+  if(g&&(g.o.onHold||g.l.onHold||held))return fail('shipNotReady',{ids:stray,why:'hold',reason:(g.o.onHold?g.o.holdReason:g.l.onHold?g.l.holdReason:held.reason)||''});
+  return fail('shipNotReady',{ids:stray,why:at&&at!==ship?at:''});
  }
  if(!units.length){
   const last=(DB.stationScan||[]).filter(s=>!s.undoneAt&&s.on===skid&&s.station===ship).pop();

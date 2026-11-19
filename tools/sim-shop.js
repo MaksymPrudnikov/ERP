@@ -872,7 +872,7 @@ function simPage() {
         soDraft = null; soEdit = null;
       }
     });
-    for (let i = HOLDS.length - 1; i >= 0; i--) if (HOLDS[i].until <= day) { const o = salesRecord(HOLDS[i].id); if (o && o.onHold) { const c = CUST.find(x => x.id === o.customerId); asOffice(people[c.rep]); salesReleaseHold([o.id]); touchOrder(o.id); } HOLDS.splice(i, 1); }
+    for (let i = HOLDS.length - 1; i >= 0; i--) if (HOLDS[i].until <= day) { const o = salesRecord(HOLDS[i].id); if (o && o.onHold) { const c = CUST.find(x => x.id === o.customerId); asOffice(people[c.rep]); salesReleaseHold([o.id]); touchOrder(o.id); if (shippingAvailable(o).length) READY.add(o.id); } HOLDS.splice(i, 1); }
   }
 
   /* =====================================================================
@@ -948,7 +948,14 @@ function simPage() {
     asStation(st, who, '');
     skids.forEach(code => {
       at(NOW + int(2, 5) * 60000);
-      const before = DB.stationScan.length, kind = stationSubmit(code), recs = DB.stationScan.slice(before).filter(r => r.station === st && !r.undoneAt);
+      const before = DB.stationScan.length;
+      let kind = stationSubmit(code);
+      /* На скиде стекло заказа на Hold (Hold поставили, когда оно уже лежало
+         на общем скиде клиента). Водитель спрашивает офис (владелец,
+         19.11.2026); офис Hold держит — стекло откладывают на свободный скид
+         на станции готовности, скид грузят ещё раз. */
+      if (kind === 'shipNotReady' && setAsideHeld(code, who)) { asStation(st, who, ''); at(NOW + 60000); kind = stationSubmit(code); }
+      const recs = DB.stationScan.slice(before).filter(r => r.station === st && !r.undoneAt);
       if (kind !== 'shipLoaded' && kind !== 'shipBack') fail('load', kind + ' ' + code);
       if (recs.length) { truthShip(who.name, recs); const x = SKID.get(code); if (x) Object.assign(x, { state: s.method === 'delivery' ? 'loaded' : 'free', n: 0, ps: s.id }); }
     });
@@ -958,6 +965,24 @@ function simPage() {
     /* Юниты без скида — по стикеру. */
     const st2 = shippingLoadState(salesShipmentFresh(s));
     st2.rest.forEach(u => { at(NOW + 40000); const before = DB.stationScan.length; stationSubmit(u.pieces[0]); const recs = DB.stationScan.slice(before).filter(r => r.station === st && !r.undoneAt); if (recs.length) truthShip(who.name, recs); });
+  }
+  /* SET ASIDE: стекло на Hold со скида code — на свободный скид, сканом на
+     станции готовности (скан готового юнита при выбранном скиде перекладывает
+     его). Скид «в стороне» наполняется этим заказом и уедет с его PS после
+     Release. false — на скиде не Hold или нет свободного скида. */
+  function setAsideHeld(code, who) {
+    const plan = shippingWithCtx(() => shippingLoadPlan(code, ''));
+    if (plan.kind !== 'shipNotReady' || plan.why !== 'hold') return false;
+    const free = [...SKID].find(([c, x]) => x.state === 'free' && /^SL/.test(c)) || [...SKID].find(([, x]) => x.state === 'free');
+    if (!free) { cnt('no free skid'); return false; }
+    const [aside, x] = free, g = stationGlass(plan.ids[0]), ready = shippingStations().ready;
+    Object.assign(x, { state: 'filling', orderId: g.o.id, customerId: g.o.customerId, n: 0 });
+    asStation(ready, who, aside);
+    const lastOn = id => { const r = DB.stationScan.filter(s => s.piece === id && !s.undoneAt).pop(); return r ? r.on || '' : ''; };
+    plan.ids.forEach(id => { if (lastOn(id) === aside) return; at(NOW + 20000); stationSubmit(id); });
+    const moved = plan.ids.filter(id => lastOn(id) === aside).length;
+    x.n = moved; cnt('hold set aside', moved);
+    return moved > 0;
   }
   const salesShipmentFresh = s => shippingFind(s.id) || s;
   /* Юнит физически: стеклопакет — сборка на IGU, ламинат — склейка плит, одинарное — само стекло. */
