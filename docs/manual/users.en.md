@@ -88,8 +88,10 @@ is a new server sign-in.
 - **Editing here** — this tab writes to the database. **Editing in another tab** — another tab writes; this one is for
   viewing. **Not saved**, **Older version** (a new program version is out) — tell the administrator.
 - **Server has a new database · Download** — the server has a new database (it was cleared and filled again). Syncing
-  stops until this computer presses Download in Users → Cloud; otherwise the old database would mix with the new one
-  (9 Nov 2026).
+  stops until this computer presses **Download from server** in Users → Cloud (the button is right there, no Stop sync
+  needed); otherwise the old database would mix with the new one
+  (9 Nov 2026). The same for a computer with no changes of its own: it adds nothing from the new database, after F5
+  too (19 Nov 2026).
 - “Changed on another computer: … Server copy shown.” — someone was first: this computer's rows went back to the server
   copy. “No access on server: …” — the person lacks the section for those records.
 - A decision on a shared balance made on two computers the same minute is recorded once; the second gets “Changed on

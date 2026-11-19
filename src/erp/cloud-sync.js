@@ -389,13 +389,24 @@ async function cloudPushAll(){
   s.warn=r&&r.denied?'No access on server: '+r.denied.join(', ')+'. Server copy shown.':'Changed on another computer: '+(names||'rows')+'. Server copy shown.';s.warnAt=Date.now();
  }
 }
+/* Отметка Upload в ленте — другая база (сервер очистили и залили заново,
+   номера изменений растут дальше): пачку не пишем и курсор не двигаем —
+   иначе компьютер без своих правок дописывал новую базу в старую, пока не
+   увидит отметку (19.11.2026: на втором ПК заказы обеих баз рядом). После
+   F5 та же пачка придёт снова и снова остановит. */
+function cloudNewBaseIn(rows){
+ const m=rows.find(r=>r.tbl===CLOUD_UPLOAD.tbl&&r.id===CLOUD_UPLOAD.id);
+ if(m)cloudBaseSeen(m.deleted?null:cloudUploadOf(m));
+ return cloudSync.newBase;
+}
 async function cloudPull(){
  const s=cloudSync;
  for(;;){
   const from=s.since,r=await cloudRpc('erp_changes',{since:from,lim:2000});
   if(s.since!==from)return;
-  const last=+r.last||from;
-  s.since=last;cloudApplyServer(Array.isArray(r.rows)?r.rows:[],null,[['since',last]]);
+  const last=+r.last||from,rows=Array.isArray(r.rows)?r.rows:[];
+  if(cloudNewBaseIn(rows))return;
+  s.since=last;cloudApplyServer(rows,null,[['since',last]]);
   if(last===from)return;
  }
 }

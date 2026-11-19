@@ -101,13 +101,15 @@ function usersDataHTML(){
  const on=typeof cloudSync!=='undefined'&&cloudSync.on;
  return `<h3>Data</h3><div class="row" data-users-data><button ${onAct('click',doExport)}>Export JSON</button>${on?'':`<button ${onAct('click',usersImportPick)}>Import JSON</button>${storageBackupPresent?'<button '+onAct('click',storageRestoreBackup)+'>Restore pre-import backup</button>':''}<button ${onAct('click',storageClear)}>Clear database</button>`}</div>`;
 }
+/* На сервере новая база — Download здесь же, без Stop sync (19.11.2026:
+   владелец видел «Server has a new database · Download», а кнопки не нашёл). */
 function usersCloudSyncHTML(){
  const y=cloudSync,text=cloudSyncText(),busy=!!y.busy;
  const pill=text?`<span class="pill${y.error||y.offline?' warn':text==='Synced'?' ok':''}" data-cloud-sync="${y.on?'on':'busy'}">${esc(text)}</span>`:'<span class="mut" data-cloud-sync="off">Not synced</span>';
  const warn=y.warn?`<div class="hint warn" data-cloud-warn>${esc(y.warn)}</div>`:'';
  const err=!y.on&&y.error?`<div class="hint warn" data-cloud-sync-error>${esc(y.error)}</div>`:'';
  return `<h3>Sync</h3>${warn}${err}<div class="row">${pill}
-  ${y.on?`<button data-cloud-stop ${busy?'disabled':''} ${onAct('click',cloudSyncStop)}>Stop sync</button>`
+  ${y.on?(y.newBase?`<button class="pri" data-cloud-download ${busy?'disabled':''} ${onAct('click',cloudDownload)}>Download from server</button>`:'')+`<button data-cloud-stop ${busy?'disabled':''} ${onAct('click',cloudSyncStop)}>Stop sync</button>`
    :`<button class="pri" data-cloud-upload ${busy?'disabled':''} ${onAct('click',cloudUpload)}>Upload this database</button><button data-cloud-download ${busy?'disabled':''} ${onAct('click',cloudDownload)}>Download from server</button>`}</div>`;
 }
 /* Access — правила таблиц на сервере (erp_table_rule): кто читает и кто
