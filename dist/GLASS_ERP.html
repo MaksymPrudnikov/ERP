@@ -8,7 +8,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-j8Eorw0O+YtZnaZ0TtEUC+d3/f+kqgMEBoeHM6X4pmk=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-WnSQOTz3M1dNcE+9wR53GzqIxNZ2gnA5fOlwg2qumOQ=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GLASS ERP — Glazing System</title>
 <style>
@@ -4520,7 +4520,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='90b430cebe46';
+var ERP_BUILD='fa51bc9eec7c';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -38756,12 +38756,17 @@ function salesHoldApply(ids,reason){
  });
  touch();render();
 }
+/* После Release статус — по стеклу, как после скана (unitRelease делает так
+   же): скан во время Hold (стекло отложили на другой скид — SET ASIDE)
+   пересчитал Ready → Batched, и без пересчёта здесь заказ с готовым стеклом
+   оставался Batched (прогон симулятора 19.11.2026). */
 function salesReleaseHold(ids){
  const now=new Date().toISOString();
  (ids||[]).forEach(id=>{
   const o=(DB.salesOrder||[]).find(x=>x.id===id);if(!o||!o.onHold)return;
   Object.assign(o,{onHold:false,holdReason:'',holdAt:'',updatedAt:now});
   if(soDraft&&soDraft.id===id)Object.assign(soDraft,{onHold:false,holdReason:'',holdAt:'',updatedAt:now});
+  if(typeof shippingSyncOrder==='function')shippingSyncOrder(o,now);
  });
  touch();render();
 }
@@ -52358,6 +52363,12 @@ function stationShipConfirm(code,who){
   return {confirmed:check.missed};
  });
 }
+/* Стекло на Hold на погрузке: решает офис (владелец, 19.11.2026: «стекло на
+   Hold — следует спросить у офиса, можно ли продолжить, и если он нажмёт ДА,
+   тогда это ответственность офиса и его как загрузчика»). «Да» офиса — Release
+   hold в заказе (журнал заказа: кто снял), погрузка — повторный скан (скан:
+   кто грузил). Станция не грузит сама и не прячет причину. */
+const STATION_HOLD_ASK='<div class="mut" data-station-hold-ask>Office yes: Release hold, scan again</div>';
 function stationShipCard(L){
  const c=L.check,time='<span>'+esc(stationTime(L.at))+'</span>',what=esc(c.skid||c.label||c.code);
  const cur=stationTrip(),trip=c.trip?'<div class="mut">'+(cur&&cur.id===c.trip.id?'Loading ':'')+esc(c.trip.number)+' · <span data-raw>'+esc(salesCustomerDisplay(c.trip.customerId))+'</span></div>':'';
@@ -52383,9 +52394,10 @@ function stationShipCard(L){
   shipChoose:{head:'Choose the trip',small:'TWO TRIPS',big:'CHOOSE',sub:'<span data-raw>'+esc(c.customer)+'</span>',info:'<div class="mut">Tap the trip on the right</div>'},
   shipMixed:{head:'Two customers on '+what,small:'SKID',big:'STOP',sub:'<span data-raw>'+esc((c.customers||[]).join(', '))+'</span>',info:'<div class="mut">Scan the units one by one</div>'},
   shipTakeOff:{head:'Cancelled glass on '+what,small:'TAKE OFF',big:shippingCount(c.units||0,'unit').toUpperCase(),sub:'Cancelled · '+esc((c.orders||[]).join(', ')),info:'<div class="mut mono">'+esc(ids)+'</div><div class="mut">Scan it off, then the skid</div>'},
-  shipNotReady:{head:'Not ready',small:'NOT READY',big:String((c.ids||[]).length)+' GLASS',sub:c.why==='hold'?'On hold — set aside':c.why?'Scan at '+esc(c.why)+' first':'Ask the office',info:'<div class="mut mono">'+esc(ids)+'</div>'},
+  shipNotReady:c.why==='hold'?{head:'On hold',small:'ASK THE OFFICE',big:String((c.ids||[]).length)+' GLASS',sub:'On hold · '+esc(c.reason||'Order on hold'),info:'<div class="mut mono">'+esc(ids)+'</div>'+STATION_HOLD_ASK}
+   :{head:'Not ready',small:'NOT READY',big:String((c.ids||[]).length)+' GLASS',sub:c.why?'Scan at '+esc(c.why)+' first':'Ask the office',info:'<div class="mut mono">'+esc(ids)+'</div>'},
   shipNothing:{head:'Nothing ready on '+what,small:'NOTHING READY',big:what,sub:'Nothing to load',info:''},
-  shipHold:{head:'On hold',small:'ON HOLD',big:'SET ASIDE',sub:esc(c.reason||'Order on hold'),info:''}
+  shipHold:{head:'On hold',small:'ASK THE OFFICE',big:'ON HOLD',sub:esc(c.reason||'Order on hold'),info:STATION_HOLD_ASK}
  }[c.kind]||{head:esc(c.kind),small:'',big:'STOP',sub:'',info:''};
  return '<div class="st-res st-red" data-station-result="'+esc(c.kind)+'"><div class="st-res-h">✕ '+K.head+time+'</div><div class="st-res-b"><div class="st-big st-red"><small>'+K.small+'</small><b'+(K.big.length>6?' class="st-big-code"':'')+'>'+K.big+'</b><span>'+K.sub+'</span></div>'+
   '<div class="st-info"><div class="st-gid mono">'+what+'</div>'+K.info+'</div></div></div>';
@@ -55146,6 +55158,9 @@ function shippingUnbatchItems(id,pieces,scanIds,unbatchId){
    идёт в открытый PS клиента с ближайшей датой. Очередь клиента: готовый
    скид с меньшим номером грузят первым. Долг cash-клиента погрузку не
    держит — строка «Balance due — office».
+   Стекло на Hold на скиде — скид не грузится, экран говорит причину Hold и
+   «спросите офис» (владелец, 19.11.2026: «если он нажмёт ДА, тогда это
+   ответственность офиса и его как загрузчика»): «да» — Release hold в офисе.
    «Погружен» не хранится: это юнит открытого PS, прошедший станцию отгрузки.
    item.added — номер скана, которым юнит добавлен в PS: Undo этого скана его
    же и убирает. */
@@ -55217,8 +55232,9 @@ function shippingLoadPlan(code,tripId){
  if(skid){const x=shippingUnitsOn(skid);units=x.units;stray=x.stray;}
  else{const g=stationGlass(code),u=g&&shippingUnits(g.o).find(u=>u.pieces.includes(code));if(u&&u.ready)units=[u];else stray=[code];}
  if(stray.length){
-  const g=stationGlass(stray[0]),at=g?stationPlace(g).waiting:'';
-  return fail('shipNotReady',{ids:stray,why:g&&(g.o.onHold||g.l.onHold||unitPieceHold(g))?'hold':at&&at!==ship?at:''});
+  const g=stationGlass(stray[0]),at=g?stationPlace(g).waiting:'',held=g&&unitPieceHold(g);
+  if(g&&(g.o.onHold||g.l.onHold||held))return fail('shipNotReady',{ids:stray,why:'hold',reason:(g.o.onHold?g.o.holdReason:g.l.onHold?g.l.holdReason:held.reason)||''});
+  return fail('shipNotReady',{ids:stray,why:at&&at!==ship?at:''});
  }
  if(!units.length){
   const last=(DB.stationScan||[]).filter(s=>!s.undoneAt&&s.on===skid&&s.station===ship).pop();
