@@ -173,6 +173,12 @@ function stationShipConfirm(code,who){
   return {confirmed:check.missed};
  });
 }
+/* Стекло на Hold на погрузке: решает офис (владелец, 19.11.2026: «стекло на
+   Hold — следует спросить у офиса, можно ли продолжить, и если он нажмёт ДА,
+   тогда это ответственность офиса и его как загрузчика»). «Да» офиса — Release
+   hold в заказе (журнал заказа: кто снял), погрузка — повторный скан (скан:
+   кто грузил). Станция не грузит сама и не прячет причину. */
+const STATION_HOLD_ASK='<div class="mut" data-station-hold-ask>Office yes: Release hold, scan again</div>';
 function stationShipCard(L){
  const c=L.check,time='<span>'+esc(stationTime(L.at))+'</span>',what=esc(c.skid||c.label||c.code);
  const cur=stationTrip(),trip=c.trip?'<div class="mut">'+(cur&&cur.id===c.trip.id?'Loading ':'')+esc(c.trip.number)+' · <span data-raw>'+esc(salesCustomerDisplay(c.trip.customerId))+'</span></div>':'';
@@ -198,9 +204,10 @@ function stationShipCard(L){
   shipChoose:{head:'Choose the trip',small:'TWO TRIPS',big:'CHOOSE',sub:'<span data-raw>'+esc(c.customer)+'</span>',info:'<div class="mut">Tap the trip on the right</div>'},
   shipMixed:{head:'Two customers on '+what,small:'SKID',big:'STOP',sub:'<span data-raw>'+esc((c.customers||[]).join(', '))+'</span>',info:'<div class="mut">Scan the units one by one</div>'},
   shipTakeOff:{head:'Cancelled glass on '+what,small:'TAKE OFF',big:shippingCount(c.units||0,'unit').toUpperCase(),sub:'Cancelled · '+esc((c.orders||[]).join(', ')),info:'<div class="mut mono">'+esc(ids)+'</div><div class="mut">Scan it off, then the skid</div>'},
-  shipNotReady:{head:'Not ready',small:'NOT READY',big:String((c.ids||[]).length)+' GLASS',sub:c.why==='hold'?'On hold — set aside':c.why?'Scan at '+esc(c.why)+' first':'Ask the office',info:'<div class="mut mono">'+esc(ids)+'</div>'},
+  shipNotReady:c.why==='hold'?{head:'On hold',small:'ASK THE OFFICE',big:String((c.ids||[]).length)+' GLASS',sub:'On hold · '+esc(c.reason||'Order on hold'),info:'<div class="mut mono">'+esc(ids)+'</div>'+STATION_HOLD_ASK}
+   :{head:'Not ready',small:'NOT READY',big:String((c.ids||[]).length)+' GLASS',sub:c.why?'Scan at '+esc(c.why)+' first':'Ask the office',info:'<div class="mut mono">'+esc(ids)+'</div>'},
   shipNothing:{head:'Nothing ready on '+what,small:'NOTHING READY',big:what,sub:'Nothing to load',info:''},
-  shipHold:{head:'On hold',small:'ON HOLD',big:'SET ASIDE',sub:esc(c.reason||'Order on hold'),info:''}
+  shipHold:{head:'On hold',small:'ASK THE OFFICE',big:'ON HOLD',sub:esc(c.reason||'Order on hold'),info:STATION_HOLD_ASK}
  }[c.kind]||{head:esc(c.kind),small:'',big:'STOP',sub:'',info:''};
  return '<div class="st-res st-red" data-station-result="'+esc(c.kind)+'"><div class="st-res-h">✕ '+K.head+time+'</div><div class="st-res-b"><div class="st-big st-red"><small>'+K.small+'</small><b'+(K.big.length>6?' class="st-big-code"':'')+'>'+K.big+'</b><span>'+K.sub+'</span></div>'+
   '<div class="st-info"><div class="st-gid mono">'+what+'</div>'+K.info+'</div></div></div>';

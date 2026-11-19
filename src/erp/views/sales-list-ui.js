@@ -938,12 +938,17 @@ function salesHoldApply(ids,reason){
  });
  touch();render();
 }
+/* После Release статус — по стеклу, как после скана (unitRelease делает так
+   же): скан во время Hold (стекло отложили на другой скид — SET ASIDE)
+   пересчитал Ready → Batched, и без пересчёта здесь заказ с готовым стеклом
+   оставался Batched (прогон симулятора 19.11.2026). */
 function salesReleaseHold(ids){
  const now=new Date().toISOString();
  (ids||[]).forEach(id=>{
   const o=(DB.salesOrder||[]).find(x=>x.id===id);if(!o||!o.onHold)return;
   Object.assign(o,{onHold:false,holdReason:'',holdAt:'',updatedAt:now});
   if(soDraft&&soDraft.id===id)Object.assign(soDraft,{onHold:false,holdReason:'',holdAt:'',updatedAt:now});
+  if(typeof shippingSyncOrder==='function')shippingSyncOrder(o,now);
  });
  touch();render();
 }

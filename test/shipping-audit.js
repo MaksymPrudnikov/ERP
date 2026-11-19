@@ -53,16 +53,30 @@ module.exports=async function({page,eq,ok}){
   const cut=stationCheck('CUT',g),rec=stationMove('CUT',cut,saWho,{}).ok,again=stationCheck('CUT',g);
   return {skipped,cut:cut.kind,rec,again:[again.kind,again.reason,again.unit],scans:stationScansFor(g).length};
  }),{skipped:['held','held'],cut:'hold',rec:true,again:['held','Stop now',true],scans:1});
- eq('F3: SHIPR shows SET ASIDE with the reason and no "Yes, done"; SHIP shows ON HOLD; nothing is written',await t.p.evaluate(()=>{
+ eq('F3: SHIPR shows SET ASIDE with the reason and no "Yes, done"; SHIP shows ON HOLD · ask the office; nothing is written',await t.p.evaluate(()=>{
   const o=saOrder(2,false);o.onHold=true;o.holdReason='Credit hold';const g=saGlass(o)[0];
   saLogin(shippingStations().ready);const ready=stationSubmit(g),card=saText('[data-station-result]');
   const shipr={kind:ready,held:!!document.querySelector('[data-station-result="held"]'),text:/SET ASIDE/.test(card)&&/Credit hold/.test(card),yes:!!document.querySelector('[data-station-yes]'),questions:stationQuestions.length};
-  saLogin(shippingStations().ship);const ship=stationSubmit(g);
-  return {shipr,ship:[ship,!!document.querySelector('[data-station-result="shipHold"]')],scans:stationScansFor(g).length};
- }),{shipr:{kind:'held',held:true,text:true,yes:false,questions:0},ship:['held',true],scans:0});
- eq('A skid with a held unit on it is not loaded: "On hold — set aside"',await t.p.evaluate(()=>{
-  const o=saOrder(2,true);unitHold(o.id,o.lines[0].id,1,'Stop');saPS(o);const r=shippingLoadPlan('SL-1','');return [r.kind,r.why];
- }),['shipNotReady','hold']);
+  saLogin(shippingStations().ship);const ship=stationSubmit(g),shipCard=saText('[data-station-result="shipHold"]');
+  return {shipr,ship:[ship,/ASK THE OFFICE/.test(shipCard)&&/Credit hold/.test(shipCard),!!document.querySelector('[data-station-hold-ask]')],scans:stationScansFor(g).length};
+ }),{shipr:{kind:'held',held:true,text:true,yes:false,questions:0},ship:['held',true,true],scans:0});
+ /* Владелец, 19.11.2026: стекло на Hold на погрузке — спросить офис; «да»
+    офиса — Release hold, ответственность офиса и грузчика. */
+ eq('A skid with a held unit on it is not loaded: ON HOLD · ask the office, with the hold reason; office releases the hold — the same scan loads it',await t.p.evaluate(()=>{
+  const o=saOrder(2,true);unitHold(o.id,o.lines[0].id,1,'Drawing to confirm');saPS(o);const r=shippingLoadPlan('SL-1','');
+  saLogin(shippingStations().ship);const first=stationSubmit('SL-1'),card=saText('[data-station-result="shipNotReady"]'),ask=!!document.querySelector('[data-station-hold-ask]'),before=saShip();
+  unitRelease(o.id,o.lines[0].id);const second=stationSubmit('SL-1');
+  return {plan:[r.kind,r.why,r.reason],first,card:/ASK THE OFFICE/.test(card)&&/Drawing to confirm/.test(card)&&ask,
+   before,second,loaded:saShip(),log:DB.orderEvent.some(e=>e.orderId===o.id&&e.what==='Hold released')};
+ }),{plan:['shipNotReady','hold','Drawing to confirm'],first:'shipNotReady',card:true,before:0,second:'shipLoaded',loaded:4,log:true});
+ /* Прогон симулятора 19.11.2026: стекло отложили (SET ASIDE) во время Hold —
+    заказ стал Batched и после Release так и оставался Batched, в PS не шёл. */
+ eq('Order on hold, its unit set aside on another skid at SHIPR: after Release hold the order is Ready again and the skid loads',await t.p.evaluate(()=>{
+  const o=saOrder(2,true);salesHoldApply([o.id],'Site not ready');const ready=shippingStations().ready;saLogin(ready);
+  stationSetPutOn('SL-2');const g=saGlass(o)[0],moved=stationSubmit(g),during=o.status;
+  salesReleaseHold([o.id]);const after=o.status;saPS(o);saLogin(shippingStations().ship);
+  return {moved,during,after,sl2:stationSubmit('SL-2'),sl1:stationSubmit('SL-1'),loaded:saShip()};
+ }),{moved:'shipMoved',during:'batched',after:'ready',sl2:'shipLoaded',sl1:'shipLoaded',loaded:4});
 
  /* ---------------- Д1: отменённый юнит на скиде ---------------- */
  eq('Cancelled unit still on the skid: SL-1 does not load (TAKE OFF); its sticker scanned at SHIP takes the IGU off; then the skid loads without it',await t.p.evaluate(()=>{
