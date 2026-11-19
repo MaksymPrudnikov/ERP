@@ -68,6 +68,8 @@ module.exports=async function({page,eq}){
 
  eq('journal lists offcut moves; Export / Import keeps them; a bad offcut record is refused',await t.p.evaluate(()=>{
   ofReset();const {a,id}=ofBook();ofCut(cutPlanFor(a.n).groups[0].sheets[0].pieces[0].piece);invOffcutLost([id]);invOffcutFound(id);
+  /* Not found и Found в одну миллисекунду — сверху всё равно Found (было через раз). */
+  const ev=DB.inventoryEvent.filter(e=>e.offcut===id);ev.forEach(e=>{e.at=ev[0].at;});
   const kinds=invMoves().filter(m=>m.offcut).map(m=>[m.kind,m.rack,m.ref]);
   const next=prepareImportedState(JSON.parse(JSON.stringify(storageExportEnvelope()))),old=DB;DB=next;const after=ofSt(id);DB=old;
   let err='';try{prepareImportedState(Object.assign(JSON.parse(JSON.stringify(DB)),{inventoryEvent:[Object.assign({},DB.inventoryEvent[0],{offcut:'X-1'})]}));}catch(e){err=e.message;}

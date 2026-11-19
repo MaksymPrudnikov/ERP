@@ -267,7 +267,10 @@ function invMoves(rackOnly){
  if(!rackOnly&&typeof invOffcutMoves==='function')invOffcutMoves().forEach(m=>out.push(m));
  /* Stock items (двери и другое, pcs): приёмка, отгрузка, пересчёт, + / −. */
  if(!rackOnly&&typeof sinvMoves==='function')sinvMoves().forEach(m=>out.push(m));
- return out.sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+ /* Новые сверху; одно и то же время (Not found и Found в одну миллисекунду) —
+    сверху то, что записано позже (тест журнала кусков падал через раз, 19.11.2026). */
+ const order=new Map(out.map((m,i)=>[m,i]));
+ return out.sort((a,b)=>String(b.at).localeCompare(String(a.at))||order.get(b)-order.get(a));
 }
 
 /* ------------------------------ Команды ------------------------------ */

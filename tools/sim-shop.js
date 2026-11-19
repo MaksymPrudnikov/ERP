@@ -727,9 +727,17 @@ function simPage() {
      заново по месту ERP раз в день (resync). */
   function resyncQueues() {
     const known = new Set(); Object.values(Q).forEach(list => list.forEach(it => it.pieces.forEach(id => known.add(id))));
+    /* Ламинат после LAM — одно стекло: в очереди одна его плита, ERP в
+       stationWaiting перечисляет обе. Вторую в очередь не ставим — её скан
+       давал «shipOnSkid» / «already» (28 + 3 отказа на годе, аудит 19.11.2026). */
+    const asm = new Map(); DB.stationScan.forEach(s => { if (s.asm && (s.unit || s.joined) && !s.undoneAt) asm.set(s.piece, s.asm); });
+    const knownAsm = new Set([...known].map(id => asm.get(id)).filter(Boolean));
     stationWaiting().forEach((list, station) => {
       if (station === 'SHIP' || station === shippingStations().ship) return;
-      list.forEach(x => { if (known.has(x.id)) return; if (station === 'CUT') return; const o = x.g.o; enqueue(station, { code: x.id, pieces: [x.id], o: o.id, prio: prioOf(o), due: o.dueDate || '9999', avail: NOW, ord: 0 }); known.add(x.id); cnt('resync'); });
+      list.forEach(x => {
+        if (known.has(x.id) || knownAsm.has(asm.get(x.id))) return; if (station === 'CUT') return; const o = x.g.o;
+        enqueue(station, { code: x.id, pieces: [x.id], o: o.id, prio: prioOf(o), due: o.dueDate || '9999', avail: NOW, ord: 0 }); known.add(x.id); if (asm.has(x.id)) knownAsm.add(asm.get(x.id)); cnt('resync');
+      });
     });
   }
 
@@ -936,7 +944,9 @@ function simPage() {
     const st = shippingStations().ship, orders = shippingOrderIds(s), skids = new Set();
     s.items.forEach(i => { if (i.skid) skids.add(i.skid); });
     const cc = carrierContents();
-    [...SKID].forEach(([code, x]) => { if (x.state === 'filling' && (orders.includes(x.orderId) || x.customerId === s.customerId) && (cc.get(code) || []).some(u => orders.includes(u.g.o.id))) skids.add(code); });
+    /* Скид, который ещё наполняется, грузят, только если всё на нём готово:
+       с неготовым стеклом ERP отвечает «Not ready» (2 отказа на годе, аудит 19.11.2026). */
+    [...SKID].forEach(([code, x]) => { if (x.state === 'filling' && (orders.includes(x.orderId) || x.customerId === s.customerId) && (cc.get(code) || []).some(u => orders.includes(u.g.o.id))) { if (!shippingUnitsOn(code).stray.length) skids.add(code); } });
     asStation(st, who, '');
     skids.forEach(code => {
       at(NOW + int(2, 5) * 60000);
@@ -1384,7 +1394,11 @@ function simPage() {
     const old = addDays(day, -10), gone = new Set();
     DB.salesOrder.forEach(o => {
       if (ARCHIVED.has(o.id) || salesIsQuote(o)) return;
-      const fin = o.status === 'cancelled' || (['done', 'closed'].includes(o.status) && o.statusDates && o.statusDates.done && dayOf(Date.parse(o.statusDates.done)) <= old);
+      /* Только закрытый или отменённый: отгруженный (Done) ждёт оплаты и Close
+         бухгалтера, а без его батчей ERP видит стекло «не в батче» и Close
+         отказывает (12 отказов «The operation could not be completed» на
+         двух месяцах, аудит 19.11.2026). */
+      const fin = o.status === 'cancelled' || (o.status === 'closed' && o.statusDates && o.statusDates.done && dayOf(Date.parse(o.statusDates.done)) <= old);
       if (!fin) return;
       if (shippingForOrder(o.id).some(s => s.status === 'planned' || s.status === 'shipped')) return;
       gone.add(o.id);
