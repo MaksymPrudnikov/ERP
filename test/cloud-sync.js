@@ -245,6 +245,9 @@ module.exports=async function({page,eq}){
     новой и не отправляет туда свои правки, пока не сделает Download. */
  const markOf=()=>{const r=srv.rec.get('_upload|state');return r?JSON.parse(r.data).id:null;};
  eq('Upload и Download запоминают отметку базы сервера',await A.p.evaluate(()=>cloudSync.base),markOf());
+ /* Второй ПК со старой базой: скачал её и своих правок не делал. */
+ const G=await pc('admin@glass-erp.test');await G.p.evaluate(()=>cloudDownload());
+ const gSynced={text:await sync(G),old:await name(G,'C-CLOUD')!==null};
  srv.rec.clear();srv.log.length=0;
  await edit(A,'C-CLOUD','After reset');
  eq('сервер очищен: A не отправляет правку — «Server has a new database · Download»',{text:await sync(A),sent:srv.rec.size},{text:'Server has a new database · Download',sent:0});
@@ -253,6 +256,16 @@ module.exports=async function({page,eq}){
  await E.p.evaluate(()=>cloudUpload());
  eq('залита другая база: A по-прежнему ничего не принимает и не отправляет',{text:await sync(A),got:await name(A,'C-NEW'),server:srv.rec.has('customer|C-CLOUD')},
   {text:'Server has a new database · Download',got:null,server:false});
+ /* 19.11.2026: второй ПК без своих правок узнавал о новой базе только из
+    ленты и успевал дописать её в старую — заказы обеих баз рядом. */
+ eq('залита другая база: ПК без своих правок не дописывает её в свою, курсор стоит; после F5 так же',await (async()=>{
+  const since=await G.p.evaluate(()=>cloudSync.since),text=await sync(G),got=await name(G,'C-NEW'),moved=await G.p.evaluate(s=>cloudSync.since!==s,since);
+  await G.p.reload();await G.p.evaluate(()=>window.storageReady);
+  return {gSynced,text,got,moved,again:await sync(G),gotAgain:await name(G,'C-NEW'),old:await name(G,'C-CLOUD')!==null};
+ })(),{gSynced:{text:'Synced',old:true},text:'Server has a new database · Download',got:null,moved:false,again:'Server has a new database · Download',gotAgain:null,old:true});
+ await G.p.evaluate(()=>cloudDownload());
+ eq('Download на этом ПК: новая база, старой нет',{text:await sync(G),got:await name(G,'C-NEW'),old:await name(G,'C-CLOUD'),errs:G.errs},{text:'Synced',got:'New base',old:null,errs:[]});
+ await G.c.close();
  await A.p.evaluate(()=>cloudDownload());
  eq('Download на A: новая база, старой нет, синхронизация снова идёт',{text:await sync(A),got:await name(A,'C-NEW'),old:await name(A,'C-CLOUD'),base:await A.p.evaluate(()=>cloudSync.base)===markOf()},
   {text:'Synced',got:'New base',old:null,base:true});
