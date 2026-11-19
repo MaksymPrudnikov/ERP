@@ -263,8 +263,12 @@ module.exports=async function({page,eq}){
   await G.p.reload();await G.p.evaluate(()=>window.storageReady);
   return {gSynced,text,got,moved,again:await sync(G),gotAgain:await name(G,'C-NEW'),old:await name(G,'C-CLOUD')!==null};
  })(),{gSynced:{text:'Synced',old:true},text:'Server has a new database · Download',got:null,moved:false,again:'Server has a new database · Download',gotAgain:null,old:true});
- await G.p.evaluate(()=>cloudDownload());
- eq('Download на этом ПК: новая база, старой нет',{text:await sync(G),got:await name(G,'C-NEW'),old:await name(G,'C-CLOUD'),errs:G.errs},{text:'Synced',got:'New base',old:null,errs:[]});
+ /* Download — кнопкой рядом с «Server has a new database», без Stop sync (19.11.2026). */
+ const btn=await G.p.evaluate(()=>{tab='users';subtab='cloud';render();return {download:!!document.querySelector('[data-cloud-download]'),stop:!!document.querySelector('[data-cloud-stop]'),upload:!!document.querySelector('[data-cloud-upload]')};});
+ await G.p.click('[data-cloud-download]');await G.p.waitForFunction(()=>!cloudSync.busy&&!cloudSync.newBase);
+ eq('Download кнопкой рядом с «Server has a new database», без Stop sync: новая база, старой нет; при «Synced» кнопки нет',
+  {btn,text:await sync(G),got:await name(G,'C-NEW'),old:await name(G,'C-CLOUD'),after:await G.p.evaluate(()=>{render();return !!document.querySelector('[data-cloud-download]');}),errs:G.errs},
+  {btn:{download:true,stop:true,upload:false},text:'Synced',got:'New base',old:null,after:false,errs:[]});
  await G.c.close();
  await A.p.evaluate(()=>cloudDownload());
  eq('Download на A: новая база, старой нет, синхронизация снова идёт',{text:await sync(A),got:await name(A,'C-NEW'),old:await name(A,'C-CLOUD'),base:await A.p.evaluate(()=>cloudSync.base)===markOf()},
