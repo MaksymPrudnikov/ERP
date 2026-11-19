@@ -508,7 +508,10 @@ function cloudUpload(){
    if(resume.device!==cloudDevice())throw new Error('Upload from another computer is not finished.');
   }
   if(!confirm(resume?'Finish sending this database to the server?\n\nThe last upload stopped halfway.':'Send this database to the server?\n\nOther computers will download it from there.'))return false;
-  await storageFlush();
+  /* Запись этого браузера не удалась (Not saved): Upload отправил бы базу без
+     незаписанного и поставил «готово» — другие ПК скачали бы неполную
+     (аудит 19.11.2026). Сначала Retry save. */
+  if(!await storageFlush())throw new Error('Not saved here. Retry save, then Upload.');
   const s=cloudSync,vers=new Map(),url=cloudConfig().url,mark={id:resume?resume.id:cloudId(),device:cloudDevice(),done:false};
   const recs=[cloudUploadMark(mark)].concat(cloudRecords(),(await storageIdbColdAll()).map(r=>({tbl:r.tbl,id:r.id,seq:r.seq,data:r.data,cold:true,month:r.month,owners:r.owners})),
    (await storageIdbArchiveAll()).map(a=>({tbl:'_archive',id:a.id,seq:0,data:JSON.stringify(a.row)})));

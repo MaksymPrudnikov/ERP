@@ -63,7 +63,8 @@ address (9 Nov 2026).
 - **Server**, **Publishable key**, **Email**, **Password**, **Connect**; status: Not connected, Signed in · email,
   Connected · name (· admin). **Check** — test the connection, **Sign out**.
 - **Sync**: **Upload this database** — this database becomes the server's (the server must be empty; needs a server
-  administrator); **Download from server** — this computer's database is replaced by the server's; **Stop sync** — the
+  administrator; with "Not saved" at the bottom Upload refuses "Not saved here. Retry save, then Upload." — press
+  Retry save first); **Download from server** — this computer's database is replaced by the server's; **Stop sync** — the
   computer stops syncing and keeps its database as it is. Status: Synced, N waiting, Offline · N waiting.
 - **Access** (server administrators) — which sections are needed to read and write each table on the server: Table,
   Read, Write, Edit, ×, **Add rule**, **Save access**, Refresh. “No rule — everyone.” Without the section a person gets

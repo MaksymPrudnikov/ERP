@@ -61,7 +61,8 @@ ERP открывается по своему адресу `https://marketing-far
 
 - **Server**, **Publishable key**, **Email**, **Password**, **Connect**; статус: Not connected, Signed in · почта,
   Connected · имя (· admin). **Check** — проверить связь, **Sign out** — выйти.
-- **Sync**: **Upload this database** — эта база становится серверной (сервер пуст, нужен администратор сервера);
+- **Sync**: **Upload this database** — эта база становится серверной (сервер пуст, нужен администратор сервера;
+  внизу «Not saved» — Upload откажет «Not saved here. Retry save, then Upload.»: сначала Retry save);
   **Download from server** — база этого компьютера заменяется серверной; **Stop sync** — компьютер больше не
   синхронизирует, его база остаётся как есть. Статус: Synced, N waiting, Offline · N waiting.
 - **Access** (видит администратор сервера) — какие разделы нужны для чтения и записи каждой таблицы на сервере: Table,

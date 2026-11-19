@@ -663,6 +663,8 @@ masterdata.*` и `forms.*`.
 - `schema.sql` запускает владелец в Supabase SQL Editor (повтор безопасен), затем F5 на ПК. `service_role` никогда в
   браузер. Сервер очищают по слову владельца, без сброса `erp_log.rev` (09.11).
 - Export, Import, Clear — в Users → Cloud → Data; Import на подключённом ПК — отказ, сначала Stop sync (02.11).
+  Upload, когда запись этого браузера не удалась (`storageFlush` → false, «Not saved»), — отказ «Not saved here. Retry
+  save, then Upload.»: иначе на сервер ушла бы база без незаписанного с меткой «готово» (19.11).
 - Свой адрес ERP: `https://marketing-farm.agency` (временный, владелец купит отдельный домен).
 
 **Как устроено**
