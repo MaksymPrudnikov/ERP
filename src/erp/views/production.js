@@ -158,6 +158,7 @@ function sfStationForm(){
    <div><label>Code *</label><input id="sf_code" value="${esc(r.code)}" placeholder="POLISH"></div>
    <div><label>Name *</label><input id="sf_nameEn" value="${esc(sfName(r))}" placeholder="Polishing"></div>
    <div><label>Machines</label><input id="sf_machines" value="${esc((r.machines||[]).join(', '))}" placeholder="P1, P2, P3"><div class="hint">One per scan screen. Empty — the whole station.</div></div>
+   <div><label>Working, min</label><input id="sf_working" type="number" min="1" max="600" step="1" value="${r.workingMin||''}" placeholder="15"><div class="hint">${(()=>{const g=stEdit!=='new'&&r.code&&typeof floorUsualGap==='function'?floorUsualGap(r.code):null;return g?'Usual gap: '+(g>=60?Math.floor(g/60)+' h '+(g%60)+' min':g+' min'):'Floor: no scan for longer — not working.';})()}</div></div>
    <div><label>Size W, inches</label><input id="sf_maxW" type="number" step="0.1" min="0" value="${r.maxW==null?'':r.maxW}"></div>
    <div><label>Size L, inches</label><input id="sf_maxL" type="number" step="0.1" min="0" value="${r.maxL==null?'':r.maxL}"></div>
    <div style="grid-column:1/-1"><label class="chk"><input type="checkbox" id="sf_measured" ${r.sizeMeasured?'checked':''}> Size measured in the shop</label>
@@ -190,6 +191,8 @@ function saveSfStationCommand(){
  if(!code||!nameEn) return fail(e,'Code and name are required');
  if(!SF_CODE_RE.test(code)) return fail(e,'Code: use only A–Z, 0–9, hyphen and underscore');
  const machinesRaw=(document.getElementById('sf_machines')||{value:''}).value,machines=sfMachines(machinesRaw);
+ const workingRaw=String((document.getElementById('sf_working')||{value:''}).value).trim(),workingMin=workingRaw===''?null:+workingRaw;
+ if(workingMin!==null&&!(Number.isInteger(workingMin)&&workingMin>=1&&workingMin<=600)) return fail(e,'Working: whole minutes, 1–600, or empty');
  if(machinesRaw.split(/[\s,;]+/).filter(Boolean).length!==machines.length) return fail(e,'Machines: short codes like P1, P2 — A–Z, 0–9, no repeats');
  if(DB.station.some((s,i)=>i!==stEdit && s.code===code)) return fail(e,'This code already exists');
  const dim=id=>{const v=document.getElementById(id).value.trim();if(v==='')return null;const n=+v;return isFinite(n)&&n>0?n:NaN;};
@@ -212,8 +215,8 @@ function saveSfStationCommand(){
  const o={seq,code,name:prev&&prev.name||nameEn,nameEn,
   always:document.getElementById('sf_always').checked,
   maxW,maxL,sizeMeasured:document.getElementById('sf_measured').checked,
-  note:document.getElementById('sf_note').value.trim(),...(machines.length?{machines}:{})};
- if(stEdit==='new') DB.station.push(o); else {Object.assign(DB.station[stEdit],o);if(!machines.length)delete DB.station[stEdit].machines;}
+  note:document.getElementById('sf_note').value.trim(),...(machines.length?{machines}:{}),...(workingMin?{workingMin}:{})};
+ if(stEdit==='new') DB.station.push(o); else {Object.assign(DB.station[stEdit],o);if(!machines.length)delete DB.station[stEdit].machines;if(!workingMin)delete DB.station[stEdit].workingMin;}
  DB.station.sort((a,b)=>a.seq-b.seq);
  stEdit=null; stSeen=null; stationRouteReset(); touch(); render();return true;
 }

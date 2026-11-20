@@ -63,3 +63,59 @@
 .fl-empty h3{margin:0 0 6px}
 .fl-empty .fl-row{justify-content:center;margin-top:16px}
 button.fl-big{font-size:16px;padding:11px 20px}
+
+/* A2: состояние станций, тара, сводка, карточка станции. */
+.fl-svg .is-working{stroke-width:2.5}
+.fl-svg .is-idle{opacity:.55}
+.fl-svg .dim{opacity:.18}
+.fl-tag rect{fill:var(--surface);stroke:var(--line-strong);stroke-width:1}
+.fl-tag circle{fill:var(--line-strong)}
+.fl-tag.is-working circle{fill:var(--success)}
+.fl-tag.is-waiting circle{fill:var(--warning)}
+.fl-tagt{fill:var(--text);font-weight:700;pointer-events:none}
+.fl-tag{pointer-events:none}
+.fl-tare{fill:var(--surface);stroke:var(--text-2);stroke-width:1;cursor:pointer}
+.fl-tare.skid{fill:var(--surface-3)}
+.fl-tare.find{stroke:var(--accent);stroke-width:4;fill:var(--accent-soft)}
+.fl-more{fill:var(--text-2);font-weight:700}
+.fl-zone.blink{animation:fl-blink .8s ease-in-out 3}
+@keyframes fl-blink{50%{fill:var(--accent-soft);stroke:var(--accent)}}
+@media (prefers-reduced-motion:reduce){.fl-zone.blink{animation:none;stroke:var(--accent)}}
+.fl-now{font-size:13px;margin-left:4px}
+.fl-sumb{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 11px;font-size:13px}
+.fl-sumb i{width:8px;height:8px;border-radius:50%;background:var(--line-strong)}
+.fl-sumb.is-working i{background:var(--success)}
+.fl-sumb.is-waiting i{background:var(--warning)}
+.fl-sumb.on{border-color:var(--accent);background:var(--accent-soft)}
+.fl-show-all{font-size:13px}
+.fl-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--line-strong)}
+.fl-dot.is-working{background:var(--success)}
+.fl-dot.is-waiting{background:var(--warning)}
+.fl-st-row{grid-template-columns:auto 1fr auto}
+.fl-st-row .fl-dot{grid-column:3;grid-row:1}
+.fl-card h3{margin:0}
+.fl-card h4{margin:14px 0 6px;font-size:13px}
+.fl-card-head{display:flex;align-items:center;gap:10px}
+.fl-card-head .fl-sw{width:14px;height:14px}
+.fl-x{border:0;background:transparent;font-size:20px;line-height:1;padding:2px 6px;color:var(--text-2)}
+.fl-pill{border-radius:999px;padding:3px 10px;font-size:12.5px;background:var(--surface-3);color:var(--text-2)}
+.fl-pill.is-working{background:var(--success-soft);color:var(--success)}
+.fl-pill.is-waiting{background:var(--warning-soft);color:var(--warning)}
+.fl-periods{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:12px 0}
+.fl-periods button.on{border-color:var(--accent);background:var(--accent-soft)}
+.fl-tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fl-tile{background:var(--surface-2);border-radius:10px;padding:9px 12px;display:flex;flex-direction:column;gap:2px}
+.fl-tile span{font-size:12px;color:var(--text-2)}
+.fl-tile b{font-size:22px}
+.fl-tile small{font-size:12px;color:var(--text-2)}
+.fl-ops{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.fl-ops small{display:block}
+.fl-machines .fl-mrow{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line-soft)}
+.fl-bars{display:flex;align-items:flex-end;gap:4px;height:110px;padding-top:8px}
+.fl-bars div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:3px;min-width:0}
+.fl-bars b{display:block;width:100%;max-width:34px;background:var(--accent-line);border-radius:4px 4px 0 0;min-height:2px}
+.fl-bars span{font-size:10.5px;color:var(--text-2);white-space:nowrap}
+.fl-days{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+.fl-days th,.fl-days td{text-align:right;padding:4px 6px;border-bottom:1px solid var(--line-soft)}
+.fl-days th:first-child,.fl-days td:first-child{text-align:left}
+.fl-tare-list{display:flex;flex-wrap:wrap;gap:6px}

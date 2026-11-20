@@ -1,6 +1,6 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 5.333 · 20 ноября 2026 — Production: станки у станции (P1, P2, P3) — пометка на скане, выбор на экране, поле Machine в Reports.
+Версия 5.334 · 20 ноября 2026 — Production → Floor (A2): живой план — Working / Waiting по порогу станции, долли в зонах ожидания, карточка станции за период.
 
 ## Как читать
 
@@ -330,13 +330,9 @@ A3, C) — `docs/ЗАДАЧА_КАРТА_ЦЕХА.md`.
   будущем; делают Users / Finance; цели — любая станция, Picked up, Delivered. **Unbatch order** — Users / Finance,
   Undo нет («несёт ответственность сам», 09.10).
 - Production не показывает заказ, всё стекло которого уехало (01.11). Print drawing — на любой станции.
-- **План цеха — Production → Floor** (19–20.11): офисный экран, видят все с Production, правят с Master Data. План
-  меряет и ставит владелец сам, в метрах (поле понимает 6.5 · 650 cm · 6500 mm); зоны ожидания долли и скидов рисует
-  сам, где угодно, и за залом; цвет станции выбирает сам; наложение — жёлтая полоса, Save не блокируется. Состояние
-  станций, долли в зонах, карточка станции — следующие PR (A2).
-- **Станки у станции** (20.11): у трёх POLISH — P1, P2, P3, у каждого свой экран; «хочу видеть, сколько делает каждый,
-  но ничего не сломать в производственном флоу». Станция остаётся единицей потока; станок — только пометка на скане.
-  Станок выбирают один раз на самом экране, компьютер помнит; не выбран — скан идёт как прежде.
+- **План цеха Floor и станки** (19–20.11): офисный экран, правка — с Master Data; план, размеры (м), зоны ожидания
+  и цвет станции владелец ставит сам; наложение — жёлтая полоса, Save не блокируется. Станки (P1, P2, P3, свой экран
+  у каждого) — только пометка на скане: поток остаётся по станции; станок выбирают один раз на экране.
 
 **Как устроено**
 - `shopfloor/scan.js` (`stationCheck`, `stationRecord`, контекст больших заказов `stationScanCtx`), тара
@@ -345,24 +341,18 @@ A3, C) — `docs/ЗАДАЧА_КАРТА_ЦЕХА.md`.
 - Экраны станций, Production (Stations, Terminals, Dollies & Skids, окно тары, пересчёт), Skip, Unbatch, Skids,
   формы Drawing и Dolly / Skid sheet — на действиях `onAct` (PR 2 задания CSP, 14.11); Enter в поле «куда»
   (`stationDollyMoveKey`, `carrierWinMoveKey`, …) — маленькие функции рядом с экраном.
-- **Floor (A1)**: `DB.floorItem` — строки `{id, kind, station, machine, label, x, y, w, l, h}` в метрах; `kind` —
-  hall (одна), machine, wall, object, zone (зона ожидания станции, одна на станцию). Нормализатор `normalizeFloor` в
-  списке `normalizeDB`; на старте таблица пустая — план заводит `Start from sketch` (набросок владельца 19.11: зал
-  65 × 70, две стены, блоки 1–17 без станций) или Empty hall. Черновик редактора (`floorEdit`, `views/floor.js`) живёт
-  до Save / Cancel, в `STORAGE_UNSAVED`; Undo / Redo — внутри черновика. Save — одна команда `floorWrite`: план и цвета
-  станций; план, начатый с наброска, пишется, только если таблица всё ещё пуста («Plan already exists on another PC»).
-  Цвет станции — имя токена `series-1…24` у `DB.station` (нормализатор станций его хранит), без своего — по порядку
-  станции. Переименование станции (`saveSfStation`) правит `floorItem.station`; чужой код — «Unknown station».
-  Рисунок — свой SVG в метрах, во время жеста перерисовывается только SVG. У `floorItem` нет правила
-  `erp_table_rule`: галочка Master Data закрывает правку в интерфейсе. Замер скорости — строка `Floor` в
-  `tools/perf-year.js`.
-- **Станки (M)**: `DB.station[].machines` — коды (`sfMachines`: до 12, без повторов), правка — Master Data → Stations,
-  поле Machines. Экран станции помнит свой станок в `localStorage` (`STATION_MACHINE_KEY`, по станции) — Terminals с
-  экранами не связаны, привязать станок к терминалу было нельзя. `stationRecordCommand` пишет `rec.machine`, только
-  если это станок этой станции; `stationPlace`, маршрут и `prodBoard` поле не читают. Факты работы
-  (`repWorkFacts`, `repOpFacts`) несут `machine`, в Reports — поле Machine.
+- **Floor**: `production/floor.js` — `DB.floorItem` `{id, kind: hall·machine·wall·object·zone, station, machine,
+  label, x, y, w, l, h}` в метрах; пусто на старте, план заводит `Start from sketch`; Save — одна команда `floorWrite`
+  (план с наброска не пишется поверх чужого); цвет станции — токен `series-N` у `DB.station`. Редактор и рисунок —
+  `views/floor.js` (черновик в `STORAGE_UNSAVED`, SVG в метрах). Живой план — `production/floor-state.js`:
+  `floorLive()` — Working по `workingMin` станции (по умолчанию 15), станки по своим сканам, тара из
+  `prodBoard().onAt` в зоне станции, где её стекла больше; `floorCard()` — Today…30 дней, меры станции, брак (сканы
+  `broken`, `sheetBreak`) и NCR по `where`, архивные месяцы через `archiveScopeFor`. Overview «Shop now» → Floor,
+  если станция на плане. Замер — строка `Floor` в `tools/perf-year.js`.
+- **Станки**: `DB.station[].machines` (`sfMachines`); экран помнит станок в `localStorage` (`STATION_MACHINE_KEY`);
+  `stationRecordCommand` пишет `rec.machine` только для станка своей станции; факты и Reports — поле Machine.
 - Сторожа: `test/station*.js`, `carriers`, `carrier-form`, `carrier-sheet`, `dollies-count`, `dollies-skids`,
-  `skip`, `production-unbatch`, `route-repeat`, `step-unit`, `igu-ready`, `units`, `floor`, `machines`.
+  `skip`, `production-unbatch`, `route-repeat`, `step-unit`, `igu-ready`, `units`, `floor`, `machines`, `floor-live`.
 
 **Открыто**: компьютер с неверными часами пишет сканы своим временем; экраны станций и лист тары не на общем
 движке списков; физическая печать этикеток не проверена (нет принтера).

@@ -249,7 +249,9 @@ function normalizeShopFloor(){
    ...(Array.isArray(s.sheetCols)&&typeof carrierColsClean==='function'&&carrierColsClean(s.sheetCols).length?{sheetCols:carrierColsClean(s.sheetCols)}:{}),
    /* Станки станции (20.11.2026): у трёх POLISH — P1, P2, P3. Только пометка
       на скане — маршрут, очереди и переходы остаются по станции. */
-   ...(sfMachines(s.machines).length?{machines:sfMachines(s.machines)}:{})};
+   ...(sfMachines(s.machines).length?{machines:sfMachines(s.machines)}:{}),
+   /* Порог Working на плане цеха, минут (floor-state): свой у станции. */
+   ...(Number.isInteger(+s.workingMin)&&+s.workingMin>0&&+s.workingMin<=600?{workingMin:+s.workingMin}:{})};
  }).sort((a,b)=>a.seq-b.seq);
 
  const tSeen=Object.create(null);
