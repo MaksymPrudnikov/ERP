@@ -16,7 +16,9 @@
   --success:#1f7a45; --success-soft:#e9f6ee; --success-line:#b9dfc9;
   --warning:#9a5b0f; --warning-soft:#fdf5e4; --warning-line:#efd5a1;
   --danger:#b42318; --danger-soft:#fdecea; --danger-line:#f3c4bf;
-  --series-11:#8a5a3c;
+  --series-1:#2b5c8a; --series-2:#1f7a63; --series-3:#c05a35; --series-4:#6e4a9e; --series-5:#b88a1e;
+  --series-6:#2f8fa8; --series-7:#a33a5b; --series-8:#5e7f2e; --series-9:#d07a2e; --series-10:#45509e;
+  --series-11:#8a5a3c; --series-12:#4d6a7a; --series-13:#1e88c9; --series-16:#9a3fb5;
   --cut-glass-a:#dcecfa; --cut-glass-b:#cfe4f6; --cut-glass-c:#c3dcf2; --cut-glass-line:#1b5e86;
   --shadow:0 1px 3px rgba(16,24,40,.05),0 1px 2px rgba(16,24,40,.03);
   --font:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
@@ -30,7 +32,9 @@
   --success:#2f9a5f; --success-soft:#12261b; --success-line:#234a33;
   --warning:#d08a26; --warning-soft:#2a2112; --warning-line:#4d3a1a;
   --danger:#e0524a; --danger-soft:#2e1615; --danger-line:#5a2a26;
-  --series-11:#b98563;
+  --series-1:#5b8fc4; --series-2:#3fae8f; --series-3:#e07d55; --series-4:#9b7bcb; --series-5:#d9ae45;
+  --series-6:#4fb3cc; --series-7:#d0628a; --series-8:#8caf54; --series-9:#ee9c55; --series-10:#7480d0;
+  --series-11:#b98563; --series-12:#7f9dae; --series-13:#4fa8e0; --series-16:#b96ad3;
   --shadow:0 1px 2px rgba(0,0,0,.4);
   color-scheme:dark;
 }
@@ -108,16 +112,28 @@ small,.muted { color:var(--text-2) }
 #colors[open] .colors-toggle { background:var(--accent-soft); border-color:var(--accent-line) }
 .colors-panel { position:absolute; top:100%; left:10px; width:min(296px,calc(100% - 20px)); padding:12px;
   border:1px solid var(--line-strong); border-radius:9px; background:var(--surface); box-shadow:var(--shadow) }
-.colors-panel dl { display:grid; grid-template-columns:max-content 1fr; gap:8px 12px; margin:12px 0 }
-.colors-panel dt { display:flex; align-items:center; gap:6px; font-weight:600; font-size:12px }
-.colors-panel dd { margin:0; color:var(--text-2); font-size:12px }
-.swatch { width:12px; height:12px; border:1px solid var(--line-strong); border-radius:3px; background:var(--surface-3) }
-.swatch.work { background:var(--success-soft); border-color:var(--success) }
-.swatch.wait { background:var(--warning-soft); border-color:var(--warning) }
-.swatch.call { background:var(--danger-soft); border-color:var(--danger) }
-.colors-scale { display:flex; align-items:center; gap:7px; margin-top:6px; padding-left:21px }
-.colors-scale i { width:76px; height:8px; border:1px solid var(--warning-line); border-radius:2px;
-  background:linear-gradient(90deg,color-mix(in srgb,var(--warning) 9%,var(--warning-soft)),color-mix(in srgb,var(--warning) 45%,var(--warning-soft))) }
+.color-list,.station-list { list-style:none; margin:12px 0 0; padding:0; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px }
+.color-list li { display:flex; align-items:center; gap:7px; font-size:12px }
+.swatch { display:inline-block; flex:none; width:12px; height:12px; border-radius:3px; background:var(--station-color) }
+.colors-panel > small { display:block; margin-top:12px }
+.station-list .station-row { width:100%; min-height:48px; display:flex; align-items:center; gap:8px; padding:6px 8px; text-align:left }
+.station-row strong,.station-row small { display:block }
+.station-row strong { font-size:13px }
+.station-row small { white-space:normal; font-size:11px }
+.palette { display:flex; flex-wrap:wrap; gap:5px; margin:4px 0 }
+.station-palette:empty { display:none }
+.palette-caption { color:var(--text-2); font-size:12px }
+.palette .eb { width:31px; min-height:32px; padding:0 }
+.palette .eb[aria-pressed="true"] { border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent) }
+.palette .swatch { width:16px; height:16px }
+.carrier-section { margin-top:14px }
+.carrier-section label { display:block; margin-bottom:4px; font-size:12px }
+.carrier-section .solid,#carrier-warning { margin-top:8px }
+.carrier-links { gap:5px; margin-top:7px }
+.carrier-links .eb { font-size:12px }
+.carrier-location { display:grid; grid-template-columns:max-content 1fr; gap:8px 15px; margin:0 }
+.carrier-location dt { color:var(--text-2) }
+.carrier-location dd { margin:0; font-weight:600 }
 #orientation { position:absolute; left:12px; bottom:35px; width:62px; height:62px; pointer-events:none;
   background:var(--surface); border:1px solid var(--line); border-radius:9px; box-shadow:var(--shadow) }
 #orientation line { stroke-width:1.4 }
@@ -130,17 +146,6 @@ small,.muted { color:var(--text-2) }
 .card-head { margin-bottom:15px; justify-content:space-between }
 .card-head h2 { margin-bottom:2px }
 .card-head .muted { font-size:13px }
-.queue-list { list-style:none; padding:0; margin:14px 0 0 }
-.queue-list li+li { border-top:1px solid var(--line-soft) }
-.queue-row { width:100%; display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:10px;
-  text-align:left; border:0; padding:10px 6px; border-radius:5px; background:var(--surface) }
-.queue-row:hover { background:var(--surface-2) }
-.queue-row strong { display:block; font-size:13px }
-.queue-row small { display:block; font-size:12px }
-.queue-row .number { font-size:14px; font-weight:600; text-align:right }
-.queue-row .number small { font-weight:400 }
-.queue-track { grid-column:2 / -1; display:block; height:5px; margin-top:-3px; border-radius:3px; background:var(--surface-3); overflow:hidden }
-.queue-track i { display:block; width:var(--share); height:100%; border-radius:3px; background:var(--warning) }
 .status { font-size:12px; border:1px solid var(--line); border-radius:999px; padding:4px 8px; background:var(--surface-2) }
 .call-banner { background:var(--danger-soft); border:1px solid var(--danger-line); color:var(--danger); border-radius:8px;
   padding:8px 10px; margin-bottom:12px; gap:8px }
@@ -170,13 +175,11 @@ input:not([type="checkbox"]),select { width:100%; min-height:35px; background:va
 .check { display:inline-flex; align-items:center; gap:5px; font-size:12px }
 input[type="checkbox"] { accent-color:var(--accent) }
 
-/* Грани и зал используют ту же палитру, что и сводка. */
+/* Цвет блока принадлежит станции. Состояние показывают сводка и плашка. */
 .bx { --top:var(--surface-3); --a:var(--line); --b:var(--line-strong); --ln:var(--line-strong) }
-.bx.work { --top:var(--success-soft); --a:color-mix(in srgb,var(--success) 28%,var(--surface)); --b:color-mix(in srgb,var(--success) 46%,var(--surface)); --ln:var(--success) }
-.bx.wait { --top:color-mix(in srgb,var(--warning) var(--heat),var(--warning-soft));
-  --a:color-mix(in srgb,var(--warning) calc(var(--heat) + 12%),var(--surface));
-  --b:color-mix(in srgb,var(--warning) calc(var(--heat) + 23%),var(--surface)); --ln:var(--warning) }
-.bx.call { --top:var(--danger-soft); --a:color-mix(in srgb,var(--danger) 34%,var(--surface)); --b:color-mix(in srgb,var(--danger) 55%,var(--surface)); --ln:var(--danger) }
+.bx.station-color { --top:color-mix(in srgb,var(--station-color) 29%,var(--surface));
+  --a:color-mix(in srgb,var(--station-color) 43%,var(--surface));
+  --b:color-mix(in srgb,var(--station-color) 65%,var(--surface)); --ln:var(--station-color) }
 .bx.dolly { --top:var(--cut-glass-a); --a:var(--cut-glass-b); --b:var(--cut-glass-c); --ln:var(--cut-glass-line) }
 .bx.skid { --top:var(--cut-glass-a); --a:var(--series-11); --b:color-mix(in srgb,var(--series-11) 75%,var(--text)); --ln:var(--series-11) }
 .bx.wall { --top:var(--text-3); --a:var(--line-strong); --b:color-mix(in srgb,var(--text-3) 70%,var(--surface)); --ln:var(--text-3) }
@@ -186,7 +189,6 @@ input[type="checkbox"] { accent-color:var(--accent) }
 .bx polygon,.bx rect { stroke:var(--ln); stroke-width:.7; stroke-linejoin:round }
 .none .t { stroke-dasharray:3 2 }
 #fsv .sel > :is(rect,polygon):not(.deck) { stroke:var(--accent); stroke-width:2 }
-#fsv.diagram-3d .bx.work { --top:color-mix(in srgb,var(--success) 12%,var(--success-soft)) }
 .bx .deck { fill:none; stroke:var(--ln); stroke-opacity:.64; stroke-width:.55; pointer-events:none }
 #fsv .dimmed { opacity:.34 }
 .floor { fill:var(--surface); stroke:var(--line-strong) }
@@ -199,8 +201,13 @@ input[type="checkbox"] { accent-color:var(--accent) }
 .plan-frame line { stroke:var(--text-3); stroke-width:.75 }
 .plan-frame text { fill:var(--text-2); font-size:11px; font-weight:600 }
 .area { fill:var(--surface-2); stroke:var(--line-strong); stroke-dasharray:4 3 }
-.area.wait { fill:color-mix(in srgb,var(--warning) var(--heat),var(--warning-soft)); stroke:var(--warning) }
-.spot { fill:var(--surface-2); stroke:var(--accent-line); stroke-dasharray:3 3 }
+.station-color .area { fill:color-mix(in srgb,var(--station-color) 17%,var(--surface)); stroke:var(--station-color) }
+.spot { fill:var(--surface-2); stroke:var(--line-strong); stroke-dasharray:3 3 }
+.station-color .spot { stroke:var(--station-color); fill:color-mix(in srgb,var(--station-color) 13%,var(--surface)) }
+.spot.skid-zone { stroke-dasharray:5 3 }
+.zone-tag { pointer-events:none }
+.zone-tag rect { fill:var(--surface); stroke:var(--line-strong); stroke-width:.7 }
+.zone-tag text { fill:var(--text-2); font-size:10px; font-weight:600 }
 .route-halo { stroke:var(--surface); stroke-linecap:round; fill:none }
 .fl { stroke:var(--accent); stroke-linecap:round; fill:none }
 .fl-in { stroke-dasharray:5 4 }
@@ -211,11 +218,11 @@ input[type="checkbox"] { accent-color:var(--accent) }
 .pill.is-selected .pb { fill:var(--accent-soft); stroke:var(--accent); stroke-width:1.3 }
 .pill.is-call .pb { fill:var(--danger-soft); stroke:var(--danger); stroke-width:1 }
 .pill text { font-size:12px; fill:var(--text) }
-.pill :is(text,line,rect.status-rail) { pointer-events:none }
+.pill :is(text,line,rect.station-rail,circle) { pointer-events:none }
 .pill .divider { stroke:var(--line-strong); stroke-width:.7 }
 #fsv .pill.dimmed { opacity:1 }
 .pill.dimmed .pb { fill:var(--surface-2); stroke:var(--line-strong) }
-.pill.dimmed :is(text,.status-rail) { opacity:.69 }
+.pill.dimmed :is(text,.station-rail,circle) { opacity:.69 }
 .lbl { font-size:11px; fill:var(--text-2); pointer-events:none }
 .ax { font-size:10px; fill:var(--text-2); pointer-events:none }
 .measure,.guide,.marquee,.flows { pointer-events:none }
@@ -266,18 +273,8 @@ input[type="checkbox"] { accent-color:var(--accent) }
             </div>
             <button class="eb" data-b="edit">Edit</button>
             <details id="colors">
-              <summary class="eb colors-toggle">Colors</summary>
-              <div class="colors-panel">
-                <h3>Automatic status colors</h3>
-                <dl>
-                  <dt><span class="swatch call" aria-hidden="true"></span> Master called</dt><dd>An active master call</dd>
-                  <dt><span class="swatch work" aria-hidden="true"></span> Working</dt><dd>A scan in the last 15 min</dd>
-                  <dt><span class="swatch wait" aria-hidden="true"></span> Waiting</dt><dd>Glass queued, no recent scan</dd>
-                  <dt><span class="swatch" aria-hidden="true"></span> Idle</dt><dd>No queue or recent scan</dd>
-                </dl>
-                <label class="check"><input type="checkbox" id="shade-hours" checked> Shade waiting stations by queue hours</label>
-                <div class="colors-scale number" id="colors-scale"><small>0 h</small><i aria-hidden="true"></i><small>6+ h</small></div>
-              </div>
+              <summary class="eb colors-toggle">Station colors</summary>
+              <div class="colors-panel" id="station-colors"></div>
             </details>
           </div>
           <div class="map-controls row">
@@ -308,10 +305,11 @@ const sketch=[{k:'w',x:0,y:0,w:65,l:.3,h:4},{k:'w',x:0,y:0,w:.3,l:70,h:4},{k:'w'
 {k:'o',label:'Sheet rack',x:3.7,y:.6,w:3.7,l:11.9,h:2.4},{k:'m',st:'ARRIS',x:8.1,y:7,w:2,l:9.9,h:1.4},{k:'m',st:'CNC',x:18.1,y:1.9,w:12,l:2.1,h:1.8},{k:'m',st:'ARRIS',x:1.1,y:20,w:2,l:14,h:1.4},{k:'m',st:'CUT',x:10.8,y:19.8,w:7.1,l:17,h:.9},{k:'m',st:'DRILL',x:27.5,y:11,w:2.6,l:3.6,h:1.6},
 {k:'m',st:'POLISH',x:23,y:20.2,w:2,l:6,h:1.5},{k:'m',st:'POLISH',x:29.1,y:20.2,w:2,l:6,h:1.5},{k:'m',st:'POLISH',x:29.1,y:29.2,w:2,l:6,h:1.5},{k:'m',st:'BEVEL',x:34,y:1.9,w:2,l:6,h:1.5},{k:'m',st:'MITER',x:40.1,y:1.9,w:2,l:6,h:1.5},{k:'m',st:'',x:34,y:9.9,w:2,l:6,h:1.5},
 {k:'m',st:'CERP',x:34,y:20,w:6,l:6,h:2.2},{k:'m',st:'LAM',x:34,y:27,w:1,l:12,h:1},{k:'m',st:'LAM',x:39,y:27,w:1,l:12,h:1},{k:'m',st:'LAM',x:35,y:30,w:4,l:3,h:2.6},{k:'m',st:'PAINT',x:46,y:9.9,w:6,l:6,h:2.4},{k:'m',st:'IGU',x:46,y:17,w:1,l:22,h:1},{k:'m',st:'IGU',x:51,y:17,w:1,l:22,h:1},{k:'m',st:'IGU',x:47,y:20,w:4,l:3,h:2.2},
-{k:'m',st:'HEAT',x:53.1,y:.6,w:2,l:40,h:1.8},{k:'s',st:'HEAT',x:57,y:2,w:3.4,l:8},{k:'a',st:'SHIP',label:'Shipping',x:.3,y:61.3,w:64.4,l:8.4}].map((o,i)=>Object.assign({id:i+1,st:'',label:'',h:0},o));
+{k:'m',st:'HEAT',x:53.1,y:.6,w:2,l:40,h:1.8},{k:'s',st:'HEAT',x:57,y:2,w:3.4,l:8},{k:'a',st:'SHIP',label:'Shipping',x:.3,y:61.3,w:64.4,l:8.4},
+{k:'p',st:'SHIPR',x:11,y:76,w:18,l:7},{k:'p',st:'SHIP',x:36,y:76,w:18,l:7}].map((o,i)=>Object.assign({id:i+1,st:'',label:'',h:0},o));
 /* Демоданные смены и маршруты отдельных очередей. */
-const station = (name, status, waiting, dollies, last, done, people, broken, base) =>
-  ({name, status, waiting, dollies, last, done, people, broken, base});
+const station = (name, status, waiting, carrierCount, last, done, people, broken, base) =>
+  ({name, status, waiting, carrierCount, last, done, people, broken, base});
 const ST = {
   CUT: station('Cutting', 'work', 84, 0, '10:11', 212, 2, 3, 250),
   ARRIS: station('Arrising', 'wait', 46, 4, '09:46', 96, 1, 0, 110),
@@ -326,8 +324,8 @@ const ST = {
   PAINT: station('Painting', 'work', 0, 0, '10:05', 5, 1, 0, 6),
   LAM: station('Lamination', 'wait', 18, 2, '9:17', 12, 1, 0, 14),
   IGU: station('IGU assembly', 'work', 38, 4, '10:09', 44, 2, 0, 50),
-  SHIPR: station('Shipping ready', 'idle', 0, 0, '8:40', 26, 1, 0, 30),
-  SHIP: station('Shipping', 'wait', 20, 6, '9:12', 9, 1, 0, 12)
+  SHIPR: station('Shipping ready', 'idle', 0, 2, '8:40', 26, 1, 0, 30),
+  SHIP: station('Shipping', 'wait', 20, 4, '9:12', 9, 1, 0, 12)
 };
 const FLOWS = {
   CUT:{out:{ARRIS:46,POLISH:24,CNC:9,HEAT:5}},
@@ -339,13 +337,14 @@ const FLOWS = {
   LAM:{in:{HEAT:12,ARRIS:6},out:{IGU:10}},
   IGU:{in:{HEAT:38,LAM:10}}
 };
-const KIND = {m:'Machine',w:'Wall',o:'Object',a:'Area',s:'Dolly spot'};
-const SIZES = {m:[2,6,1.5],w:[10,.2,4],o:[2,2,2],a:[8,6,0],s:[3,4,0]};
+const KIND = {m:'Machine',w:'Wall',o:'Object',a:'Area',s:'Dolly zone',p:'Finished skid zone'};
+const SIZES = {m:[2,6,1.5],w:[10,.2,4],o:[2,2,2],a:[8,6,0],s:[4,6,0],p:[12,7,0]};
+const zoneKind = item => item?.k === 's' || item?.k === 'p';
 const STATUS = {work:'Working',wait:'Waiting',idle:'Idle',call:'Master called'};
 const COLOR = {work:'var(--success)',wait:'var(--warning)',idle:'var(--text-3)',call:'var(--danger)'};
 const codes = Object.keys(ST);
 const HALL = {w:65,l:70};
-const SCALE = 7, SHIFT_HOURS = 3.5, SNAP = .5, SLAB_DEPTH = 2.4, ISO = {yaw:.75,pitch:.70};
+const SCALE = 7, SNAP = .5, SLAB_DEPTH = 2.4, ISO = {yaw:.75,pitch:.70};
 const $ = id => document.getElementById(id);
 const svg = $('fsv'), panel = $('pan'), root = $('erp');
 const ctx = document.createElement('canvas').getContext('2d');
@@ -354,28 +353,48 @@ const round = n => Math.round(n * 100) / 100;
 const meters = n => n.toFixed(2) + ' m';
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 const html = value => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch]);
-const copySketch = (named = true) => sketch.filter(item => named || item.k !== 's')
+const copySketch = (named = true) => sketch.filter(item => named || !zoneKind(item))
   .map(item => named ? {...item} : {...item, st:'', label:''});
-const speed = code => Math.round(ST[code].done / SHIFT_HOURS * 10) / 10;
-const hours = code => speed(code) ? ST[code].waiting / speed(code) : (ST[code].waiting ? Infinity : 0);
-const eta = code => Number.isFinite(hours(code)) ? '≈' + hours(code).toFixed(1) + ' h' : 'No scan rate';
+/* Цвета по умолчанию и готовые сборки — отдельные демонстрационные данные. */
+const PALETTE = {
+  1:'Blue',2:'Jade',3:'Terracotta',4:'Violet',5:'Ochre',6:'Cyan',7:'Rose',
+  8:'Olive',9:'Amber',10:'Indigo',11:'Brown',12:'Slate',13:'Azure',16:'Purple'
+};
+const DEFAULT_COLORS = {
+  CUT:1, ARRIS:6, POLISH:4, BEVEL:8, MITER:10, CNC:2, DRILL:5, CERP:11,
+  HEAT:3, SAND:12, PAINT:7, LAM:9, IGU:13, SHIPR:2, SHIP:12
+};
+const ASSEMBLY = {IGU:{done:18,base:22},LAM:{done:5,base:6}};
+/* У каждой демоединицы тары свой ID и текущее место, независимо от числа стёкол. */
+const carriers = [];
+for (const [kind,prefix] of [['dolly','DL'],['skid','SK']]) {
+  let number = 1;
+  for (const code of codes.filter(code => code.startsWith('SHIP') === (kind === 'skid'))) {
+    for (let i = 0; i < ST[code].carrierCount; i++) {
+      carriers.push({id:`${prefix}-${String(number++).padStart(2,'0')}`,kind,st:code});
+    }
+  }
+}
+let selectedCarrier = '';
+let stationColors = {...DEFAULT_COLORS};
+const stationColor = code => `var(--series-${stationColors[code]})`;
+const stationSwatch = code => `<span class="swatch" aria-hidden="true" style="--station-color:${stationColor(code)}"></span>`;
 
 let items = copySketch(), nextId = 200, selected = new Set();
 let view = '2d', filter = '', period = 'today', editing = false, allowed = true;
-let showFlows = false, shadeHours = true;
+let showFlows = false;
 let camera = {...ISO, zoom:1, x:0, y:0, frame:null, preset:'iso'};
 let savedDemo = null, backup = null, undo = [], redo = [];
 let gesture = null, frameRequest = 0, lastTap = null, acknowledged = false;
 
 const selectedItems = () => items.filter(item => selected.has(item.id));
 const single = () => selected.size === 1 ? items.find(item => selected.has(item.id)) : null;
-const activeCode = () => editing ? '' : single()?.st || '';
+const activeCode = () => editing || zoneKind(single()) ? '' : single()?.st || '';
 const isEmpty = () => !items.length && !editing;
 const targetItem = code => items.find(item => item.k === 'm' && item.st === code)
   || items.find(item => item.st === code);
-const stateOf = item => item.k === 'w' ? 'wall' : item.st ? ST[item.st].status : item.k === 'm' ? 'none' : 'idle';
-const heat = code => ST[code]?.status === 'wait'
-  ? ` style="--heat:${shadeHours ? Math.round(9 + Math.min(hours(code), 6) * 6) : 0}%"` : '';
+const blockClass = item => item.k === 'w' ? 'wall' : item.k === 'm' && !item.st ? 'none' : '';
+const placedCodes = () => codes.filter(targetItem).sort();
 const dot = status => `<span class="dot ${status}" aria-hidden="true"></span>`;
 
 function textWidth(text, size = 11, weight = 400) {
@@ -395,6 +414,7 @@ function selectStation(code) {
     period = 'today';
     showFlows = false;
   }
+  selectedCarrier = '';
   selected = new Set([item.id]);
   filter = '';
 }
@@ -422,14 +442,12 @@ function drawBar() {
       <div class="row end"><button class="eb" data-b="cancel">Cancel</button><button class="eb solid" data-b="save">Save</button></div>`;
     return;
   }
-  const placed = codes.filter(targetItem);
+  const placed = placedCodes();
   const working = placed.filter(code => ST[code].status === 'work').length;
-  const waiting = placed.reduce((sum, code) => sum + ST[code].waiting, 0);
-  const busiest = placed.reduce((top, code) => !top || ST[code].waiting > ST[top].waiting ? code : top, '');
+  const waiting = placed.filter(code => ST[code].status === 'wait').length;
   bar.innerHTML = `<time datetime="2026-11-20T10:12">Fri 10:12</time>
-    <button class="eb number filter work" data-b="work" aria-pressed="${filter === 'work'}">${dot('work')}${working} working</button>
-    <button class="eb number filter wait" data-b="wait" aria-pressed="${filter === 'wait'}" title="Filter to waiting stations. Count includes all queued glass.">${dot('wait')}${waiting} waiting</button>
-    ${busiest && ST[busiest].waiting ? `<button class="eb number" data-code="${busiest}"><strong>${busiest}</strong> ${ST[busiest].waiting} · ${eta(busiest)}</button>` : ''}
+    <button class="eb number filter work" data-b="work" aria-pressed="${filter === 'work'}">${dot('work')}${working} stations working</button>
+    <button class="eb number filter wait" data-b="wait" aria-pressed="${filter === 'wait'}" title="Filter to waiting stations">${dot('wait')}${waiting} stations waiting</button>
     ${placed.includes('DRILL') ? `<button class="eb alert" data-code="DRILL">${dot('call')}1 call · DRILL</button>` : ''}
     <button class="eb end" data-b="all"${filter ? '' : ' disabled'}>Show all</button>`;
 }
@@ -449,21 +467,35 @@ function drawEmpty() {
   $('can-edit').checked = allowed;
 }
 
-function rankPanel() {
-  const top = codes.filter(code => targetItem(code) && ST[code].waiting)
-    .sort((a,b) => hours(b) - hours(a)).slice(0,5);
-  const longest = top.length ? hours(top[0]) : 0;
-  const maxHours = Number.isFinite(longest) ? Math.max(longest,1) : 8;
+function stationsPanel() {
+  const placed = placedCodes().filter(code => !filter || ST[code].status === filter);
   panel.innerHTML = `<section class="card">
-    <h2>Where the work piles up</h2>
-    ${top.length ? `<small>Time to clear at the current pace</small><ol class="queue-list">${top.map(code => {
+    <h2>Stations</h2>
+    ${placed.length ? `<ul class="station-list">${placed.map(code => {
       const s = ST[code];
-      return `<li><button class="queue-row" data-code="${code}">${dot(s.status)}
-        <span><strong>${code}</strong><small>${s.name}</small></span>
-        <span class="number">${eta(code)}<small>${s.waiting} waiting · ${speed(code)}/h</small></span>
-        <span class="queue-track" aria-hidden="true"><i style="--share:${Math.min(hours(code)/maxHours*100,100)}%"></i></span></button></li>`;
-    }).join('')}</ol>` : '<p class="muted">No stations with queued work</p>'}
+      return `<li><button class="eb station-row" data-code="${code}">
+        ${stationSwatch(code)}<span><strong>${code}</strong><small>${STATUS[s.status]}</small></span></button></li>`;
+    }).join('')}</ul>` : '<p class="muted">No matching stations on the plan</p>'}
   </section>`;
+}
+
+function drawStationColors() {
+  const placed = placedCodes();
+  $('station-colors').innerHTML = `<h3>Station colors</h3>
+    ${placed.length ? `<ul class="color-list">${placed.map(code =>
+      `<li>${stationSwatch(code)}<strong>${code}</strong> <small>${PALETTE[stationColors[code]]}</small></li>`).join('')}</ul>`
+      : '<small>No stations on the plan</small>'}
+    ${allowed ? '<small>Change a station color in Edit.</small>' : ''}`;
+}
+
+function stationPalette(code) {
+  if (!code) return '';
+  const current = stationColors[code];
+  return `<p class="palette-caption">Station color · ${PALETTE[current]}</p>
+    <div class="palette" role="group" aria-label="Station color">${Object.entries(PALETTE).map(([key,name]) =>
+      `<button type="button" class="eb" data-paint="${key}" title="${name}" aria-label="${name}" aria-pressed="${Number(key) === current}">
+      <span class="swatch" aria-hidden="true" style="--station-color:var(--series-${key})"></span></button>`).join('')}</div>
+    <small>All blocks for ${code}</small>`;
 }
 
 /* Те же периоды и условная история из v4. */
@@ -478,15 +510,15 @@ function seed(code) {
 }
 
 function days(code, count) {
-  const s = ST[code], random = seed(code), out = [];
+  const s = ST[code], production = ASSEMBLY[code] || s, random = seed(code), out = [];
   const d = new Date(2026,10,20);
   while (out.length < count) {
     if (d.getDay() > 0 && d.getDay() < 6) {
       const today = out.length === 0;
-      const done = today ? s.done : Math.round(s.base * (.72 + .5 * random()));
+      const done = today ? production.done : Math.round(production.base * (.72 + .5 * random()));
       out.push({
         label: d.toLocaleDateString('en-US',{weekday:'short'}) + ' ' + d.getDate(),
-        done, rate: today ? speed(code) : Math.round(done / 9.5),
+        done,
         people: today ? s.people : (s.base > 60 ? 2 : 1) + (random() > .85 ? 1 : 0),
         broken: today ? s.broken : Math.round(s.base * .02 * random()),
         hourly: today ? [.14,.27,.24,.25,.1] : [.06,.1,.11,.11,.1,.05,.1,.11,.1,.08,.08]
@@ -497,7 +529,7 @@ function days(code, count) {
   return out;
 }
 
-function bars(values, labels, aria, highlight, clickable = false) {
+function bars(values, labels, aria, highlight, unit, clickable = false) {
   const n = values.length, step = 310 / n, width = Math.min(34, step - 4), max = Math.max(1, ...values);
   return `<svg viewBox="0 0 330 109" aria-label="${aria}">
     <path d="M7 87H323" stroke="var(--line-strong)"/>
@@ -515,37 +547,47 @@ const metric = (label, value, detail = '') => `<div class="mc"><small>${label}</
 
 function stationPanel(code) {
   const s = ST[code], history = days(code,22);
+  const unit = ASSEMBLY[code] ? 'units' : 'glass pieces';
+  const completed = ASSEMBLY[code] ? 'Units assembled' : 'Glass processed';
   const day = period === 'today' ? 0 : period === 'yest' ? 1 : period.startsWith('day:') ? +period.slice(4) : -1;
   const periods = [['today','Today'],['yest','Yesterday'],['7','7 days'],['30','30 days']]
     .map(([key,label]) => `<button class="eb" data-per="${key}" aria-pressed="${period === key || key === 'today' && day === 0 || key === 'yest' && day === 1}">${label}</button>`).join('');
   let metrics, chart, table = '';
   if (day >= 0) {
-    const d = history[day], values = d.hourly.map(f => Math.round(d.done * f));
-    const carriers = code.startsWith('SHIP') ? 'skids' : 'dollies';
-    metrics = metric('Done', d.done) + metric('Per hour', d.rate)
-      + (day === 0 ? metric('Waiting now', `${s.waiting} · ${eta(code)}`, s.dollies ? `on ${s.dollies} ${carriers}` : '')
-        + metric('Last scan', s.last) : metric('People', d.people) + metric('Broken', d.broken));
+    const d = history[day];
+    let share = 0, allocated = 0;
+    const values = d.hourly.map(fraction => {
+      share += fraction;
+      const cumulative = Math.round(d.done * share);
+      const count = cumulative - allocated;
+      allocated = cumulative;
+      return count;
+    });
+    metrics = metric(completed, d.done) + metric('People', d.people)
+      + (day === 0 ? metric('Glass waiting', s.waiting)
+        + metric('Last scan', s.last) : metric('Glass broken', d.broken));
     const title = day === 0 ? 'Today by hour' : `${d.label} by hour`;
-    chart = `<div class="chart-block"><h3>${title}</h3>${day === 0 ? `<small>${s.people} people · ${s.broken} broken</small>` : ''}
-      ${bars(values, values.map((_,i) => String(6+i)), title, day === 0 ? values.length-1 : -1)}</div>`;
+    chart = `<div class="chart-block"><h3>${title}</h3><small>${completed}${day === 0 ? ` · ${s.broken} glass broken` : ''}</small>
+      ${bars(values, values.map((_,i) => String(6+i)), `${completed} by hour`, day === 0 ? values.length-1 : -1, unit)}</div>`;
   } else {
     const n = period === '7' ? 5 : 22, list = history.slice(0,n).reverse();
     const total = list.reduce((sum,d) => sum + d.done, 0);
     const best = list.reduce((a,b) => b.done > a.done ? b : a);
-    metrics = metric('Done', total) + metric('Per day', Math.round(total/n))
-      + metric('Best day', best.label) + metric('Broken', list.reduce((sum,d) => sum + d.broken,0));
-    chart = `<div class="chart-block"><h3>By date</h3><small>Select a day for hours</small>
-      ${bars(list.map(d => d.done), list.map((d,i) => n === 5 || i % 4 === 1 ? d.label : ''), 'Pieces done by date', n-1, true)}</div>`;
+    metrics = metric(completed, total) + metric('Days with work', list.filter(d => d.done > 0).length)
+      + metric('Best day', best.label) + metric('Glass broken', list.reduce((sum,d) => sum + d.broken,0));
+    chart = `<div class="chart-block"><h3>By date</h3><small>${completed} · select a day for hours</small>
+      ${bars(list.map(d => d.done), list.map((d,i) => n === 5 || i % 4 === 1 ? d.label : ''), `${completed} by date`, n-1, unit, true)}</div>`;
     if (n === 5) {
-      table = `<div class="table-wrap"><table><thead><tr><th>Date</th><th>Done</th><th>Per hour</th><th>People</th><th>Broken</th></tr></thead>
-        <tbody>${list.slice().reverse().map(d => `<tr><td>${d.label}</td><td>${d.done}</td><td>${d.rate}</td><td>${d.people}</td><td>${d.broken}</td></tr>`).join('')}</tbody></table></div>`;
+      table = `<div class="table-wrap"><table><thead><tr><th>Date</th><th>${ASSEMBLY[code] ? 'Units assembled' : 'Glass processed'}</th><th>People</th><th>Broken</th></tr></thead>
+        <tbody>${list.slice().reverse().map(d => `<tr><td>${d.label}</td><td>${d.done}</td><td>${d.people}</td><td>${d.broken}</td></tr>`).join('')}</tbody></table></div>`;
     }
   }
   panel.innerHTML = `<section class="card">
-    <header class="card-head row"><div><h2>${code}</h2><p class="muted">${s.name}</p></div><span class="status row">${dot(s.status)}${STATUS[s.status]}</span></header>
+    <header class="card-head row"><div><h2 class="row">${stationSwatch(code)}${code}</h2><p class="muted">${s.name}</p></div><span class="status row">${dot(s.status)}${STATUS[s.status]}</span></header>
     ${s.status === 'call' ? `<div class="call-banner row">${dot('call')} ${acknowledged ? 'Master is coming · #05' : 'Master called 4 min ago · #05'}
       ${acknowledged ? '' : '<button class="eb end" data-b="going">Going</button>'}</div>` : ''}
     <div class="periods" aria-label="Period">${periods}</div><div class="metrics">${metrics}</div>${chart}${table}
+    ${carriersAtStation(code)}
     <div class="row actions">${FLOWS[code] ? `<button class="eb" data-b="flows" aria-controls="fsv" aria-pressed="${showFlows}">Flows</button>` : ''}
       <button class="eb" disabled title="Available in ERP">Orders</button><button class="eb" disabled title="Available in ERP">Open screen ↗</button></div>
   </section>`;
@@ -569,6 +611,7 @@ function inspector() {
       `<button class="eb icon-button" data-a="${key}" aria-label="${label}" title="${label}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICON[key]}</svg></button>`).join('')}</div>` : ''}
     ${c ? `<div class="fields">
       <div class="full"><label for="station">Station</label><select id="station" data-f="st"${'wo'.includes(c.k) ? ' disabled' : ''}>${options}</select></div>
+      <div class="full station-palette" id="station-palette">${stationPalette(c.st)}</div>
       <div class="full"><label for="label">Label</label><input id="label" data-f="label" maxlength="80" value="${html(c.label)}"></div>
       ${field('x','X')}${field('y','Y')}${field('w','Width')}${field('l','Length')}${field('h','Height')}
     </div><p id="err" role="status" hidden></p>` : `<p class="muted">${count ? 'Drag a selected block to move them together.' : 'Drag a box or Shift-click to select multiple blocks.'}</p>`}
@@ -583,8 +626,10 @@ function inspector() {
 function drawPanel() {
   if (isEmpty()) return;
   if (editing) inspector();
+  else if (selectedCarrier) carrierPanel();
+  else if (zoneKind(single())) zonePanel(single());
   else if (activeCode()) stationPanel(activeCode());
-  else rankPanel();
+  else stationsPanel();
 }
 /* Размеры и контуры в метрах, SVG получает уже спроецированные координаты. */
 const at2d = (x,y) => [x*SCALE,y*SCALE,0];
@@ -605,6 +650,15 @@ const edges = ([x0,y0,x1,y1]) => [
   {nx:0,ny:-1,a:[x1,y0],b:[x0,y0]}, {nx:-1,ny:0,a:[x0,y0],b:[x0,y1]}
 ];
 const floorBounds = [0,0,HALL.w,HALL.l];
+const insideHall = item => item.x < HALL.w && item.x+item.w > 0 && item.y < HALL.l && item.y+item.l > 0;
+
+function planBounds() {
+  const outside = items.filter(item => item.k === 'p');
+  if (!outside.length) return floorBounds;
+  const [x,y,X,Y] = extent(outside);
+  return [Math.min(0,x),Math.min(0,y),Math.max(HALL.w,X),Math.max(HALL.l,Y)];
+}
+
 const face = ([x0,y0,x1,y1],z,project,cls) => polygon(
   [project(x0,y0,z),project(x1,y0,z),project(x1,y1,z),project(x0,y1,z)], cls
 );
@@ -639,23 +693,88 @@ function drawOrientation(project) {
   }).join('')+'<circle cx="33" cy="37" r="2" fill="var(--text-3)"/>';
 }
 
+/* Свободные места в зоне заполняются по ID тары. Скиды рисуются в зоне готовой продукции. */
 function carrierBoxes() {
   if (editing) return [];
-  return codes.flatMap(code => {
-    const count = ST[code].dollies;
-    if (!count) return [];
-    const spot = items.find(i => (i.k === 's' || i.k === 'a') && i.st === code);
-    const machine = targetItem(code);
-    if (!machine && !spot) return [];
-    const skid = code.startsWith('SHIP'), dx = skid ? 1.8 : .9, dy = skid ? 2.9 : 2;
-    const cols = spot ? Math.max(1,Math.floor((spot.w-.2)/dx)) : count;
-    return Array.from({length:count}, (_,j) => ({
-      id:'c'+code, k:'c', st:code, cls:skid ? 'skid' : 'dolly',
-      x:spot ? spot.x+.3+(j%cols)*dx+(spot.k === 'a' ? 30 : 0) : machine.x+j*dx,
-      y:spot ? spot.y+.4+Math.floor(j/cols)*dy : machine.y+machine.l+.5,
-      w:skid ? 1.3 : .7, l:skid ? 2.4 : 1.6, h:skid ? 1.1 : 1.7
+  const groups = new Map();
+  for (const carrier of carriers) {
+    const key = carrier.st + '/' + carrier.kind;
+    if (!groups.has(key)) groups.set(key,[]);
+    groups.get(key).push(carrier);
+  }
+  return [...groups.values()].flatMap(here => {
+    const code = here[0].st, station = targetItem(code);
+    if (!station) return [];
+    const skid = here[0].kind === 'skid', kind = skid ? 'p' : 's';
+    const w = skid ? 1.3 : .7, l = skid ? 2.4 : 1.6, dx = skid ? 1.8 : .9, dy = skid ? 2.9 : 2;
+    const slots = [];
+    for (const zone of items.filter(item => item.k === kind && item.st === code && (!skid || !insideHall(item)))) {
+      for (let y = 1.65; y+l <= zone.l-.2; y += dy) {
+        for (let x = .25; x+w <= zone.w-.2; x += dx) {
+          slots.push({x:zone.x+x,y:zone.y+y,zone:zone.id});
+          if (slots.length === here.length) break;
+        }
+        if (slots.length === here.length) break;
+      }
+      if (slots.length === here.length) break;
+    }
+    const overflow = Math.max(0,here.length-slots.length);
+    if (!skid && overflow && !zoneKind(station)) {
+      for (let j=0; j<overflow; j++) slots.push({x:station.x+j*dx,y:station.y+station.l+.5});
+    }
+    return slots.map((slot,j) => ({
+      ...slot,id:here[j].id,k:'c',st:code,cls:here[j].kind,w,l,h:skid ? 1.1 : 1.7
     }));
   });
+}
+
+function carrierButtons(here) {
+  return `<div class="row carrier-links">${here.map(carrier =>
+    `<button class="eb" data-carrier="${carrier.id}">${carrier.id}</button>`).join('')}</div>`;
+}
+
+function carriersAtStation(code) {
+  return [['dolly','Dollies here'],['skid','Finished skids']].map(([type,label]) => {
+    const here = carriers.filter(carrier => carrier.st === code && carrier.kind === type);
+    return here.length ? `<div class="carrier-section"><h3>${label}</h3>${carrierButtons(here)}</div>` : '';
+  }).join('');
+}
+
+function zonePanel(zone) {
+  const placed = new Set(carrierBoxes().filter(box => box.zone === zone.id).map(box => box.id));
+  const here = carriers.filter(carrier => placed.has(carrier.id));
+  panel.innerHTML = `<section class="card">
+    <header class="card-head row"><div><h2>${html(zone.label || KIND[zone.k])}</h2><p class="muted">${zone.st || 'Unassigned'}</p></div></header>
+    ${here.length ? carrierButtons(here) : '<p class="muted">No carriers in this zone</p>'}
+  </section>`;
+}
+
+function carrierPanel() {
+  const carrier = carriers.find(item => item.id === selectedCarrier);
+  const box = carrierBoxes().find(item => item.id === carrier.id);
+  const zone = items.find(item => item.id === box?.zone);
+  const skid = carrier.kind === 'skid';
+  const destinations = placedCodes().filter(code => code !== carrier.st
+    && items.some(i => i.st === code && (skid ? i.k === 'p' && !insideHall(i) : 'ms'.includes(i.k))));
+  panel.innerHTML = `<section class="card">
+    <header class="card-head row"><div><h2>${carrier.id}</h2><p class="muted">${skid ? 'Finished skid' : 'Dolly'}</p></div></header>
+    <dl class="carrier-location"><dt>Station</dt><dd>${carrier.st}</dd>
+    <dt>Location</dt><dd>${zone ? html(zone.label || KIND[zone.k]) : box ? 'Beside station' : 'No space in an assigned zone'}</dd></dl>
+    ${destinations.length ? `<div class="carrier-section">
+      <label for="carrier-destination">Demo destination</label>
+      <select id="carrier-destination">${destinations.map(code => `<option>${code}</option>`).join('')}</select>
+      <button class="eb solid" data-b="move-carrier">Simulate move</button>
+      <p id="carrier-warning" class="warning-banner" role="status" hidden></p>
+    </div>` : ''}
+  </section>`;
+}
+
+function selectCarrier(id) {
+  selectedCarrier = id;
+  selected.clear();
+  filter = '';
+  showFlows = false;
+  lastTap = null;
 }
 
 function centers() {
@@ -674,13 +793,16 @@ function centers() {
 }
 
 function group(item,cls,related,inner) {
-  const highlighted = selected.has(item.id) || item.k !== 'c' && item.st && item.st === activeCode();
-  return `<g data-id="${item.id}"${item.st ? ` data-st="${item.st}"` : ''}
-    class="${cls}${highlighted ? ' sel' : ''}${dimmed(item.st,related) ? ' dimmed' : ''}"${heat(item.st)}>${inner}</g>`;
+  const paint = item.st && 'masp'.includes(item.k) ? stationColor(item.st) : '';
+  const highlighted = selected.has(item.id) || item.k === 'c' && item.id === selectedCarrier
+    || item.k !== 'c' && item.st && item.st === activeCode();
+  const vehicle = item.k === 'c' ? ` data-carrier="${item.id}"${item.zone ? ` data-zone="${item.zone}"` : ''}` : '';
+  return `<g data-id="${item.id}"${item.st ? ` data-st="${item.st}"` : ''}${vehicle}
+    class="${cls}${paint ? ' station-color' : ''}${highlighted ? ' sel' : ''}${dimmed(item.st,related) ? ' dimmed' : ''}"${paint ? ` style="--station-color:${paint}"` : ''}>${inner}</g>`;
 }
 
 function footprint(item,project,related) {
-  const cls = item.k === 'a' ? `area ${stateOf(item)}` : 'spot';
+  const cls = item.k === 'a' ? 'area' : item.k === 'p' ? 'spot skid-zone' : 'spot dolly-zone';
   return group(item,'',related,face(bounds(item),.02,project,cls));
 }
 
@@ -694,7 +816,7 @@ function segments(item) {
 
 let sceneItems = null, solids = [], plates = [];
 function prepareScene() {
-  plates = items.filter(i => i.k === 'a' || i.k === 's');
+  plates = items.filter(i => i.k === 'a' || zoneKind(i));
   solids = items.filter(i => 'mwo'.includes(i.k)).flatMap(segments).concat(carrierBoxes());
   sceneItems = items;
 }
@@ -735,7 +857,7 @@ function geometry3d(project,related) {
     const [x,y,X,Y] = box;
     const deck = !top && i.k === 'm' && inset >= .12
       ? face([x+inset,y+inset,X-inset,Y-inset],h,project,'deck') : '';
-    out += group(i,`bx ${i.cls || stateOf(i)}`,related,sides+face(box,h,project,'t')+deck);
+    out += group(i,`bx ${i.cls || blockClass(i)}`,related,sides+face(box,h,project,'t')+deck);
   }
   return out;
 }
@@ -743,11 +865,11 @@ function geometry3d(project,related) {
 function geometry2d(related) {
   let out = face(floorBounds,0,at2d,'floor')+grid(at2d);
   for (const i of items) {
-    if (i.k === 'a' || i.k === 's') out += footprint(i,at2d,related);
+    if (i.k === 'a' || zoneKind(i)) out += footprint(i,at2d,related);
   }
   for (const i of items.concat(carrierBoxes())) {
     if (!'mwoc'.includes(i.k)) continue;
-    out += group(i,`bx ${i.cls || stateOf(i)}`,related,
+    out += group(i,`bx ${i.cls || blockClass(i)}`,related,
       `<rect class="t" x="${i.x*SCALE}" y="${i.y*SCALE}" width="${i.w*SCALE}" height="${i.l*SCALE}" rx="${i.k === 'w' ? 0 : 1.5}"/>`);
   }
   return out;
@@ -793,16 +915,16 @@ function drawFlows(anchors,occupied) {
 
 function stationLabels(anchors,occupied,related) {
   const code = activeCode();
-  const ranked = [...anchors.keys()].filter(k => ST[k].status !== 'idle' || k === code)
-    .sort((a,b) => priority(b)-priority(a) || ST[b].waiting-ST[a].waiting);
+  const ranked = [...anchors.keys()].filter(k => (ST[k].status !== 'idle' || k === code) && !zoneKind(targetItem(k)))
+    .sort((a,b) => priority(b)-priority(a) || a.localeCompare(b));
   function priority(k) {
     return k === code ? 9 : ST[k].status === 'call' ? 8 : dimmed(k,related) ? 0 : ST[k].status === 'work' ? 4 : 3;
   }
   let leaders = '', labels = '';
   for (const k of ranked) {
     const s = ST[k], [x,y] = anchors.get(k);
-    const detail = s.status === 'call' ? (acknowledged ? 'Coming' : 'Help · 4 min') : s.waiting > 0 ? s.waiting : '';
-    const w = 27+textWidth(k,12,600)+(detail ? 8+textWidth(detail,12) : 0), h = 23;
+    const detail = s.status === 'call' ? (acknowledged ? 'Coming' : 'Help · 4 min') : '';
+    const w = 31+textWidth(k,12,600)+(detail ? 8+textWidth(detail,12) : 0), h = 23;
     const around = view === '2d' ? [[0,0],[0,-25],[0,25]] : [[0,-18],[0,-45],[0,16]];
     for (const dy of [-27,27,-54,54,-81,81]) around.push([-w*.62,dy],[w*.62,dy],[0,dy]);
     for (const dy of [0,-27,27,-54,54,-81,81]) {
@@ -825,7 +947,8 @@ function stationLabels(anchors,occupied,related) {
     const box = `x="${r.x}" y="${r.y}" width="${w}" height="${h}" rx="6"`;
     labels += `<g class="pill${k === code ? ' is-selected' : ''}${s.status === 'call' ? ' is-call' : ''}${dim ? ' dimmed' : ''}" data-st="${k}">
       ${s.status === 'call' && !acknowledged ? `<rect class="pulse" ${box}/>` : ''}<rect class="pb" ${box}/>
-      <rect class="status-rail" x="${r.x+6}" y="${r.y+5}" width="3" height="${h-10}" rx="1" fill="${COLOR[s.status]}"/>
+      <rect class="station-rail" x="${r.x+6}" y="${r.y+5}" width="3" height="${h-10}" rx="1" fill="${stationColor(k)}"/>
+      <circle cx="${r.x+w-7}" cy="${r.y+h/2}" r="2" fill="${COLOR[s.status]}"/>
       ${detail ? line([r.x+18+textWidth(k,12,600),r.y+6],[r.x+18+textWidth(k,12,600),r.y+h-6],'divider') : ''}
       <text x="${r.x+14}" y="${r.y+h/2}" dominant-baseline="central"><tspan font-weight="600">${k}</tspan>${detail ? `<tspan dx="9" fill="${s.status === 'call' ? 'var(--danger)' : 'var(--text-2)'}">${detail}</tspan>` : ''}</text></g>`;
   }
@@ -835,7 +958,7 @@ function stationLabels(anchors,occupied,related) {
 function insideLabels(occupied,related) {
   let out = '';
   for (const i of items) {
-    if (i.k === 'w' || i.k === 's') continue;
+    if (i.k === 'w' || zoneKind(i)) continue;
     const label = editing ? i.label || i.st
       : i.k === 'a' || i.k === 'o' ? i.label : ST[i.st]?.status === 'idle' && activeCode() !== i.st ? i.st : '';
     if (!label) continue;
@@ -872,7 +995,7 @@ function measures(occupied) {
   }
   out += tag((x0+x1)/2,y0-24,meters(item.w));
   out += tag(x1+25,midY,meters(item.l),true);
-  if (item.x >= wallX) {
+  if (item.x >= wallX && (item.k !== 'p' || leftWall)) {
     const from = wallX*SCALE, value = `${meters(item.x-wallX)} to wall`;
     const y = leftWall ? clamp(midY,leftWall.y*SCALE,(leftWall.y+leftWall.l)*SCALE) : midY;
     const half = textWidth(value,11,600)/2+8;
@@ -892,9 +1015,12 @@ function editOverlay() {
   for (let y = 0; y <= HALL.l; y += 10) {
     out += `<text class="ax" x="-8" y="${y*SCALE+3}" text-anchor="end">${y}</text>`;
   }
-  for (const guide of gesture?.guides || []) {
-    const v = guide.value*SCALE;
-    out += guide.axis === 'x' ? line([v,0],[v,HALL.l*SCALE],'guide') : line([0,v],[HALL.w*SCALE,v],'guide');
+  if (gesture?.guides?.length) {
+    const [x,y,X,Y] = planBounds().map(v => v*SCALE);
+    for (const guide of gesture.guides) {
+      const v = guide.value*SCALE;
+      out += guide.axis === 'x' ? line([v,y],[v,Y],'guide') : line([x,v],[X,v],'guide');
+    }
   }
   if (gesture?.box) {
     const {x,y,w,h} = gesture.box;
@@ -909,7 +1035,9 @@ function updateViewBox() {
 }
 
 function orbitFrame(pitch) {
-  const r = Math.hypot(HALL.w,HALL.l)*SCALE/2;
+  const [x0,y0,x1,y1] = planBounds();
+  const dx = Math.max(HALL.w/2-x0,x1-HALL.w/2), dy = Math.max(HALL.l/2-y0,y1-HALL.l/2);
+  const r = Math.hypot(dx,dy)*SCALE;
   const y = r*Math.sin(pitch);
   const maxH = items.reduce((h,i) => Math.max(h,i.k === 'w' ? 1.3 : i.h),2);
   return [-r-33,-y-maxH*SCALE-61,2*r+66,2*y+maxH*SCALE+96];
@@ -918,11 +1046,29 @@ function orbitFrame(pitch) {
 function fit() {
   camera.zoom = 1; camera.x = 0; camera.y = 0;
   if (view === '2d') {
-    camera.frame = editing ? [-78,-54,HALL.w*SCALE+134,HALL.l*SCALE+104]
-      : [-60,-52,HALL.w*SCALE+120,HALL.l*SCALE+92];
+    const [x0,y0,x1,y1] = planBounds().map(v => v*SCALE);
+    camera.frame = editing ? [x0-78,y0-54,x1-x0+134,y1-y0+104]
+      : [x0-60,y0-52,x1-x0+120,y1-y0+92];
   } else {
     camera.frame = orbitFrame(camera.pitch);
   }
+}
+
+function zoneLabels(project,occupied) {
+  let out = '';
+  for (const zone of items.filter(zoneKind)) {
+    const [x,y] = project(zone.x+zone.w/2,zone.y+.6,.05);
+    const kind = zone.label || (zone.k === 's' ? 'Dollies' : 'Finished skids');
+    const value = `${zone.st ? zone.st+' · ' : ''}${kind}`;
+    const w = textWidth(value,10,600)+12, h = 16;
+    const box = {x:x-w/2,y:y-h/2,w,h};
+    const position = [0,-18,18,-36,36].map(dy => ({...box,y:box.y+dy}))
+      .find(candidate => !occupied.some(other => intersects(candidate,other,3)));
+    if (!position) continue;
+    occupied.push(position);
+    out += badge(x,position.y+h/2,w,h,html(value),'zone-tag');
+  }
+  return out;
 }
 
 function drawMap() {
@@ -932,21 +1078,23 @@ function drawMap() {
   let out = ARROW + (view === '3d' ? geometry3d(project,related) : geometry2d(related));
   if (editing) {
     const dimensionLines = measures(occupied);
-    out += insideLabels(occupied,related) + editOverlay() + dimensionLines;
+    out += zoneLabels(project,occupied) + insideLabels(occupied,related) + editOverlay() + dimensionLines;
   } else if (!spin) {
     const anchors = new Map([...centers()].map(([key,[x,y,z]]) => [key,project(x,y,z+.15)]));
     const frame = view === '2d' ? planFrame() : modelFrame(project,occupied);
+    const zones = zoneLabels(project,occupied);
     const flows = drawFlows(anchors,occupied), labels = stationLabels(anchors,occupied,related);
-    out += frame + (view === '2d' ? insideLabels(occupied,related) : '') + flows + labels;
+    out += frame + (view === '2d' ? insideLabels(occupied,related) : '') + flows + labels + zones;
   }
   if (view === '3d') drawOrientation(project);
   updateViewBox();
   svg.innerHTML = out;
 }
 /* Черновик хранит геометрию и выделение для каждой завершённой правки. */
-const snapshot = () => ({items:items.map(i => ({...i})), selected:[...selected]});
+const snapshot = () => ({items:items.map(i => ({...i})), colors:{...stationColors}, selected:[...selected]});
 function restore(state) {
   items = state.items;
+  stationColors = state.colors;
   selected = new Set(state.selected);
   sceneItems = null;
 }
@@ -968,6 +1116,7 @@ function beginEdit(fromSketch = false) {
     selected.clear();
   }
   editing = true;
+  selectedCarrier = '';
   filter = '';
   undo = []; redo = [];
   view = '2d';
@@ -995,17 +1144,21 @@ function refreshWarnings() {
   const warning = $('overlaps');
   if (!warning) return;
   const name = overlap();
-  const outside = items.some(i => i.x < 0 || i.y < 0 || i.x+i.w > HALL.w+.0001 || i.y+i.l > HALL.l+.0001);
-  warning.textContent = [name && `Overlaps ${name}`, outside && 'Outside floor plan'].filter(Boolean).join(' · ');
+  const outside = items.some(i => i.k !== 'p' && (i.x < 0 || i.y < 0 || i.x+i.w > HALL.w+.0001 || i.y+i.l > HALL.l+.0001));
+  const inside = items.some(i => i.k === 'p' && insideHall(i));
+  warning.textContent = [name && `Overlaps ${name}`, outside && 'Outside floor plan',
+    inside && 'Finished skid storage overlaps production'].filter(Boolean).join(' · ');
   warning.hidden = !warning.textContent;
 }
 
 function addBlock(kind) {
   const [w,l,h] = SIZES[kind];
   remember(snapshot());
-  const item = {id:nextId++,k:kind,st:'',label:kind === 'a' ? 'New area' : '',x:24,y:44,w,l,h};
+  const y = kind === 'p' ? planBounds()[3]+3 : 44;
+  const item = {id:nextId++,k:kind,st:'',label:kind === 'a' ? 'New area' : '',x:24,y,w,l,h};
   items.push(item);
   selected = new Set([item.id]);
+  if (kind === 'p') fit();
   render();
 }
 function editSelection(action) {
@@ -1018,7 +1171,7 @@ function editSelection(action) {
     const [x0,y0,x1,y1] = extent(group);
     const w = x1-x0+.5, l = y1-y0+.5;
     const dx = x1+w <= HALL.w ? w : x0 >= w ? -w : 0;
-    const dy = dx ? 0 : y1+l <= HALL.l ? l : y0 >= l ? -l : -.5;
+    const dy = dx ? 0 : group.every(i => i.k === 'p') || y1+l <= HALL.l ? l : y0 >= l ? -l : -.5;
     const copies = group.map(i => ({...i,id:nextId++,x:round(i.x+dx),y:round(i.y+dy)}));
     items.push(...copies);
     selected = new Set(copies.map(i => i.id));
@@ -1048,12 +1201,15 @@ function updateField(input) {
   if (value === item[field]) return;
   remember(snapshot());
   item[field] = value;
+  if (item.k === 'p' && 'xywl'.includes(field)) fit();
   refreshWarnings();
   drawMap();
   panel.querySelector('[data-b="undo"]').disabled = false;
   panel.querySelector('[data-b="redo"]').disabled = true;
   if (field === 'st') {
     $('inspected').textContent = `${KIND[item.k]}${item.st ? ' · '+item.st : ''}`;
+    $('station-palette').innerHTML = stationPalette(item.st);
+    drawStationColors();
     const unplaced = codes.filter(code => !targetItem(code));
     $('unplaced').textContent = 'Not placed · '+unplaced.join(', ');
     $('unplaced').hidden = !unplaced.length;
@@ -1071,6 +1227,7 @@ function toggleEmpty() {
     selected.clear();
   }
   filter = '';
+  selectedCarrier = '';
   period = 'today';
   fit();
 }
@@ -1083,7 +1240,6 @@ function syncControls() {
   svg.classList.toggle('editing',editing);
   $('presets').hidden = view !== '3d';
   $('orientation').toggleAttribute('hidden',isEmpty() || view !== '3d');
-  svg.classList.toggle('diagram-3d',view === '3d');
   for (const button of $('presets').querySelectorAll('button')) {
     button.setAttribute('aria-pressed',button.dataset.b === camera.preset);
   }
@@ -1096,6 +1252,7 @@ function render() {
   $('tooltip').hidden = true;
   drawEmpty();
   drawBar();
+  drawStationColors();
   refreshWarnings();
   syncControls();
   drawMap();
@@ -1117,7 +1274,7 @@ function setPreset(preset) {
   drawMap();
 }
 function focusStation(code) {
-  const stationItems = items.filter(i => i.st === code && i.k !== 's');
+  const stationItems = items.filter(i => i.st === code && !zoneKind(i));
   if (!stationItems.length) return;
   const project = view === '3d' ? projector() : at2d;
   const points = stationItems.flatMap(i => {
@@ -1156,6 +1313,28 @@ root.addEventListener('click', event => {
     }
     return;
   }
+  if (target.dataset.carrier && !editing) {
+    selectCarrier(target.dataset.carrier);
+    render();
+    return;
+  }
+  if (b === 'move-carrier') {
+    const carrier = carriers.find(item => item.id === selectedCarrier);
+    const previous = carrier.st, next = $('carrier-destination').value;
+    carrier.st = next;
+    const current = carriers.filter(item => item.st === next && item.kind === carrier.kind);
+    const placed = carrierBoxes().filter(box => box.st === next && box.cls === carrier.kind);
+    if (placed.length < current.length) {
+      carrier.st = previous;
+      const warning = $('carrier-warning');
+      warning.textContent = 'Not enough space at the destination';
+      warning.hidden = false;
+      return;
+    }
+    sceneItems = null;
+    render();
+    return;
+  }
   if (b === 'flows') {
     showFlows = !showFlows;
     target.setAttribute('aria-pressed',showFlows);
@@ -1166,6 +1345,15 @@ root.addEventListener('click', event => {
   if (b === 'undo') return travel(undo,redo);
   if (b === 'redo') return travel(redo,undo);
   if (a && editing) return editSelection(a);
+  if (target.dataset.paint && editing) {
+    const station = single()?.st, value = Number(target.dataset.paint);
+    if (!station || !Object.hasOwn(PALETTE,value) || stationColors[station] === value) return;
+    remember(snapshot());
+    stationColors[station] = value;
+    render();
+    panel.querySelector(`[data-paint="${value}"]`).focus();
+    return;
+  }
   if (per || day !== undefined) {
     period = per || 'day:'+((period === '7' ? 5 : 22)-1-Number(day));
     drawPanel();
@@ -1178,6 +1366,7 @@ root.addEventListener('click', event => {
   else if (b === 'going') acknowledged = true;
   else if (b === 'all') filter = '';
   else if (b === 'work' || b === 'wait') {
+    selectedCarrier = '';
     selected.clear();
     filter = filter === b ? '' : b;
   } else return;
@@ -1194,11 +1383,6 @@ $('can-edit').addEventListener('change', event => {
   render();
 });
 
-$('shade-hours').addEventListener('change', event => {
-  shadeHours = event.target.checked;
-  $('colors-scale').hidden = !shadeHours;
-  drawMap();
-});
 root.addEventListener('pointerdown', event => {
   if (!$('colors').contains(event.target)) $('colors').open = false;
 });
@@ -1221,6 +1405,7 @@ document.addEventListener('keydown', event => {
     }
     if (inField) event.target.blur();
     if (gesture) cancelGesture();
+    selectedCarrier = '';
     selected.clear();
     lastTap = null;
     render();
@@ -1256,7 +1441,7 @@ function svgPoint(event) {
 }
 function pick(event) {
   const element = event.target.closest('[data-id],[data-st]');
-  return {id:Number(element?.dataset.id) || null, code:element?.dataset.st || ''};
+  return {id:Number(element?.dataset.id) || null, code:element?.dataset.st || '', carrier:element?.dataset.carrier || ''};
 }
 function syncDragFields() {
   const item = single();
@@ -1266,8 +1451,11 @@ function syncDragFields() {
 
 function snapMove(originals,dx,dy) {
   const raw = {x:dx,y:dy}, shifts = {...raw}, guides = [];
-  const [x0,y0,x1,y1] = extent(originals);
-  const limits = {x:[Math.min(0,-x0),Math.max(0,HALL.w-x1)],y:[Math.min(0,-y0),Math.max(0,HALL.l-y1)]};
+  const inHall = originals.filter(i => i.k !== 'p');
+  const [x0,y0,x1,y1] = inHall.length ? extent(inHall) : floorBounds;
+  const limits = inHall.length
+    ? {x:[Math.min(0,-x0),Math.max(0,HALL.w-x1)],y:[Math.min(0,-y0),Math.max(0,HALL.l-y1)]}
+    : {x:[-Infinity,Infinity],y:[-Infinity,Infinity]};
   for (const axis of ['x','y']) {
     shifts[axis] = clamp(Math.round(shifts[axis]*10)/10,...limits[axis]);
   }
@@ -1382,6 +1570,14 @@ function finishGesture(event) {
       if (selected.has(g.hit.id)) selected.delete(g.hit.id);
       else selected.add(g.hit.id);
     } else selected = new Set(g.hit.id ? [g.hit.id] : []);
+  } else if (g.hit.carrier) {
+    selectCarrier(g.hit.carrier);
+  } else if (zoneKind(items.find(item => item.id === g.hit.id))) {
+    selectedCarrier = '';
+    selected = new Set([g.hit.id]);
+    filter = '';
+    showFlows = false;
+    lastTap = null;
   } else {
     const time = performance.now();
     // После первого нажатия потоки могут сдвинуть плашки под курсором.
@@ -1393,6 +1589,7 @@ function finishGesture(event) {
       if (double) focusStation(code);
       lastTap = double ? null : {code,time,x:event.clientX,y:event.clientY};
     } else {
+      selectedCarrier = '';
       selected.clear();
       lastTap = null;
     }
@@ -1411,13 +1608,14 @@ function cancelGesture() {
   render();
 }
 function hoverStation(event) {
-  const tooltip = $('tooltip'), code = pick(event).code;
+  const tooltip = $('tooltip'), {code,carrier} = pick(event);
   if (editing || gesture || event.pointerType === 'touch' || !code) {
     tooltip.hidden = true;
     return;
   }
   const s = ST[code], area = $('stage').getBoundingClientRect();
-  tooltip.textContent = `${code} · ${STATUS[s.status]} · ${s.waiting} waiting · last scan ${s.last}`;
+  tooltip.textContent = carrier ? `${carrier} · ${code}`
+    : `${code} · ${STATUS[s.status]} · ${s.waiting} glass waiting · last scan ${s.last}`;
   tooltip.hidden = false;
   tooltip.style.left = `${clamp(event.clientX-area.left+12,8,area.width-tooltip.offsetWidth-8)}px`;
   const y = event.clientY-area.top;
