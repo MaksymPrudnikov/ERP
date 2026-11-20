@@ -41,6 +41,9 @@
 
 /* Панель справа: станции или инспектор. */
 .fl-side{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:14px 16px}
+/* Панель справа — высотой с карту и со своей прокруткой: смена периода
+   (Today → 30 days, таблица по дням) не меняет высоту страницы — экран не скачет. */
+@media (min-width:901px){.fl{align-items:stretch}.fl-side{max-height:calc(min(68vh,720px) + 96px);overflow-y:auto;overscroll-behavior:contain}}
 .fl-side h3{margin:0 0 10px}
 .fl-stations{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .fl-st-row{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:8px;text-align:left;align-items:center;padding:8px 10px}
@@ -71,6 +74,11 @@ button.fl-big{font-size:16px;padding:11px 20px}
 .fl-dt{font-weight:900;stroke:none}
 .fl-dt.is-working{fill:var(--success)}
 .fl-dt.is-waiting{fill:var(--warning)}
+/* Точка без подписи — на блоке, где подпись не влезает. */
+.fl-dotc{stroke:var(--surface);stroke-width:1;pointer-events:none}
+.fl-dotc.is-working{fill:var(--success)}
+.fl-dotc.is-waiting{fill:var(--warning)}
+.fl-dotc.is-help{fill:var(--danger)}
 .fl-tare{fill:var(--surface);stroke:var(--text-2);stroke-width:1;cursor:pointer}
 .fl-tare.skid{fill:var(--surface-3)}
 .fl-tare.find{stroke:var(--accent);stroke-width:4;fill:var(--accent-soft)}
@@ -98,7 +106,9 @@ button.fl-big{font-size:16px;padding:11px 20px}
 .fl-pill{border-radius:999px;padding:3px 10px;font-size:12.5px;background:var(--surface-3);color:var(--text-2)}
 .fl-pill.is-working{background:var(--success-soft);color:var(--success)}
 .fl-pill.is-waiting{background:var(--warning-soft);color:var(--warning)}
-.fl-periods{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:12px 0}
+.fl-periods{display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:6px;margin:12px 0}
+/* Кнопки периода в одну строку и внутри панели — на 1024 «30 days» вылезала. */
+.fl-periods button{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:7px 4px;font-size:13px}
 .fl-periods button.on{border-color:var(--accent);background:var(--accent-soft)}
 .fl-tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .fl-tile{background:var(--surface-2);border-radius:10px;padding:9px 12px;display:flex;flex-direction:column;gap:2px}
@@ -111,6 +121,7 @@ button.fl-big{font-size:16px;padding:11px 20px}
 .fl-bars{display:flex;align-items:flex-end;gap:4px;height:110px;padding-top:8px}
 .fl-bars div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:3px;min-width:0}
 .fl-bars b{display:block;width:100%;max-width:34px;background:var(--accent-line);border-radius:4px 4px 0 0;min-height:2px}
+.fl-bars span{min-height:13px}
 .fl-bars span{font-size:10.5px;color:var(--text-2);white-space:nowrap}
 .fl-days{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
 .fl-days th,.fl-days td{text-align:right;padding:4px 6px;border-bottom:1px solid var(--line-soft)}

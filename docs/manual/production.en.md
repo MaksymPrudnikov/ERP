@@ -72,9 +72,10 @@ the plan yet. **−** / **+** / **Fit** — zoom; drag — move the view; **Esc*
   min** field in Master Data → Stations (15 by default). **Waiting** (yellow) — glass waits, no scans. **Idle** — the
   rest, the block is dimmed. On a station with machines (P1, P2, P3) each machine shows its own scans; the station is
   working if at least one machine is.
-- The label is on the block itself: the machine or station code and a status dot; on the station's top block — how
-  many wait: “● HEAT 5”. A waiting zone shows only the station code. Hover a block — “machine · status · how many wait ·
-  last scan”.
+- The label is inside the block: the station code and how many wait — “● HEAT 5” — on the station's thickest block (the
+  middle of LAM and IGU), the station's other blocks show only the status dot; a machine shows its own code (P1). If the
+  label does not fit the block, only the dot stays; the text appears when you zoom in (**+**, double-click). A waiting
+  zone shows only the station code. Hover a block — “machine · status · how many wait · last scan”.
 - On top — the summary **● 2 working · ● 1 waiting**: a click keeps only those stations bright, **Show all** brings the
   rest back.
 - **Dollies and skids** — icons without numbers: in the waiting zone of the station their glass waits for (zones are
@@ -100,8 +101,10 @@ The card shows a red strip “Help · 4 min”, the machine and who called, and 
   cause;
 - on a station with machines — **Machines running: 2 of 3** and rows P1 / P2 / P3; for a period — on how many days 1,
   2, 3 machines ran;
-- bars by hour (one day) or by day and a table by day; 7 and 30 days with orders that went to the archive are counted
-  as in Reports — while the archive is read, a line with a percentage shows;
+- bars by hour (one day) or by day and a table by day — working days only: a Saturday or Sunday without work is not
+  shown; at most eight dates under the bars, the day's number is in the bar's tooltip; 7 and 30 days with orders that
+  went to the archive are counted as in Reports — while the archive is read, a line with a percentage shows;
+- the card scrolls on its own: changing the period does not move the page;
 - **Dollies here** — carrier numbers (click — Show on floor); **Orders** — the station's orders; **Open screen** — the
   station screen.
 

@@ -79,8 +79,12 @@ function floor3dBody(){
   const leads=floorLeads(items,live);
   items.forEach(r=>{
    if(r.kind!=='machine'&&r.kind!=='object'&&!(r.kind==='zone'&&r.station))return;
-   const st=r.station?floorStation(r.station):null,t=floorBlockText(r,st,live,leads);if(!t.name)return;
-   const p=P(r.x+r.w/2,r.y+r.l/2,r.kind==='zone'?0:r.h||0);parts.push(floorLabel(p.x,p.y,t.name,fs*(r.kind==='zone'?0.7:0.85),'fl-label'+(r.kind==='zone'?' fl-zl':''),false,t.dot,r.id));
+   const st=r.station?floorStation(r.station):null,t=floorBlockText(r,st,live,leads);if(!t.name&&!t.dot)return;
+   const p=P(r.x+r.w/2,r.y+r.l/2,r.kind==='zone'?0:r.h||0);
+   /* Как в 2D: подпись по длинной стороне крыши, не влезает — только точка. */
+   const len=t.name.length+(t.dot?2:0),f=Math.min(fs*(r.kind==='zone'?0.7:0.85),Math.max(r.w,r.l)*0.9/(Math.max(1,len)*0.62));
+   if(!t.name||f<fs*0.4){if(t.dot)parts.push(floorDot(p.x,p.y,fs*0.28,t.dot,r.id));return;}
+   parts.push(floorLabel(p.x,p.y,t.name,f,'fl-label'+(r.kind==='zone'?' fl-zl':''),false,t.dot,r.id));
   });
   /* Тара — те же места, что в 2D, кружком на полу. */
   floorTareLayout(items,live,fs).forEach(t=>{const p=P(t.x+t.w/2,t.y+t.l/2,0);

@@ -87,8 +87,9 @@ function floorCard(code,p,today){
  let archive='none';
  if(!one&&typeof archiveScopeFor==='function'&&typeof archiveIndex!=='undefined'&&archiveIndex.size)
   archive=archiveScopeFor([[r.from,r.to]],new Map([['work',new Set(FLOOR_WORK_KEYS)]]));
- const all=one?repWorkFacts(r.from):repWorkFacts().filter(f=>f.day>=r.from&&f.day<=r.to);
- const list=all.filter(f=>f.station===code);
+ /* Только эта станция за эти дни (repWorkSpan); заказы из архива — как Reports. */
+ let list=one?repWorkFacts(r.from).filter(f=>f.station===code):repWorkSpan(code,r.from,r.to);
+ if(!one&&archive==='ready'&&typeof archiveFactsMerge==='function')list=archiveFactsMerge('work',list,[]).filter(f=>f.station===code&&f.day>=r.from&&f.day<=r.to);
  const merge=typeof stationMergeCodes==='function'&&stationMergeCodes().includes(code);
  const measures=floorMeasures(list,merge);
  /* Работы станции по видам: «Holes 34 pcs» и размеры «12 mm 20 · 25 mm 14». */
@@ -98,17 +99,23 @@ function floorCard(code,p,today){
   if(!o)ops.set(name+'|'+unit,o={name,unit,qty:0,sizes:new Map()});o.qty+=+w.qty||0;
   const size=(/ · ([\d.]+ mm)$/.exec(String(w.label||''))||[])[1];if(size)o.sizes.set(size,(o.sizes.get(size)||0)+(+w.qty||0));
  }));
- const inDay=v=>{const d=v?repDay(v):'';return d>=r.from&&d<=r.to;};
- const broken=(DB.stationScan||[]).filter(s=>s.station===code&&s.broken&&!s.undoneAt&&inDay(s.at)).length
-  +(typeof stationCutCode==='function'&&code===stationCutCode()?(DB.sheetBreak||[]).filter(b=>inDay(b.at)).length:0);
- const ncr=(DB.ncr||[]).filter(n=>n.where===code&&inDay(n.createdAt)).reduce((n,x)=>n+(x.glass||[]).reduce((k,g)=>k+(+g.qty||1),0),0);
+ /* Брак и NCR — один проход по сканам и NCR на весь период, по дням
+    (прежде — проход всех сканов года на каждый день периода). */
+ const brokenBy=new Map(),ncrBy=new Map(),add=(m,d,n)=>m.set(d,(m.get(d)||0)+n);
+ (DB.stationScan||[]).forEach(s=>{if(s.station!==code||!s.broken||s.undoneAt)return;const d=repDay(s.at);if(d>=r.from&&d<=r.to)add(brokenBy,d,1);});
+ if(typeof stationCutCode==='function'&&code===stationCutCode())(DB.sheetBreak||[]).forEach(b=>{const d=b.at?repDay(b.at):'';if(d>=r.from&&d<=r.to)add(brokenBy,d,1);});
+ (DB.ncr||[]).forEach(n=>{if(n.where!==code||!n.createdAt)return;const d=repDay(n.createdAt);if(d>=r.from&&d<=r.to)add(ncrBy,d,(n.glass||[]).reduce((k,g)=>k+(+g.qty||1),0));});
+ const sumOf=m=>[...m.values()].reduce((n,v)=>n+v,0),broken=sumOf(brokenBy),ncr=sumOf(ncrBy);
  const people=new Set(list.map(f=>f.personId).filter(Boolean)).size;
  const st=(DB.station||[]).find(x=>x.code===code),machines=st&&st.machines||[];
  const main=floorMainMeasure(list),val=rows=>rows.reduce((n,f)=>n+(+f[main.k]||0),0);
  const byMachine=machines.map(m=>{const rows=list.filter(f=>f.machine===m);return {code:m,done:rows.length,main:val(rows)};});
- const byDay=r.days.map(d=>{const rows=list.filter(f=>f.day===d);return {day:d,done:rows.length,main:val(rows),people:new Set(rows.map(f=>f.personId).filter(Boolean)).size,machines:new Set(rows.map(f=>f.machine).filter(Boolean)).size,
-  broken:(DB.stationScan||[]).filter(s=>s.station===code&&s.broken&&!s.undoneAt&&repDay(s.at)===d).length,
-  ncr:(DB.ncr||[]).filter(n=>n.where===code&&n.createdAt&&repDay(n.createdAt)===d).reduce((n,x)=>n+(x.glass||[]).reduce((k,g)=>k+(+g.qty||1),0),0)};});
+ const rowsBy=new Map();list.forEach(f=>{let a=rowsBy.get(f.day);if(!a)rowsBy.set(f.day,a=[]);a.push(f);});
+ /* Рабочие дни (задание: «рабочие дни, пустой день — 0»): суббота и воскресенье
+    без работы, брака и NCR — не строки и не столбики. */
+ const weekend=d=>{const w=new Date(d+'T12:00:00').getDay();return w===0||w===6;};
+ const byDay=r.days.filter(d=>!weekend(d)||rowsBy.has(d)||brokenBy.has(d)||ncrBy.has(d)).map(d=>{const rows=rowsBy.get(d)||[];return {day:d,done:rows.length,main:val(rows),people:new Set(rows.map(f=>f.personId).filter(Boolean)).size,machines:new Set(rows.map(f=>f.machine).filter(Boolean)).size,
+  broken:brokenBy.get(d)||0,ncr:ncrBy.get(d)||0};});
  const byHour=one?Array.from({length:24},(_,h)=>({hour:h,done:list.filter(f=>f.hour===h).length})).filter(x=>x.done):[];
  return {range:r,archive,done:list.length,measures,ops:[...ops.values()],broken,ncr,people,byMachine,byDay,byHour,
   machinesDays:machines.map((_,i)=>({k:i+1,days:byDay.filter(d=>d.machines===i+1).length})),main};

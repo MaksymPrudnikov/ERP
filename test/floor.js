@@ -120,7 +120,8 @@ module.exports=async function({page,eq,ok}){
   document.getElementById('sf_code').value='POL';saveSfStation();
   const renamed=DB.floorItem.find(x=>x.label==='7').station;
   DB.floorItem.find(x=>x.label==='8').station='GHOST';flOpen();
-  const ghost=[...document.querySelectorAll('.fl-label')].some(x=>x.textContent==='Unknown station');
+  /* Подпись не влезает в маленький блок — тогда видна жёлтая заливка и подсказка. */
+  const gb=document.querySelector(`[data-floor-item="${DB.floorItem.find(x=>x.label==='8').id}"]`),ghost=gb.getAttribute('class').includes('fl-unknown')&&gb.querySelector('title').textContent==='Unknown station GHOST';
   tab='masterdata';mdSetTab('stations');stEditOpen(DB.station.findIndex(s=>s.code==='POL'));document.getElementById('sf_code').value='POLISH';saveSfStation();
   return {same,renamed,ghost,back:DB.floorItem.find(x=>x.label==='7').station,stations:JSON.stringify(DB.station.map(s=>s.code))===JSON.stringify(keep.map(s=>s.code))};
  }),{same:true,renamed:'POL',ghost:true,back:'POLISH',stations:true});
