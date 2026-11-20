@@ -17,8 +17,8 @@
    - черновик живёт до Save / Cancel: фоновая перерисовка после
      синхронизации его не сбрасывает (STORAGE_UNSAVED).
    A2 (erp/production/floor-state): в просмотре — Working / Waiting / Idle
-   по порогу станции, станки по отдельности, подпись станции над её верхним
-   станком (не прыгает от выбора), тара значками в зоне станции, которую ждёт
+   по порогу станции, станки по отдельности, подпись на самом блоке —
+   «● HEAT 5» (точка состояния, очередь на верхнем блоке), тара значками в зоне станции, которую ждёт
    её стекло (номера — в подсказке и карточке), сводка-фильтр, карточка
    станции за период, Show on floor (Dollies & Skids, карточка).
    ===================================================================== */
@@ -48,7 +48,7 @@ function floorBounds(items){
  list.forEach(r=>{x0=Math.min(x0,r.x);y0=Math.min(y0,r.y);x1=Math.max(x1,r.x+r.w);y1=Math.max(y1,r.y+r.l);});
  const pad=Math.max(3,(x1-x0)*0.06);return {x:x0-pad,y:y0-pad,w:x1-x0+pad*2,h:y1-y0+pad*2};
 }
-function floorBox(){return floorCam||floorBounds();}
+function floorBox(){return floorCam||(floor3d&&!floorEdit?floor3dBounds():floorBounds());}
 
 /* Что налезает: станки и объекты друг на друга и за зал. Зоны и стены — нет. */
 function floorOverlaps(items){
@@ -84,6 +84,7 @@ function floorBlockStatus(r,live){
 }
 function floorText(x,y,s,fs,cls,rot){return `<text x="${x}" y="${y}" font-size="${fs}" class="${cls}" text-anchor="middle" dominant-baseline="central"${rot?` transform="rotate(-90 ${x} ${y})"`:''}>${esc(s)}</text>`;}
 function floorSvgBody(){
+ if(floor3d&&!floorEdit)return floor3dBody();
  const items=floorItems(),b=floorBox(),fs=Math.max(0.35,b.w/48),edit=!!floorEdit,sel=new Set(edit?floorEdit.sel:[]);
  const hall=floorHall(items),parts=[];
  if(hall){
@@ -93,7 +94,7 @@ function floorSvgBody(){
  }
  const order={zone:0,wall:1,object:2,machine:3},live=edit?null:floorLive();
  const rest=items.filter(r=>r.kind!=='hall').sort((a,c)=>order[a.kind]-order[c.kind]);
- const labels=[],findZone=live&&floorFind?((live.carriers.find(c=>c.code===floorFind)||{}).station||''):'';
+ const labels=[],findZone=live&&floorFind?((live.carriers.find(c=>c.code===floorFind)||{}).station||''):'',leads=live?floorLeads(items,live):new Map();
  rest.forEach(r=>{
   const st=r.station&&r.kind!=='wall'?floorStation(r.station):null,col=r.station?floorColor(r.station):'';
   const status=r.kind==='machine'&&st?floorBlockStatus(r,live):'',s=live&&st?live.st[r.station]:null;
@@ -101,41 +102,42 @@ function floorSvgBody(){
   const title=s&&r.kind!=='zone'?`${r.station}${r.machine?' '+r.machine:''} · ${FLOOR_STATUS[status]||''} · ${s.waiting} waiting · last scan ${floorClock(r.machine&&s.machines[r.machine]?s.machines[r.machine].last:s.last)}`:'';
   parts.push(floorRect(r,cls,` data-floor-item="${r.id}"${col?` style="--fc:var(--${col})"`:''}`,title));
   if(r.kind==='wall')return;
-  const name=r.kind==='zone'?(r.station?r.station+' · waiting':'Zone'):r.station&&!st?'Unknown station':r.station?(!edit&&r.machine?r.machine:r.station+(r.machine?' '+r.machine:'')):r.label?(r.kind==='object'?r.label:'#'+r.label):'';
+  const t=floorBlockText(r,st,live,leads),name=t.name;
   if(!name)return;
-  const rot=r.l>r.w*1.6&&r.w<name.length*fs*0.62,cx=r.x+r.w/2,cy=r.kind==='zone'?r.y+fs*0.8:r.y+r.l/2;
-  const room=rot?r.l:r.w,f=r.kind==='zone'?fs*0.85:Math.min(fs,Math.max(fs*0.55,room/(name.length*0.62)));
-  labels.push(floorText(cx,cy,name,f,'fl-label'+(r.kind==='zone'?' fl-zl':''),r.kind!=='zone'&&rot));
+  const len=name.length+(t.dot?2:0),rot=r.l>r.w*1.6&&r.w<len*fs*0.62,cx=r.x+r.w/2,cy=r.kind==='zone'?r.y+fs*0.65:r.y+r.l/2;
+  const room=rot?r.l:r.w,f=r.kind==='zone'?fs*0.7:Math.min(fs,Math.max(fs*0.45,room/(len*0.62)));
+  labels.push(floorLabel(cx,cy,name,f,'fl-label'+(r.kind==='zone'?' fl-zl':''),r.kind!=='zone'&&rot,t.dot,r.id));
  });
  parts.push(...labels);
- if(live){parts.push(floorTags(items,live,fs));parts.push(floorTare(items,live,fs));}
+ if(live)parts.push(floorTare(items,live,fs));
  if(edit)parts.push(floorDims(items,fs));
  floorGuides.forEach(g=>parts.push(`<line x1="${g.x1}" y1="${g.y1}" x2="${g.x2}" y2="${g.y2}" class="fl-guide"/>`));
  if(floorDrag&&(floorDrag.mode==='box'||floorDrag.mode==='draw')&&floorDrag.now){const a=floorDrag.at,c=floorDrag.now;parts.push(`<rect x="${Math.min(a.x,c.x)}" y="${Math.min(a.y,c.y)}" width="${Math.abs(c.x-a.x)}" height="${Math.abs(c.y-a.y)}" class="fl-band"/>`);}
  return parts.join('');
 }
-/* Подпись станции над её станками — у Working, Waiting и выбранной: точка
-   состояния и очередь, одна на станцию (у трёх POLISH — одна). Простой —
-   без подписи над блоком. Место подписи не зависит от выбора — не прыгает. */
-function floorTags(items,live,fs){
- const groups=new Map();
- /* Над верхним станком станции: у ARRIS два блока в разных концах цеха —
-    подпись над одним, а не посередине между ними. */
- items.forEach(r=>{if(r.kind!=='machine'||!r.station||!live.st[r.station])return;const g=groups.get(r.station);if(!g||r.y<g.y0||r.y===g.y0&&r.x<g.x0)groups.set(r.station,{x0:r.x,x1:r.x+r.w,y0:r.y});});
- const out=[];
- groups.forEach((g,code)=>{
-  const s=live.st[code];if(s.status==='idle'&&floorPick!==code)return;
-  if(floorFilter&&s.status!==floorFilter)return;
-  const text=code+' · '+(s.waiting?s.waiting+' waiting':FLOOR_STATUS[s.status].toLowerCase()),f=fs*0.9,cx=(g.x0+g.x1)/2,cy=g.y0-f*0.95,w=text.length*f*0.58+f*1.6;
-  out.push(`<g class="fl-tag is-${s.status}" data-floor-tag="${esc(code)}"><rect x="${cx-w/2}" y="${cy-f*0.7}" width="${w}" height="${f*1.4}" rx="${f*0.7}"/><circle cx="${cx-w/2+f*0.75}" cy="${cy}" r="${f*0.28}"/>${floorText(cx+f*0.4,cy,text,f,'fl-tagt')}</g>`);
- });
- return out.join('');
+/* Подпись на самом блоке (владелец 20.11: «надписи на саму машину, а не
+   выносной текст вверх»; «слишком много слов»): код станка или станции, точка
+   состояния, на верхнем блоке станции — число в очереди: «● HEAT 5». Простой
+   блок — только код. Слова — в подсказке и карточке. Зона — только код. */
+function floorLeads(items,live){
+ const lead=new Map();
+ items.forEach(r=>{if(r.kind!=='machine'||!r.station||!live.st[r.station])return;const g=lead.get(r.station);if(!g||r.y<g.y||r.y===g.y&&r.x<g.x)lead.set(r.station,r);});
+ return new Map([...lead].map(([k,r])=>[k,r.id]));
 }
+function floorBlockText(r,st,live,leads){
+ if(r.kind==='zone')return {name:r.station||'',dot:''};
+ if(r.station&&!st)return {name:'Unknown station',dot:''};
+ if(!r.station)return {name:r.label?(r.kind==='object'?r.label:'#'+r.label):'',dot:''};
+ if(!live)return {name:r.station+(r.machine?' '+r.machine:''),dot:''};
+ const s=live.st[r.station],status=r.kind==='machine'?floorBlockStatus(r,live):'',q=leads.get(r.station)===r.id&&s&&s.waiting?' '+s.waiting:'';
+ return {name:(r.machine||r.station)+q,dot:status&&status!=='idle'?status:''};
+}
+function floorLabel(x,y,s,fs,cls,rot,dot,id){return `<text x="${x}" y="${y}" font-size="${fs}" class="${cls}" text-anchor="middle" dominant-baseline="central"${id?` data-floor-label="${esc(id)}"`:''}${rot?` transform="rotate(-90 ${x} ${y})"`:''}>${dot?`<tspan class="fl-dt is-${dot}">● </tspan>`:''}${esc(s)}</text>`;}
 /* Тара — только значки, без номеров («иначе картинка будет слишком шумной»):
    в зоне станции, которую ждёт её стекло, иначе под первым станком станции.
    Не влезает — последний значок «+N». Номер и что на ней — в подсказке и в
    карточке станции. */
-function floorTare(items,live,fs){
+function floorTareLayout(items,live,fs){
  const zones=new Map(),first=new Map(),by=new Map(),out=[],iw=1.3,il=0.9,gap=0.35,top=fs*1.5;
  items.forEach(r=>{if(r.kind==='zone'&&r.station)zones.set(r.station,r);if(r.kind==='machine'&&r.station&&!first.has(r.station))first.set(r.station,r);});
  live.carriers.forEach(c=>{if(!by.has(c.station))by.set(c.station,[]);by.get(c.station).push(c);});
@@ -147,10 +149,14 @@ function floorTare(items,live,fs){
   /* Ищем тару, которая не влезла, — её значок встаёт первым. */
   if(more&&floorFind&&list.slice(cap-1).some(c=>c.code===floorFind)){show.pop();show.unshift(list.find(c=>c.code===floorFind));}
   show.forEach((c,i)=>{const p=at(i),split=Object.entries(c.split).sort((x,y)=>y[1]-x[1]).map(([s,n])=>n+' → '+s).join(', ');
-   out.push(`<rect x="${p.x}" y="${p.y}" width="${iw}" height="${il}" rx="0.12" class="fl-tare${c.skid?' skid':''}${floorFind===c.code?' find':''}" data-floor-carrier="${esc(c.code)}"><title>${esc(c.code+' · '+c.count+' glass · '+split)}</title></rect>`);});
-  if(more){const p=at(cap-1);out.push(floorText(p.x+iw/2,p.y+il/2,'+'+(list.length-cap+1),il*0.8,'fl-more'));}
+   out.push({c,x:p.x,y:p.y,w:iw,l:il,title:c.code+' · '+c.count+' glass · '+split});});
+  if(more){const p=at(cap-1);out.push({more:list.length-cap+1,x:p.x,y:p.y,w:iw,l:il});}
  });
- return out.join('');
+ return out;
+}
+function floorTare(items,live,fs){
+ return floorTareLayout(items,live,fs).map(t=>t.more?floorText(t.x+t.w/2,t.y+t.l/2,'+'+t.more,t.l*0.8,'fl-more')
+  :`<rect x="${t.x}" y="${t.y}" width="${t.w}" height="${t.l}" rx="0.12" class="fl-tare${t.c.skid?' skid':''}${floorFind===t.c.code?' find':''}" data-floor-carrier="${esc(t.c.code)}"><title>${esc(t.title)}</title></rect>`).join('');
 }
 /* Размеры выбранного блока: ширина сверху, длина справа, до стены слева. */
 function floorDims(items,fs){
@@ -168,7 +174,7 @@ function floorDims(items,fs){
 }
 function floorSvg(){
  const b=floorBox();
- return `<svg class="fl-svg" data-floor-svg viewBox="${b.x} ${b.y} ${b.w} ${b.h}" preserveAspectRatio="xMidYMid meet" ${onAct('pointerdown',floorDown,EVENT)} ${onAct('pointermove',floorMove,EVENT)} ${onAct('pointerup',floorUp,EVENT)} ${onAct('pointercancel',floorUp,EVENT)}>${floorSvgBody()}</svg>`;
+ return `<svg class="fl-svg" data-floor-svg viewBox="${b.x} ${b.y} ${b.w} ${b.h}" preserveAspectRatio="xMidYMid meet" ${onAct('pointerdown',floorDown,EVENT)} ${onAct('pointermove',floorMove,EVENT)} ${onAct('pointerup',floorUp,EVENT)} ${onAct('pointercancel',floorUp,EVENT)} ${onAct('dblclick',floorDbl,EVENT)}>${floorSvgBody()}</svg>`;
 }
 /* Во время жеста перерисовывается только SVG: элемент тот же, захват мыши цел. */
 function floorRedraw(){
@@ -186,11 +192,11 @@ function viewProdFloor(){
  const zoom=`<button type="button" aria-label="Zoom out" ${onAct('click',floorZoom,1.25)}>−</button><button type="button" aria-label="Zoom in" ${onAct('click',floorZoom,0.8)}>+</button><button type="button" title="Fit (F)" ${onAct('click',floorFit)}>Fit</button>`;
  const bar=e
   ?`<div class="fl-bar" data-floor-editing><strong>Editing</strong><span class="mut">Meters</span><select data-floor-add aria-label="Add" ${onAct('change',floorAdd,EL_VALUE)}><option value="">Add…</option><option value="machine">Machine</option><option value="wall">Wall</option><option value="object">Object</option><option value="zone">Waiting zone</option></select><span class="fl-sp"></span>${zoom}<button type="button" data-floor-cancel ${onAct('click',floorCancel)}>Cancel</button><button type="button" class="pri" data-floor-save ${onAct('click',floorPlanSave)}>Save</button></div>`
-  :`<div class="fl-bar">${can?`<button type="button" data-floor-edit ${onAct('click',floorStartEdit)}>Edit</button>`:''}${floorSummary()}<span class="fl-sp"></span>${zoom}</div>`;
+  :`<div class="fl-bar"><div class="fl-seg" role="group" aria-label="View"><button type="button" class="${floor3d?'':'on'}" aria-pressed="${!floor3d}" data-floor-2d ${onAct('click',floor3dToggle,false)}>2D</button><button type="button" class="${floor3d?'on':''}" aria-pressed="${floor3d}" data-floor-3d ${onAct('click',floor3dToggle,true)}>3D</button></div>${can?`<button type="button" data-floor-edit ${onAct('click',floorStartEdit)}>Edit</button>`:''}${floorSummary()}<span class="fl-sp"></span>${floor3d?`<div class="fl-seg" role="group" aria-label="Camera"><button type="button" data-floor-view="top" ${onAct('click',floor3dView,'top')}>Top</button><button type="button" data-floor-view="iso" ${onAct('click',floor3dView,'iso')}>Iso</button></div>`:''}${zoom}</div>`;
  const strips=(e&&e.error?`<div class="fl-strip bad" data-floor-error>${esc(e.error)}</div>`:'')
   +(e&&e.adding==='zone'?'<div class="fl-strip" data-floor-drawing>Drag on the plan to draw the waiting zone</div>':'')
   +(over.length?`<div class="fl-strip warn" data-floor-overlaps>Overlaps ${esc(over.join(' · '))}</div>`:'');
- return sfScreenPills()+`<div class="fl" data-floor><div class="fl-map">${bar}${strips}<div class="fl-canvas" tabindex="0" data-floor-canvas ${onAct('keydown',floorKey,EVENT)}>${floorSvg()}</div><div class="fl-hint mut">${e?'Drag to move · Shift-drag to pan · Shift-click to add':'Drag to pan'}</div></div><aside class="fl-side" data-floor-side>${e?floorInspector():floorFind?floorTareCard(floorFind):floorPick&&floorStation(floorPick)?floorCardHTML(floorPick):floorStationList()}</aside></div>`;
+ return sfScreenPills()+`<div class="fl" data-floor><div class="fl-map">${bar}${strips}<div class="fl-canvas" tabindex="0" data-floor-canvas ${onAct('keydown',floorKey,EVENT)}>${floorSvg()}</div><div class="fl-hint mut">${e?'Drag to move · Shift-drag to pan · Shift-click to add':floor3d?'Drag to turn · Shift-drag to pan · Double-click a station to zoom':'Drag to pan · Double-click a station to zoom'}</div></div><aside class="fl-side" data-floor-side>${e?floorInspector():floorFind?floorTareCard(floorFind):floorPick&&floorStation(floorPick)?floorCardHTML(floorPick):floorStationList()}</aside></div>`;
 }
 /* Сводка — она же фильтр: «● 6 working», «● 4 waiting»; Show all снимает. */
 function floorSummary(){
@@ -332,6 +338,7 @@ function floorDown(ev){
  const item=id?floorItems().find(r=>r.id===id):null;
  if(svg&&svg.setPointerCapture)try{svg.setPointerCapture(ev.pointerId);}catch(e){}
  const canvas=document.querySelector('[data-floor-canvas]');if(canvas)canvas.focus({preventScroll:true});
+ if(!floorEdit&&floor3d&&!ev.shiftKey){floorDrag={mode:'orbit',client:{x:ev.clientX,y:ev.clientY},yaw:floorYaw,pitch:floorPitch,moved:false,pick:item&&item.station||'',tare:tare?tare.getAttribute('data-floor-carrier'):''};return;}
  if(!floorEdit||ev.shiftKey&&(!item||item.kind==='hall')){floorDrag={mode:'pan',client:{x:ev.clientX,y:ev.clientY},box:Object.assign({},floorBox()),moved:false,pick:!floorEdit&&item&&item.station||'',tare:tare?tare.getAttribute('data-floor-carrier'):''};return;}
  if(floorEdit.adding==='zone'){floorDrag={mode:'draw',at,now:null};return;}
  if(handle){const r=floorEdit.items.find(x=>x.id===handle.getAttribute('data-floor-handle'));if(r){floorDrag={mode:'resize',at,id:r.id,orig:{w:r.w,l:r.l},pushed:false};return;}}
@@ -359,6 +366,7 @@ function floorSnapDelta(ids,dx,dy){
 }
 function floorMove(ev){
  if(!floorDrag)return;
+ if(floorDrag.mode==='orbit')return floor3dOrbit(ev);
  if(floorDrag.mode==='pan'){
   const svg=document.querySelector('[data-floor-svg]');if(!svg)return;const k=floorDrag.box.w/Math.max(1,svg.clientWidth);
   const dx=(ev.clientX-floorDrag.client.x)*k,dy=(ev.clientY-floorDrag.client.y)*k;if(Math.abs(dx)+Math.abs(dy)>0)floorDrag.moved=true;
@@ -383,6 +391,7 @@ function floorMove(ev){
 }
 function floorUp(ev){
  const d=floorDrag;floorDrag=null;floorGuides=[];if(!d)return;
+ if(d.mode==='orbit'){if(d.moved){render();return floorFocus();}if(d.tare)floorShowCarrier(d.tare);else if(d.pick)floorPickStation(d.pick);return;}
  if(d.mode==='pan'){if(d.moved)return;if(floorEdit){floorEdit.sel=[];render();floorFocus();}else if(d.tare)floorShowCarrier(d.tare);else if(d.pick)floorPickStation(d.pick);return;}
  if(d.mode==='box'){
   if(d.now&&floorEdit){const x0=Math.min(d.at.x,d.now.x),x1=Math.max(d.at.x,d.now.x),y0=Math.min(d.at.y,d.now.y),y1=Math.max(d.at.y,d.now.y);
@@ -403,7 +412,10 @@ function floorFocus(){const c=document.querySelector('[data-floor-canvas]');if(c
 function floorKey(ev){
  const k=ev.key,mod=ev.ctrlKey||ev.metaKey;
  if(k==='f'||k==='F'){if(!mod){floorFit();ev.preventDefault();}return;}
- if(!floorEdit){if(k==='Escape'&&(floorPick||floorFind||floorFilter)){floorPick='';floorFind='';floorFilter='';render();floorFocus();}return;}
+ if(!floorEdit){
+  if((k==='2'||k==='3')&&!mod){floor3dToggle(k==='3');return floorFocus();}
+  if(k==='Escape'&&(floorPick||floorFind||floorFilter)){floorPick='';floorFind='';floorFilter='';render();floorFocus();}return;
+ }
  if(mod&&(k==='z'||k==='Z')){ev.preventDefault();ev.shiftKey?floorRedo():floorUndo();return floorFocus();}
  if(k==='Escape'){floorEdit.sel=[];floorEdit.adding='';render();return floorFocus();}
  if(k==='Delete'||k==='Backspace'){ev.preventDefault();floorDelete();return floorFocus();}

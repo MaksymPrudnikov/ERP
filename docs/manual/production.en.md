@@ -72,8 +72,9 @@ the plan yet. **−** / **+** / **Fit** — zoom; drag — move the view; **Esc*
   min** field in Master Data → Stations (15 by default). **Waiting** (yellow) — glass waits, no scans. **Idle** — the
   rest, the block is dimmed. On a station with machines (P1, P2, P3) each machine shows its own scans; the station is
   working if at least one machine is.
-- Above a working station or one with a queue — a label “POLISH · 24 waiting”. Hover a block — “machine · status ·
-  how many wait · last scan”.
+- The label is on the block itself: the machine or station code and a status dot; on the station's top block — how
+  many wait: “● HEAT 5”. A waiting zone shows only the station code. Hover a block — “machine · status · how many wait ·
+  last scan”.
 - On top — the summary **● 2 working · ● 1 waiting**: a click keeps only those stations bright, **Show all** brings the
   rest back.
 - **Dollies and skids** — icons without numbers: in the waiting zone of the station their glass waits for (zones are
@@ -81,6 +82,11 @@ the plan yet. **−** / **+** / **Fit** — zoom; drag — move the view; **Esc*
   most of its glass goes. Empty carriers are not on the plan. If they do not fit the zone, the last icon reads “+N”.
   Hover — the number and how much glass goes where; click — on the right, what its glass waits for, and **What is on
   it** — the carrier window.
+
+**2D | 3D** (keys **2** / **3**): 3D is the same plan in volume, view only (Edit is always 2D). Drag to turn and tilt,
+**Shift** to move; **Top** — from above, **Iso** — at an angle. Walls in 3D are low (1.3 m) so they do not hide the
+machines. Labels hide while the plan turns. **Double-click** a station (2D and 3D) to zoom to it; **Fit** (**F**) —
+the whole plan.
 
 **Station card** — click a station on the plan or in the list:
 - period **Today · Yesterday · 7 days · 30 days** (the computer remembers the choice);

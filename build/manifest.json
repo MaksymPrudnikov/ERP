@@ -211,6 +211,7 @@
   "src/erp/views/carriers-ui.js",
   "src/erp/views/carriers-board.js",
   "src/erp/views/floor.js",
+  "src/erp/views/floor-3d.js",
   "src/erp/views/carrier-count.js",
   "src/erp/shipping/data.js",
   "src/erp/sales/order-progress.js",

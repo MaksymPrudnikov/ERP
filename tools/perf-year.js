@@ -105,7 +105,7 @@ const URL = 'file://' + path.join(ROOT, o.dist ? 'dist/GLASS_ERP.html' : 'src/in
 if (!o.profile) fs.rmSync(profile, { recursive: true, force: true });
 fs.mkdirSync(dir, { recursive: true });
 
-const SCREENS = [['Overview', 'dashboard'], ['Sales', 'sales'], ['Sales order', '@order'], ['Production', 'production'], ['Floor', '@floor'], ['Optimization', 'optimization'],
+const SCREENS = [['Overview', 'dashboard'], ['Sales', 'sales'], ['Sales order', '@order'], ['Production', 'production'], ['Floor', '@floor'], ['Floor 3D', '@floor3d'], ['Optimization', 'optimization'],
   ['Station', '@station'], ['Shipping', 'shipping'], ['Finance', 'finance'], ['Reports', 'reports'], ['Inventory', 'inventory'],
   ['Purchasing', 'purchasing'], ['Master Data', 'masterdata'], ['Users', 'users']];
 const ACTIONS = ['Save order', 'Save 100 lines', 'Convert quote', 'Batch + cut', 'Sheet edit', 'Packing slip', 'Shipped', 'Payment'];
@@ -129,7 +129,8 @@ function pageSetup() {
       const t = T();
       if (k === '@order') { const ord = pick(DB.salesOrder, x => !salesIsQuote(x) && x.status !== 'cancelled'); if (!ord) return { skip: 'no order' }; tab = 'sales'; salesOrderEdit(ord.id); }
       /* План цеха (Production → Floor, docs/ЗАДАЧА_КАРТА_ЦЕХА.md): порог — Overview + 0.1 с. */
-      else if (k === '@floor') { tab = 'production'; subtab = 'floor'; render(); }
+      else if (k === '@floor') { tab = 'production'; subtab = 'floor'; floor3d = false; render(); }
+      else if (k === '@floor3d') { tab = 'production'; subtab = 'floor'; floor3d = true; render(); }
       else if (k === '@station') { const u = worker(); if (!u) return { skip: 'no station worker' }; tab = 'station'; stationCode = 'CUT'; stationLogin(u.viewProfileId); }
       else navGo(k);
       layout(); return { ms: T() - t };

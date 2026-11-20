@@ -1,6 +1,6 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 5.334 · 20 ноября 2026 — Production → Floor (A2): живой план — Working / Waiting по порогу станции, долли в зонах ожидания, карточка станции за период.
+Версия 5.335 · 20 ноября 2026 — Production → Floor (A3): вид 3D — поворот и наклон мышью, Top · Iso, двойной клик приближает станцию.
 
 ## Как читать
 
@@ -348,11 +348,12 @@ A3, C) — `docs/ЗАДАЧА_КАРТА_ЦЕХА.md`.
   `floorLive()` — Working по `workingMin` станции (по умолчанию 15), станки по своим сканам, тара из
   `prodBoard().onAt` в зоне станции, где её стекла больше; `floorCard()` — Today…30 дней, меры станции, брак (сканы
   `broken`, `sheetBreak`) и NCR по `where`, архивные месяцы через `archiveScopeFor`. Overview «Shop now» → Floor,
-  если станция на плане. Замер — строка `Floor` в `tools/perf-year.js`.
+  если станция на плане. 3D — `views/floor-3d.js` (только просмотр): проекция с поворотом и наклоном, бока по углу
+  камеры, порядок по глубине, модули до 6 м, стены срезом 1.3 м. Замер — строки `Floor`, `Floor 3D` в `perf-year`.
 - **Станки**: `DB.station[].machines` (`sfMachines`); экран помнит станок в `localStorage` (`STATION_MACHINE_KEY`);
   `stationRecordCommand` пишет `rec.machine` только для станка своей станции; факты и Reports — поле Machine.
 - Сторожа: `test/station*.js`, `carriers`, `carrier-form`, `carrier-sheet`, `dollies-count`, `dollies-skids`,
-  `skip`, `production-unbatch`, `route-repeat`, `step-unit`, `igu-ready`, `units`, `floor`, `machines`, `floor-live`.
+  `skip`, `production-unbatch`, `route-repeat`, `step-unit`, `igu-ready`, `units`, `floor`, `machines`, `floor-live`, `floor-3d`.
 
 **Открыто**: компьютер с неверными часами пишет сканы своим временем; экраны станций и лист тары не на общем
 движке списков; физическая печать этикеток не проверена (нет принтера).
