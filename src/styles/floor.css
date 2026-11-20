@@ -119,3 +119,18 @@ button.fl-big{font-size:16px;padding:11px 20px}
 .fl-days th,.fl-days td{text-align:right;padding:4px 6px;border-bottom:1px solid var(--line-soft)}
 .fl-days th:first-child,.fl-days td:first-child{text-align:left}
 .fl-tare-list{display:flex;flex-wrap:wrap;gap:6px}
+
+/* A3: 3D — грани коробок, бока темнее крыши. */
+.fl-svg polygon,.fl-svg circle{vector-effect:non-scaling-stroke}
+.fl-seg{display:inline-flex}
+.fl-seg button{border-radius:0}
+.fl-seg button:first-child{border-radius:8px 0 0 8px}
+.fl-seg button:last-child{border-radius:0 8px 8px 0;margin-left:-1px}
+.fl-seg button.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--text);font-weight:600}
+.fl-face3{stroke-width:.8}
+.fl-machine.fl-st.fl-face3.sx,.fl-object.fl-st.fl-face3.sx{fill:color-mix(in srgb,var(--fc) 55%,var(--surface-3))}
+.fl-machine.fl-st.fl-face3.sy,.fl-object.fl-st.fl-face3.sy{fill:color-mix(in srgb,var(--fc) 42%,var(--surface-3))}
+.fl-wall.fl-top{fill:var(--line-strong)}
+.fl-wall.fl-face3{fill:var(--text-3);stroke:none}
+.fl-object.fl-face3,.fl-free.fl-face3{fill:var(--line)}
+.fl-svg circle.fl-tare{stroke-width:1.5}

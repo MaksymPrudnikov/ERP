@@ -82,6 +82,11 @@ the plan yet. **−** / **+** / **Fit** — zoom; drag — move the view; **Esc*
   Hover — the number and how much glass goes where; click — on the right, what its glass waits for, and **What is on
   it** — the carrier window.
 
+**2D | 3D** (keys **2** / **3**): 3D is the same plan in volume, view only (Edit is always 2D). Drag to turn and tilt,
+**Shift** to move; **Top** — from above, **Iso** — at an angle. Walls in 3D are low (1.3 m) so they do not hide the
+machines. Labels hide while the plan turns. **Double-click** a station (2D and 3D) to zoom to it; **Fit** (**F**) —
+the whole plan.
+
 **Station card** — click a station on the plan or in the list:
 - period **Today · Yesterday · 7 days · 30 days** (the computer remembers the choice);
 - **Done** and the station's measures in its own units, as on the station screen: Glass ft², Units, Linear in, Work
