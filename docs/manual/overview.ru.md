@@ -11,7 +11,8 @@
 - **Orders** — **Due today**, **Due this week**, **Needs attention** (на Hold и просроченные) — открывают Sales с тем же
   быстрым видом; **To verify** и **To batch** — очередь Optimization.
 - **Shop now** — по каждой станции две полосы: **Waiting now** (ждёт сейчас; у To batch — в очереди, у CUT — в батчах) и
-  **Done today** (прошло сегодня). Нажатие на станцию — Production → In production только с этой станцией. Сутки —
+  **Done today** (прошло сегодня). Нажатие на станцию — Production → Floor с её карточкой, если
+  станция стоит на плане цеха; иначе Production → In production только с этой станцией. Сутки —
   0:00–24:00 по часам компьютера.
 - **Shipping** — **Ready** (заказы к отгрузке), **Deliveries today**, **Open packing slips** (planned · shipped),
   **Backorders** — те же числа, что на вкладках Shipping; ниже **Today** — packing slips на сегодня строками.

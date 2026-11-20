@@ -110,7 +110,9 @@ personal list → the customer's group list → the base price (Glass, Works…)
 
 - **Stations** — “Steps in order; same step — parallel.” Stations by route step: code, name, step number, the works
   done there, **Puts on** (Dolly, Skid or nothing — what the station puts glass on), size, carrier sheet, note, **Machines** —
-  the station's machines, comma separated (`P1, P2, P3`, each with its own scan screen; empty — the whole station). Adding, editing, removing
+  the station's machines, comma separated (`P1, P2, P3`, each with its own scan screen; empty — the whole station), **Working, min** — for how many minutes
+  after a scan the station counts as working on the floor plan (empty — 15; beside it “Usual gap” — the station's usual
+  break). Adding, editing, removing
   stations and putting them in order is the owner's setting here, with no code change (29 Sep 2026). A work in Works names its
   station — the route, the sticker and the station screen are built from that. How it looks in the shop —
   [production.en.md](production.en.md).

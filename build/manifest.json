@@ -184,6 +184,7 @@
   "src/erp/shopfloor/scan.js",
   "src/erp/shopfloor/carriers.js",
   "src/erp/production/floor.js",
+  "src/erp/production/floor-state.js",
   "src/erp/shopfloor/carrier-count.js",
   "src/erp/views/ncr-ui.js",
   "src/erp/views/stickers-ui.js",

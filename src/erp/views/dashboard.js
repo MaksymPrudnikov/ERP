@@ -51,7 +51,10 @@ function dashOrders(){
 /* 2. Цех: ждёт сейчас и прошло сегодня по каждой станции — две полосы со
    своим масштабом. Все станции вместе — только здесь, у офиса и менеджера:
    на Board станция видит только себя (владелец, 9 октября 2026). */
-function dashStationKey(ev,code){if(ev.key==='Enter')dashStation(code);}
+function dashStationKey(ev,code){if(ev.key==='Enter')dashShopGo(code);}
+/* Клик по станции в «Shop now» (задание «Карта цеха», 20.11.2026): станция на
+   плане — Production → Floor с её карточкой; без плана — её заказы, как прежде. */
+function dashShopGo(code){if(typeof floorStationPlaced==='function'&&floorStationPlaced(code))floorOpenStation(code);else dashStation(code);}
 function dashShopRows(d){
  const waiting={},tare={},done={},cut=stationCutCode();
  d.orders.forEach(x=>{
@@ -60,7 +63,7 @@ function dashShopRows(d){
  });
  d.facts.forEach(f=>{done[f.station]=(done[f.station]||0)+1;});
  return [{label:'To batch',cells:{w:prodQueueAll(),d:null},notes:{w:'in queue'}}].concat((DB.station||[]).map(s=>{
-  const t=tare[s.code],n=t?t.size:0,word=t&&[...t].every(c=>/^S/.test(c))?(n===1?'skid':'skids'):(n===1?'dolly':'dollies'),go=[dashStation,String(s.code??'')];
+  const t=tare[s.code],n=t?t.size:0,word=t&&[...t].every(c=>/^S/.test(c))?(n===1?'skid':'skids'):(n===1?'dolly':'dollies'),go=[dashShopGo,String(s.code??'')];
   return {label:s.code,labelHTML:`<b>${esc(s.code)}</b>`,attrs:` data-board-station="${esc(s.code)}" role="button" tabindex="0" ${onAct.apply(null,['click'].concat(go))} ${onAct('keydown',dashStationKey,EVENT,go[1])}`,
    cells:{w:waiting[s.code]||0,d:done[s.code]||0},notes:{w:s.code===cut&&waiting[s.code]?'in batches':n?n+' '+word:''}};
  }));

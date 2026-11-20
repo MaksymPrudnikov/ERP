@@ -11,7 +11,8 @@ Every figure is clickable and opens its list with the matching view.
 - **Orders** — **Due today**, **Due this week**, **Needs attention** (on Hold and overdue) open Sales with the same quick
   view; **To verify** and **To batch** — the Optimization queue.
 - **Shop now** — two bars per station: **Waiting now** (for To batch — in the queue, for CUT — in batches) and **Done
-  today**. Clicking a station opens Production → In production with only that station. A day is 0:00–24:00 by the
+  today**. Clicking a station opens Production → Floor with its card if
+  the station is on the floor plan; otherwise Production → In production with only that station. A day is 0:00–24:00 by the
   computer's clock.
 - **Shipping** — **Ready** (orders to ship), **Deliveries today**, **Open packing slips** (planned · shipped),
   **Backorders** — the same numbers as the Shipping tabs; below, **Today** lists today's packing slips.

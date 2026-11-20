@@ -54,7 +54,7 @@ The carrier board (owner, 15 Oct 2026: “one dolly can hold 10–20 different o
 - **Carrier window** (click a card, a code in In production or in Data): the last piece put on is on top, #1 went on
   first; a summary by order with a “whole order” box; a unit after IGU is one row. Tick → **Move to** (another carrier),
   **Take off** (the glass stays at its station without a carrier), **Empty** (asks first); after each — a line with
-  Undo. The carrier sheet can be printed. A skid at a customer — who, how many days, PS, what left on it; button **Back
+  Undo. The carrier sheet can be printed; **Show on floor** — where this carrier is on the floor plan (Floor). A skid at a customer — who, how many days, PS, what left on it; button **Back
   at the shop**. Anyone who sees Production may edit carriers (owner: “everyone”).
 - **Count dollies & skids** — a count in place of the board: scan field, place **Shop / Yard**, “found X of Y”, Not seen
   yet on the right. Every scan is a mark; a repeat — “Already counted”; **+ No label** — a carrier without a label.
@@ -64,8 +64,37 @@ The carrier board (owner, 15 Oct 2026: “one dolly can hold 10–20 different o
 ### Floor
 
 A top view of the shop: the hall, walls, station machines, objects and waiting zones — in metres. On the right —
-stations in alphabetical order, each in its colour; **Not placed** — the station has no machine on the plan yet. Click
-a station in the list or on the plan to outline its blocks. **−** / **+** / **Fit** — zoom; drag — move the view.
+stations in alphabetical order, each in its colour, with a status dot; **Not placed** — the station has no machine on
+the plan yet. **−** / **+** / **Fit** — zoom; drag — move the view; **Esc** — clear the selection.
+
+**What is happening now**:
+- **Working** (green dot) — the station had a scan in the last N minutes; N is the station's own — the **Working,
+  min** field in Master Data → Stations (15 by default). **Waiting** (yellow) — glass waits, no scans. **Idle** — the
+  rest, the block is dimmed. On a station with machines (P1, P2, P3) each machine shows its own scans; the station is
+  working if at least one machine is.
+- Above a working station or one with a queue — a label “POLISH · 24 waiting”. Hover a block — “machine · status ·
+  how many wait · last scan”.
+- On top — the summary **● 2 working · ● 1 waiting**: a click keeps only those stations bright, **Show all** brings the
+  rest back.
+- **Dollies and skids** — icons without numbers: in the waiting zone of the station their glass waits for (zones are
+  drawn in Edit); no zone — under the station's machine. A dolly with glass for several stations is one icon, where
+  most of its glass goes. Empty carriers are not on the plan. If they do not fit the zone, the last icon reads “+N”.
+  Hover — the number and how much glass goes where; click — on the right, what its glass waits for, and **What is on
+  it** — the carrier window.
+
+**Station card** — click a station on the plan or in the list:
+- period **Today · Yesterday · 7 days · 30 days** (the computer remembers the choice);
+- **Done** and the station's measures in its own units, as on the station screen: Glass ft², Units, Linear in, Work
+  ft², Works, pcs; works by kind — “Holes 34 pcs”, sizes in small print below; **People**;
+- for today — **Waiting now** (on how many dollies) and **Last scan**;
+- **Broken here** — broken at this station; **NCR for this station** — glass in NCRs that name this station as the
+  cause;
+- on a station with machines — **Machines running: 2 of 3** and rows P1 / P2 / P3; for a period — on how many days 1,
+  2, 3 machines ran;
+- bars by hour (one day) or by day and a table by day; 7 and 30 days with orders that went to the archive are counted
+  as in Reports — while the archive is read, a line with a percentage shows;
+- **Dollies here** — carrier numbers (click — Show on floor); **Orders** — the station's orders; **Open screen** — the
+  station screen.
 
 **Set up the plan** (needs the Master Data box; without it — “Floor plan is not set up yet”):
 - **Start from sketch** — a 65 × 70 m hall, two walls and the sketch blocks numbered 1–17, no stations; **Empty hall** —
