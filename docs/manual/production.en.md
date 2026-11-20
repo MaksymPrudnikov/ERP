@@ -93,12 +93,11 @@ the whole plan.
 The card shows a red strip “Help · 4 min”, the machine and who called, and **Resolved**.
 
 **Station card** — click a station on the plan or in the list:
-- period **Today · Yesterday · 7 days · 30 days** (the computer remembers the choice);
+- the period switch **Today · Yesterday · 7 days · 30 days** (the computer remembers the choice);
 - **Done** and the station's measures in its own units, as on the station screen: Glass ft², Units, Linear in, Work
   ft², Works, pcs; works by kind — “Holes 34 pcs”, sizes in small print below; **People**;
 - for today — **Waiting now** (on how many dollies) and **Last scan**;
-- **Broken here** — broken at this station; **NCR for this station** — glass in NCRs that name this station as the
-  cause;
+- **Broken** — broken at this station; **NCR** — glass in NCRs that name this station as the cause;
 - on a station with machines — **Machines running: 2 of 3** and rows P1 / P2 / P3; for a period — on how many days 1,
   2, 3 machines ran;
 - bars by hour (one day) or by day and a table by day — working days only: a Saturday or Sunday without work is not

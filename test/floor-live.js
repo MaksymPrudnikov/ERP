@@ -145,6 +145,19 @@ module.exports=async function({page,eq,ok}){
   return {same,weekendRows,labels:labels<=8,side};
  }),{same:true,weekendRows:0,labels:true,side:'auto'});
 
+ /* Владелец, 21.11.2026: «карточка станций справа налазит на задний блок»;
+    «даты блоки компактнее» — период одной строкой, ничего не вылезает. */
+ await t.p.setViewportSize({width:1024,height:768});
+ eq('раскладка на 1024: карта и панель с отступом, как вкладки (не у края карточки Production), низы вровень; период — одной строкой, без обрезки; в панели ничего не шире её',await t.p.evaluate(()=>{
+  flvReset();const id=flvOrder([[36,24,4]]),ids=flvIds(id);flvScan(ids);flvPlan();flvOpen();floorPickStation('CUT');floorSetPeriod('30');
+  const R=s=>document.querySelector(s).getBoundingClientRect(),card=R('.card.sales-list-card'),pill=R('.sl-quick-pill'),map=R('.fl-map'),side=R('[data-floor-side]'),el=document.querySelector('[data-floor-side]');
+  const inset=Math.round(pill.left-card.left),per=[...document.querySelectorAll('[data-floor-period]')];
+  const out={inset:inset>=16,left:Math.round(map.left-card.left)===inset,right:Math.round(card.right-side.right)===inset,bottom:Math.round(map.bottom)===Math.round(side.bottom),
+   row:new Set(per.map(b=>Math.round(b.getBoundingClientRect().top))).size===1&&per.every(b=>b.scrollWidth<=b.clientWidth+1),wide:el.scrollWidth<=el.clientWidth+1};
+  floorSetPeriod('today');return out;
+ }),{inset:true,left:true,right:true,bottom:true,row:true,wide:true});
+ await t.p.setViewportSize({width:1280,height:720});
+
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

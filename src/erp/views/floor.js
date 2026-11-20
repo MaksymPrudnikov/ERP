@@ -223,7 +223,10 @@ function floorStationList(){
  const list=(DB.station||[]).slice().sort((a,b)=>a.code.localeCompare(b.code));
  return `<h3>Stations</h3><div class="fl-stations">${list.map(s=>{const l=live.st[s.code]||{status:'idle',waiting:0};return `<button type="button" class="fl-st-row${floorPick===s.code?' on':''}" data-floor-station="${esc(s.code)}" ${onAct('click',floorPickStation,s.code)}><i class="fl-sw" style="--fc:var(--${floorColor(s.code)})"></i><b>${esc(s.code)}</b><span class="fl-dot is-${l.status}" title="${FLOOR_STATUS[l.status]}"></span><span class="mut">${missing.has(s.code)?'Not placed':l.help?'Help · '+stationCallMinutes(l.help)+' min':FLOOR_STATUS[l.status]+(l.waiting?' · '+l.waiting+' waiting':'')}</span></button>`;}).join('')}</div>`;
 }
-/* Карточка станции: период, работа в её единицах, брак, станки, тара. */
+/* Карточка станции: период, работа в её единицах, брак, станки, тара.
+   Владелец, 21.11.2026: «компактнее, красивее, лаконичнее» — короткие
+   подписи (Broken, NCR — карточка и так одной станции), дата в таблице
+   «11-20», как под столбиками; полная — в подсказке. */
 function floorCardHTML(code){
  const s=floorStation(code),live=floorLive(),l=live.st[code]||{status:'idle',waiting:0,last:'',machines:{}},today=repDay(live.at);
  const c=floorCard(code,floorPeriod,today),one=c.range.days.length===1,num=(v,d)=>chNum(v,d);
@@ -231,7 +234,7 @@ function floorCardHTML(code){
  const tare=live.carriers.filter(x=>x.split[code]).map(x=>({code:x.code,n:x.split[code]}));
  const tiles=[tile('Done',num(c.done,0),'glass',' data-floor-done')].concat(c.measures.slice(1).map(m=>tile(m.label,num(m.value,m.digits))),[tile('People',num(c.people,0))],
   floorPeriod==='today'?[tile('Waiting now',num(l.waiting,0),tare.length?'on '+tare.length+' '+(tare.every(x=>/^S/.test(x.code))?(tare.length===1?'skid':'skids'):(tare.length===1?'dolly':'dollies')):''),tile('Last scan',floorClock(l.last))]:[],
-  [tile('Broken here',num(c.broken,0),'',' data-floor-broken'),tile('NCR for this station',num(c.ncr,0),'glass',' data-floor-ncr')]);
+  [tile('Broken',num(c.broken,0),'',' data-floor-broken'),tile('NCR',num(c.ncr,0),'glass',' data-floor-ncr')]);
  const ops=c.ops.length?`<div class="fl-ops" data-floor-ops>${c.ops.map(o=>`<div><b>${esc(o.name)}</b> <span>${num(o.qty,o.unit==='ft²'?1:0)} ${o.unit}</span>${o.sizes.size&&Math.abs([...o.sizes.values()].reduce((n,v)=>n+v,0)-o.qty)<0.5?`<small class="mut">${[...o.sizes.entries()].sort((a,b)=>parseFloat(a[0])-parseFloat(b[0])).map(([k,v])=>esc(k)+' '+num(v,0)).join(' · ')}</small>`:''}</div>`).join('')}</div>`:'';
  const ms=c.byMachine.length?`<div class="fl-machines" data-floor-machines><h4>Machines running: ${c.byMachine.filter(m=>m.done).length} of ${c.byMachine.length}</h4>${c.byMachine.map(m=>`<div class="fl-mrow"><span class="fl-dot is-${l.machines[m.code]&&l.machines[m.code].working?'working':'idle'}"></span><b>${esc(m.code)}</b><span class="fl-sp"></span>${m.done?num(m.main,c.main.digits)+' '+esc(c.main.label.replace(/^Works, /,'').toLowerCase()):'—'}</div>`).join('')}${one?'':`<p class="mut small" data-floor-machine-days>${c.machinesDays.map(x=>'Days with '+x.k+': '+x.days).join(' · ')}</p>`}</div>`:'';
  const series=one?c.byHour.map(x=>({k:String(x.hour),t:x.hour+':00 · '+x.done,v:x.done})):c.byDay.map(x=>({k:x.day.slice(5),t:x.day+' · '+x.done,v:x.done}));
@@ -239,7 +242,7 @@ function floorCardHTML(code){
  /* Подписи — не больше восьми (за 30 дней «10-23-24-25…» налезали), остальные —
     в подсказке столбика; нулевой день — пустое место, без «пенька». */
  const chart=series.length?`<h4>${one?'By hour':'By date'}</h4><div class="fl-bars">${series.map((x,i)=>`<div title="${esc(x.t)}">${x.v?`<b style="height:${Math.round(x.v/top*100)}%"></b>`:''}<span>${i%every===0||i===series.length-1&&series.length<=8?esc(x.k):''}</span></div>`).join('')}</div>`:'<p class="mut">Nothing scanned here in this period.</p>';
- const table=one?'':`<table class="fl-days" data-floor-days><thead><tr><th>Date</th><th>Done</th><th>${esc(c.main.label)}</th><th>People</th><th>Broken</th><th>NCR</th></tr></thead><tbody>${c.byDay.slice().reverse().map(d=>`<tr><td>${esc(d.day)}</td><td>${num(d.done,0)}</td><td>${num(d.main,c.main.digits)}</td><td>${num(d.people,0)}</td><td>${num(d.broken,0)}</td><td>${num(d.ncr,0)}</td></tr>`).join('')}</tbody></table>`;
+ const table=one?'':`<table class="fl-days" data-floor-days><thead><tr><th>Date</th><th>Done</th><th>${esc(c.main.label)}</th><th>People</th><th>Broken</th><th>NCR</th></tr></thead><tbody>${c.byDay.slice().reverse().map(d=>`<tr><td title="${esc(d.day)}">${esc(d.day.slice(5))}</td><td>${num(d.done,0)}</td><td>${num(d.main,c.main.digits)}</td><td>${num(d.people,0)}</td><td>${num(d.broken,0)}</td><td>${num(d.ncr,0)}</td></tr>`).join('')}</tbody></table>`;
  const wait=c.archive==='loading'&&typeof archiveScope!=='undefined'&&archiveScope?`<p class="mut" data-rep-archive-wait>${esc(archiveFactsText(archiveScope))}</p>`:'';
  return `<div class="fl-card" data-floor-card="${esc(code)}"><div class="fl-card-head"><i class="fl-sw" style="--fc:var(--${floorColor(code)})"></i><div><h3>${esc(code)}</h3><span class="mut">${esc(s.nameEn||s.name||'')}</span></div><span class="fl-sp"></span><span class="fl-pill is-${l.status}" data-floor-status>${FLOOR_STATUS[l.status]}</span><button type="button" class="fl-x" aria-label="Close" ${onAct('click',floorPickStation,code)}>×</button></div>
   ${l.help?`<div class="fl-help" data-floor-help-card><b>Help · ${stationCallMinutes(l.help)} min</b>${l.help.machine?' · '+esc(l.help.machine):''}${l.help.by?' · '+esc(l.help.by):''}<span class="fl-sp"></span><button type="button" class="pri" data-floor-resolved ${onAct('click',floorResolvedSave,code)}>Resolved</button></div>`:''}
