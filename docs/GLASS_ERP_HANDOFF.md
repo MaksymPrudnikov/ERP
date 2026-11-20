@@ -306,7 +306,7 @@ Gmail открывает письмо в ящике, где его привяз�
 Маршрут стекла по станциям, сканы, экраны станций, доски, тара (долли и скиды), Skip, Unbatch, план цеха Floor.
 Код `src/erp/shopfloor/`, `views/station*.js`, `views/production*.js`, `views/carrier*.js`, `production/floor.js` +
 `views/floor.js`; данные `DB.stationScan`, `DB.productionRoute`, `DB.carrier`, `DB.carrierEvent`, `DB.carrierCount`,
-`DB.floorItem`, цвет станции `DB.station[].color`. Руководство `docs/manual/production.*`. Задание дальше (M, A2, R,
+`DB.floorItem`, цвет станции `DB.station[].color`. Руководство `docs/manual/production.*`. Задание дальше (M, A2,
 A3, C) — `docs/ЗАДАЧА_КАРТА_ЦЕХА.md`.
 
 **Правила владельца**
