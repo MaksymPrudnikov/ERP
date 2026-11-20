@@ -3,12 +3,12 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 216 модулей, 27 стиля.
+  Состав сборки: 218 модулей, 28 стиля.
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-IQMUplBl3KlvYgkttntEcYkdPW2SDEk2mErZqwNsmfQ=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-gjWmgdmKaoZBQzY88kejHV6GbcGbfc+Dfzk/N1ZJcyM=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GLASS ERP — Glazing System</title>
 <style>
@@ -3923,6 +3923,73 @@ button.cb-tile:hover{border-color:var(--accent-line)}
 .cs-free{white-space:nowrap}
 .cs-no-station .cs-c-station,.cs-no-since .cs-c-since,.cs-no-onit .cs-c-onit,.cs-no-weight .cs-c-weight,.cs-no-printedby .cs-c-printedby,.cs-no-customer .cs-cust,.cs-no-total .cs-total{display:none}
 
+/* ---- src/styles/floor.css ---- */
+/* План цеха: Production → Floor (views/floor). Цвета — токены темы; цвет
+   станции — токен series-N в переменной --fc у блока. */
+.fl{display:grid;grid-template-columns:minmax(0,2fr) minmax(280px,1fr);gap:16px;align-items:start;margin-top:12px}
+@media (max-width:900px){.fl{grid-template-columns:1fr}}
+.fl-map{border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden}
+.fl-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;flex-wrap:wrap}
+.fl-bar{border-bottom:1px solid var(--line-soft)}
+.fl-bar+.fl-strip{margin-top:8px}
+.fl-bar select{max-width:160px}
+.fl-sp{flex:1}
+.fl-strip{margin:0 12px 8px;padding:7px 10px;border-radius:8px;font-size:13px;background:var(--accent-soft);color:var(--text)}
+.fl-strip.warn{background:var(--warning-soft);color:var(--warning);border:1px solid var(--warning-line)}
+.fl-strip.bad{background:var(--danger-soft);color:var(--danger);border:1px solid var(--danger-line)}
+.fl-canvas{height:min(68vh,720px);min-height:360px;background:var(--surface-2);outline:none;touch-action:none;user-select:none}
+.fl-canvas:focus-visible{box-shadow:inset 0 0 0 2px var(--accent-line)}
+.fl-svg{width:100%;height:100%;display:block}
+.fl-hint{padding:6px 12px 9px;font-size:12px}
+
+/* Чертёж: линии одной толщины при любом масштабе. */
+.fl-svg rect,.fl-svg line{vector-effect:non-scaling-stroke}
+.fl-hall{fill:var(--surface);stroke:var(--line-strong);stroke-width:2}
+.fl-grid{stroke:var(--line-soft);stroke-width:1}
+.fl-wall{fill:var(--text-3);stroke:none}
+.fl-object{fill:var(--surface-3);stroke:var(--line-strong);stroke-width:1}
+.fl-machine{stroke-width:1.5}
+.fl-machine.fl-st,.fl-object.fl-st{fill:color-mix(in srgb,var(--fc) 30%,var(--surface));stroke:var(--fc)}
+.fl-free{fill:var(--surface-3);stroke:var(--line-strong);stroke-dasharray:4 3}
+.fl-unknown{fill:var(--warning-soft);stroke:var(--warning)}
+.fl-zone{fill:color-mix(in srgb,var(--fc,var(--text-3)) 12%,transparent);stroke:var(--fc,var(--text-3));stroke-width:1.5;stroke-dasharray:6 4}
+.fl-svg .sel{stroke:var(--accent);stroke-width:3}
+.fl-svg .pick{stroke:var(--accent);stroke-width:3}
+.fl-label{fill:var(--text);font-weight:700;paint-order:stroke;stroke:var(--surface);stroke-width:.12px;pointer-events:none}
+.fl-zl{fill:var(--text-2);font-weight:600}
+.fl-dim{stroke:var(--accent);stroke-width:1.2}
+.fl-dash{stroke-dasharray:4 3}
+.fl-dimt{fill:var(--accent);font-weight:700;paint-order:stroke;stroke:var(--surface);stroke-width:.12px;pointer-events:none}
+.fl-guide{stroke:var(--accent);stroke-width:1;stroke-dasharray:5 4}
+.fl-band{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1;stroke-dasharray:4 3;fill-opacity:.5}
+.fl-handle{fill:var(--surface);stroke:var(--accent);stroke-width:1.5;cursor:nwse-resize}
+.fl-svg [data-floor-item]{cursor:pointer}
+
+/* Панель справа: станции или инспектор. */
+.fl-side{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:14px 16px}
+.fl-side h3{margin:0 0 10px}
+.fl-stations{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fl-st-row{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:8px;text-align:left;align-items:center;padding:8px 10px}
+.fl-st-row b{grid-column:2}
+.fl-st-row span{grid-column:2;font-size:12px}
+.fl-st-row .fl-sw{grid-row:1 / span 2}
+.fl-st-row.on{border-color:var(--accent);background:var(--accent-soft)}
+.fl-sw{display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--fc)}
+.fl-row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.fl-grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;margin-top:6px}
+.fl-f{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--text-2)}
+.fl-f.wide{grid-column:1 / -1}
+.fl-f input,.fl-f select{font-size:14px}
+.fl-pal-cap{margin-top:12px}
+.fl-pal{display:grid;grid-template-columns:repeat(12,1fr);gap:5px;margin-top:6px}
+.fl-pc{width:100%;aspect-ratio:1;padding:0;border-radius:6px;background:var(--fc);border:2px solid var(--surface)}
+.fl-pc.on{box-shadow:0 0 0 2px var(--accent)}
+.fl-foot{display:flex;align-items:center;gap:8px;margin-top:14px;padding-top:10px;border-top:1px solid var(--line-soft)}
+.fl-empty{margin-top:12px;border:1px dashed var(--line-strong);border-radius:12px;padding:40px 24px;text-align:center;background:var(--surface)}
+.fl-empty h3{margin:0 0 6px}
+.fl-empty .fl-row{justify-content:center;margin-top:16px}
+button.fl-big{font-size:16px;padding:11px 20px}
+
 /* ---- src/styles/reports.css ---- */
 /* =====================================================================
    Графики, Board станции и отчёты (view/charts, view/station-board).
@@ -4520,7 +4587,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='8ff51b2fb5cb';
+var ERP_BUILD='f59e3208e362';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -10675,6 +10742,8 @@ function normalizeShopFloor(){
   return {seq,code:sfCode(s.code),name:sfStr(s.name),nameEn:sfStr(s.nameEn),always:s.always===true,
    maxW:dim(s.maxW),maxL:dim(s.maxL),sizeMeasured:s.sizeMeasured===true,note:sfStr(s.note),
    ...(SF_PUTS_ON.some(([k])=>k===s.putsOn)?{putsOn:s.putsOn}:{}),
+   /* Цвет станции на плане цеха (erp/production/floor) — имя токена. */
+   ...(/^series-([1-9]|1\d|2[0-4])$/.test(s.color)?{color:s.color}:{}),
    /* Колонки листа долли/скида станции (erp/shopfloor/carriers). */
    ...(Array.isArray(s.sheetCols)&&typeof carrierColsClean==='function'&&carrierColsClean(s.sheetCols).length?{sheetCols:carrierColsClean(s.sheetCols)}:{})};
  }).sort((a,b)=>a.seq-b.seq);
@@ -32866,7 +32935,9 @@ const SF_TABS=[
  {k:'terminals', label:'Terminals'},
  /* Долли и скиды (15.10.2026): здесь, а не в Data — Data видит не каждый,
     а отгрузка и оптимизатор видят Production (views/carriers-board). */
- {k:'carriers',  label:'Dollies & Skids'}
+ {k:'carriers',  label:'Dollies & Skids'},
+ /* План цеха (20.11.2026, views/floor): где что стоит, редактор плана. */
+ {k:'floor',     label:'Floor'}
 ];
 
 /* Переключатель экранов Production — таблетки, как быстрые виды в Sales. */
@@ -32882,7 +32953,7 @@ function viewProduction(){
  return `${referenceReseeded?'<div class="note" style="margin-bottom:14px">Reference tables updated: stations were reseeded from the factory data.</div>':''}
   <div class="card sales-list-card sl-foot-pin">
    ${subtab==='orders'?'':subtab==='stations'?sfStationsBar()+sfScreenPills()+sfRouteHTML():subtab==='terminals'?sfTerminalsBar()+sfScreenPills():''}
-   ${({orders:viewProdOrders,stations:()=>viewSfStations(false,true),terminals:viewSfTerminals,carriers:viewProdCarriers})[subtab]()}
+   ${({orders:viewProdOrders,stations:()=>viewSfStations(false,true),terminals:viewSfTerminals,carriers:viewProdCarriers,floor:viewProdFloor})[subtab]()}
   </div>
   ${subtab==='stations'?sfImportCard():''}`;
 }
@@ -33039,6 +33110,7 @@ function saveSfStationCommand(){
   const old=prev.code;
   (DB.stationScan||[]).forEach(r=>{if(r.station===old)r.station=code;if(r.confirmedAt===old)r.confirmedAt=code;});
   ['ncrReason','ncr','recut'].forEach(k=>(DB[k]||[]).forEach(r=>{if(r.where===old)r.where=code;}));
+  (DB.floorItem||[]).forEach(r=>{if(r.station===old)r.station=code;});
   (DB.productionRoute||[]).forEach(x=>{x.route.codes=x.route.codes.map(c=>c===old?code:c);x.route.shipping=(x.route.shipping||[]).map(c=>c===old?code:c);x.route.services.forEach(r=>{if(r.station===old)r.station=code;});});
 
 
@@ -46999,6 +47071,107 @@ function validateCarrierPayload(src){
  if(src&&Object.prototype.hasOwnProperty.call(src,'carrierCols')&&!Array.isArray(src.carrierCols))throw new Error('The "carrierCols" field must be an array.');
 }
 
+/* ==== src/erp/production/floor.js ==== */
+/* =====================================================================
+   erp/production/floor  ·  floor-1.0
+   План цеха для Production → Floor: зал, стены, станки станций, объекты и
+   зоны ожидания — прямоугольники в метрах. Данные, набросок и запись плана;
+   рисунок и редактор — views/floor.
+   IN : DB.station (коды станций, цвет станции)
+   OUT: DB.floorItem {id, kind, station, machine, label, x, y, w, l, h} — метры,
+        два знака; kind: hall · machine · wall · object · zone ·
+        DB.station[].color — имя токена series-1…24 ·
+        normalizeFloor, floorClean, floorSketchItems, floorParseLen,
+        floorStationColor, floorWrite (команда записи плана)
+   Владелец, 19–20.11.2026 (docs/ЗАДАЧА_КАРТА_ЦЕХА.md):
+   - размещает и меряет сам, в метрах («полировка 2 × 6, завтра померяю —
+     окажется 7»); поле понимает 6.5, 650 cm, 6500 mm;
+   - поворота как поля нет: Rotate 90° меняет местами ширину и длину;
+   - зону ожидания станции рисует сам, где угодно, и за залом («я сам
+     нарисую, не нужно их ставить сразу возле станции»); одна на станцию;
+   - цвет станции выбирает сам; хранится у станции именем токена, не hex —
+     обе темы ERP;
+   - пустая таблица на старте: план заводит кнопка Start from sketch, а не
+     нормализатор — иначе два ПК завели бы план дважды. Save плана,
+     начатого с наброска, проверяет, что таблица всё ещё пуста.
+   ===================================================================== */
+DEFAULT.floorItem=[];
+const FLOOR_KINDS=['hall','machine','wall','object','zone'];
+const FLOOR_COLORS=Array.from({length:24},(_,i)=>'series-'+(i+1));
+const FLOOR_HEIGHT={hall:0,machine:1.2,wall:3,object:2,zone:0};
+
+function floorRound(n){return Math.round(n*100)/100;}
+function floorNum(v,d,min,max){const n=+v;return isFinite(n)?floorRound(Math.min(max,Math.max(min,n))):d;}
+function floorStr(v,n){return String(v==null?'':v).trim().slice(0,n);}
+function floorId(){return typeof crypto!=='undefined'&&crypto.randomUUID?crypto.randomUUID():'fl-'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);}
+
+/* Строка плана: плохие числа — безопасные, размеры не меньше 0.1 м. */
+function floorClean(r){
+ const kind=FLOOR_KINDS.includes(r&&r.kind)?r.kind:'object';
+ const code=v=>typeof sfCode==='function'?sfCode(v):floorStr(v,40).toUpperCase();
+ return {id:floorStr(r&&r.id,80)||floorId(),kind,
+  station:kind==='hall'||kind==='wall'?'':code(r.station),
+  machine:kind==='machine'?code(r.machine):'',
+  label:floorStr(r.label,60),
+  x:kind==='hall'?0:floorNum(r.x,0,-500,1000),y:kind==='hall'?0:floorNum(r.y,0,-500,1000),
+  w:floorNum(r.w,1,0.1,1000),l:floorNum(r.l,1,0.1,1000),
+  h:kind==='zone'||kind==='hall'?0:floorNum(r.h,FLOOR_HEIGHT[kind],0,50)};
+}
+/* Зал — одна строка; id уникальны. */
+function normalizeFloor(){
+ const seen=new Set();let hall=false;
+ DB.floorItem=(Array.isArray(DB.floorItem)?DB.floorItem:[])
+  .filter(r=>r&&typeof r==='object'&&typeof r.id==='string'&&r.id&&!seen.has(r.id)&&(seen.add(r.id),true))
+  .map(floorClean).filter(r=>r.kind!=='hall'||(!hall&&(hall=true)));
+}
+
+/* Длина в метрах: 6.5 · 6.5 m · 650 cm · 6500 mm. Иначе NaN. */
+function floorParseLen(v){
+ const m=/^\s*(-?\d+(?:[.,]\d+)?)\s*(m|cm|mm)?\s*$/i.exec(String(v==null?'':v));
+ if(!m)return NaN;
+ const n=+m[1].replace(',','.'),u=(m[2]||'m').toLowerCase();
+ return floorRound(u==='cm'?n/100:u==='mm'?n/1000:n);
+}
+
+/* Цвет станции: свой (токен) или по порядку станции — соседи не совпадают. */
+function floorStationColor(code,colors){
+ if(colors&&Object.prototype.hasOwnProperty.call(colors,code)&&colors[code])return colors[code];
+ const i=(DB.station||[]).findIndex(s=>s.code===code);if(i<0)return '';
+ const c=DB.station[i].color;return FLOOR_COLORS.includes(c)?c:FLOOR_COLORS[i%FLOOR_COLORS.length];
+}
+
+/* Набросок владельца 19.11: зал 65 × 70, полоса 8.80 м внизу со стеной,
+   внутренняя стена x = 32.5 до y = 40, блоки 1–17 без станций — подпись —
+   номер блока наброска; станцию владелец выбирает сам в Edit. */
+const FLOOR_SKETCH=[
+ ['1',3.7,0.6,3.7,11.9],['2',8.1,7.0,2.0,9.9],['3',18.1,1.9,12.0,2.1],['4',1.1,20.0,2.0,14.0],
+ ['5',10.8,19.8,7.1,17.0],['6',27.5,11.0,2.6,3.6],['7',23.0,20.2,2,6],['8',29.1,20.2,2,6],['9',29.1,29.2,2,6],
+ ['10',34.0,1.9,2,6],['11',40.1,1.9,2,6],['12',34.0,9.9,2,6],['13',34.0,20.0,6,6],
+ ['14',34.0,27.0,1,12],['14',39.0,27.0,1,12],['14',35.0,30.0,4,3],['15',46.0,9.9,6,6],
+ ['16',46.0,17.0,1,22],['16',51.0,17.0,1,22],['16',47.0,20.0,4,3],['17',53.1,0.6,2.0,40.0]
+];
+function floorSketchItems(){
+ const row=(kind,x,y,w,l,label)=>floorClean({id:floorId(),kind,x,y,w,l,label:label||''});
+ return [row('hall',0,0,65,70),row('wall',0,61.2,65,0.2),row('wall',32.5,0,0.2,40)]
+  .concat(FLOOR_SKETCH.map(([n,x,y,w,l])=>row('machine',x,y,w,l,n)));
+}
+
+/* Запись плана — одна команда. fresh: план начат с наброска или с пустого
+   зала — если другой ПК уже завёл свой, второго плана нет. colors —
+   правка цвета станций в том же Save. */
+function floorWrite(draft){
+ return storageCommand(()=>{
+  if(draft.fresh&&(DB.floorItem||[]).length)throw new Error('Plan already exists on another PC.');
+  DB.floorItem=(draft.items||[]).map(floorClean);
+  normalizeFloor();
+  Object.entries(draft.colors||{}).forEach(([code,c])=>{
+   const s=(DB.station||[]).find(x=>x.code===code);if(!s)return;
+   if(FLOOR_COLORS.includes(c))s.color=c;else delete s.color;
+  });
+  return true;
+ });
+}
+
 /* ==== src/erp/shopfloor/carrier-count.js ==== */
 /* =====================================================================
    erp/shopfloor/carrier-count  ·  carriers-3.0
@@ -54064,6 +54237,310 @@ function carrierSheetEditorHTML(code){
  const list=cols.map((c,i)=>{const col=CARRIER_COLS.find(x=>x.k===c.k);return `<div class="sl-cols-row" draggable="true" data-sf-sheet-col="${c.k}" ${onAct('dragstart',sfSheetDragStart,String(c.k))} ${onAct('dragover',actPrevent,EVENT)} ${onAct('drop',sfSheetDropAt,EVENT,String(code??''),String(c.k))}><span class="h" aria-hidden="true">⋮⋮</span><label><input type="checkbox" data-sf-sheet-toggle="${c.k}" ${c.on?'checked':''} ${onAct('change',sfSheetSet,String(code??''),String(c.k),EL_CHECKED)}> ${esc(col.label)}</label><button type="button" class="sm" aria-label="Move ${esc(col.label)} up" ${i===0?'disabled':''} ${onAct('click',sfSheetMove,String(code??''),String(c.k),-1)}>↑</button><button type="button" class="sm" aria-label="Move ${esc(col.label)} down" ${i===cols.length-1?'disabled':''} ${onAct('click',sfSheetMove,String(code??''),String(c.k),1)}>↓</button></div>`;}).join('');
  return `<div class="sf-sheet" data-sf-sheet-editor="${esc(code)}"><div class="sf-sheet-cols"><h4>${esc(code)} — what is on a dolly or skid</h4><div class="mut small">Printed and shown — drag to reorder</div>${list}<div class="row" style="margin-top:8px"><button class="sm" data-sf-sheet-all ${onAct('click',sfSheetStore,String(code??''),[])}>All columns</button></div></div>
   <div class="sf-sheet-preview"><div class="mut small">Preview${m?' · '+esc(m.code||m.station):''}</div>${m?`<div class="sf-sheet-paper">${carrierSheetHTML(m,carrierColsOn(cols),{id:'',name:''})}</div>`:'<div class="empty">No dolly or skid in use to preview</div>'}</div></div>`;
+}
+
+/* ==== src/erp/views/floor.js ==== */
+/* =====================================================================
+   view/floor  ·  floor-1.0
+   Production → Floor: план цеха сверху (свой SVG, без библиотек) и
+   редактор плана — для того, у кого галочка Master Data.
+   IN : DB.floorItem, DB.station (erp/production/floor) · accessCan
+   OUT: html; запись — только floorPlanSave → floorWrite, одна команда
+   Владелец, 19–20.11.2026 (docs/ЗАДАЧА_КАРТА_ЦЕХА.md, A1; макет v6):
+   - карта слева, панель справа; управление внутри карты, своего заголовка
+     нет («много одной и той же информации»);
+   - Edit: перетаскивание с шагом 0.1 м и прилипанием к краям соседей
+     (0.5 м, пунктирная направляющая), стрелки 0.1 / Shift 1 м, размеры на
+     чертеже, выбор нескольких (Shift+клик, рамка), Undo / Redo черновика
+     до Save, Esc — снять выбор, F — Fit;
+   - наложение или выход станка за зал — жёлтая полоса, Save не блокируется
+     («без кирпичей»); зона ожидания за залом — не наложение;
+   - черновик живёт до Save / Cancel: фоновая перерисовка после
+     синхронизации его не сбрасывает (STORAGE_UNSAVED).
+   Состояние станций, долли в зонах и карточка станции — A2.
+   ===================================================================== */
+let floorEdit=null;   // черновик: {items, colors, sel, hist, fut, fresh, error, adding}
+let floorCam=null;    // видимая область в метрах {x,y,w,h}; null — весь план
+let floorDrag=null;   // жест мыши: move · resize · box · pan · draw
+let floorPick='';     // выбранная станция в просмотре
+let floorGuides=[];   // направляющие прилипания на время перетаскивания
+(window.STORAGE_UNSAVED=window.STORAGE_UNSAVED||[]).push(()=>!!floorEdit&&(floorEdit.fresh||floorEdit.hist.length>0));
+
+const FLOOR_SNAP=0.5,FLOOR_ADD={machine:[2,6],wall:[10,0.2],object:[2,2]};
+function floorCan(){return typeof accessCan!=='function'||accessCan('masterdata');}
+function floorItems(){return floorEdit?floorEdit.items:(DB.floorItem||[]);}
+function floorHall(items){return (items||floorItems()).find(r=>r.kind==='hall')||null;}
+function floorM(n){return (Math.round(n*100)/100).toFixed(2);}
+function floorStation(code){return (DB.station||[]).find(s=>s.code===code)||null;}
+function floorColor(code){return floorStationColor(code,floorEdit&&floorEdit.colors);}
+function floorSel(){return floorEdit?floorEdit.items.filter(r=>floorEdit.sel.includes(r.id)):[];}
+
+/* Границы всего плана (и зон за залом) — для Fit. */
+function floorBounds(items){
+ const list=(items||floorItems());if(!list.length)return {x:0,y:0,w:40,h:30};
+ let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+ list.forEach(r=>{x0=Math.min(x0,r.x);y0=Math.min(y0,r.y);x1=Math.max(x1,r.x+r.w);y1=Math.max(y1,r.y+r.l);});
+ const pad=Math.max(3,(x1-x0)*0.06);return {x:x0-pad,y:y0-pad,w:x1-x0+pad*2,h:y1-y0+pad*2};
+}
+function floorBox(){return floorCam||floorBounds();}
+
+/* Что налезает: станки и объекты друг на друга и за зал. Зоны и стены — нет. */
+function floorOverlaps(items){
+ const solid=items.filter(r=>r.kind==='machine'||r.kind==='object'),hall=floorHall(items),out=new Set();
+ const hit=(a,b)=>a.x<b.x+b.w-0.001&&b.x<a.x+a.w-0.001&&a.y<b.y+b.l-0.001&&b.y<a.y+a.l-0.001;
+ solid.forEach((a,i)=>{
+  solid.slice(i+1).forEach(b=>{if(hit(a,b)){out.add(floorName(a));out.add(floorName(b));}});
+  if(hall&&(a.x<hall.x-0.001||a.y<hall.y-0.001||a.x+a.w>hall.x+hall.w+0.001||a.y+a.l>hall.y+hall.l+0.001))out.add(floorName(a));
+ });
+ return [...out];
+}
+function floorName(r){
+ if(r.kind==='hall')return 'Hall';
+ if(r.kind==='wall')return 'Wall';
+ if(r.station)return r.station+(r.machine?' '+r.machine:'')+(r.kind==='zone'?' · waiting':'');
+ return r.label?(r.kind==='object'?r.label:'Block '+r.label):r.kind==='zone'?'Zone':'Block';
+}
+/* Станции без станка на плане — «Not placed». */
+function floorNotPlaced(items){
+ const on=new Set(items.filter(r=>r.kind==='machine'&&r.station).map(r=>r.station));
+ return (DB.station||[]).filter(s=>!on.has(s.code)).map(s=>s.code);
+}
+
+/* --- Рисунок ---------------------------------------------------------- */
+function floorRect(r,cls,extra){return `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.l}" class="${cls}"${extra||''}/>`;}
+function floorText(x,y,s,fs,cls,rot){return `<text x="${x}" y="${y}" font-size="${fs}" class="${cls}" text-anchor="middle" dominant-baseline="central"${rot?` transform="rotate(-90 ${x} ${y})"`:''}>${esc(s)}</text>`;}
+function floorSvgBody(){
+ const items=floorItems(),b=floorBox(),fs=Math.max(0.35,b.w/48),edit=!!floorEdit,sel=new Set(edit?floorEdit.sel:[]);
+ const hall=floorHall(items),parts=[];
+ if(hall){
+  parts.push(floorRect(hall,'fl-hall'+(sel.has(hall.id)?' sel':''),` data-floor-item="${hall.id}"`));
+  for(let x=hall.x+5;x<hall.x+hall.w-0.01;x+=5)parts.push(`<line x1="${x}" y1="${hall.y}" x2="${x}" y2="${hall.y+hall.l}" class="fl-grid"/>`);
+  for(let y=hall.y+5;y<hall.y+hall.l-0.01;y+=5)parts.push(`<line x1="${hall.x}" y1="${y}" x2="${hall.x+hall.w}" y2="${y}" class="fl-grid"/>`);
+ }
+ const order={zone:0,wall:1,object:2,machine:3};
+ const rest=items.filter(r=>r.kind!=='hall').sort((a,c)=>order[a.kind]-order[c.kind]);
+ const labels=[];
+ rest.forEach(r=>{
+  const st=r.station&&r.kind!=='wall'?floorStation(r.station):null,col=r.station?floorColor(r.station):'';
+  const cls=['fl-'+r.kind,r.station&&!st?'fl-unknown':'',r.station&&st?'fl-st':'',!r.station&&r.kind==='machine'?'fl-free':'',sel.has(r.id)?'sel':'',!edit&&floorPick&&r.station===floorPick?'pick':''].filter(Boolean).join(' ');
+  parts.push(floorRect(r,cls,` data-floor-item="${r.id}"${col?` style="--fc:var(--${col})"`:''}`));
+  if(r.kind==='wall')return;
+  const name=r.kind==='zone'?(r.station?r.station+' · waiting':'Zone'):r.station&&!st?'Unknown station':r.station?r.station+(r.machine?' '+r.machine:''):r.label?(r.kind==='object'?r.label:'#'+r.label):'';
+  if(!name)return;
+  const rot=r.l>r.w*1.6&&r.w<name.length*fs*0.62,cx=r.x+r.w/2,cy=r.kind==='zone'?r.y-fs*0.75:r.y+r.l/2;
+  const room=rot?r.l:r.w,f=r.kind==='zone'?fs*0.85:Math.min(fs,Math.max(fs*0.55,room/(name.length*0.62)));
+  labels.push(floorText(cx,cy,name,f,'fl-label'+(r.kind==='zone'?' fl-zl':''),r.kind!=='zone'&&rot));
+ });
+ parts.push(...labels);
+ if(edit)parts.push(floorDims(items,fs));
+ floorGuides.forEach(g=>parts.push(`<line x1="${g.x1}" y1="${g.y1}" x2="${g.x2}" y2="${g.y2}" class="fl-guide"/>`));
+ if(floorDrag&&(floorDrag.mode==='box'||floorDrag.mode==='draw')&&floorDrag.now){const a=floorDrag.at,c=floorDrag.now;parts.push(`<rect x="${Math.min(a.x,c.x)}" y="${Math.min(a.y,c.y)}" width="${Math.abs(c.x-a.x)}" height="${Math.abs(c.y-a.y)}" class="fl-band"/>`);}
+ return parts.join('');
+}
+/* Размеры выбранного блока: ширина сверху, длина справа, до стены слева. */
+function floorDims(items,fs){
+ const s=floorSel();if(s.length!==1||s[0].kind==='hall')return '';
+ const r=s[0],g=fs*0.9,out=[],f=fs*0.85;
+ out.push(`<line x1="${r.x}" y1="${r.y-g}" x2="${r.x+r.w}" y2="${r.y-g}" class="fl-dim"/>`,floorText(r.x+r.w/2,r.y-g-f*0.8,floorM(r.w)+' m',f,'fl-dimt'));
+ out.push(`<line x1="${r.x+r.w+g}" y1="${r.y}" x2="${r.x+r.w+g}" y2="${r.y+r.l}" class="fl-dim"/>`,floorText(r.x+r.w+g+f*0.8,r.y+r.l/2,floorM(r.l)+' m',f,'fl-dimt',true));
+ /* Ближайшая стена слева: стена, чья правая грань левее блока и по высоте с ним, иначе край зала. */
+ const hall=floorHall(items),cy=r.y+r.l/2;
+ let edge=null;items.forEach(w=>{if(w.kind!=='wall'||w===r)return;const e=w.x+w.w;if(e<=r.x+0.001&&w.y<=cy&&w.y+w.l>=cy&&(edge===null||e>edge))edge=e;});
+ if(edge===null&&hall&&hall.x<=r.x)edge=hall.x;
+ if(edge!==null&&r.x-edge>0.05){out.push(`<line x1="${edge}" y1="${cy}" x2="${r.x}" y2="${cy}" class="fl-dim fl-dash"/>`,floorText((edge+r.x)/2,cy-f*0.8,floorM(r.x-edge)+' m to wall',f,'fl-dimt'));}
+ out.push(`<rect x="${r.x+r.w-g*0.35}" y="${r.y+r.l-g*0.35}" width="${g*0.7}" height="${g*0.7}" class="fl-handle" data-floor-handle="${r.id}"/>`);
+ return out.join('');
+}
+function floorSvg(){
+ const b=floorBox();
+ return `<svg class="fl-svg" data-floor-svg viewBox="${b.x} ${b.y} ${b.w} ${b.h}" preserveAspectRatio="xMidYMid meet" ${onAct('pointerdown',floorDown,EVENT)} ${onAct('pointermove',floorMove,EVENT)} ${onAct('pointerup',floorUp,EVENT)} ${onAct('pointercancel',floorUp,EVENT)}>${floorSvgBody()}</svg>`;
+}
+/* Во время жеста перерисовывается только SVG: элемент тот же, захват мыши цел. */
+function floorRedraw(){
+ const svg=document.querySelector('[data-floor-svg]');if(!svg)return render();
+ const b=floorBox();svg.setAttribute('viewBox',`${b.x} ${b.y} ${b.w} ${b.h}`);svg.innerHTML=floorSvgBody();
+}
+
+/* --- Экран ------------------------------------------------------------ */
+function viewProdFloor(){
+ const items=floorItems(),can=floorCan();
+ if(!items.length&&!floorEdit)return sfScreenPills()+`<div class="fl-empty" data-floor-empty>${can
+  ?`<h3>No floor plan yet</h3><p class="mut">Start from the shop sketch, then name each block and fix its size.</p><div class="fl-row"><button type="button" class="pri fl-big" data-floor-sketch ${onAct('click',floorStartSketch)}>Start from sketch</button><button type="button" data-floor-blank ${onAct('click',floorStartBlank)}>Empty hall</button></div>`
+  :'<h3>Floor plan is not set up yet</h3>'}</div>`;
+ const e=floorEdit,over=e?floorOverlaps(e.items):[];
+ const zoom=`<button type="button" aria-label="Zoom out" ${onAct('click',floorZoom,1.25)}>−</button><button type="button" aria-label="Zoom in" ${onAct('click',floorZoom,0.8)}>+</button><button type="button" title="Fit (F)" ${onAct('click',floorFit)}>Fit</button>`;
+ const bar=e
+  ?`<div class="fl-bar" data-floor-editing><strong>Editing</strong><span class="mut">Meters</span><select data-floor-add aria-label="Add" ${onAct('change',floorAdd,EL_VALUE)}><option value="">Add…</option><option value="machine">Machine</option><option value="wall">Wall</option><option value="object">Object</option><option value="zone">Waiting zone</option></select><span class="fl-sp"></span>${zoom}<button type="button" data-floor-cancel ${onAct('click',floorCancel)}>Cancel</button><button type="button" class="pri" data-floor-save ${onAct('click',floorPlanSave)}>Save</button></div>`
+  :`<div class="fl-bar">${can?`<button type="button" data-floor-edit ${onAct('click',floorStartEdit)}>Edit</button>`:''}<span class="fl-sp"></span>${zoom}</div>`;
+ const strips=(e&&e.error?`<div class="fl-strip bad" data-floor-error>${esc(e.error)}</div>`:'')
+  +(e&&e.adding==='zone'?'<div class="fl-strip" data-floor-drawing>Drag on the plan to draw the waiting zone</div>':'')
+  +(over.length?`<div class="fl-strip warn" data-floor-overlaps>Overlaps ${esc(over.join(' · '))}</div>`:'');
+ return sfScreenPills()+`<div class="fl" data-floor><div class="fl-map">${bar}${strips}<div class="fl-canvas" tabindex="0" data-floor-canvas ${onAct('keydown',floorKey,EVENT)}>${floorSvg()}</div><div class="fl-hint mut">${e?'Drag to move · Shift-drag to pan · Shift-click to add':'Drag to pan'}</div></div><aside class="fl-side">${e?floorInspector():floorStationList()}</aside></div>`;
+}
+function floorStationList(){
+ const items=floorItems(),missing=new Set(floorNotPlaced(items));
+ const list=(DB.station||[]).slice().sort((a,b)=>a.code.localeCompare(b.code));
+ return `<h3>Stations</h3><div class="fl-stations">${list.map(s=>`<button type="button" class="fl-st-row${floorPick===s.code?' on':''}" data-floor-station="${esc(s.code)}" ${onAct('click',floorPickStation,s.code)}><i class="fl-sw" style="--fc:var(--${floorColor(s.code)})"></i><b>${esc(s.code)}</b><span class="mut">${missing.has(s.code)?'Not placed':esc(s.nameEn||s.name||'')}</span></button>`).join('')}</div>`;
+}
+function floorInspector(){
+ const e=floorEdit,s=floorSel(),items=e.items,np=floorNotPlaced(items),hall=floorHall(items);
+ const foot=`<div class="fl-foot">${hall?`<button type="button" data-floor-hall ${onAct('click',floorSelectHall)}>Hall ${floorM(hall.w).replace(/\.00$/,'')} × ${floorM(hall.l).replace(/\.00$/,'')} m</button>`:''}<span class="fl-sp"></span><button type="button" data-floor-undo ${e.hist.length?'':'disabled'} ${onAct('click',floorUndo)}>Undo</button><button type="button" data-floor-redo ${e.fut.length?'':'disabled'} ${onAct('click',floorRedo)}>Redo</button></div>${np.length?`<p class="mut small" data-floor-notplaced>Not placed · ${esc(np.join(', '))}</p>`:''}`;
+ if(!s.length)return `<h3>Inspector</h3><p class="mut">Click a block to edit it. Shift-click or drag a box to select several.</p>${foot}`;
+ if(s.length>1)return `<h3>Inspector</h3><p data-floor-many>${s.length} selected</p><div class="fl-row"><button type="button" ${onAct('click',floorDuplicate)}>Duplicate</button><button type="button" class="dl" ${onAct('click',floorDelete)}>Delete</button></div>${foot}`;
+ const r=s[0],kind={hall:'Hall',machine:'Machine',wall:'Wall',object:'Object',zone:'Waiting zone'}[r.kind];
+ const num=(k,label,dis)=>`<label class="fl-f"><span>${label}</span><input id="fl_${k}" data-floor-field="${k}" value="${floorM(r[k])}" ${dis?'disabled':''} ${onAct('change',floorField,k,EL_VALUE)}></label>`;
+ const zoneOf=new Set(items.filter(x=>x.kind==='zone'&&x.id!==r.id&&x.station).map(x=>x.station));
+ const codes=(DB.station||[]).map(x=>x.code).filter(c=>r.kind!=='zone'||!zoneOf.has(c)||c===r.station);
+ const station=r.kind==='machine'||r.kind==='zone'||r.kind==='object'?`<label class="fl-f wide"><span>Station</span><select id="fl_station" data-floor-field="station" ${onAct('change',floorField,'station',EL_VALUE)}><option value="">—</option>${codes.map(c=>`<option${c===r.station?' selected':''}>${esc(c)}</option>`).join('')}${r.station&&!codes.includes(r.station)?`<option selected>${esc(r.station)}</option>`:''}</select></label>`:'';
+ const st=r.station&&floorStation(r.station),cur=st?floorColor(r.station):'';
+ const palette=st?`<div class="fl-pal-cap mut small">Station color · all blocks for ${esc(r.station)}</div><div class="fl-pal" role="group" aria-label="Station color">${FLOOR_COLORS.map(c=>`<button type="button" class="fl-pc${c===cur?' on':''}" style="--fc:var(--${c})" aria-label="${c}" aria-pressed="${c===cur}" data-floor-color="${c}" ${onAct('click',floorSetColor,r.station,c)}></button>`).join('')}</div>`:'';
+ const acts=r.kind==='hall'?'':`<div class="fl-row">${r.kind==='zone'?'':`<button type="button" title="Rotate 90°" data-floor-rotate ${onAct('click',floorRotate)}>Rotate 90°</button><button type="button" data-floor-dup ${onAct('click',floorDuplicate)}>Duplicate</button>`}<button type="button" class="dl" data-floor-delete ${onAct('click',floorDelete)}>Delete</button></div>`;
+ return `<h3>Inspector</h3><p class="mut" data-floor-kind>${kind}${r.station?' · '+esc(r.station):''}</p>${acts}<div class="fl-grid2">${station}${r.kind==='hall'||r.kind==='wall'?'':`<label class="fl-f wide"><span>Label</span><input id="fl_label" data-floor-field="label" value="${esc(r.label)}" maxlength="60" ${onAct('change',floorField,'label',EL_VALUE)}></label>`}
+  ${r.kind==='hall'?'':num('x','X (m)')+num('y','Y (m)')}${num('w','Width (m)')}${num('l','Length (m)')}${r.kind==='zone'||r.kind==='hall'?'':num('h','Height (m)')}</div>${palette}${foot}`;
+}
+
+/* --- Черновик ---------------------------------------------------------- */
+function floorDraft(items,fresh){floorEdit={items,colors:{},sel:[],hist:[],fut:[],fresh:!!fresh,error:'',adding:''};floorCam=null;floorPick='';render();}
+function floorStartEdit(){if(floorCan())floorDraft(JSON.parse(JSON.stringify(DB.floorItem||[])),false);}
+function floorStartSketch(){if(floorCan())floorDraft(floorSketchItems(),true);}
+function floorStartBlank(){if(floorCan())floorDraft([floorClean({id:floorId(),kind:'hall',w:40,l:30})],true);}
+function floorCancel(){
+ if(floorEdit&&(floorEdit.fresh||floorEdit.hist.length)&&!confirm('Discard changes to the floor plan?'))return;
+ floorEdit=null;floorDrag=null;floorGuides=[];render();
+}
+/* Имя на …Save: кнопку база запирает на время записи (storageLockButtons). */
+function floorPlanSave(){
+ if(!floorEdit)return;
+ const out=floorWrite(floorEdit);
+ if(!out.ok){floorEdit.error=out.error;render();return;}
+ floorEdit=null;floorDrag=null;floorGuides=[];render();
+}
+function floorSnap(){return JSON.stringify({items:floorEdit.items,colors:floorEdit.colors});}
+function floorPush(){floorEdit.hist.push(floorSnap());if(floorEdit.hist.length>100)floorEdit.hist.shift();floorEdit.fut=[];floorEdit.error='';}
+function floorRestore(s){const v=JSON.parse(s);floorEdit.items=v.items;floorEdit.colors=v.colors;floorEdit.sel=floorEdit.sel.filter(id=>v.items.some(r=>r.id===id));}
+function floorUndo(){if(!floorEdit||!floorEdit.hist.length)return;floorEdit.fut.push(floorSnap());floorRestore(floorEdit.hist.pop());render();}
+function floorRedo(){if(!floorEdit||!floorEdit.fut.length)return;floorEdit.hist.push(floorSnap());floorRestore(floorEdit.fut.pop());render();}
+
+function floorPickStation(code){floorPick=floorPick===code?'':code;render();}
+function floorSelectHall(){const h=floorHall();if(h){floorEdit.sel=[h.id];render();}}
+function floorAdd(kind){
+ if(!floorEdit||!kind)return render();
+ if(kind==='zone'){floorEdit.adding='zone';floorEdit.sel=[];return render();}
+ const b=floorBox(),[w,l]=FLOOR_ADD[kind];floorPush();
+ const r=floorClean({id:floorId(),kind,x:Math.round((b.x+b.w/2-w/2)*10)/10,y:Math.round((b.y+b.h/2-l/2)*10)/10,w,l});
+ floorEdit.items.push(r);floorEdit.sel=[r.id];render();
+}
+function floorField(k,v){
+ const s=floorSel();if(s.length!==1)return;const r=s[0];
+ if(k==='station'||k==='label'){floorPush();r[k]=k==='station'?v:String(v).trim().slice(0,60);Object.assign(r,floorClean(r));return render();}
+ const n=floorParseLen(v);
+ if(!isFinite(n)||(k!=='x'&&k!=='y'&&n<(k==='h'?0:0.1))){floorEdit.error='Size: a number in m, cm or mm — 6.5, 650 cm, 6500 mm';return render();}
+ floorPush();r[k]=n;Object.assign(r,floorClean(r));render();
+}
+function floorSetColor(code,c){floorPush();floorEdit.colors[code]=c;render();}
+function floorRotate(){const s=floorSel();if(s.length!==1)return;floorPush();const r=s[0],cx=r.x+r.w/2,cy=r.y+r.l/2;[r.w,r.l]=[r.l,r.w];r.x=floorRound(cx-r.w/2);r.y=floorRound(cy-r.l/2);render();}
+function floorDuplicate(){
+ const s=floorSel().filter(r=>r.kind!=='hall'&&r.kind!=='zone');if(!s.length)return;floorPush();
+ const copies=s.map(r=>floorClean(Object.assign({},r,{id:floorId(),x:r.x+1,y:r.y+1})));
+ floorEdit.items.push(...copies);floorEdit.sel=copies.map(r=>r.id);render();
+}
+function floorDelete(){
+ const s=floorSel().filter(r=>r.kind!=='hall');if(!s.length)return;floorPush();
+ const ids=new Set(s.map(r=>r.id));floorEdit.items=floorEdit.items.filter(r=>!ids.has(r.id));floorEdit.sel=[];render();
+}
+function floorZoom(f){const b=floorBox(),cx=b.x+b.w/2,cy=b.y+b.h/2;floorCam={x:cx-b.w*f/2,y:cy-b.h*f/2,w:b.w*f,h:b.h*f};render();}
+function floorFit(){floorCam=null;render();}
+
+/* --- Мышь и клавиши --------------------------------------------------- */
+function floorPoint(ev){
+ const svg=document.querySelector('[data-floor-svg]');if(!svg||!svg.getScreenCTM())return {x:0,y:0};
+ const p=new DOMPoint(ev.clientX,ev.clientY).matrixTransform(svg.getScreenCTM().inverse());return {x:p.x,y:p.y};
+}
+function floorDown(ev){
+ if(ev.button!==0)return;
+ const svg=document.querySelector('[data-floor-svg]'),at=floorPoint(ev),el=ev.target&&ev.target.closest?ev.target:null;
+ const handle=el&&el.closest('[data-floor-handle]'),hit=el&&el.closest('[data-floor-item]'),id=hit&&hit.getAttribute('data-floor-item');
+ const item=id?floorItems().find(r=>r.id===id):null;
+ if(svg&&svg.setPointerCapture)try{svg.setPointerCapture(ev.pointerId);}catch(e){}
+ const canvas=document.querySelector('[data-floor-canvas]');if(canvas)canvas.focus({preventScroll:true});
+ if(!floorEdit||ev.shiftKey&&(!item||item.kind==='hall')){floorDrag={mode:'pan',client:{x:ev.clientX,y:ev.clientY},box:Object.assign({},floorBox()),moved:false,pick:!floorEdit&&item&&item.station||''};return;}
+ if(floorEdit.adding==='zone'){floorDrag={mode:'draw',at,now:null};return;}
+ if(handle){const r=floorEdit.items.find(x=>x.id===handle.getAttribute('data-floor-handle'));if(r){floorDrag={mode:'resize',at,id:r.id,orig:{w:r.w,l:r.l},pushed:false};return;}}
+ if(item&&item.kind!=='hall'){
+  if(ev.shiftKey){floorEdit.sel=floorEdit.sel.includes(item.id)?floorEdit.sel.filter(x=>x!==item.id):floorEdit.sel.concat(item.id);floorDrag=null;return render();}
+  if(!floorEdit.sel.includes(item.id))floorEdit.sel=[item.id];
+  floorDrag={mode:'move',at,ids:floorEdit.sel.slice(),orig:floorEdit.sel.map(i=>{const r=floorEdit.items.find(x=>x.id===i);return r?{id:i,x:r.x,y:r.y}:null;}).filter(Boolean),pushed:false,moved:false};
+  return floorRedraw();
+ }
+ floorDrag={mode:'box',at,now:null};
+}
+/* Прилипание: край группы к краю соседа ближе 0.5 м — сдвиг до него и направляющая. */
+function floorSnapDelta(ids,dx,dy){
+ const moving=floorEdit.items.filter(r=>ids.includes(r.id)),others=floorEdit.items.filter(r=>!ids.includes(r.id));
+ const o=floorDrag.orig;let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+ moving.forEach(r=>{const p=o.find(q=>q.id===r.id);x0=Math.min(x0,p.x+dx);y0=Math.min(y0,p.y+dy);x1=Math.max(x1,p.x+dx+r.w);y1=Math.max(y1,p.y+dy+r.l);});
+ let bx=null,by=null;const guides=[];
+ others.forEach(r=>{
+  [r.x,r.x+r.w].forEach(e=>[x0,x1].forEach(m=>{const d=e-m;if(Math.abs(d)<=FLOOR_SNAP&&(bx===null||Math.abs(d)<Math.abs(bx.d)))bx={d,e,r};}));
+  [r.y,r.y+r.l].forEach(e=>[y0,y1].forEach(m=>{const d=e-m;if(Math.abs(d)<=FLOOR_SNAP&&(by===null||Math.abs(d)<Math.abs(by.d)))by={d,e,r};}));
+ });
+ if(bx){dx+=bx.d;guides.push({x1:bx.e,y1:Math.min(y0,bx.r.y),x2:bx.e,y2:Math.max(y1,bx.r.y+bx.r.l)});}
+ if(by){dy+=by.d;guides.push({x1:Math.min(x0,by.r.x),y1:by.e,x2:Math.max(x1,by.r.x+by.r.w),y2:by.e});}
+ return {dx,dy,guides};
+}
+function floorMove(ev){
+ if(!floorDrag)return;
+ if(floorDrag.mode==='pan'){
+  const svg=document.querySelector('[data-floor-svg]');if(!svg)return;const k=floorDrag.box.w/Math.max(1,svg.clientWidth);
+  const dx=(ev.clientX-floorDrag.client.x)*k,dy=(ev.clientY-floorDrag.client.y)*k;if(Math.abs(dx)+Math.abs(dy)>0)floorDrag.moved=true;
+  floorCam={x:floorDrag.box.x-dx,y:floorDrag.box.y-dy,w:floorDrag.box.w,h:floorDrag.box.h};return floorRedraw();
+ }
+ const p=floorPoint(ev);
+ if(floorDrag.mode==='box'||floorDrag.mode==='draw'){floorDrag.now=p;return floorRedraw();}
+ if(floorDrag.mode==='resize'){
+  const r=floorEdit.items.find(x=>x.id===floorDrag.id);if(!r)return;
+  if(!floorDrag.pushed){floorPush();floorDrag.pushed=true;}
+  r.w=Math.max(0.1,floorRound(Math.round((floorDrag.orig.w+p.x-floorDrag.at.x)*10)/10));r.l=Math.max(0.1,floorRound(Math.round((floorDrag.orig.l+p.y-floorDrag.at.y)*10)/10));
+  return floorRedraw();
+ }
+ if(floorDrag.mode==='move'){
+  let dx=Math.round((p.x-floorDrag.at.x)*10)/10,dy=Math.round((p.y-floorDrag.at.y)*10)/10;
+  if(!dx&&!dy&&!floorDrag.moved)return;
+  if(!floorDrag.pushed){floorPush();floorDrag.pushed=true;}floorDrag.moved=true;
+  const s=floorSnapDelta(floorDrag.ids,dx,dy);floorGuides=s.guides;
+  floorDrag.orig.forEach(o=>{const r=floorEdit.items.find(x=>x.id===o.id);if(r){r.x=floorRound(o.x+s.dx);r.y=floorRound(o.y+s.dy);}});
+  floorRedraw();
+ }
+}
+function floorUp(ev){
+ const d=floorDrag;floorDrag=null;floorGuides=[];if(!d)return;
+ if(d.mode==='pan'){if(d.moved)return;if(floorEdit){floorEdit.sel=[];render();floorFocus();}else if(d.pick)floorPickStation(d.pick);return;}
+ if(d.mode==='box'){
+  if(d.now&&floorEdit){const x0=Math.min(d.at.x,d.now.x),x1=Math.max(d.at.x,d.now.x),y0=Math.min(d.at.y,d.now.y),y1=Math.max(d.at.y,d.now.y);
+   floorEdit.sel=Math.abs(x1-x0)+Math.abs(y1-y0)<0.2?[]:floorEdit.items.filter(r=>r.kind!=='hall'&&r.x>=x0&&r.y>=y0&&r.x+r.w<=x1&&r.y+r.l<=y1).map(r=>r.id);}
+  else if(floorEdit)floorEdit.sel=[];
+  render();return floorFocus();
+ }
+ if(d.mode==='draw'){
+  floorEdit.adding='';
+  if(d.now){const x0=Math.min(d.at.x,d.now.x),y0=Math.min(d.at.y,d.now.y),w=Math.abs(d.now.x-d.at.x),l=Math.abs(d.now.y-d.at.y);
+   if(w>=0.5&&l>=0.5){floorPush();const r=floorClean({id:floorId(),kind:'zone',x:Math.round(x0*10)/10,y:Math.round(y0*10)/10,w:Math.round(w*10)/10,l:Math.round(l*10)/10});floorEdit.items.push(r);floorEdit.sel=[r.id];}}
+  render();return floorFocus();
+ }
+ render();floorFocus();
+}
+/* Перерисовка заменяет холст — клавиши (Ctrl+Z, стрелки, Esc) остаются у него. */
+function floorFocus(){const c=document.querySelector('[data-floor-canvas]');if(c)c.focus({preventScroll:true});}
+function floorKey(ev){
+ const k=ev.key,mod=ev.ctrlKey||ev.metaKey;
+ if(k==='f'||k==='F'){if(!mod){floorFit();ev.preventDefault();}return;}
+ if(!floorEdit)return;
+ if(mod&&(k==='z'||k==='Z')){ev.preventDefault();ev.shiftKey?floorRedo():floorUndo();return floorFocus();}
+ if(k==='Escape'){floorEdit.sel=[];floorEdit.adding='';render();return floorFocus();}
+ if(k==='Delete'||k==='Backspace'){ev.preventDefault();floorDelete();return floorFocus();}
+ const step=ev.shiftKey?1:0.1,dir={ArrowLeft:[-step,0],ArrowRight:[step,0],ArrowUp:[0,-step],ArrowDown:[0,step]}[k];
+ if(!dir)return;const s=floorSel().filter(r=>r.kind!=='hall');if(!s.length)return;
+ ev.preventDefault();floorPush();s.forEach(r=>{r.x=floorRound(r.x+dir[0]);r.y=floorRound(r.y+dir[1]);});render();floorFocus();
 }
 
 /* ==== src/erp/views/carrier-count.js ==== */
@@ -62207,6 +62684,7 @@ function normalizeDB(){
  if(typeof normalizeCutPlans==='function')normalizeCutPlans();
  if(typeof normalizeStockOffcuts==='function')normalizeStockOffcuts();
  if(typeof normalizeCarriers==='function')normalizeCarriers();
+ if(typeof normalizeFloor==='function')normalizeFloor();
  if(typeof normalizeStationScans==='function')normalizeStationScans();
  if(typeof normalizeShipments==='function')normalizeShipments();
  if(typeof normalizeSkips==='function')normalizeSkips();
