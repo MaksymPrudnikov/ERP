@@ -41,8 +41,7 @@ button,input,select { font:inherit; color:inherit }
 button { cursor:pointer }
 button:disabled { cursor:default; opacity:.55 }
 :focus-visible { outline:2px solid var(--accent); outline-offset:2px }
-h1,h2,h3,p { margin:0 }
-h1 { font-size:28px; font-weight:650; letter-spacing:-.025em }
+h2,h3,p { margin:0 }
 h2 { font-size:19px; font-weight:650; letter-spacing:-.015em }
 h3 { font-size:14px; font-weight:650 }
 small,.muted { color:var(--text-2) }
@@ -74,8 +73,7 @@ small,.muted { color:var(--text-2) }
 .tabs { gap:3px }
 .tabs span { padding:6px 9px; border:1px solid transparent; border-radius:7px; font-size:13px; color:var(--text-2) }
 .tabs [aria-current] { background:var(--accent-soft); border-color:var(--accent-line); color:var(--text); font-weight:600 }
-.page-head { padding:19px 0 13px; justify-content:space-between }
-#bar { padding:9px 12px; margin-bottom:14px; border:1px solid var(--line); border-radius:10px; background:var(--surface); min-height:54px }
+#bar { padding:8px 11px; border-bottom:1px solid var(--line); min-height:47px }
 #bar time { padding:0 6px 0 1px; color:var(--text-2); font-size:12px }
 #bar .eb { min-height:31px }
 #bar .filter.work { background:var(--success-soft); border-color:var(--success-line) }
@@ -83,30 +81,44 @@ small,.muted { color:var(--text-2) }
 #bar .filter[aria-pressed="true"] { box-shadow:inset 0 0 0 1px var(--accent); border-color:var(--accent) }
 .status-title { font-weight:650 }
 .warning-banner { padding:4px 9px; border:1px solid var(--warning-line); border-radius:6px; background:var(--warning-soft); color:var(--warning) }
-.workspace { display:grid; grid-template-columns:minmax(0,2fr) minmax(300px,1fr); gap:14px; align-items:start }
+.workspace { display:grid; grid-template-columns:minmax(0,2fr) minmax(300px,1fr); gap:14px; align-items:start; margin-top:14px }
 .workspace.empty { grid-template-columns:minmax(0,1fr) }
 .map,.card { min-width:0; background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow) }
 .map { overflow:hidden }
-.map-head,.map-foot { padding:11px 14px; justify-content:space-between }
-.map-head { border-bottom:1px solid var(--line) }
-.map-foot { border-top:1px solid var(--line); min-height:57px }
 .map-stage { position:relative; background:var(--surface-2) }
-#fsv { display:block; width:100%; height:clamp(340px,calc(100svh - 332px),690px); touch-action:none; user-select:none; cursor:grab }
+.map-tools { position:relative; z-index:3; padding:8px 10px; justify-content:space-between; background:var(--surface-2) }
+.map-tools .row { gap:5px }
+.map-notes { position:absolute; left:12px; bottom:10px; pointer-events:none; max-width:calc(100% - 24px) }
+#fsv { display:block; width:100%; height:clamp(340px,calc(100svh - 205px),740px); touch-action:none; user-select:none; cursor:grab }
 #fsv.editing { cursor:crosshair }
 #fsv[data-dragging] { cursor:grabbing }
 #fsv [data-id],#fsv [data-st],[data-day] { cursor:pointer }
 #fsv.editing [data-id] { cursor:move }
 #fsv[data-dragging] [data-id],#fsv[data-dragging] [data-st] { cursor:inherit }
-.map-controls { gap:5px; margin-left:auto }
+.map-controls { margin-left:auto }
 .flow-key { gap:6px 14px; font-size:12px; color:var(--text-2) }
 .flow-key span { display:flex; align-items:center; gap:6px }
 .flow-key i { width:20px; border-top:2px solid var(--accent) }
 .flow-key .in { border-top-style:dashed }
 #hint { font-size:12px; color:var(--text-2) }
-.heat-key { display:flex; gap:6px; align-items:center; color:var(--text-2); font-size:12px; white-space:nowrap }
-.heat-key i { width:44px; height:8px; border:1px solid var(--warning-line); border-radius:2px;
-  background:linear-gradient(90deg,var(--warning-soft),color-mix(in srgb,var(--warning) 45%,var(--warning-soft))) }
-#orientation { position:absolute; left:15px; bottom:14px; width:68px; height:68px; pointer-events:none;
+.colors-toggle { list-style:none; cursor:pointer }
+.colors-toggle::-webkit-details-marker { display:none }
+.colors-toggle::after { content:""; width:5px; height:5px; border-right:1px solid currentColor; border-bottom:1px solid currentColor;
+  transform:translateY(-1px) rotate(45deg); margin-left:2px }
+#colors[open] .colors-toggle { background:var(--accent-soft); border-color:var(--accent-line) }
+.colors-panel { position:absolute; top:100%; left:10px; width:min(296px,calc(100% - 20px)); padding:12px;
+  border:1px solid var(--line-strong); border-radius:9px; background:var(--surface); box-shadow:var(--shadow) }
+.colors-panel dl { display:grid; grid-template-columns:max-content 1fr; gap:8px 12px; margin:12px 0 }
+.colors-panel dt { display:flex; align-items:center; gap:6px; font-weight:600; font-size:12px }
+.colors-panel dd { margin:0; color:var(--text-2); font-size:12px }
+.swatch { width:12px; height:12px; border:1px solid var(--line-strong); border-radius:3px; background:var(--surface-3) }
+.swatch.work { background:var(--success-soft); border-color:var(--success) }
+.swatch.wait { background:var(--warning-soft); border-color:var(--warning) }
+.swatch.call { background:var(--danger-soft); border-color:var(--danger) }
+.colors-scale { display:flex; align-items:center; gap:7px; margin-top:6px; padding-left:21px }
+.colors-scale i { width:76px; height:8px; border:1px solid var(--warning-line); border-radius:2px;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--warning) 9%,var(--warning-soft)),color-mix(in srgb,var(--warning) 45%,var(--warning-soft))) }
+#orientation { position:absolute; left:12px; bottom:35px; width:62px; height:62px; pointer-events:none;
   background:var(--surface); border:1px solid var(--line); border-radius:9px; box-shadow:var(--shadow) }
 #orientation line { stroke-width:1.4 }
 #orientation text { font-size:10px; font-weight:650; fill:var(--text-2) }
@@ -222,10 +234,8 @@ input[type="checkbox"] { accent-color:var(--accent) }
   .app-header nav { order:1; width:100% }
   .app-header .end { gap:5px }
   .tabs span { padding:4px 6px; font-size:11px }
-  .page-head { padding-top:14px }
   .card { padding:14px }
-  .map-foot { padding:9px 10px }
-  #orientation { left:8px; bottom:8px; width:56px; height:56px }
+  #orientation { left:8px; width:54px; height:54px }
 }
 </style>
 </head>
@@ -245,38 +255,48 @@ input[type="checkbox"] { accent-color:var(--accent) }
     </div>
   </header>
 
-  <div class="page-head row">
-    <h1>Floor</h1>
-    <div id="mode" class="row">
-      <div class="sg" aria-label="Map view">
-        <button class="eb" data-b="2d" aria-pressed="true" title="2D (2)">2D</button><button class="eb" data-b="3d" aria-pressed="false" title="3D (3)">3D</button>
-      </div>
-      <button class="eb" data-b="edit">Edit</button>
-    </div>
-  </div>
-
-  <div id="bar" class="row" aria-label="Floor summary"></div>
   <div id="workspace" class="workspace">
     <section class="map" aria-label="Floor plan">
-      <div id="map-head" class="map-head row"><h3>Floor plan</h3><small id="hall-size" class="number">65 × 70 m</small></div>
+      <div id="bar" class="row" aria-label="Floor summary"></div>
       <div id="stage" class="map-stage">
+        <div id="map-tools" class="map-tools row" aria-label="Map controls">
+          <div class="row">
+            <div id="mode" class="sg" aria-label="Map view">
+              <button class="eb" data-b="2d" aria-pressed="true" title="2D (2)">2D</button><button class="eb" data-b="3d" aria-pressed="false" title="3D (3)">3D</button>
+            </div>
+            <button class="eb" data-b="edit">Edit</button>
+            <details id="colors">
+              <summary class="eb colors-toggle">Colors</summary>
+              <div class="colors-panel">
+                <h3>Automatic status colors</h3>
+                <dl>
+                  <dt><span class="swatch call" aria-hidden="true"></span> Master called</dt><dd>An active master call</dd>
+                  <dt><span class="swatch work" aria-hidden="true"></span> Working</dt><dd>A scan in the last 15 min</dd>
+                  <dt><span class="swatch wait" aria-hidden="true"></span> Waiting</dt><dd>Glass queued, no recent scan</dd>
+                  <dt><span class="swatch" aria-hidden="true"></span> Idle</dt><dd>No queue or recent scan</dd>
+                </dl>
+                <label class="check"><input type="checkbox" id="shade-hours" checked> Shade waiting stations by queue hours</label>
+                <div class="colors-scale number" id="colors-scale"><small>0 h</small><i aria-hidden="true"></i><small>6+ h</small></div>
+              </div>
+            </details>
+          </div>
+          <div class="map-controls row">
+            <div id="presets" class="sg" aria-label="Camera preset" hidden>
+              <button class="eb" data-b="top">Top</button><button class="eb" data-b="iso">Iso</button>
+            </div>
+            <button class="eb icon-button" data-b="zoom-out" aria-label="Zoom out">−</button>
+            <button class="eb icon-button" data-b="zoom-in" aria-label="Zoom in">+</button>
+            <button class="eb" data-b="fit" title="Fit (F)">Fit</button>
+          </div>
+        </div>
         <svg id="fsv" role="img" aria-label="Map of the shop floor" xmlns="http://www.w3.org/2000/svg"></svg>
         <svg id="orientation" viewBox="0 0 68 68" aria-label="3D orientation" role="img" hidden></svg>
+        <div class="map-notes row">
+          <span id="hint" hidden></span>
+          <div id="flow-key" class="flow-key row" hidden><span><i class="in"></i> Came from</span><span><i></i> Goes to</span></div>
+        </div>
         <div id="tooltip" role="tooltip" hidden></div>
         <div id="empty-state" hidden></div>
-      </div>
-      <div id="map-foot" class="map-foot row">
-        <span id="hint"></span>
-        <div id="flow-key" class="flow-key row" hidden><span><i class="in"></i> Came from</span><span><i></i> Goes to</span></div>
-        <div id="heat-key" class="heat-key" hidden title="Waiting station fill by queue hours">Waiting hours <span>0</span><i aria-hidden="true"></i><span>6+</span></div>
-        <div class="map-controls row">
-          <div id="presets" class="sg" aria-label="Camera preset" hidden>
-            <button class="eb" data-b="top">Top</button><button class="eb" data-b="iso">Iso</button>
-          </div>
-          <button class="eb icon-button" data-b="zoom-out" aria-label="Zoom out">−</button>
-          <button class="eb icon-button" data-b="zoom-in" aria-label="Zoom in">+</button>
-          <button class="eb" data-b="fit" title="Fit (F)">Fit</button>
-        </div>
       </div>
     </section>
     <aside id="pan" aria-label="Station details"></aside>
@@ -342,6 +362,7 @@ const eta = code => Number.isFinite(hours(code)) ? '≈' + hours(code).toFixed(1
 
 let items = copySketch(), nextId = 200, selected = new Set();
 let view = '2d', filter = '', period = 'today', editing = false, allowed = true;
+let showFlows = false, shadeHours = true;
 let camera = {...ISO, zoom:1, x:0, y:0, frame:null, preset:'iso'};
 let savedDemo = null, backup = null, undo = [], redo = [];
 let gesture = null, frameRequest = 0, lastTap = null, acknowledged = false;
@@ -354,7 +375,7 @@ const targetItem = code => items.find(item => item.k === 'm' && item.st === code
   || items.find(item => item.st === code);
 const stateOf = item => item.k === 'w' ? 'wall' : item.st ? ST[item.st].status : item.k === 'm' ? 'none' : 'idle';
 const heat = code => ST[code]?.status === 'wait'
-  ? ` style="--heat:${Math.round(9 + Math.min(hours(code), 6) * 6)}%"` : '';
+  ? ` style="--heat:${shadeHours ? Math.round(9 + Math.min(hours(code), 6) * 6) : 0}%"` : '';
 const dot = status => `<span class="dot ${status}" aria-hidden="true"></span>`;
 
 function textWidth(text, size = 11, weight = 400) {
@@ -370,15 +391,20 @@ function textWidth(text, size = 11, weight = 400) {
 function selectStation(code) {
   const item = targetItem(code);
   if (!item) return;
-  if (activeCode() !== code) period = 'today';
+  if (activeCode() !== code) {
+    period = 'today';
+    showFlows = false;
+  }
   selected = new Set([item.id]);
   filter = '';
 }
 
+const visibleFlows = () => showFlows ? FLOWS[activeCode()] : null;
+
 function relatedStations() {
-  const code = activeCode();
-  if (!code) return null;
-  return new Set([code, ...Object.keys(FLOWS[code]?.in || {}), ...Object.keys(FLOWS[code]?.out || {})]);
+  const directions = visibleFlows();
+  if (!directions) return null;
+  return new Set([activeCode(), ...Object.keys(directions.in || {}), ...Object.keys(directions.out || {})]);
 }
 
 function dimmed(code, related) {
@@ -391,7 +417,7 @@ function drawBar() {
   bar.hidden = isEmpty();
   if (bar.hidden) return;
   if (editing) {
-    bar.innerHTML = `<span class="status-title">Editing</span><small>Floor plan · meters</small>
+    bar.innerHTML = `<span class="status-title">Editing</span><small>Meters</small>
       <span id="overlaps" class="warning-banner" role="status" hidden></span>
       <div class="row end"><button class="eb" data-b="cancel">Cancel</button><button class="eb solid" data-b="save">Save</button></div>`;
     return;
@@ -411,8 +437,9 @@ function drawBar() {
 function drawEmpty() {
   const empty = isEmpty();
   $('workspace').classList.toggle('empty', empty);
-  for (const id of ['mode','map-head','map-foot','pan','fsv']) $(id).toggleAttribute('hidden', empty);
+  for (const id of ['map-tools','pan','fsv']) $(id).toggleAttribute('hidden', empty);
   $('empty-state').hidden = !empty;
+  if (empty) $('colors').open = false;
   $('empty-state').innerHTML = empty ? allowed
     ? '<h2>Floor plan is not set up yet</h2><button class="eb solid" data-b="sketch">Start from sketch</button>'
     : '<h2>Floor plan is not set up yet</h2>' : '';
@@ -429,7 +456,7 @@ function rankPanel() {
   const maxHours = Number.isFinite(longest) ? Math.max(longest,1) : 8;
   panel.innerHTML = `<section class="card">
     <h2>Where the work piles up</h2>
-    ${top.length ? `<small>Queue size ÷ pieces per hour</small><ol class="queue-list">${top.map(code => {
+    ${top.length ? `<small>Time to clear at the current pace</small><ol class="queue-list">${top.map(code => {
       const s = ST[code];
       return `<li><button class="queue-row" data-code="${code}">${dot(s.status)}
         <span><strong>${code}</strong><small>${s.name}</small></span>
@@ -519,7 +546,8 @@ function stationPanel(code) {
     ${s.status === 'call' ? `<div class="call-banner row">${dot('call')} ${acknowledged ? 'Master is coming · #05' : 'Master called 4 min ago · #05'}
       ${acknowledged ? '' : '<button class="eb end" data-b="going">Going</button>'}</div>` : ''}
     <div class="periods" aria-label="Period">${periods}</div><div class="metrics">${metrics}</div>${chart}${table}
-    <div class="row actions"><button class="eb" disabled title="Available in ERP">Orders</button><button class="eb" disabled title="Available in ERP">Open screen ↗</button></div>
+    <div class="row actions">${FLOWS[code] ? `<button class="eb" data-b="flows" aria-controls="fsv" aria-pressed="${showFlows}">Flows</button>` : ''}
+      <button class="eb" disabled title="Available in ERP">Orders</button><button class="eb" disabled title="Available in ERP">Open screen ↗</button></div>
   </section>`;
 }
 
@@ -731,7 +759,7 @@ const badge = (x,y,w,h,value,cls) => `<g class="${cls}"><rect x="${x-w/2}" y="${
   <text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central">${value}</text></g>`;
 
 function drawFlows(anchors,occupied) {
-  const code = activeCode(), directions = FLOWS[code];
+  const code = activeCode(), directions = visibleFlows();
   if (!directions) return '';
   let halos = '', paths = '', tags = '';
   function arrow(from,to,n,kind) {
@@ -1055,15 +1083,13 @@ function syncControls() {
   svg.classList.toggle('editing',editing);
   $('presets').hidden = view !== '3d';
   $('orientation').toggleAttribute('hidden',isEmpty() || view !== '3d');
-  $('hall-size').hidden = view === '2d' && !editing;
   svg.classList.toggle('diagram-3d',view === '3d');
   for (const button of $('presets').querySelectorAll('button')) {
     button.setAttribute('aria-pressed',button.dataset.b === camera.preset);
   }
-  $('flow-key').hidden = !FLOWS[activeCode()];
-  $('heat-key').hidden = editing || !!activeCode() || filter === 'work' || !codes.some(code => ST[code].status === 'wait' && targetItem(code));
-  $('hint').textContent = editing ? 'Drag to move · Shift-drag to pan'
-    : view === '3d' ? 'Drag to orbit · Shift-drag to pan' : $('flow-key').hidden ? 'Drag to pan' : '';
+  $('flow-key').hidden = !visibleFlows();
+  $('hint').textContent = isEmpty() || visibleFlows() ? '' : editing ? 'Drag to move · Shift-drag to pan'
+    : view === '3d' ? 'Drag to orbit · Shift-drag to pan' : '';
   $('hint').hidden = !$('hint').textContent;
 }
 function render() {
@@ -1130,6 +1156,13 @@ root.addEventListener('click', event => {
     }
     return;
   }
+  if (b === 'flows') {
+    showFlows = !showFlows;
+    target.setAttribute('aria-pressed',showFlows);
+    syncControls();
+    drawMap();
+    return;
+  }
   if (b === 'undo') return travel(undo,redo);
   if (b === 'redo') return travel(redo,undo);
   if (a && editing) return editSelection(a);
@@ -1161,6 +1194,15 @@ $('can-edit').addEventListener('change', event => {
   render();
 });
 
+$('shade-hours').addEventListener('change', event => {
+  shadeHours = event.target.checked;
+  $('colors-scale').hidden = !shadeHours;
+  drawMap();
+});
+root.addEventListener('pointerdown', event => {
+  if (!$('colors').contains(event.target)) $('colors').open = false;
+});
+
 document.addEventListener('keydown', event => {
   const key = event.key.toLowerCase();
   const inField = event.target.matches('input,select,textarea');
@@ -1172,6 +1214,11 @@ document.addEventListener('keydown', event => {
     return;
   }
   if (key === 'escape') {
+    if ($('colors').open) {
+      $('colors').open = false;
+      $('colors').querySelector('summary').focus();
+      return;
+    }
     if (inField) event.target.blur();
     if (gesture) cancelGesture();
     selected.clear();
