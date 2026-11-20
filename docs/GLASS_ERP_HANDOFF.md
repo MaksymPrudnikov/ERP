@@ -1,6 +1,6 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 5.331 · 19 ноября 2026 — Users и сервер: ПК со старой базой без своих правок не дописывает новую базу сервера.
+Версия 5.332 · 20 ноября 2026 — Production: план цеха Floor (A1) — план в метрах, Start from sketch, редактор с черновиком, цвет станции.
 
 ## Как читать
 
@@ -303,9 +303,11 @@ Gmail открывает письмо в ящике, где его привяз�
 
 ## Production и станции
 
-Маршрут стекла по станциям, сканы, экраны станций, доски, тара (долли и скиды), Skip, Unbatch.
-Код `src/erp/shopfloor/`, `views/station*.js`, `views/production*.js`, `views/carrier*.js`; данные `DB.stationScan`,
-`DB.productionRoute`, `DB.carrier`, `DB.carrierEvent`, `DB.carrierCount`. Руководство `docs/manual/production.*`.
+Маршрут стекла по станциям, сканы, экраны станций, доски, тара (долли и скиды), Skip, Unbatch, план цеха Floor.
+Код `src/erp/shopfloor/`, `views/station*.js`, `views/production*.js`, `views/carrier*.js`, `production/floor.js` +
+`views/floor.js`; данные `DB.stationScan`, `DB.productionRoute`, `DB.carrier`, `DB.carrierEvent`, `DB.carrierCount`,
+`DB.floorItem`, цвет станции `DB.station[].color`. Руководство `docs/manual/production.*`. Задание дальше (M, A2,
+A3, C) — `docs/ЗАДАЧА_КАРТА_ЦЕХА.md`.
 
 **Правила владельца**
 - **Где стекло — считается** из последнего скана и маршрута (как в Spil); резка — отметка стекла, не позиции; скан
@@ -328,6 +330,10 @@ Gmail открывает письмо в ящике, где его привяз�
   будущем; делают Users / Finance; цели — любая станция, Picked up, Delivered. **Unbatch order** — Users / Finance,
   Undo нет («несёт ответственность сам», 09.10).
 - Production не показывает заказ, всё стекло которого уехало (01.11). Print drawing — на любой станции.
+- **План цеха — Production → Floor** (19–20.11): офисный экран, видят все с Production, правят с Master Data. План
+  меряет и ставит владелец сам, в метрах (поле понимает 6.5 · 650 cm · 6500 mm); зоны ожидания долли и скидов рисует
+  сам, где угодно, и за залом; цвет станции выбирает сам; наложение — жёлтая полоса, Save не блокируется. Состояние
+  станций, долли в зонах, карточка станции — следующие PR (A2).
 
 **Как устроено**
 - `shopfloor/scan.js` (`stationCheck`, `stationRecord`, контекст больших заказов `stationScanCtx`), тара
@@ -336,8 +342,19 @@ Gmail открывает письмо в ящике, где его привяз�
 - Экраны станций, Production (Stations, Terminals, Dollies & Skids, окно тары, пересчёт), Skip, Unbatch, Skids,
   формы Drawing и Dolly / Skid sheet — на действиях `onAct` (PR 2 задания CSP, 14.11); Enter в поле «куда»
   (`stationDollyMoveKey`, `carrierWinMoveKey`, …) — маленькие функции рядом с экраном.
+- **Floor (A1)**: `DB.floorItem` — строки `{id, kind, station, machine, label, x, y, w, l, h}` в метрах; `kind` —
+  hall (одна), machine, wall, object, zone (зона ожидания станции, одна на станцию). Нормализатор `normalizeFloor` в
+  списке `normalizeDB`; на старте таблица пустая — план заводит `Start from sketch` (набросок владельца 19.11: зал
+  65 × 70, две стены, блоки 1–17 без станций) или Empty hall. Черновик редактора (`floorEdit`, `views/floor.js`) живёт
+  до Save / Cancel, в `STORAGE_UNSAVED`; Undo / Redo — внутри черновика. Save — одна команда `floorWrite`: план и цвета
+  станций; план, начатый с наброска, пишется, только если таблица всё ещё пуста («Plan already exists on another PC»).
+  Цвет станции — имя токена `series-1…24` у `DB.station` (нормализатор станций его хранит), без своего — по порядку
+  станции. Переименование станции (`saveSfStation`) правит `floorItem.station`; чужой код — «Unknown station».
+  Рисунок — свой SVG в метрах, во время жеста перерисовывается только SVG. У `floorItem` нет правила
+  `erp_table_rule`: галочка Master Data закрывает правку в интерфейсе. Замер скорости — строка `Floor` в
+  `tools/perf-year.js`.
 - Сторожа: `test/station*.js`, `carriers`, `carrier-form`, `carrier-sheet`, `dollies-count`, `dollies-skids`,
-  `skip`, `production-unbatch`, `route-repeat`, `step-unit`, `igu-ready`, `units`.
+  `skip`, `production-unbatch`, `route-repeat`, `step-unit`, `igu-ready`, `units`, `floor`.
 
 **Открыто**: компьютер с неверными часами пишет сканы своим временем; экраны станций и лист тары не на общем
 движке списков; физическая печать этикеток не проверена (нет принтера).
