@@ -1,6 +1,6 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 5.335 · 20 ноября 2026 — Production → Floor (A3): вид 3D — поворот и наклон мышью, Top · Iso, двойной клик приближает станцию.
+Версия 5.336 · 20 ноября 2026 — Production: вызов HELP со станции — станция красная на Floor, Resolved на станции или в офисе.
 
 ## Как читать
 
@@ -350,10 +350,14 @@ A3, C) — `docs/ЗАДАЧА_КАРТА_ЦЕХА.md`.
   `broken`, `sheetBreak`) и NCR по `where`, архивные месяцы через `archiveScopeFor`. Overview «Shop now» → Floor,
   если станция на плане. 3D — `views/floor-3d.js` (только просмотр): проекция с поворотом и наклоном, бока по углу
   камеры, порядок по глубине, модули до 6 м, стены срезом 1.3 м. Замер — строки `Floor`, `Floor 3D` в `perf-year`.
+- **HELP** (часть C): `shopfloor/station-call.js` — `DB.stationCall {id, station, machine, by, at, closedAt, closedBy}`,
+  один открытый вызов на станцию; кнопка HELP в шапке экрана станции, Resolved — там же или в карточке Floor. На Floor
+  статус `help` важнее Working / Waiting: блок красный с пульсацией, «N help · …» в сводке; Floor с вызовом
+  перерисовывается раз в минуту. Без звука, телефона и Overview (владелец 20.11); записи остаются.
 - **Станки**: `DB.station[].machines` (`sfMachines`); экран помнит станок в `localStorage` (`STATION_MACHINE_KEY`);
   `stationRecordCommand` пишет `rec.machine` только для станка своей станции; факты и Reports — поле Machine.
 - Сторожа: `test/station*.js`, `carriers`, `carrier-form`, `carrier-sheet`, `dollies-count`, `dollies-skids`,
-  `skip`, `production-unbatch`, `route-repeat`, `step-unit`, `igu-ready`, `units`, `floor`, `machines`, `floor-live`, `floor-3d`.
+  `skip`, `production-unbatch`, `route-repeat`, `step-unit`, `igu-ready`, `units`, `floor`, `machines`, `floor-live`, `floor-3d`, `station-help`.
 
 **Открыто**: компьютер с неверными часами пишет сканы своим временем; экраны станций и лист тары не на общем
 движке списков; физическая печать этикеток не проверена (нет принтера).

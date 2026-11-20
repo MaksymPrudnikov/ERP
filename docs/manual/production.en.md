@@ -88,6 +88,9 @@ the plan yet. **−** / **+** / **Fit** — zoom; drag — move the view; **Esc*
 machines. Labels hide while the plan turns. **Double-click** a station (2D and 3D) to zoom to it; **Fit** (**F**) —
 the whole plan.
 
+**HELP from a station**: the station is red and pulses gently, the summary shows “1 help · DRILL” (click — its card).
+The card shows a red strip “Help · 4 min”, the machine and who called, and **Resolved**.
+
 **Station card** — click a station on the plan or in the list:
 - period **Today · Yesterday · 7 days · 30 days** (the computer remembers the choice);
 - **Done** and the station's measures in its own units, as on the station screen: Glass ft², Units, Linear in, Work
@@ -144,6 +147,11 @@ Station code and name, tabs **Scan · Queue · Board · Dollies**, on the right 
 “Putting on DL-2” (✕ — stop putting on it), “No dolly · N”, “N to answer”, the worker, **Switch**, **Dark / Light**,
 **ERP** (back to the office). On IGU — **Unit stickers Auto / By button**: the unit sticker prints by itself when all
 lites are scanned.
+
+**HELP** — call the office (the production manager): the station lights up red on the floor plan (Production →
+Floor). While the call is open, the button becomes a red “Help · 4 min” chip with **Resolved**: press it when help has
+come. The office can also close the call from the station card. The HELP button is on the Scan tab; on Queue and Board
+an open call shows as a short “Help 4′ ✓” chip.
 
 **Machine** — on a station with machines (the Machines field in Master Data): which machine this screen stands at. It
 is picked once on this computer, which remembers it. Not picked — a yellow **Not set**: scanning still works, just

@@ -75,10 +75,11 @@ function floorNotPlaced(items){
 /* --- Рисунок ---------------------------------------------------------- */
 function floorRect(r,cls,extra,title){return `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.l}" class="${cls}"${extra||''}${title?`><title>${esc(title)}</title></rect>`:'/>'}`;}
 function floorClock(iso){if(!iso)return '—';const d=new Date(iso);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
-const FLOOR_STATUS={working:'Working',waiting:'Waiting',idle:'Idle'};
+const FLOOR_STATUS={help:'Help',working:'Working',waiting:'Waiting',idle:'Idle'};
 /* Состояние блока: станок — свой Working; станция — Working / Waiting / Idle. */
 function floorBlockStatus(r,live){
  const s=live&&r.station&&live.st[r.station];if(!s)return '';
+ if(s.help)return 'help';
  if(r.kind==='machine'&&r.machine&&s.machines[r.machine])return s.machines[r.machine].working?'working':s.waiting?'waiting':'idle';
  return s.status;
 }
@@ -202,12 +203,15 @@ function viewProdFloor(){
 function floorSummary(){
  const live=floorLive(),n=k=>Object.values(live.st).filter(s=>s.status===k).length,d=new Date(live.at);
  const chip=(k,word)=>`<button type="button" class="fl-sumb is-${k}${floorFilter===k?' on':''}" data-floor-filter="${k}" aria-pressed="${floorFilter===k}" ${onAct('click',floorSetFilter,k)}><i></i>${n(k)} ${word}</button>`;
- return `<span class="mut fl-now" data-floor-now>${d.toLocaleDateString('en-US',{weekday:'short'})} ${floorClock(live.at)}</span>${chip('working','working')}${chip('waiting','waiting')}${floorFilter?`<button type="button" class="fl-show-all" ${onAct('click',floorSetFilter,'')}>Show all</button>`:''}`;
+ const help=Object.entries(live.st).filter(([,s])=>s.help);
+ const helpChip=help.length?`<button type="button" class="fl-sumb is-help" data-floor-help ${help.length===1?onAct('click',floorOpenStation,help[0][0]):onAct('click',floorSetFilter,'help')}><i></i>${help.length} help · ${esc(help.map(([c])=>c).join(', '))}</button>`:'';
+ floorHelpTick(help.length);
+ return `<span class="mut fl-now" data-floor-now>${d.toLocaleDateString('en-US',{weekday:'short'})} ${floorClock(live.at)}</span>${helpChip}${chip('working','working')}${chip('waiting','waiting')}${floorFilter?`<button type="button" class="fl-show-all" ${onAct('click',floorSetFilter,'')}>Show all</button>`:''}`;
 }
 function floorStationList(){
  const items=floorItems(),missing=new Set(floorNotPlaced(items)),live=floorLive();
  const list=(DB.station||[]).slice().sort((a,b)=>a.code.localeCompare(b.code));
- return `<h3>Stations</h3><div class="fl-stations">${list.map(s=>{const l=live.st[s.code]||{status:'idle',waiting:0};return `<button type="button" class="fl-st-row${floorPick===s.code?' on':''}" data-floor-station="${esc(s.code)}" ${onAct('click',floorPickStation,s.code)}><i class="fl-sw" style="--fc:var(--${floorColor(s.code)})"></i><b>${esc(s.code)}</b><span class="fl-dot is-${l.status}" title="${FLOOR_STATUS[l.status]}"></span><span class="mut">${missing.has(s.code)?'Not placed':FLOOR_STATUS[l.status]+(l.waiting?' · '+l.waiting+' waiting':'')}</span></button>`;}).join('')}</div>`;
+ return `<h3>Stations</h3><div class="fl-stations">${list.map(s=>{const l=live.st[s.code]||{status:'idle',waiting:0};return `<button type="button" class="fl-st-row${floorPick===s.code?' on':''}" data-floor-station="${esc(s.code)}" ${onAct('click',floorPickStation,s.code)}><i class="fl-sw" style="--fc:var(--${floorColor(s.code)})"></i><b>${esc(s.code)}</b><span class="fl-dot is-${l.status}" title="${FLOOR_STATUS[l.status]}"></span><span class="mut">${missing.has(s.code)?'Not placed':l.help?'Help · '+stationCallMinutes(l.help)+' min':FLOOR_STATUS[l.status]+(l.waiting?' · '+l.waiting+' waiting':'')}</span></button>`;}).join('')}</div>`;
 }
 /* Карточка станции: период, работа в её единицах, брак, станки, тара. */
 function floorCardHTML(code){
@@ -226,6 +230,7 @@ function floorCardHTML(code){
  const table=one?'':`<table class="fl-days" data-floor-days><thead><tr><th>Date</th><th>Done</th><th>${esc(c.main.label)}</th><th>People</th><th>Broken</th><th>NCR</th></tr></thead><tbody>${c.byDay.slice().reverse().map(d=>`<tr><td>${esc(d.day)}</td><td>${num(d.done,0)}</td><td>${num(d.main,c.main.digits)}</td><td>${num(d.people,0)}</td><td>${num(d.broken,0)}</td><td>${num(d.ncr,0)}</td></tr>`).join('')}</tbody></table>`;
  const wait=c.archive==='loading'&&typeof archiveScope!=='undefined'&&archiveScope?`<p class="mut" data-rep-archive-wait>${esc(archiveFactsText(archiveScope))}</p>`:'';
  return `<div class="fl-card" data-floor-card="${esc(code)}"><div class="fl-card-head"><i class="fl-sw" style="--fc:var(--${floorColor(code)})"></i><div><h3>${esc(code)}</h3><span class="mut">${esc(s.nameEn||s.name||'')}</span></div><span class="fl-sp"></span><span class="fl-pill is-${l.status}" data-floor-status>${FLOOR_STATUS[l.status]}</span><button type="button" class="fl-x" aria-label="Close" ${onAct('click',floorPickStation,code)}>×</button></div>
+  ${l.help?`<div class="fl-help" data-floor-help-card><b>Help · ${stationCallMinutes(l.help)} min</b>${l.help.machine?' · '+esc(l.help.machine):''}${l.help.by?' · '+esc(l.help.by):''}<span class="fl-sp"></span><button type="button" class="pri" data-floor-resolved ${onAct('click',floorResolvedSave,code)}>Resolved</button></div>`:''}
   <div class="fl-periods" role="tablist">${[['today','Today'],['yesterday','Yesterday'],['7','7 days'],['30','30 days']].map(([k,t])=>`<button type="button" role="tab" class="${floorPeriod===k?'on':''}" aria-selected="${floorPeriod===k}" data-floor-period="${k}" ${onAct('click',floorSetPeriod,k)}>${t}</button>`).join('')}</div>
   ${wait}<div class="fl-tiles">${tiles.join('')}</div>${ops}${ms}${chart}${table}
   ${floorPeriod==='today'&&tare.length?`<h4>Dollies here</h4><div class="fl-tare-list" data-floor-tare-list>${tare.map(x=>`<button type="button" class="cw-code sm" ${onAct('click',floorShowCarrier,x.code)}>${esc(x.code)} · ${x.n} glass</button>`).join('')}</div>`:''}
@@ -239,6 +244,14 @@ function floorTareCard(code){
   <table class="fl-days"><thead><tr><th>Waiting for</th><th>Glass</th></tr></thead><tbody>${Object.entries(c.split).sort((a,b)=>b[1]-a[1]).map(([s,n])=>`<tr><td>${esc(s)}</td><td>${n}</td></tr>`).join('')}</tbody></table>
   <div class="fl-row"><button type="button" data-floor-tare-open ${onAct('click',carrierWinOpen,code)}>What is on it</button></div></div>`;
 }
+/* Пока открыт вызов HELP, Floor перерисовывается раз в минуту — «Help · 4 min» идёт. */
+let floorHelpTimer=0;
+function floorHelpTick(n){
+ if(!n||floorHelpTimer)return;
+ floorHelpTimer=setTimeout(()=>{floorHelpTimer=0;if(tab==='production'&&subtab==='floor'&&!floorEdit&&!floorDrag)render();},60000);
+}
+/* Resolved из офиса: карточка станции на Floor. */
+function floorResolvedSave(code){const u=typeof signinUser==='function'?signinUser():null;const out=stationResolveCommand(code,u?{name:u.name,id:u.viewProfileId}:{name:'Office'});if(!out.ok)alert(out.error);render();}
 function floorSetFilter(k){floorFilter=floorFilter===k?'':k;render();}
 function floorSetPeriod(k){floorPeriod=FLOOR_PERIODS.includes(k)?k:'today';try{localStorage.setItem('glass_erp_floor_period_v1',floorPeriod);}catch(e){}render();}
 /* Show on floor (Dollies & Skids, карточка станции): Floor с одной подсвеченной тарой. */

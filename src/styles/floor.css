@@ -131,3 +131,14 @@ button.fl-big{font-size:16px;padding:11px 20px}
 .fl-wall.fl-face3{fill:var(--text-3);stroke:none}
 .fl-object.fl-face3,.fl-free.fl-face3{fill:var(--line)}
 .fl-svg circle.fl-tare{stroke-width:1.5}
+
+/* C: вызов HELP — станция красная, мягкая пульсация (без неё при reduced motion). */
+.fl-svg .fl-st.is-help{fill:var(--danger-soft);stroke:var(--danger);stroke-width:3;animation:fl-help 1.6s ease-in-out infinite}
+@keyframes fl-help{50%{fill:color-mix(in srgb,var(--danger) 35%,var(--surface))}}
+@media (prefers-reduced-motion:reduce){.fl-svg .fl-st.is-help{animation:none}}
+.fl-dt.is-help{fill:var(--danger)}
+.fl-dot.is-help{background:var(--danger)}
+.fl-sumb.is-help{border-color:var(--danger-line);background:var(--danger-soft);color:var(--danger)}
+.fl-sumb.is-help i{background:var(--danger)}
+.fl-pill.is-help{background:var(--danger-soft);color:var(--danger)}
+.fl-help{display:flex;align-items:center;gap:8px;margin:10px 0;padding:9px 12px;border-radius:10px;background:var(--danger-soft);color:var(--danger);border:1px solid var(--danger-line)}

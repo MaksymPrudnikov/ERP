@@ -54,6 +54,18 @@ function stationMachineChip(){
  const cur=stationMachineHere();
  return '<label class="st-chip st-machine'+(cur?'':' warn')+'" data-station-machine title="Which machine this screen stands at"><span class="st-chip-word">Machine</span><select aria-label="Machine" '+onAct('change',stationMachineSet,EL_VALUE)+'><option value="">'+(cur?'—':'Not set')+'</option>'+list.map(c=>'<option'+(c===cur?' selected':'')+'>'+esc(c)+'</option>').join('')+'</select></label>';
 }
+/* HELP (часть C, 20.11.2026): вызов в офис; открыт — «Help · 4 min» и Resolved.
+   На Queue и Board в шапке ещё поле скана — места нет: кнопка HELP только на
+   Scan, открытый вызов — короткой плашкой «Help 4′ ✓». */
+function stationHelpChip(){
+ const c=typeof stationCallOpen==='function'?stationCallOpen(stationCode):null,narrow=stationTab==='queue'||stationTab==='board';
+ if(c)return narrow?'<div class="st-chip st-help on" data-station-help-open>Help '+stationCallMinutes(c)+'′<button type="button" data-station-resolved aria-label="Resolved" title="Resolved" '+onAct('click',stationResolvedSave)+'>✓</button></div>'
+  :'<div class="st-chip st-help on" data-station-help-open>Help · '+stationCallMinutes(c)+' min<button type="button" data-station-resolved '+onAct('click',stationResolvedSave)+'>Resolved</button></div>';
+ return narrow?'':'<button type="button" class="st-btn st-help" data-station-help '+onAct('click',stationHelpCreate)+' title="Call the office">HELP</button>';
+}
+/* Имена на …Create / …Save: кнопки база запирает на время записи (storageLockButtons). */
+function stationHelpCreate(){const who=stationWho();if(!who)return;const out=stationHelpCommand(stationCode,who,stationMachineHere());stationNote=out.ok?'Help called — the office sees it':out.error;render();}
+function stationResolvedSave(){const who=stationWho();if(!who)return;const out=stationResolveCommand(stationCode,who);stationNote=out.ok?'Help resolved':out.error;render();}
 function stationMergeCodes(){return typeof salesRouteStationOf==='function'?[salesRouteStationOf('igu_assembly','IGU'),salesRouteStationOf('lamination','LAM')]:['IGU','LAM'];}
 function stationAutoPrintOn(){try{return !!(JSON.parse(localStorage.getItem(STATION_AUTOPRINT_KEY)||'{}')||{})[stationCode];}catch(e){return false;}}
 function stationAutoPrintToggle(){
@@ -498,6 +510,7 @@ function stationTop(who){
   (who&&stationPutOn()?'<div class="st-chip st-puton" data-station-puton title="Putting on"><span class="st-chip-more">Putting on </span><b>'+esc(stationPutOn())+'</b><button type="button" title="Stop putting on this dolly" '+onAct('click',stationClearPutOn)+'>✕</button></div>':'')+
   (who?stationTripChip():'')+
   (who?stationMachineChip():'')+
+  (who?stationHelpChip(who):'')+
   (who?'<button type="button" class="st-btn" data-station-drawings '+onAct('click',stationDrawPick)+'>Drawings</button>':'')+
   (who?stationBatchChip()+'<div class="st-chip"><span class="st-av">'+esc(stationInitials(who.name))+'</span><b data-raw>'+esc(who.name)+'</b></div><button type="button" class="st-btn" '+onAct('click',stationSwitch)+'>Switch</button>':'')+
   stationThemeButton()+'<button type="button" class="st-btn st-exit" '+onAct('click',stationExit)+' title="Back to ERP">ERP</button></div>';

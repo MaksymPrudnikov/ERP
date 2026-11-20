@@ -225,6 +225,7 @@
   "src/erp/shipping/print.js",
   "src/erp/shipping/api.js",
   "src/erp/shopfloor/skip.js",
+  "src/erp/shopfloor/station-call.js",
   "src/erp/views/skip-ui.js",
   "src/erp/shopfloor/production-unbatch.js",
   "src/erp/views/production-unbatch-ui.js",
