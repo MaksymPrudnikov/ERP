@@ -25,7 +25,9 @@ const SF_TABS=[
  {k:'terminals', label:'Terminals'},
  /* Долли и скиды (15.10.2026): здесь, а не в Data — Data видит не каждый,
     а отгрузка и оптимизатор видят Production (views/carriers-board). */
- {k:'carriers',  label:'Dollies & Skids'}
+ {k:'carriers',  label:'Dollies & Skids'},
+ /* План цеха (20.11.2026, views/floor): где что стоит, редактор плана. */
+ {k:'floor',     label:'Floor'}
 ];
 
 /* Переключатель экранов Production — таблетки, как быстрые виды в Sales. */
@@ -41,7 +43,7 @@ function viewProduction(){
  return `${referenceReseeded?'<div class="note" style="margin-bottom:14px">Reference tables updated: stations were reseeded from the factory data.</div>':''}
   <div class="card sales-list-card sl-foot-pin">
    ${subtab==='orders'?'':subtab==='stations'?sfStationsBar()+sfScreenPills()+sfRouteHTML():subtab==='terminals'?sfTerminalsBar()+sfScreenPills():''}
-   ${({orders:viewProdOrders,stations:()=>viewSfStations(false,true),terminals:viewSfTerminals,carriers:viewProdCarriers})[subtab]()}
+   ${({orders:viewProdOrders,stations:()=>viewSfStations(false,true),terminals:viewSfTerminals,carriers:viewProdCarriers,floor:viewProdFloor})[subtab]()}
   </div>
   ${subtab==='stations'?sfImportCard():''}`;
 }
@@ -198,6 +200,7 @@ function saveSfStationCommand(){
   const old=prev.code;
   (DB.stationScan||[]).forEach(r=>{if(r.station===old)r.station=code;if(r.confirmedAt===old)r.confirmedAt=code;});
   ['ncrReason','ncr','recut'].forEach(k=>(DB[k]||[]).forEach(r=>{if(r.where===old)r.where=code;}));
+  (DB.floorItem||[]).forEach(r=>{if(r.station===old)r.station=code;});
   (DB.productionRoute||[]).forEach(x=>{x.route.codes=x.route.codes.map(c=>c===old?code:c);x.route.shipping=(x.route.shipping||[]).map(c=>c===old?code:c);x.route.services.forEach(r=>{if(r.station===old)r.station=code;});});
 
 
