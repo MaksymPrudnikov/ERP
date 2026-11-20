@@ -45,6 +45,14 @@ module.exports=async function({page,eq,ok}){
   return {m,closed,note,imported:imp.stationCall.length};
  }),{m:'P2',closed:true,note:'Help resolved',imported:1});
 
+ await t.p.setViewportSize({width:1024,height:768});
+ eq('Queue и Board: кнопки HELP нет (она на Scan), открытый вызов — короткая плашка «Help 0′ ✓», шапка не шире окна на 1024',await t.p.evaluate(()=>{
+  shReset();shStation('DRILL');stationTab='queue';render();const none=!document.querySelector('[data-station-help]');
+  stationHelpCommand('DRILL',{name:'Ivan P.'},'');render();const chip=document.querySelector('[data-station-help-open]').textContent,top=document.querySelector('.st-top');
+  const fits=document.documentElement.scrollWidth<=innerWidth+1;document.querySelector('[data-station-resolved]').click();
+  return {none,chip,fits,closed:!!DB.stationCall[0].closedAt};
+ }),{none:true,chip:'Help 0′✓',fits:true,closed:true});
+ await t.p.setViewportSize({width:1280,height:720});
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

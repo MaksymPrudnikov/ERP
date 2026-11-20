@@ -150,7 +150,8 @@ lites are scanned.
 
 **HELP** — call the office (the production manager): the station lights up red on the floor plan (Production →
 Floor). While the call is open, the button becomes a red “Help · 4 min” chip with **Resolved**: press it when help has
-come. The office can also close the call from the station card.
+come. The office can also close the call from the station card. The HELP button is on the Scan tab; on Queue and Board
+an open call shows as a short “Help 4′ ✓” chip.
 
 **Machine** — on a station with machines (the Machines field in Master Data): which machine this screen stands at. It
 is picked once on this computer, which remembers it. Not picked — a yellow **Not set**: scanning still works, just
