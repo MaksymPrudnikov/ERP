@@ -8,7 +8,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-gjWmgdmKaoZBQzY88kejHV6GbcGbfc+Dfzk/N1ZJcyM=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-mftoscYkuQOkG8g/H9t+QUWT/IkwqpTCyciic18pVPE=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GLASS ERP — Glazing System</title>
 <style>
@@ -3551,6 +3551,12 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 .st-dly-acts{padding:12px 0 0}
 .st-dly .st-acts .b{display:inline-flex;align-items:center}
 .st-dly-card .st-gid{font-size:18px;line-height:1.35;color:var(--text);font-family:inherit}
+/* Станок этого экрана (часть M): выбор один раз на компьютере; не выбран — жёлтый. */
+.st-machine{padding:6px 10px 6px 14px;cursor:pointer}
+.st-machine select{background:transparent;border:0;color:var(--on-solid);font:inherit;font-weight:700;padding:0 2px;cursor:pointer}
+.st-machine option{color:var(--text);background:var(--surface)}
+.st-machine.warn{background:var(--warning-soft);color:var(--warning)}
+.st-machine.warn select{color:var(--warning)}
 
 /* ---- src/styles/theme.css ---- */
 /* ==============================================================
@@ -4587,7 +4593,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='f59e3208e362';
+var ERP_BUILD='1b2fe0066a14';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -10541,6 +10547,11 @@ function sfStr(v){return String(v==null?'':v).trim();}
 function sfCode(v){return sfStr(v).toUpperCase();}
 function sfNum(v){if(v==null||v==='')return null;const n=+v;return Number.isFinite(n)&&n>0?n:null;}
 const SF_CODE_RE=/^[A-Z0-9][A-Z0-9_-]{0,39}$/;
+/* Коды станков станции: из массива или строки «P1, P2, P3» — без повторов, до 12. */
+function sfMachines(v){
+ const list=Array.isArray(v)?v:String(v==null?'':v).split(/[\s,;]+/),seen=new Set();
+ return list.map(x=>sfCode(x)).filter(c=>c&&SF_CODE_RE.test(c)&&c.length<=12&&!seen.has(c)&&(seen.add(c),true)).slice(0,12);
+}
 const SF_OP_CODE_RE=/^[a-z0-9][a-z0-9_]{0,39}$/;
 
 /* =====================================================================
@@ -10745,7 +10756,10 @@ function normalizeShopFloor(){
    /* Цвет станции на плане цеха (erp/production/floor) — имя токена. */
    ...(/^series-([1-9]|1\d|2[0-4])$/.test(s.color)?{color:s.color}:{}),
    /* Колонки листа долли/скида станции (erp/shopfloor/carriers). */
-   ...(Array.isArray(s.sheetCols)&&typeof carrierColsClean==='function'&&carrierColsClean(s.sheetCols).length?{sheetCols:carrierColsClean(s.sheetCols)}:{})};
+   ...(Array.isArray(s.sheetCols)&&typeof carrierColsClean==='function'&&carrierColsClean(s.sheetCols).length?{sheetCols:carrierColsClean(s.sheetCols)}:{}),
+   /* Станки станции (20.11.2026): у трёх POLISH — P1, P2, P3. Только пометка
+      на скане — маршрут, очереди и переходы остаются по станции. */
+   ...(sfMachines(s.machines).length?{machines:sfMachines(s.machines)}:{})};
  }).sort((a,b)=>a.seq-b.seq);
 
  const tSeen=Object.create(null);
@@ -33022,6 +33036,7 @@ function viewSfStations(edit,framed){
    {k:'step',label:'Step',type:'number',v:s=>s.seq,cell:(s,v,info)=>`<span style="white-space:nowrap">${edit?`<input class="sf-step" type="number" min="1" step="1" value="${s.seq}" data-sf-step="${esc(s.code)}" ${onAct('change',sfStationSetStep,info.i,EL_VALUE)}>`:`<b class="mono">${s.seq}</b>`}${steps.get(s.seq)>1?' <span class="pill info" title="Same step as another station">parallel</span>':''}</span>`},
    {k:'code',label:'Code',type:'text',v:s=>s.code,cell:s=>`<b class="mono">${raw(s.code)}</b>`},
    {k:'name',label:'Name',type:'text',v:s=>plain(sfLabel(s)),cell:s=>sfLabel(s)},
+   {k:'machines',label:'Machines',type:'text',v:s=>(s.machines||[]).join(' · '),cell:s=>(s.machines||[]).length?`<span class="mono">${esc(s.machines.join(' · '))}</span>`:'<span class="mut">—</span>'},
    {k:'route',label:'In route',type:'list',v:s=>s.always?'always':'when required',cell:s=>`<span class="pill ${s.always?'ok':'info'}">${s.always?'always':'when required'}</span>`},
    {k:'size',label:'Size, W × L',type:'text',v:s=>plain(sfDimText(s)),cell:s=>`<span class="mono">${sfDimText(s)}</span>`},
    {k:'putsOn',label:'Puts on',type:'list',v:s=>plain(sfPutsOnCell(s,false)),cell:s=>sfPutsOnCell(s,edit)},
@@ -33066,6 +33081,7 @@ function sfStationForm(){
    <div><label>Step *</label><input id="sf_seq" type="number" min="1" step="1" value="${r.seq}"><div class="hint">Same number as another station — parallel.</div></div>
    <div><label>Code *</label><input id="sf_code" value="${esc(r.code)}" placeholder="POLISH"></div>
    <div><label>Name *</label><input id="sf_nameEn" value="${esc(sfName(r))}" placeholder="Polishing"></div>
+   <div><label>Machines</label><input id="sf_machines" value="${esc((r.machines||[]).join(', '))}" placeholder="P1, P2, P3"><div class="hint">One per scan screen. Empty — the whole station.</div></div>
    <div><label>Size W, inches</label><input id="sf_maxW" type="number" step="0.1" min="0" value="${r.maxW==null?'':r.maxW}"></div>
    <div><label>Size L, inches</label><input id="sf_maxL" type="number" step="0.1" min="0" value="${r.maxL==null?'':r.maxL}"></div>
    <div style="grid-column:1/-1"><label class="chk"><input type="checkbox" id="sf_measured" ${r.sizeMeasured?'checked':''}> Size measured in the shop</label>
@@ -33097,6 +33113,8 @@ function saveSfStationCommand(){
  if(!Number.isInteger(seq)||seq<=0) return fail(e,'Step: a positive whole number');
  if(!code||!nameEn) return fail(e,'Code and name are required');
  if(!SF_CODE_RE.test(code)) return fail(e,'Code: use only A–Z, 0–9, hyphen and underscore');
+ const machinesRaw=(document.getElementById('sf_machines')||{value:''}).value,machines=sfMachines(machinesRaw);
+ if(machinesRaw.split(/[\s,;]+/).filter(Boolean).length!==machines.length) return fail(e,'Machines: short codes like P1, P2 — A–Z, 0–9, no repeats');
  if(DB.station.some((s,i)=>i!==stEdit && s.code===code)) return fail(e,'This code already exists');
  const dim=id=>{const v=document.getElementById(id).value.trim();if(v==='')return null;const n=+v;return isFinite(n)&&n>0?n:NaN;};
  const maxW=dim('sf_maxW'),maxL=dim('sf_maxL');
@@ -33118,8 +33136,8 @@ function saveSfStationCommand(){
  const o={seq,code,name:prev&&prev.name||nameEn,nameEn,
   always:document.getElementById('sf_always').checked,
   maxW,maxL,sizeMeasured:document.getElementById('sf_measured').checked,
-  note:document.getElementById('sf_note').value.trim()};
- if(stEdit==='new') DB.station.push(o); else Object.assign(DB.station[stEdit],o);
+  note:document.getElementById('sf_note').value.trim(),...(machines.length?{machines}:{})};
+ if(stEdit==='new') DB.station.push(o); else {Object.assign(DB.station[stEdit],o);if(!machines.length)delete DB.station[stEdit].machines;}
  DB.station.sort((a,b)=>a.seq-b.seq);
  stEdit=null; stSeen=null; stationRouteReset(); touch(); render();return true;
 }
@@ -46145,11 +46163,13 @@ function validateRecutPayload(src){
    IN : DB.glassPiece · DB.glassBatch · маршрут стекла (stkRoute)
    OUT: DB.stationScan — {id, at, piece, station, by, byId, manual,
         undoneAt, undoneBy[, on, confirmedAt, asm, unit, broken, park, recut,
-        reason]} · DB.sheetBreak
+        reason, machine]} · DB.sheetBreak
    confirmedAt — станцию не отсканировали, работу подтвердил рабочий следующей.
    asm, unit — сборка юнита на IGU и номер собранного юнита (ниже).
    park — стекло вынули из сборки: пара ушла в Recut, оно ждёт на долли.
    on — долли или скид, на которую положили стекло (erp/shopfloor/carriers).
+   machine — станок станции, у которого стоит экран (DB.station[].machines):
+   только пометка для отчётов; где стекло и куда дальше — по станции.
    Правило: место стекла НЕ хранится, а считается: последний скан +
    маршрут = станция, на которой стекло ждёт. Так было и в Spil —
    «с батча попало на рез и находится в ожидании на следующей станции»
@@ -46397,6 +46417,9 @@ function stationRecordCommand(station,check,who,opts){
   const c=carrierFind(opts.on);if(c&&c.active)rec.on=c.code;
  }
  if(opts.confirmedAt)rec.confirmedAt=sfCode(opts.confirmedAt);
+ /* Станок экрана (часть M, 20.11.2026) — только пометка: пишется, если это
+    станок этой станции; иначе скан как прежде, без поля. Не блокирует. */
+ if(opts.machine){const st=(DB.station||[]).find(x=>x.code===station),m=sfCode(opts.machine);if(st&&(st.machines||[]).includes(m))rec.machine=m;}
  /* Скан резки помнит лист раскладки: склад листов списывает его и после
     Reset раскроя (erp/inventory/sheets). */
  if(station===stationCutCode()&&check.g&&check.g.entry&&typeof invScanSheet==='function'){const sh=invScanSheet(check.g.entry,rec.piece);if(sh)rec.sheet=sh;}
@@ -46498,6 +46521,7 @@ function normalizeStationScans(){
    ...(s.moved&&typeof s.moved==='object'&&iso(s.moved.at)?{moved:{...(salesRefId(s.moved.id)?{id:s.moved.id}:{}),from:typeof s.moved.from==='string'&&typeof CARRIER_RE!=='undefined'&&CARRIER_RE.test(s.moved.from)?s.moved.from:'',at:s.moved.at,by:String(s.moved.by==null?'':s.moved.by).slice(0,80)}}:{}),
    ...(typeof s.confirmedAt==='string'&&SF_CODE_RE.test(sfCode(s.confirmedAt))?{confirmedAt:sfCode(s.confirmedAt)}:{}),
    ...(Number.isInteger(s.step)&&s.step>=0?{step:s.step}:{}),
+   ...(typeof s.machine==='string'&&SF_CODE_RE.test(sfCode(s.machine))?{machine:sfCode(s.machine)}:{}),
    ...(STATION_SCAN_ID_RE.test(String(s.actionId))?{actionId:s.actionId}:{}),
    ...(typeof invScanSheetClean==='function'&&invScanSheetClean(s.sheet)?{sheet:invScanSheetClean(s.sheet)}:{}),
    ...(STATION_SCAN_ID_RE.test(String(s.asm))?{asm:s.asm}:{}),
@@ -51081,6 +51105,27 @@ const STATION_SESSION_KEY='glass_erp_station_session_v1';
    компьютеру IGU; Chrome запущен с --kiosk-printing — печать без окна, скан
    не останавливается. Включается на этом компьютере один раз. */
 const STATION_AUTOPRINT_KEY='glass_erp_station_autoprint_v1';
+/* Станок этого экрана (часть M, владелец 20.11.2026: «у каждого станка свой
+   экран»): выбирают один раз на этом компьютере, помнится по станции. Нет
+   выбора — скан идёт как прежде, без пометки; в шапке жёлтая подсказка. */
+const STATION_MACHINE_KEY='glass_erp_station_machine_v1';
+function stationMachines(){const s=stationRow();return s&&Array.isArray(s.machines)?s.machines:[];}
+function stationMachineHere(){
+ const list=stationMachines();if(!list.length)return '';
+ let m={};try{m=JSON.parse(localStorage.getItem(STATION_MACHINE_KEY)||'{}')||{};}catch(e){}
+ return list.includes(m[stationCode])?m[stationCode]:'';
+}
+function stationMachineSet(v){
+ let m={};try{m=JSON.parse(localStorage.getItem(STATION_MACHINE_KEY)||'{}')||{};}catch(e){}
+ if(v)m[stationCode]=v;else delete m[stationCode];
+ try{localStorage.setItem(STATION_MACHINE_KEY,JSON.stringify(m));}catch(e){}
+ stationNote=v?'This screen is '+stationCode+' · '+v:'No machine for this screen';render();
+}
+function stationMachineChip(){
+ const list=stationMachines();if(!list.length)return '';
+ const cur=stationMachineHere();
+ return '<label class="st-chip st-machine'+(cur?'':' warn')+'" data-station-machine title="Which machine this screen stands at"><span class="st-chip-word">Machine</span><select aria-label="Machine" '+onAct('change',stationMachineSet,EL_VALUE)+'><option value="">'+(cur?'—':'Not set')+'</option>'+list.map(c=>'<option'+(c===cur?' selected':'')+'>'+esc(c)+'</option>').join('')+'</select></label>';
+}
 function stationMergeCodes(){return typeof salesRouteStationOf==='function'?[salesRouteStationOf('igu_assembly','IGU'),salesRouteStationOf('lamination','LAM')]:['IGU','LAM'];}
 function stationAutoPrintOn(){try{return !!(JSON.parse(localStorage.getItem(STATION_AUTOPRINT_KEY)||'{}')||{})[stationCode];}catch(e){return false;}}
 function stationAutoPrintToggle(){
@@ -51214,7 +51259,7 @@ function stationSubmitNow(raw){
     его скид не уедет (аудит проделанной работы). */
  if((check.kind==='already'||check.kind==='held'&&check.here)&&stationIsReady()){const moved=stationRestack(check,who);if(moved){render();return moved;}}
  if(check.kind==='skipped'&&!stationQuestions.some(q=>q.code===check.code))stationQuestions.push({code:check.code,at:new Date().toISOString()});
- const out=STATION_RECORDED.includes(check.kind)?stationMove(stationCode,check,who,{manual:/^(\d+|U-?\d{1,6})$/i.test(String(raw).trim()),on:stationPutOn()||stationStaysOn(check)}):null;
+ const out=STATION_RECORDED.includes(check.kind)?stationMove(stationCode,check,who,{manual:/^(\d+|U-?\d{1,6})$/i.test(String(raw).trim()),on:stationPutOn()||stationStaysOn(check),machine:stationMachineHere()}):null;
  if(out&&!out.ok){stationSaveError(check.code,out.error);return 'saveError';}
  const rec=out?out.value.rec:null,mates=out?out.value.mates:[];
  stationLooseAdd([rec].concat(mates));
@@ -51366,7 +51411,7 @@ function stationMark(piece){
  const who=stationWho();if(!who)return;
  if(stationIsShip())return stationShipSubmit(piece,who,true);
  const check=stationCheck(stationCode,piece);if(!check)return;
- const out=STATION_RECORDED.includes(check.kind)?stationMove(stationCode,check,who,{manual:true,on:stationPutOn()}):null;
+ const out=STATION_RECORDED.includes(check.kind)?stationMove(stationCode,check,who,{manual:true,on:stationPutOn(),machine:stationMachineHere()}):null;
  if(out&&!out.ok){stationSaveError(check.code,out.error);return false;}
  const rec=out?out.value.rec:null,mates=out?out.value.mates:[];
  stationLooseAdd([rec].concat(mates));
@@ -51524,6 +51569,7 @@ function stationTop(who){
   (who&&stationLoose().length?'<button type="button" class="st-chip st-loose-chip" data-station-loose '+onAct('click',stationDollyOpen,'','out')+' title="Scanned without a '+stationTareWord()+'">No '+stationTareWord()+' · <b>'+stationLoose().length+'</b></button>':'')+
   (who&&stationPutOn()?'<div class="st-chip st-puton" data-station-puton title="Putting on"><span class="st-chip-more">Putting on </span><b>'+esc(stationPutOn())+'</b><button type="button" title="Stop putting on this dolly" '+onAct('click',stationClearPutOn)+'>✕</button></div>':'')+
   (who?stationTripChip():'')+
+  (who?stationMachineChip():'')+
   (who?'<button type="button" class="st-btn" data-station-drawings '+onAct('click',stationDrawPick)+'>Drawings</button>':'')+
   (who?stationBatchChip()+'<div class="st-chip"><span class="st-av">'+esc(stationInitials(who.name))+'</span><b data-raw>'+esc(who.name)+'</b></div><button type="button" class="st-btn" '+onAct('click',stationSwitch)+'>Switch</button>':'')+
   stationThemeButton()+'<button type="button" class="st-btn st-exit" '+onAct('click',stationExit)+' title="Back to ERP">ERP</button></div>';
@@ -57176,7 +57222,7 @@ function repWorkFacts(day){
   const b=built.get(s.piece),unitKey=!g?'':b&&b.at<=s.at?'A:'+b.asm:g.o.id+'|'+g.l.id+'|'+g.unit;
   const sum=u=>w.works.filter(x=>x.unit===u).reduce((n,x)=>n+x.qty,0);
   const priced=w.works.filter(x=>x.usd!=null);
-  rows.push({id:s.id,at:s.at,day:repDay(s.at),hour:repHour(s.at),station:s.station,personId:s.byId||s.by||'',person:s.by||'',piece:s.piece,
+  rows.push({id:s.id,at:s.at,day:repDay(s.at),hour:repHour(s.at),station:s.station,machine:s.machine||'',personId:s.byId||s.by||'',person:s.by||'',piece:s.piece,
    orderId:g?g.o.id:'',order:g?g.o.businessNumber||'':'',customerId:g?g.o.customerId||'':'',priority:g?g.o.priority||'':'',
    glass:g&&g.c?g.c.glass:'',mm:w.mm,heat:w.heat,unitType:w.unitType,lite:g&&g.c?g.c.lite:'',batch:g&&g.entry?g.entry.batch.number:'',unitKey,
    area:w.area,works:w.works,inches:sum('in'),workFt2:sum('ft²'),pcs:sum('pc'),
@@ -58212,7 +58258,7 @@ function repLineFields(){return [REP_F.text('mark','Line mark',r=>r.mark||'—')
  REP_F.dim('sizeBand','Size band',r=>r.sizeBand||'—'),REP_F.dim('maker','Manufacturer',r=>r.maker||'—')];}
 /* Поля, общие для сканов станций. */
 function repScanFields(person){
- return [REP_F.date('at','Scan time'),REP_F.dim('station','Station'),REP_F.dim('person',person||'Person',r=>r.person||'—'),
+ return [REP_F.date('at','Scan time'),REP_F.dim('station','Station'),REP_F.dim('machine','Machine',r=>r.machine||'—'),REP_F.dim('person',person||'Person',r=>r.person||'—'),
   REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.text('order','Order'),REP_F.dim('glass','Glass',r=>r.glass||'—'),
   REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('heat','Temper',r=>r.heat||'—'),REP_F.dim('unitType','Unit type',r=>r.unitType||'—'),
   REP_F.dim('priority','Priority',r=>SALES_LIST_PRIORITY[r.priority]||'Normal'),REP_F.text('batch','Batch',r=>r.batch||'—'),
