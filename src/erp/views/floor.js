@@ -17,8 +17,8 @@
    - черновик живёт до Save / Cancel: фоновая перерисовка после
      синхронизации его не сбрасывает (STORAGE_UNSAVED).
    A2 (erp/production/floor-state): в просмотре — Working / Waiting / Idle
-   по порогу станции, станки по отдельности, подпись станции над её верхним
-   станком (не прыгает от выбора), тара значками в зоне станции, которую ждёт
+   по порогу станции, станки по отдельности, подпись на самом блоке —
+   «● HEAT 5» (точка состояния, очередь на верхнем блоке), тара значками в зоне станции, которую ждёт
    её стекло (номера — в подсказке и карточке), сводка-фильтр, карточка
    станции за период, Show on floor (Dollies & Skids, карточка).
    ===================================================================== */
@@ -94,7 +94,7 @@ function floorSvgBody(){
  }
  const order={zone:0,wall:1,object:2,machine:3},live=edit?null:floorLive();
  const rest=items.filter(r=>r.kind!=='hall').sort((a,c)=>order[a.kind]-order[c.kind]);
- const labels=[],findZone=live&&floorFind?((live.carriers.find(c=>c.code===floorFind)||{}).station||''):'';
+ const labels=[],findZone=live&&floorFind?((live.carriers.find(c=>c.code===floorFind)||{}).station||''):'',leads=live?floorLeads(items,live):new Map();
  rest.forEach(r=>{
   const st=r.station&&r.kind!=='wall'?floorStation(r.station):null,col=r.station?floorColor(r.station):'';
   const status=r.kind==='machine'&&st?floorBlockStatus(r,live):'',s=live&&st?live.st[r.station]:null;
@@ -102,36 +102,37 @@ function floorSvgBody(){
   const title=s&&r.kind!=='zone'?`${r.station}${r.machine?' '+r.machine:''} · ${FLOOR_STATUS[status]||''} · ${s.waiting} waiting · last scan ${floorClock(r.machine&&s.machines[r.machine]?s.machines[r.machine].last:s.last)}`:'';
   parts.push(floorRect(r,cls,` data-floor-item="${r.id}"${col?` style="--fc:var(--${col})"`:''}`,title));
   if(r.kind==='wall')return;
-  const name=r.kind==='zone'?(r.station?r.station+' · waiting':'Zone'):r.station&&!st?'Unknown station':r.station?(!edit&&r.machine?r.machine:r.station+(r.machine?' '+r.machine:'')):r.label?(r.kind==='object'?r.label:'#'+r.label):'';
+  const t=floorBlockText(r,st,live,leads),name=t.name;
   if(!name)return;
-  const rot=r.l>r.w*1.6&&r.w<name.length*fs*0.62,cx=r.x+r.w/2,cy=r.kind==='zone'?r.y+fs*0.8:r.y+r.l/2;
-  const room=rot?r.l:r.w,f=r.kind==='zone'?fs*0.85:Math.min(fs,Math.max(fs*0.55,room/(name.length*0.62)));
-  labels.push(floorText(cx,cy,name,f,'fl-label'+(r.kind==='zone'?' fl-zl':''),r.kind!=='zone'&&rot));
+  const len=name.length+(t.dot?2:0),rot=r.l>r.w*1.6&&r.w<len*fs*0.62,cx=r.x+r.w/2,cy=r.kind==='zone'?r.y+fs*0.65:r.y+r.l/2;
+  const room=rot?r.l:r.w,f=r.kind==='zone'?fs*0.7:Math.min(fs,Math.max(fs*0.45,room/(len*0.62)));
+  labels.push(floorLabel(cx,cy,name,f,'fl-label'+(r.kind==='zone'?' fl-zl':''),r.kind!=='zone'&&rot,t.dot,r.id));
  });
  parts.push(...labels);
- if(live){parts.push(floorTags(items,live,fs));parts.push(floorTare(items,live,fs));}
+ if(live)parts.push(floorTare(items,live,fs));
  if(edit)parts.push(floorDims(items,fs));
  floorGuides.forEach(g=>parts.push(`<line x1="${g.x1}" y1="${g.y1}" x2="${g.x2}" y2="${g.y2}" class="fl-guide"/>`));
  if(floorDrag&&(floorDrag.mode==='box'||floorDrag.mode==='draw')&&floorDrag.now){const a=floorDrag.at,c=floorDrag.now;parts.push(`<rect x="${Math.min(a.x,c.x)}" y="${Math.min(a.y,c.y)}" width="${Math.abs(c.x-a.x)}" height="${Math.abs(c.y-a.y)}" class="fl-band"/>`);}
  return parts.join('');
 }
-/* Подпись станции над её станками — у Working, Waiting и выбранной: точка
-   состояния и очередь, одна на станцию (у трёх POLISH — одна). Простой —
-   без подписи над блоком. Место подписи не зависит от выбора — не прыгает. */
-function floorTags(items,live,fs){
- const groups=new Map();
- /* Над верхним станком станции: у ARRIS два блока в разных концах цеха —
-    подпись над одним, а не посередине между ними. */
- items.forEach(r=>{if(r.kind!=='machine'||!r.station||!live.st[r.station])return;const g=groups.get(r.station);if(!g||r.y<g.y0||r.y===g.y0&&r.x<g.x0)groups.set(r.station,{x0:r.x,x1:r.x+r.w,y0:r.y});});
- const out=[];
- groups.forEach((g,code)=>{
-  const s=live.st[code];if(s.status==='idle'&&floorPick!==code)return;
-  if(floorFilter&&s.status!==floorFilter)return;
-  const text=code+' · '+(s.waiting?s.waiting+' waiting':FLOOR_STATUS[s.status].toLowerCase()),f=fs*0.9,cx=(g.x0+g.x1)/2,cy=g.y0-f*0.95,w=text.length*f*0.58+f*1.6;
-  out.push(`<g class="fl-tag is-${s.status}" data-floor-tag="${esc(code)}"><rect x="${cx-w/2}" y="${cy-f*0.7}" width="${w}" height="${f*1.4}" rx="${f*0.7}"/><circle cx="${cx-w/2+f*0.75}" cy="${cy}" r="${f*0.28}"/>${floorText(cx+f*0.4,cy,text,f,'fl-tagt')}</g>`);
- });
- return out.join('');
+/* Подпись на самом блоке (владелец 20.11: «надписи на саму машину, а не
+   выносной текст вверх»; «слишком много слов»): код станка или станции, точка
+   состояния, на верхнем блоке станции — число в очереди: «● HEAT 5». Простой
+   блок — только код. Слова — в подсказке и карточке. Зона — только код. */
+function floorLeads(items,live){
+ const lead=new Map();
+ items.forEach(r=>{if(r.kind!=='machine'||!r.station||!live.st[r.station])return;const g=lead.get(r.station);if(!g||r.y<g.y||r.y===g.y&&r.x<g.x)lead.set(r.station,r);});
+ return new Map([...lead].map(([k,r])=>[k,r.id]));
 }
+function floorBlockText(r,st,live,leads){
+ if(r.kind==='zone')return {name:r.station||'',dot:''};
+ if(r.station&&!st)return {name:'Unknown station',dot:''};
+ if(!r.station)return {name:r.label?(r.kind==='object'?r.label:'#'+r.label):'',dot:''};
+ if(!live)return {name:r.station+(r.machine?' '+r.machine:''),dot:''};
+ const s=live.st[r.station],status=r.kind==='machine'?floorBlockStatus(r,live):'',q=leads.get(r.station)===r.id&&s&&s.waiting?' '+s.waiting:'';
+ return {name:(r.machine||r.station)+q,dot:status&&status!=='idle'?status:''};
+}
+function floorLabel(x,y,s,fs,cls,rot,dot,id){return `<text x="${x}" y="${y}" font-size="${fs}" class="${cls}" text-anchor="middle" dominant-baseline="central"${id?` data-floor-label="${esc(id)}"`:''}${rot?` transform="rotate(-90 ${x} ${y})"`:''}>${dot?`<tspan class="fl-dt is-${dot}">● </tspan>`:''}${esc(s)}</text>`;}
 /* Тара — только значки, без номеров («иначе картинка будет слишком шумной»):
    в зоне станции, которую ждёт её стекло, иначе под первым станком станции.
    Не влезает — последний значок «+N». Номер и что на ней — в подсказке и в

@@ -68,12 +68,9 @@ button.fl-big{font-size:16px;padding:11px 20px}
 .fl-svg .is-working{stroke-width:2.5}
 .fl-svg .is-idle{opacity:.55}
 .fl-svg .dim{opacity:.18}
-.fl-tag rect{fill:var(--surface);stroke:var(--line-strong);stroke-width:1}
-.fl-tag circle{fill:var(--line-strong)}
-.fl-tag.is-working circle{fill:var(--success)}
-.fl-tag.is-waiting circle{fill:var(--warning)}
-.fl-tagt{fill:var(--text);font-weight:700;pointer-events:none}
-.fl-tag{pointer-events:none}
+.fl-dt{font-weight:900;stroke:none}
+.fl-dt.is-working{fill:var(--success)}
+.fl-dt.is-waiting{fill:var(--warning)}
 .fl-tare{fill:var(--surface);stroke:var(--text-2);stroke-width:1;cursor:pointer}
 .fl-tare.skid{fill:var(--surface-3)}
 .fl-tare.find{stroke:var(--accent);stroke-width:4;fill:var(--accent-soft)}

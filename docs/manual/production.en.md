@@ -72,8 +72,9 @@ the plan yet. **−** / **+** / **Fit** — zoom; drag — move the view; **Esc*
   min** field in Master Data → Stations (15 by default). **Waiting** (yellow) — glass waits, no scans. **Idle** — the
   rest, the block is dimmed. On a station with machines (P1, P2, P3) each machine shows its own scans; the station is
   working if at least one machine is.
-- Above a working station or one with a queue — a label “POLISH · 24 waiting”. Hover a block — “machine · status ·
-  how many wait · last scan”.
+- The label is on the block itself: the machine or station code and a status dot; on the station's top block — how
+  many wait: “● HEAT 5”. A waiting zone shows only the station code. Hover a block — “machine · status · how many wait ·
+  last scan”.
 - On top — the summary **● 2 working · ● 1 waiting**: a click keeps only those stations bright, **Show all** brings the
   rest back.
 - **Dollies and skids** — icons without numbers: in the waiting zone of the station their glass waits for (zones are

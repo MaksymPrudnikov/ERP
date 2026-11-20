@@ -3,7 +3,8 @@
    Production → Floor в 3D (A3): тот же план, что в 2D, — проекция с
    поворотом и наклоном, свой SVG без библиотек. Только просмотр: Edit
    рисует 2D.
-   IN : floorItems, floorLive, floorTareLayout, floorBlockStatus (views/floor)
+   IN : floorItems, floorLive, floorTareLayout, floorBlockStatus, floorLeads,
+        floorBlockText, floorLabel (views/floor)
    OUT: floor3d, floorYaw, floorPitch · floor3dProject, floor3dBoxes,
         floor3dBody, floor3dBounds, floor3dView(name), floor3dZoomTo(code)
    Владелец, 19–20.11.2026 (docs/ЗАДАЧА_КАРТА_ЦЕХА.md, A3):
@@ -13,7 +14,7 @@
      (печь, линия IGU) — модулями до 6 м, иначе порядок ошибается;
    - стены в 3D всегда низкие — срез 1.3 м, как в архитектурном макете;
    - на время поворота подписи скрыты; Top · Iso, Fit, двойной клик —
-     приблизить станцию.
+     приблизить станцию; подписи — на крыше блока, без выносок.
    ===================================================================== */
 let floor3d=false;    // вид 3D (только просмотр)
 let floorYaw=-35;     // поворот вокруг вертикали, градусы
@@ -74,31 +75,19 @@ function floor3dBody(){
   parts.push(floor3dPoly(rect(x,x.h),base+' fl-top',attrs,title));
  });
  if(!orbit){
-  /* Подпись — над серединой верхней грани всего блока (не модуля). */
+  /* Подпись — на крыше блока (не модуля), как в 2D: «● HEAT 5»; зона — код. */
+  const leads=floorLeads(items,live);
   items.forEach(r=>{
-   if(r.kind!=='machine'&&r.kind!=='object')return;
-   const st=r.station?floorStation(r.station):null,name=r.station&&!st?'Unknown station':r.station?(r.machine||r.station):r.label?(r.kind==='object'?r.label:'#'+r.label):'';
-   if(!name)return;const p=P(r.x+r.w/2,r.y+r.l/2,r.h||0);parts.push(floorText(p.x,p.y,name,fs*0.85,'fl-label'));
+   if(r.kind!=='machine'&&r.kind!=='object'&&!(r.kind==='zone'&&r.station))return;
+   const st=r.station?floorStation(r.station):null,t=floorBlockText(r,st,live,leads);if(!t.name)return;
+   const p=P(r.x+r.w/2,r.y+r.l/2,r.kind==='zone'?0:r.h||0);parts.push(floorLabel(p.x,p.y,t.name,fs*(r.kind==='zone'?0.7:0.85),'fl-label'+(r.kind==='zone'?' fl-zl':''),false,t.dot,r.id));
   });
-  items.filter(r=>r.kind==='zone'&&r.station).forEach(r=>{const p=P(r.x+r.w/2,r.y,0);parts.push(floorText(p.x,p.y-fs*0.5,r.station+' · waiting',fs*0.75,'fl-label fl-zl'));});
   /* Тара — те же места, что в 2D, кружком на полу. */
   floorTareLayout(items,live,fs).forEach(t=>{const p=P(t.x+t.w/2,t.y+t.l/2,0);
    if(t.more)parts.push(floorText(p.x,p.y,'+'+t.more,fs*0.7,'fl-more'));
    else parts.push(`<circle cx="${p.x}" cy="${p.y}" r="${Math.max(0.35,fs*0.32)}" class="fl-tare${t.c.skid?' skid':''}${floorFind===t.c.code?' find':''}" data-floor-carrier="${esc(t.c.code)}"><title>${esc(t.title)}</title></circle>`);});
-  floorTags3d(items,live,fs,P).forEach(x=>parts.push(x));
  }
  return parts.join('');
-}
-/* Подпись станции над её верхним станком — как в 2D, выше крыши блока. */
-function floorTags3d(items,live,fs,P){
- const groups=new Map(),out=[];
- items.forEach(r=>{if(r.kind!=='machine'||!r.station||!live.st[r.station])return;const g=groups.get(r.station);if(!g||r.y<g.y||r.y===g.y&&r.x<g.x)groups.set(r.station,r);});
- groups.forEach((r,code)=>{
-  const s=live.st[code];if(s.status==='idle'&&floorPick!==code)return;if(floorFilter&&s.status!==floorFilter)return;
-  const text=code+' · '+(s.waiting?s.waiting+' waiting':FLOOR_STATUS[s.status].toLowerCase()),f=fs*0.9,p=P(r.x+r.w/2,r.y+r.l/2,(r.h||0)),cx=p.x,cy=p.y-f*1.6,w=text.length*f*0.58+f*1.6;
-  out.push(`<g class="fl-tag is-${s.status}" data-floor-tag="${esc(code)}"><rect x="${cx-w/2}" y="${cy-f*0.7}" width="${w}" height="${f*1.4}" rx="${f*0.7}"/><circle cx="${cx-w/2+f*0.75}" cy="${cy}" r="${f*0.28}"/>${floorText(cx+f*0.4,cy,text,f,'fl-tagt')}</g>`);
- });
- return out;
 }
 /* Fit в 3D: границы проекции всего плана с высотами. */
 function floor3dBounds(){

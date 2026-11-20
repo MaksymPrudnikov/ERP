@@ -32,13 +32,13 @@ module.exports=async function({page,eq,ok}){
   window.flvIn=function(rect,zone){const x=+rect.getAttribute('x'),y=+rect.getAttribute('y');return x>=zone.x&&y>=zone.y&&x<=zone.x+zone.w&&y<=zone.y+zone.l;};
  });
 
- eq('состояние: скан станции — Working; стекло ждёт без скана — Waiting; остальное — Idle; сводка считает станции',await t.p.evaluate(()=>{
+ eq('состояние: скан станции — Working; стекло ждёт без скана — Waiting; остальное — Idle; сводка считает станции; подпись на блоке — «● код очередь»',await t.p.evaluate(()=>{
   flvReset();const id=flvOrder([[36,24,3]]),ids=flvIds(id);flvScan(ids);const st=flvWait(ids[0]),first=DB.stationScan[0].station;flvPlan();
   const live=floorLive();flvOpen();
   const cls=code=>document.querySelector(`[data-floor-item="m-${code}"]`).getAttribute('class');
   return {first:live.st[first].status,next:[live.st[st].status,live.st[st].waiting],idle:Object.values(live.st).filter(s=>s.status==='idle').length===DB.station.length-2,
    classes:[/is-working/.test(cls(first)),/is-waiting/.test(cls(st))],summary:flvText('[data-floor-filter="working"]')+' | '+flvText('[data-floor-filter="waiting"]'),
-   tag:flvText(`[data-floor-tag="${st}"]`)===st+' · 3 waiting',title:document.querySelector(`[data-floor-item="m-${st}"] title`).textContent.startsWith(st+' · Waiting · 3 waiting')};
+   tag:[flvText(`[data-floor-label="m-${st}"]`),document.querySelector(`[data-floor-label="m-${st}"] .fl-dt`).getAttribute('class'),flvText(`[data-floor-label="m-${first}"]`)].join('|')===`● ${st} 3|fl-dt is-waiting|● ${first}`,title:document.querySelector(`[data-floor-item="m-${st}"] title`).textContent.startsWith(st+' · Waiting · 3 waiting')};
  }),{first:'working',next:['waiting',3],idle:true,classes:[true,true],summary:'1 working | 1 waiting',tag:true,title:true});
 
  eq('порог Working — свой у станции: скан 40 минут назад — Idle при 15, Working при 120; подсказка «обычный перерыв» из сканов за 14 дней',await t.p.evaluate(()=>{
@@ -65,7 +65,7 @@ module.exports=async function({page,eq,ok}){
   DB.floorItem.push(floorClean({id:'m2',kind:'machine',station:st,machine:'P2',x:60,y:5,w:2,l:4}));
   flvScan([ids[0]],{machine:'P1'});const live=floorLive();flvOpen();
   const cls=id=>document.querySelector(`[data-floor-item="${id}"]`).getAttribute('class');
-  return {station:live.st[st].status,p1:live.st[st].machines.P1.working,p2:live.st[st].machines.P2.working,blocks:[/is-working/.test(cls('m-'+st)),/is-waiting/.test(cls('m2'))],label:[...document.querySelectorAll('.fl-label')].some(x=>x.textContent==='P2')};
+  return {station:live.st[st].status,p1:live.st[st].machines.P1.working,p2:live.st[st].machines.P2.working,blocks:[/is-working/.test(cls('m-'+st)),/is-waiting/.test(cls('m2'))],label:[document.querySelector('[data-floor-label="m2"]').textContent,document.querySelector(`[data-floor-label="m-${st}"]`).textContent].join('|')==='● P2|● P1 '+live.st[st].waiting};
  }),{station:'working',p1:true,p2:false,blocks:[true,true],label:true});
 
  eq('долли: в зоне станции, которую ждёт её стекло; стекло на разные станции — один значок, где его больше; без зоны — у станка; пустой долли нет',await t.p.evaluate(()=>{
