@@ -36,7 +36,7 @@ module.exports=async function({page,eq,ok}){
   card.click();const w=document.querySelector('[data-carrier-window="DL-1"]');
   const rows=[...w.querySelectorAll('[data-carrier-row]')].map(r=>r.dataset.carrierRow),heads=[...w.querySelectorAll('thead th')].map(th=>th.textContent).filter(Boolean).join(',');
   return {tabs,tiles,group,cardText,top:rows[0]===ga[0],bottom:rows.at(-1)===gb[1],n:rows.length,chips:ab([...w.querySelectorAll('[data-carrier-order]')].map(dsInner).join('|')),sub:dsText('.cw-sub').replace(since,'T'),heads,total:dsText('[data-carrier-total]')};
- }),{tabs:'In production|Stations|Terminals|Dollies & Skids',tiles:'1 registered · DL 1 · DA 0 · SL 0 · SA 0|1 in the shop · 1 loaded · 5 glass · 0 empty|0 at customers|0 glass with no dolly or skid|— no count yet|— found without a label|6 not confirmed yet',group:'ARRIS',
+ }),{tabs:'In production|Stations|Terminals|Dollies & Skids|Floor',tiles:'1 registered · DL 1 · DA 0 · SL 0 · SA 0|1 in the shop · 1 loaded · 5 glass · 0 empty|0 at customers|0 glass with no dolly or skid|— no count yet|— found without a label|6 not confirmed yet',group:'ARRIS',
   cardText:'DL-1 5 glass A · B Critical since T',top:true,bottom:true,n:5,chips:'A Granite City Glazing · 3 Critical|B Vista Railings · 2',sub:'At ARRIS · since T · 5 glass · 2 orders',
   heads:'#,Order,Customer,Customer PO,Line,Mark,Size,Glass,Makeup,Glass / unit ID,Batch,Next,Due,Weight kg,Put on',total:'Total: 5 glass · 2 orders'});
 

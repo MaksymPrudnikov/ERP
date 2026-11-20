@@ -993,6 +993,7 @@ function normalizeDB(){
  if(typeof normalizeCutPlans==='function')normalizeCutPlans();
  if(typeof normalizeStockOffcuts==='function')normalizeStockOffcuts();
  if(typeof normalizeCarriers==='function')normalizeCarriers();
+ if(typeof normalizeFloor==='function')normalizeFloor();
  if(typeof normalizeStationScans==='function')normalizeStationScans();
  if(typeof normalizeShipments==='function')normalizeShipments();
  if(typeof normalizeSkips==='function')normalizeSkips();

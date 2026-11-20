@@ -243,6 +243,8 @@ function normalizeShopFloor(){
   return {seq,code:sfCode(s.code),name:sfStr(s.name),nameEn:sfStr(s.nameEn),always:s.always===true,
    maxW:dim(s.maxW),maxL:dim(s.maxL),sizeMeasured:s.sizeMeasured===true,note:sfStr(s.note),
    ...(SF_PUTS_ON.some(([k])=>k===s.putsOn)?{putsOn:s.putsOn}:{}),
+   /* Цвет станции на плане цеха (erp/production/floor) — имя токена. */
+   ...(/^series-([1-9]|1\d|2[0-4])$/.test(s.color)?{color:s.color}:{}),
    /* Колонки листа долли/скида станции (erp/shopfloor/carriers). */
    ...(Array.isArray(s.sheetCols)&&typeof carrierColsClean==='function'&&carrierColsClean(s.sheetCols).length?{sheetCols:carrierColsClean(s.sheetCols)}:{}),
    /* Станки станции (20.11.2026): у трёх POLISH — P1, P2, P3. Только пометка

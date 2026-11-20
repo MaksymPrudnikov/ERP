@@ -16,7 +16,7 @@ whose glass has all left is not shown in Production — it stays in Sales and Sh
 ## The Production screen
 
 Same look as Sales: a filter row and the **Due** period on top, below it the pills **In production**, **Stations**,
-**Terminals**, **Dollies & Skids** — in the same place on every tab.
+**Terminals**, **Dollies & Skids**, **Floor** — in the same place on every tab.
 
 ### In production
 
@@ -60,6 +60,36 @@ The carrier board (owner, 15 Oct 2026: “one dolly can hold 10–20 different o
   yet on the right. Every scan is a mark; a repeat — “Already counted”; **+ No label** — a carrier without a label.
   **Finish count** remembers what was not found; **Cancel count** drops the marks. A count never moves glass. One count
   open at a time.
+
+### Floor
+
+A top view of the shop: the hall, walls, station machines, objects and waiting zones — in metres. On the right —
+stations in alphabetical order, each in its colour; **Not placed** — the station has no machine on the plan yet. Click
+a station in the list or on the plan to outline its blocks. **−** / **+** / **Fit** — zoom; drag — move the view.
+
+**Set up the plan** (needs the Master Data box; without it — “Floor plan is not set up yet”):
+- **Start from sketch** — a 65 × 70 m hall, two walls and the sketch blocks numbered 1–17, no stations; **Empty hall** —
+  the hall only. Then pick a station for each block, type exact sizes and press **Save**.
+- If another computer has already set up a plan, saving the sketch says “Plan already exists on another PC” — there is
+  no second plan.
+
+**Edit** — change the plan; until **Save** it is a draft (**Cancel** drops it after asking):
+- click a block — the **Inspector** on the right: **Station**, **Label**, **X**, **Y**, **Width**, **Length**,
+  **Height**. Sizes are metres; the field takes `6.5`, `650 cm`, `6500 mm`. **Rotate 90°** swaps width and length,
+  **Duplicate**, **Delete**;
+- drag a block in 0.1 m steps; near a neighbour's edge (closer than 0.5 m) it snaps and a dashed guide shows. The
+  bottom-right corner resizes. Width is shown above the block, length beside it, the distance to the wall on the left;
+- **Shift+click** adds a block to the selection, a box dragged over empty space selects several; arrow keys move by
+  0.1 m, with Shift by 1 m; **Esc** clears the selection; **F** — the whole plan; **Ctrl+Z** / **Ctrl+Shift+Z** — undo /
+  redo in the draft (**Undo**, **Redo** at the bottom of the inspector);
+- **Add…**: Machine, Wall, Object — appear in the middle of the view; **Waiting zone** — draw a rectangle where the
+  station's dollies or skids wait, even outside the hall, and pick the station. One zone per station;
+- **Station color** — the station's colour on all its blocks and its zone; it is kept with the station;
+- the **Hall … m** button at the bottom selects the hall to change its size;
+- blocks overlapping or a machine outside the hall — a yellow **Overlaps …** strip; Save still writes.
+
+Rename a station in Master Data and the plan's blocks follow the new code. A block with a code that no longer exists
+shows “Unknown station”.
 
 ## The station screen
 
