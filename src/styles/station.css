@@ -492,3 +492,7 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 .st-machine option{color:var(--text);background:var(--surface)}
 .st-machine.warn{background:var(--warning-soft);color:var(--warning)}
 .st-machine.warn select{color:var(--warning)}
+/* HELP (часть C): вызов в офис; открыт — красная плашка и Resolved. */
+.st-help{font-weight:800;letter-spacing:.04em}
+.st-help.on{background:var(--danger);color:var(--on-solid);padding:6px 6px 6px 14px;gap:10px}
+.st-help.on button{border:0;border-radius:999px;background:var(--surface);color:var(--danger);font-weight:700;padding:4px 12px}

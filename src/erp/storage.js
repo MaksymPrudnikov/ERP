@@ -997,6 +997,7 @@ function normalizeDB(){
  if(typeof normalizeStationScans==='function')normalizeStationScans();
  if(typeof normalizeShipments==='function')normalizeShipments();
  if(typeof normalizeSkips==='function')normalizeSkips();
+ if(typeof normalizeStationCalls==='function')normalizeStationCalls();
  if(typeof normalizeProductionUnbatches==='function')normalizeProductionUnbatches();
  if(typeof normalizeTrucks==='function')normalizeTrucks();
  if(typeof normalizeSkidReturns==='function')normalizeSkidReturns();

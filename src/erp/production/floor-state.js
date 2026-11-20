@@ -9,7 +9,8 @@
    OUT: floorLive() — {at, st:{code:{waiting, last, working, status,
         machines:{P1:{last, working}}}}, carriers:[{code, skid, station,
         count, split}]} · floorUsualGap(code) · floorWorkingMin(code) ·
-        floorPeriodRange(p, today) · floorCard(code, p)
+        floorPeriodRange(p, today) · floorCard(code, p); status 'help' — открыт
+        вызов HELP (erp/shopfloor/station-call), он важнее Working / Waiting
    Владелец, 20.11.2026 (docs/ЗАДАЧА_КАРТА_ЦЕХА.md, A2):
    - Working — неотменённый скан станции за последние N минут; N — свой у
      станции (workingMin, «на закалке перерывы между партиями 20 минут, на
@@ -39,10 +40,11 @@ function floorUsualGap(code,now){
 
 /* Сейчас: ждёт, последний скан, Working по порогу станции, станки, тара. */
 function floorLive(now){
- const at=now||new Date().toISOString(),key=(typeof prodBoardStamp==='function'?prodBoardStamp():'')+'|'+at.slice(0,16)+'|'+(DB.station||[]).map(s=>s.code+(s.workingMin||'')+(s.machines||[]).join()).join();
+ const at=now||new Date().toISOString(),key=(typeof prodBoardStamp==='function'?prodBoardStamp():'')+'|'+at.slice(0,16)+'|'+(DB.station||[]).map(s=>s.code+(s.workingMin||'')+(s.machines||[]).join()).join()+'|'+(DB.stationCall||[]).map(c=>c.id+c.closedAt).join();
  if(floorLiveMemo.key===key&&!now)return floorLiveMemo.data;
  const t=Date.parse(at),st={},board=typeof prodBoard==='function'?prodBoard():[];
- (DB.station||[]).forEach(s=>{st[s.code]={waiting:0,last:'',working:false,status:'idle',machines:{}};(s.machines||[]).forEach(m=>{st[s.code].machines[m]={last:'',working:false};});});
+ const calls=typeof stationCallsOpen==='function'?stationCallsOpen():new Map();
+ (DB.station||[]).forEach(s=>{st[s.code]={waiting:0,last:'',working:false,status:'idle',machines:{},help:calls.get(s.code)||null};(s.machines||[]).forEach(m=>{st[s.code].machines[m]={last:'',working:false};});});
  board.forEach(x=>Object.keys(x.counts||{}).forEach(k=>{if(st[k])st[k].waiting+=x.counts[k];}));
  (DB.stationScan||[]).forEach(s=>{
   if(s.undoneAt)return;const r=st[s.station];if(!r)return;
@@ -53,7 +55,7 @@ function floorLive(now){
   const r=st[code],lim=floorWorkingMin(code)*6e4,fresh=v=>!!v&&t-Date.parse(v)<=lim&&Date.parse(v)<=t+6e4;
   Object.values(r.machines).forEach(m=>{m.working=fresh(m.last);});
   r.working=fresh(r.last);
-  r.status=r.working?'working':r.waiting>0?'waiting':'idle';
+  r.status=r.help?'help':r.working?'working':r.waiting>0?'waiting':'idle';
  });
  /* Тара: у каждой — сколько её стекла ждёт какую станцию; место — где больше,
     ничья — раньше по маршруту (шаг станции). */
