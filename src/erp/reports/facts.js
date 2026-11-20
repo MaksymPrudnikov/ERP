@@ -182,7 +182,7 @@ function repWorkFacts(day){
   const b=built.get(s.piece),unitKey=!g?'':b&&b.at<=s.at?'A:'+b.asm:g.o.id+'|'+g.l.id+'|'+g.unit;
   const sum=u=>w.works.filter(x=>x.unit===u).reduce((n,x)=>n+x.qty,0);
   const priced=w.works.filter(x=>x.usd!=null);
-  rows.push({id:s.id,at:s.at,day:repDay(s.at),hour:repHour(s.at),station:s.station,personId:s.byId||s.by||'',person:s.by||'',piece:s.piece,
+  rows.push({id:s.id,at:s.at,day:repDay(s.at),hour:repHour(s.at),station:s.station,machine:s.machine||'',personId:s.byId||s.by||'',person:s.by||'',piece:s.piece,
    orderId:g?g.o.id:'',order:g?g.o.businessNumber||'':'',customerId:g?g.o.customerId||'':'',priority:g?g.o.priority||'':'',
    glass:g&&g.c?g.c.glass:'',mm:w.mm,heat:w.heat,unitType:w.unitType,lite:g&&g.c?g.c.lite:'',batch:g&&g.entry?g.entry.batch.number:'',unitKey,
    area:w.area,works:w.works,inches:sum('in'),workFt2:sum('ft²'),pcs:sum('pc'),

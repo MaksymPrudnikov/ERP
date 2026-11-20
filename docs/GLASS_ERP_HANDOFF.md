@@ -1,6 +1,6 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 5.331 · 19 ноября 2026 — Users и сервер: ПК со старой базой без своих правок не дописывает новую базу сервера.
+Версия 5.333 · 20 ноября 2026 — Production: станки у станции (P1, P2, P3) — пометка на скане, выбор на экране, поле Machine в Reports.
 
 ## Как читать
 
@@ -328,6 +328,9 @@ Gmail открывает письмо в ящике, где его привяз�
   будущем; делают Users / Finance; цели — любая станция, Picked up, Delivered. **Unbatch order** — Users / Finance,
   Undo нет («несёт ответственность сам», 09.10).
 - Production не показывает заказ, всё стекло которого уехало (01.11). Print drawing — на любой станции.
+- **Станки у станции** (20.11): у трёх POLISH — P1, P2, P3, у каждого свой экран; «хочу видеть, сколько делает каждый,
+  но ничего не сломать в производственном флоу». Станция остаётся единицей потока; станок — только пометка на скане.
+  Станок выбирают один раз на самом экране, компьютер помнит; не выбран — скан идёт как прежде.
 
 **Как устроено**
 - `shopfloor/scan.js` (`stationCheck`, `stationRecord`, контекст больших заказов `stationScanCtx`), тара
@@ -336,8 +339,13 @@ Gmail открывает письмо в ящике, где его привяз�
 - Экраны станций, Production (Stations, Terminals, Dollies & Skids, окно тары, пересчёт), Skip, Unbatch, Skids,
   формы Drawing и Dolly / Skid sheet — на действиях `onAct` (PR 2 задания CSP, 14.11); Enter в поле «куда»
   (`stationDollyMoveKey`, `carrierWinMoveKey`, …) — маленькие функции рядом с экраном.
+- **Станки (M)**: `DB.station[].machines` — коды (`sfMachines`: до 12, без повторов), правка — Master Data → Stations,
+  поле Machines. Экран станции помнит свой станок в `localStorage` (`STATION_MACHINE_KEY`, по станции) — Terminals с
+  экранами не связаны, привязать станок к терминалу было нельзя. `stationRecordCommand` пишет `rec.machine`, только
+  если это станок этой станции; `stationPlace`, маршрут и `prodBoard` поле не читают. Факты работы
+  (`repWorkFacts`, `repOpFacts`) несут `machine`, в Reports — поле Machine.
 - Сторожа: `test/station*.js`, `carriers`, `carrier-form`, `carrier-sheet`, `dollies-count`, `dollies-skids`,
-  `skip`, `production-unbatch`, `route-repeat`, `step-unit`, `igu-ready`, `units`.
+  `skip`, `production-unbatch`, `route-repeat`, `step-unit`, `igu-ready`, `units`, `machines`.
 
 **Открыто**: компьютер с неверными часами пишет сканы своим временем; экраны станций и лист тары не на общем
 движке списков; физическая печать этикеток не проверена (нет принтера).

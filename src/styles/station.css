@@ -486,3 +486,9 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 .st-dly-acts{padding:12px 0 0}
 .st-dly .st-acts .b{display:inline-flex;align-items:center}
 .st-dly-card .st-gid{font-size:18px;line-height:1.35;color:var(--text);font-family:inherit}
+/* Станок этого экрана (часть M): выбор один раз на компьютере; не выбран — жёлтый. */
+.st-machine{padding:6px 10px 6px 14px;cursor:pointer}
+.st-machine select{background:transparent;border:0;color:var(--on-solid);font:inherit;font-weight:700;padding:0 2px;cursor:pointer}
+.st-machine option{color:var(--text);background:var(--surface)}
+.st-machine.warn{background:var(--warning-soft);color:var(--warning)}
+.st-machine.warn select{color:var(--warning)}

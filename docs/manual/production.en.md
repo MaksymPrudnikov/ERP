@@ -31,7 +31,8 @@ Same look as Sales: a filter row and the **Due** period on top, below it the pil
 ### Stations
 
 The route in one line (**How glass moves**): steps in order, parallel stations in one step. Clicking a step highlights
-its stations in the table. Table: Step, Code, Name, In route, Size W × L, Puts on, Dolly / skid sheet, Works, Note. Tick
+its stations in the table. Table: Step, Code, Name, Machines, In route, Size W × L, Puts on, Dolly / skid sheet, Works, Note. **Machines** —
+the station's machines (P1, P2, P3), each with its own scan screen. Tick
 a station → **Open screen** opens its screen; **Edit in Master Data** edits stations (manual
 [masterdata.en.md](masterdata.en.md)). **Load STATIONS.csv** updates rows with the same codes and adds new ones; rows
 missing from the file stay — the import never erases anything silently.
@@ -78,6 +79,11 @@ Station code and name, tabs **Scan · Queue · Board · Dollies**, on the right 
 “Putting on DL-2” (✕ — stop putting on it), “No dolly · N”, “N to answer”, the worker, **Switch**, **Dark / Light**,
 **ERP** (back to the office). On IGU — **Unit stickers Auto / By button**: the unit sticker prints by itself when all
 lites are scanned.
+
+**Machine** — on a station with machines (the Machines field in Master Data): which machine this screen stands at. It
+is picked once on this computer, which remembers it. Not picked — a yellow **Not set**: scanning still works, just
+without a machine. The machine is a mark for reports (Reports, the Machine field): where glass goes next and how much
+waits is counted by station, as before.
 
 ### Scan
 
