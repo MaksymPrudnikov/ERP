@@ -3,12 +3,12 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 220 модулей, 28 стиля.
+  Состав сборки: 221 модулей, 28 стиля.
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-JsgX9AocHQJD6z8OZDzB8TJf85FpnqZK9b73h7NRgjE=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-EZKJZSDKi96vmaY4uk2joLQI0iVv4C5L0BVpTG56DNM=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GLASS ERP — Glazing System</title>
 <style>
@@ -3557,6 +3557,10 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 .st-machine option{color:var(--text);background:var(--surface)}
 .st-machine.warn{background:var(--warning-soft);color:var(--warning)}
 .st-machine.warn select{color:var(--warning)}
+/* HELP (часть C): вызов в офис; открыт — красная плашка и Resolved. */
+.st-help{font-weight:800;letter-spacing:.04em}
+.st-help.on{background:var(--danger);color:var(--on-solid);padding:6px 6px 6px 14px;gap:10px}
+.st-help.on button{border:0;border-radius:999px;background:var(--surface);color:var(--danger);font-weight:700;padding:4px 12px}
 
 /* ---- src/styles/theme.css ---- */
 /* ==============================================================
@@ -4063,6 +4067,17 @@ button.fl-big{font-size:16px;padding:11px 20px}
 .fl-wall.fl-face3{fill:var(--text-3);stroke:none}
 .fl-object.fl-face3,.fl-free.fl-face3{fill:var(--line)}
 .fl-svg circle.fl-tare{stroke-width:1.5}
+
+/* C: вызов HELP — станция красная, мягкая пульсация (без неё при reduced motion). */
+.fl-svg .fl-st.is-help{fill:var(--danger-soft);stroke:var(--danger);stroke-width:3;animation:fl-help 1.6s ease-in-out infinite}
+@keyframes fl-help{50%{fill:color-mix(in srgb,var(--danger) 35%,var(--surface))}}
+@media (prefers-reduced-motion:reduce){.fl-svg .fl-st.is-help{animation:none}}
+.fl-dt.is-help{fill:var(--danger)}
+.fl-dot.is-help{background:var(--danger)}
+.fl-sumb.is-help{border-color:var(--danger-line);background:var(--danger-soft);color:var(--danger)}
+.fl-sumb.is-help i{background:var(--danger)}
+.fl-pill.is-help{background:var(--danger-soft);color:var(--danger)}
+.fl-help{display:flex;align-items:center;gap:8px;margin:10px 0;padding:9px 12px;border-radius:10px;background:var(--danger-soft);color:var(--danger);border:1px solid var(--danger-line)}
 
 /* ---- src/styles/reports.css ---- */
 /* =====================================================================
@@ -4661,7 +4676,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='25a4bc880e4b';
+var ERP_BUILD='e4ae8334a171';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -47284,7 +47299,8 @@ function floorWrite(draft){
    OUT: floorLive() — {at, st:{code:{waiting, last, working, status,
         machines:{P1:{last, working}}}}, carriers:[{code, skid, station,
         count, split}]} · floorUsualGap(code) · floorWorkingMin(code) ·
-        floorPeriodRange(p, today) · floorCard(code, p)
+        floorPeriodRange(p, today) · floorCard(code, p); status 'help' — открыт
+        вызов HELP (erp/shopfloor/station-call), он важнее Working / Waiting
    Владелец, 20.11.2026 (docs/ЗАДАЧА_КАРТА_ЦЕХА.md, A2):
    - Working — неотменённый скан станции за последние N минут; N — свой у
      станции (workingMin, «на закалке перерывы между партиями 20 минут, на
@@ -47314,10 +47330,11 @@ function floorUsualGap(code,now){
 
 /* Сейчас: ждёт, последний скан, Working по порогу станции, станки, тара. */
 function floorLive(now){
- const at=now||new Date().toISOString(),key=(typeof prodBoardStamp==='function'?prodBoardStamp():'')+'|'+at.slice(0,16)+'|'+(DB.station||[]).map(s=>s.code+(s.workingMin||'')+(s.machines||[]).join()).join();
+ const at=now||new Date().toISOString(),key=(typeof prodBoardStamp==='function'?prodBoardStamp():'')+'|'+at.slice(0,16)+'|'+(DB.station||[]).map(s=>s.code+(s.workingMin||'')+(s.machines||[]).join()).join()+'|'+(DB.stationCall||[]).map(c=>c.id+c.closedAt).join();
  if(floorLiveMemo.key===key&&!now)return floorLiveMemo.data;
  const t=Date.parse(at),st={},board=typeof prodBoard==='function'?prodBoard():[];
- (DB.station||[]).forEach(s=>{st[s.code]={waiting:0,last:'',working:false,status:'idle',machines:{}};(s.machines||[]).forEach(m=>{st[s.code].machines[m]={last:'',working:false};});});
+ const calls=typeof stationCallsOpen==='function'?stationCallsOpen():new Map();
+ (DB.station||[]).forEach(s=>{st[s.code]={waiting:0,last:'',working:false,status:'idle',machines:{},help:calls.get(s.code)||null};(s.machines||[]).forEach(m=>{st[s.code].machines[m]={last:'',working:false};});});
  board.forEach(x=>Object.keys(x.counts||{}).forEach(k=>{if(st[k])st[k].waiting+=x.counts[k];}));
  (DB.stationScan||[]).forEach(s=>{
   if(s.undoneAt)return;const r=st[s.station];if(!r)return;
@@ -47328,7 +47345,7 @@ function floorLive(now){
   const r=st[code],lim=floorWorkingMin(code)*6e4,fresh=v=>!!v&&t-Date.parse(v)<=lim&&Date.parse(v)<=t+6e4;
   Object.values(r.machines).forEach(m=>{m.working=fresh(m.last);});
   r.working=fresh(r.last);
-  r.status=r.working?'working':r.waiting>0?'waiting':'idle';
+  r.status=r.help?'help':r.working?'working':r.waiting>0?'waiting':'idle';
  });
  /* Тара: у каждой — сколько её стекла ждёт какую станцию; место — где больше,
     ничья — раньше по маршруту (шаг станции). */
@@ -51331,6 +51348,18 @@ function stationMachineChip(){
  const cur=stationMachineHere();
  return '<label class="st-chip st-machine'+(cur?'':' warn')+'" data-station-machine title="Which machine this screen stands at"><span class="st-chip-word">Machine</span><select aria-label="Machine" '+onAct('change',stationMachineSet,EL_VALUE)+'><option value="">'+(cur?'—':'Not set')+'</option>'+list.map(c=>'<option'+(c===cur?' selected':'')+'>'+esc(c)+'</option>').join('')+'</select></label>';
 }
+/* HELP (часть C, 20.11.2026): вызов в офис; открыт — «Help · 4 min» и Resolved.
+   На Queue и Board в шапке ещё поле скана — места нет: кнопка HELP только на
+   Scan, открытый вызов — короткой плашкой «Help 4′ ✓». */
+function stationHelpChip(){
+ const c=typeof stationCallOpen==='function'?stationCallOpen(stationCode):null,narrow=stationTab==='queue'||stationTab==='board';
+ if(c)return narrow?'<div class="st-chip st-help on" data-station-help-open>Help '+stationCallMinutes(c)+'′<button type="button" data-station-resolved aria-label="Resolved" title="Resolved" '+onAct('click',stationResolvedSave)+'>✓</button></div>'
+  :'<div class="st-chip st-help on" data-station-help-open>Help · '+stationCallMinutes(c)+' min<button type="button" data-station-resolved '+onAct('click',stationResolvedSave)+'>Resolved</button></div>';
+ return narrow?'':'<button type="button" class="st-btn st-help" data-station-help '+onAct('click',stationHelpCreate)+' title="Call the office">HELP</button>';
+}
+/* Имена на …Create / …Save: кнопки база запирает на время записи (storageLockButtons). */
+function stationHelpCreate(){const who=stationWho();if(!who)return;const out=stationHelpCommand(stationCode,who,stationMachineHere());stationNote=out.ok?'Help called — the office sees it':out.error;render();}
+function stationResolvedSave(){const who=stationWho();if(!who)return;const out=stationResolveCommand(stationCode,who);stationNote=out.ok?'Help resolved':out.error;render();}
 function stationMergeCodes(){return typeof salesRouteStationOf==='function'?[salesRouteStationOf('igu_assembly','IGU'),salesRouteStationOf('lamination','LAM')]:['IGU','LAM'];}
 function stationAutoPrintOn(){try{return !!(JSON.parse(localStorage.getItem(STATION_AUTOPRINT_KEY)||'{}')||{})[stationCode];}catch(e){return false;}}
 function stationAutoPrintToggle(){
@@ -51775,6 +51804,7 @@ function stationTop(who){
   (who&&stationPutOn()?'<div class="st-chip st-puton" data-station-puton title="Putting on"><span class="st-chip-more">Putting on </span><b>'+esc(stationPutOn())+'</b><button type="button" title="Stop putting on this dolly" '+onAct('click',stationClearPutOn)+'>✕</button></div>':'')+
   (who?stationTripChip():'')+
   (who?stationMachineChip():'')+
+  (who?stationHelpChip(who):'')+
   (who?'<button type="button" class="st-btn" data-station-drawings '+onAct('click',stationDrawPick)+'>Drawings</button>':'')+
   (who?stationBatchChip()+'<div class="st-chip"><span class="st-av">'+esc(stationInitials(who.name))+'</span><b data-raw>'+esc(who.name)+'</b></div><button type="button" class="st-btn" '+onAct('click',stationSwitch)+'>Switch</button>':'')+
   stationThemeButton()+'<button type="button" class="st-btn st-exit" '+onAct('click',stationExit)+' title="Back to ERP">ERP</button></div>';
@@ -54568,10 +54598,11 @@ function floorNotPlaced(items){
 /* --- Рисунок ---------------------------------------------------------- */
 function floorRect(r,cls,extra,title){return `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.l}" class="${cls}"${extra||''}${title?`><title>${esc(title)}</title></rect>`:'/>'}`;}
 function floorClock(iso){if(!iso)return '—';const d=new Date(iso);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
-const FLOOR_STATUS={working:'Working',waiting:'Waiting',idle:'Idle'};
+const FLOOR_STATUS={help:'Help',working:'Working',waiting:'Waiting',idle:'Idle'};
 /* Состояние блока: станок — свой Working; станция — Working / Waiting / Idle. */
 function floorBlockStatus(r,live){
  const s=live&&r.station&&live.st[r.station];if(!s)return '';
+ if(s.help)return 'help';
  if(r.kind==='machine'&&r.machine&&s.machines[r.machine])return s.machines[r.machine].working?'working':s.waiting?'waiting':'idle';
  return s.status;
 }
@@ -54695,12 +54726,15 @@ function viewProdFloor(){
 function floorSummary(){
  const live=floorLive(),n=k=>Object.values(live.st).filter(s=>s.status===k).length,d=new Date(live.at);
  const chip=(k,word)=>`<button type="button" class="fl-sumb is-${k}${floorFilter===k?' on':''}" data-floor-filter="${k}" aria-pressed="${floorFilter===k}" ${onAct('click',floorSetFilter,k)}><i></i>${n(k)} ${word}</button>`;
- return `<span class="mut fl-now" data-floor-now>${d.toLocaleDateString('en-US',{weekday:'short'})} ${floorClock(live.at)}</span>${chip('working','working')}${chip('waiting','waiting')}${floorFilter?`<button type="button" class="fl-show-all" ${onAct('click',floorSetFilter,'')}>Show all</button>`:''}`;
+ const help=Object.entries(live.st).filter(([,s])=>s.help);
+ const helpChip=help.length?`<button type="button" class="fl-sumb is-help" data-floor-help ${help.length===1?onAct('click',floorOpenStation,help[0][0]):onAct('click',floorSetFilter,'help')}><i></i>${help.length} help · ${esc(help.map(([c])=>c).join(', '))}</button>`:'';
+ floorHelpTick(help.length);
+ return `<span class="mut fl-now" data-floor-now>${d.toLocaleDateString('en-US',{weekday:'short'})} ${floorClock(live.at)}</span>${helpChip}${chip('working','working')}${chip('waiting','waiting')}${floorFilter?`<button type="button" class="fl-show-all" ${onAct('click',floorSetFilter,'')}>Show all</button>`:''}`;
 }
 function floorStationList(){
  const items=floorItems(),missing=new Set(floorNotPlaced(items)),live=floorLive();
  const list=(DB.station||[]).slice().sort((a,b)=>a.code.localeCompare(b.code));
- return `<h3>Stations</h3><div class="fl-stations">${list.map(s=>{const l=live.st[s.code]||{status:'idle',waiting:0};return `<button type="button" class="fl-st-row${floorPick===s.code?' on':''}" data-floor-station="${esc(s.code)}" ${onAct('click',floorPickStation,s.code)}><i class="fl-sw" style="--fc:var(--${floorColor(s.code)})"></i><b>${esc(s.code)}</b><span class="fl-dot is-${l.status}" title="${FLOOR_STATUS[l.status]}"></span><span class="mut">${missing.has(s.code)?'Not placed':FLOOR_STATUS[l.status]+(l.waiting?' · '+l.waiting+' waiting':'')}</span></button>`;}).join('')}</div>`;
+ return `<h3>Stations</h3><div class="fl-stations">${list.map(s=>{const l=live.st[s.code]||{status:'idle',waiting:0};return `<button type="button" class="fl-st-row${floorPick===s.code?' on':''}" data-floor-station="${esc(s.code)}" ${onAct('click',floorPickStation,s.code)}><i class="fl-sw" style="--fc:var(--${floorColor(s.code)})"></i><b>${esc(s.code)}</b><span class="fl-dot is-${l.status}" title="${FLOOR_STATUS[l.status]}"></span><span class="mut">${missing.has(s.code)?'Not placed':l.help?'Help · '+stationCallMinutes(l.help)+' min':FLOOR_STATUS[l.status]+(l.waiting?' · '+l.waiting+' waiting':'')}</span></button>`;}).join('')}</div>`;
 }
 /* Карточка станции: период, работа в её единицах, брак, станки, тара. */
 function floorCardHTML(code){
@@ -54719,6 +54753,7 @@ function floorCardHTML(code){
  const table=one?'':`<table class="fl-days" data-floor-days><thead><tr><th>Date</th><th>Done</th><th>${esc(c.main.label)}</th><th>People</th><th>Broken</th><th>NCR</th></tr></thead><tbody>${c.byDay.slice().reverse().map(d=>`<tr><td>${esc(d.day)}</td><td>${num(d.done,0)}</td><td>${num(d.main,c.main.digits)}</td><td>${num(d.people,0)}</td><td>${num(d.broken,0)}</td><td>${num(d.ncr,0)}</td></tr>`).join('')}</tbody></table>`;
  const wait=c.archive==='loading'&&typeof archiveScope!=='undefined'&&archiveScope?`<p class="mut" data-rep-archive-wait>${esc(archiveFactsText(archiveScope))}</p>`:'';
  return `<div class="fl-card" data-floor-card="${esc(code)}"><div class="fl-card-head"><i class="fl-sw" style="--fc:var(--${floorColor(code)})"></i><div><h3>${esc(code)}</h3><span class="mut">${esc(s.nameEn||s.name||'')}</span></div><span class="fl-sp"></span><span class="fl-pill is-${l.status}" data-floor-status>${FLOOR_STATUS[l.status]}</span><button type="button" class="fl-x" aria-label="Close" ${onAct('click',floorPickStation,code)}>×</button></div>
+  ${l.help?`<div class="fl-help" data-floor-help-card><b>Help · ${stationCallMinutes(l.help)} min</b>${l.help.machine?' · '+esc(l.help.machine):''}${l.help.by?' · '+esc(l.help.by):''}<span class="fl-sp"></span><button type="button" class="pri" data-floor-resolved ${onAct('click',floorResolvedSave,code)}>Resolved</button></div>`:''}
   <div class="fl-periods" role="tablist">${[['today','Today'],['yesterday','Yesterday'],['7','7 days'],['30','30 days']].map(([k,t])=>`<button type="button" role="tab" class="${floorPeriod===k?'on':''}" aria-selected="${floorPeriod===k}" data-floor-period="${k}" ${onAct('click',floorSetPeriod,k)}>${t}</button>`).join('')}</div>
   ${wait}<div class="fl-tiles">${tiles.join('')}</div>${ops}${ms}${chart}${table}
   ${floorPeriod==='today'&&tare.length?`<h4>Dollies here</h4><div class="fl-tare-list" data-floor-tare-list>${tare.map(x=>`<button type="button" class="cw-code sm" ${onAct('click',floorShowCarrier,x.code)}>${esc(x.code)} · ${x.n} glass</button>`).join('')}</div>`:''}
@@ -54732,6 +54767,14 @@ function floorTareCard(code){
   <table class="fl-days"><thead><tr><th>Waiting for</th><th>Glass</th></tr></thead><tbody>${Object.entries(c.split).sort((a,b)=>b[1]-a[1]).map(([s,n])=>`<tr><td>${esc(s)}</td><td>${n}</td></tr>`).join('')}</tbody></table>
   <div class="fl-row"><button type="button" data-floor-tare-open ${onAct('click',carrierWinOpen,code)}>What is on it</button></div></div>`;
 }
+/* Пока открыт вызов HELP, Floor перерисовывается раз в минуту — «Help · 4 min» идёт. */
+let floorHelpTimer=0;
+function floorHelpTick(n){
+ if(!n||floorHelpTimer)return;
+ floorHelpTimer=setTimeout(()=>{floorHelpTimer=0;if(tab==='production'&&subtab==='floor'&&!floorEdit&&!floorDrag)render();},60000);
+}
+/* Resolved из офиса: карточка станции на Floor. */
+function floorResolvedSave(code){const u=typeof signinUser==='function'?signinUser():null;const out=stationResolveCommand(code,u?{name:u.name,id:u.viewProfileId}:{name:'Office'});if(!out.ok)alert(out.error);render();}
 function floorSetFilter(k){floorFilter=floorFilter===k?'':k;render();}
 function floorSetPeriod(k){floorPeriod=FLOOR_PERIODS.includes(k)?k:'today';try{localStorage.setItem('glass_erp_floor_period_v1',floorPeriod);}catch(e){}render();}
 /* Show on floor (Dollies & Skids, карточка станции): Floor с одной подсвеченной тарой. */
@@ -57163,6 +57206,61 @@ function validateSkipPayload(src){
  if(!Array.isArray(src.skip))throw new Error('The "skip" field must be an array.');
  const ids=new Set();src.skip.forEach(k=>{if(!k||typeof k!=='object'||!salesRefId(k.id)||ids.has(k.id)||!salesRefId(k.orderId))throw new Error('Invalid skip record.');ids.add(k.id);});
 }
+
+/* ==== src/erp/shopfloor/station-call.js ==== */
+/* =====================================================================
+   erp/shopfloor/station-call  ·  call-1.0
+   Вызов HELP со станции (часть C задания «Карта цеха»): рабочий нажимает
+   HELP на экране станции — станция горит красным на плане цеха в офисе;
+   Resolved — на той же станции или в карточке станции на Floor.
+   IN : DB.station
+   OUT: DB.stationCall {id, station, machine, by, byId, at, closedAt,
+        closedBy} · normalizeStationCalls · stationCallOpen(code) ·
+        stationCallsOpen() · stationHelpCommand(code, who, machine) ·
+        stationResolveCommand(code, who)
+   Владелец, 19–20.11.2026: «потом в экран производства добавим знак вызова
+   мастера (продакт-менеджера), и станция должна подсвечиваться и гореть
+   красным»; уточнение — просто HELP, «чтобы не акцентировать внимание»;
+   мастер — production manager, сейчас один человек, следит за экраном
+   производства в офисе; без звука, телефона и Overview; записи остаются,
+   отчёт по ним — потом, если попросит. У станции открыт один вызов:
+   повторное нажатие нового не заводит.
+   ===================================================================== */
+DEFAULT.stationCall=[];
+const STATION_CALL_ID_RE=/^HC-[A-Za-z0-9-]{4,60}$/;
+
+function normalizeStationCalls(){
+ const iso=v=>typeof v==='string'&&!Number.isNaN(Date.parse(v)),seen=new Set();
+ DB.stationCall=(Array.isArray(DB.stationCall)?DB.stationCall:[]).filter(c=>c&&typeof c==='object'&&STATION_CALL_ID_RE.test(String(c.id))&&!seen.has(c.id)&&iso(c.at)&&typeof c.station==='string'&&c.station.trim()&&(seen.add(c.id),true))
+  .map(c=>({id:c.id,station:sfCode(c.station),machine:typeof c.machine==='string'&&SF_CODE_RE.test(sfCode(c.machine))?sfCode(c.machine):'',
+   by:String(c.by==null?'':c.by).slice(0,80),byId:String(c.byId==null?'':c.byId).slice(0,80),at:c.at,
+   closedAt:iso(c.closedAt)?c.closedAt:'',closedBy:iso(c.closedAt)?String(c.closedBy==null?'':c.closedBy).slice(0,80):''}));
+}
+/* Открытый вызов станции (последний, если вдруг два с разных ПК). */
+function stationCallOpen(code){let out=null;(DB.stationCall||[]).forEach(c=>{if(c.station===code&&!c.closedAt&&(!out||c.at>out.at))out=c;});return out;}
+function stationCallsOpen(){const m=new Map();(DB.stationCall||[]).forEach(c=>{if(!c.closedAt){const w=m.get(c.station);if(!w||c.at>w.at)m.set(c.station,c);}});return m;}
+function stationCallId(){return 'HC-'+(typeof crypto!=='undefined'&&crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10));}
+/* HELP: один открытый вызов на станцию. */
+function stationHelpCommand(code,who,machine){
+ return storageCommand(()=>{
+  if(!(DB.station||[]).some(s=>s.code===code))throw new Error('Unknown station.');
+  const open=stationCallOpen(code);if(open)return open;
+  if(!Array.isArray(DB.stationCall))DB.stationCall=[];
+  const c={id:stationCallId(),station:code,machine:machine||'',by:String(who&&who.name||'').slice(0,80),byId:String(who&&who.id||'').slice(0,80),at:new Date().toISOString(),closedAt:'',closedBy:''};
+  DB.stationCall.push(c);return c;
+ });
+}
+/* Resolved: закрывает все открытые вызовы станции. */
+function stationResolveCommand(code,who){
+ return storageCommand(()=>{
+  const now=new Date().toISOString(),list=(DB.stationCall||[]).filter(c=>c.station===code&&!c.closedAt);
+  if(!list.length)throw new Error('No help call here.');
+  list.forEach(c=>{c.closedAt=now;c.closedBy=String(who&&who.name||'').slice(0,80);});
+  return list.length;
+ });
+}
+/* Минуты с вызова — для «Help · 4 min». */
+function stationCallMinutes(c,now){return Math.max(0,Math.floor(((now?Date.parse(now):Date.now())-Date.parse(c.at))/6e4));}
 
 /* ==== src/erp/views/skip-ui.js ==== */
 /* =====================================================================
@@ -63183,6 +63281,7 @@ function normalizeDB(){
  if(typeof normalizeStationScans==='function')normalizeStationScans();
  if(typeof normalizeShipments==='function')normalizeShipments();
  if(typeof normalizeSkips==='function')normalizeSkips();
+ if(typeof normalizeStationCalls==='function')normalizeStationCalls();
  if(typeof normalizeProductionUnbatches==='function')normalizeProductionUnbatches();
  if(typeof normalizeTrucks==='function')normalizeTrucks();
  if(typeof normalizeSkidReturns==='function')normalizeSkidReturns();
