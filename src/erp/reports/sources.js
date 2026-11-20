@@ -44,7 +44,7 @@ function repLineFields(){return [REP_F.text('mark','Line mark',r=>r.mark||'—')
  REP_F.dim('sizeBand','Size band',r=>r.sizeBand||'—'),REP_F.dim('maker','Manufacturer',r=>r.maker||'—')];}
 /* Поля, общие для сканов станций. */
 function repScanFields(person){
- return [REP_F.date('at','Scan time'),REP_F.dim('station','Station'),REP_F.dim('person',person||'Person',r=>r.person||'—'),
+ return [REP_F.date('at','Scan time'),REP_F.dim('station','Station'),REP_F.dim('machine','Machine',r=>r.machine||'—'),REP_F.dim('person',person||'Person',r=>r.person||'—'),
   REP_F.dim('customer','Customer',r=>repCustomer(r.customerId)),REP_F.text('order','Order'),REP_F.dim('glass','Glass',r=>r.glass||'—'),
   REP_F.dim('mm','Thickness',r=>repMmText(r.mm)),REP_F.dim('heat','Temper',r=>r.heat||'—'),REP_F.dim('unitType','Unit type',r=>r.unitType||'—'),
   REP_F.dim('priority','Priority',r=>SALES_LIST_PRIORITY[r.priority]||'Normal'),REP_F.text('batch','Batch',r=>r.batch||'—'),

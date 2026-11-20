@@ -4,11 +4,13 @@
    IN : DB.glassPiece · DB.glassBatch · маршрут стекла (stkRoute)
    OUT: DB.stationScan — {id, at, piece, station, by, byId, manual,
         undoneAt, undoneBy[, on, confirmedAt, asm, unit, broken, park, recut,
-        reason]} · DB.sheetBreak
+        reason, machine]} · DB.sheetBreak
    confirmedAt — станцию не отсканировали, работу подтвердил рабочий следующей.
    asm, unit — сборка юнита на IGU и номер собранного юнита (ниже).
    park — стекло вынули из сборки: пара ушла в Recut, оно ждёт на долли.
    on — долли или скид, на которую положили стекло (erp/shopfloor/carriers).
+   machine — станок станции, у которого стоит экран (DB.station[].machines):
+   только пометка для отчётов; где стекло и куда дальше — по станции.
    Правило: место стекла НЕ хранится, а считается: последний скан +
    маршрут = станция, на которой стекло ждёт. Так было и в Spil —
    «с батча попало на рез и находится в ожидании на следующей станции»
@@ -256,6 +258,9 @@ function stationRecordCommand(station,check,who,opts){
   const c=carrierFind(opts.on);if(c&&c.active)rec.on=c.code;
  }
  if(opts.confirmedAt)rec.confirmedAt=sfCode(opts.confirmedAt);
+ /* Станок экрана (часть M, 20.11.2026) — только пометка: пишется, если это
+    станок этой станции; иначе скан как прежде, без поля. Не блокирует. */
+ if(opts.machine){const st=(DB.station||[]).find(x=>x.code===station),m=sfCode(opts.machine);if(st&&(st.machines||[]).includes(m))rec.machine=m;}
  /* Скан резки помнит лист раскладки: склад листов списывает его и после
     Reset раскроя (erp/inventory/sheets). */
  if(station===stationCutCode()&&check.g&&check.g.entry&&typeof invScanSheet==='function'){const sh=invScanSheet(check.g.entry,rec.piece);if(sh)rec.sheet=sh;}
@@ -357,6 +362,7 @@ function normalizeStationScans(){
    ...(s.moved&&typeof s.moved==='object'&&iso(s.moved.at)?{moved:{...(salesRefId(s.moved.id)?{id:s.moved.id}:{}),from:typeof s.moved.from==='string'&&typeof CARRIER_RE!=='undefined'&&CARRIER_RE.test(s.moved.from)?s.moved.from:'',at:s.moved.at,by:String(s.moved.by==null?'':s.moved.by).slice(0,80)}}:{}),
    ...(typeof s.confirmedAt==='string'&&SF_CODE_RE.test(sfCode(s.confirmedAt))?{confirmedAt:sfCode(s.confirmedAt)}:{}),
    ...(Number.isInteger(s.step)&&s.step>=0?{step:s.step}:{}),
+   ...(typeof s.machine==='string'&&SF_CODE_RE.test(sfCode(s.machine))?{machine:sfCode(s.machine)}:{}),
    ...(STATION_SCAN_ID_RE.test(String(s.actionId))?{actionId:s.actionId}:{}),
    ...(typeof invScanSheetClean==='function'&&invScanSheetClean(s.sheet)?{sheet:invScanSheetClean(s.sheet)}:{}),
    ...(STATION_SCAN_ID_RE.test(String(s.asm))?{asm:s.asm}:{}),

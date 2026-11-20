@@ -33,6 +33,27 @@ const STATION_SESSION_KEY='glass_erp_station_session_v1';
    компьютеру IGU; Chrome запущен с --kiosk-printing — печать без окна, скан
    не останавливается. Включается на этом компьютере один раз. */
 const STATION_AUTOPRINT_KEY='glass_erp_station_autoprint_v1';
+/* Станок этого экрана (часть M, владелец 20.11.2026: «у каждого станка свой
+   экран»): выбирают один раз на этом компьютере, помнится по станции. Нет
+   выбора — скан идёт как прежде, без пометки; в шапке жёлтая подсказка. */
+const STATION_MACHINE_KEY='glass_erp_station_machine_v1';
+function stationMachines(){const s=stationRow();return s&&Array.isArray(s.machines)?s.machines:[];}
+function stationMachineHere(){
+ const list=stationMachines();if(!list.length)return '';
+ let m={};try{m=JSON.parse(localStorage.getItem(STATION_MACHINE_KEY)||'{}')||{};}catch(e){}
+ return list.includes(m[stationCode])?m[stationCode]:'';
+}
+function stationMachineSet(v){
+ let m={};try{m=JSON.parse(localStorage.getItem(STATION_MACHINE_KEY)||'{}')||{};}catch(e){}
+ if(v)m[stationCode]=v;else delete m[stationCode];
+ try{localStorage.setItem(STATION_MACHINE_KEY,JSON.stringify(m));}catch(e){}
+ stationNote=v?'This screen is '+stationCode+' · '+v:'No machine for this screen';render();
+}
+function stationMachineChip(){
+ const list=stationMachines();if(!list.length)return '';
+ const cur=stationMachineHere();
+ return '<label class="st-chip st-machine'+(cur?'':' warn')+'" data-station-machine title="Which machine this screen stands at"><span class="st-chip-word">Machine</span><select aria-label="Machine" '+onAct('change',stationMachineSet,EL_VALUE)+'><option value="">'+(cur?'—':'Not set')+'</option>'+list.map(c=>'<option'+(c===cur?' selected':'')+'>'+esc(c)+'</option>').join('')+'</select></label>';
+}
 function stationMergeCodes(){return typeof salesRouteStationOf==='function'?[salesRouteStationOf('igu_assembly','IGU'),salesRouteStationOf('lamination','LAM')]:['IGU','LAM'];}
 function stationAutoPrintOn(){try{return !!(JSON.parse(localStorage.getItem(STATION_AUTOPRINT_KEY)||'{}')||{})[stationCode];}catch(e){return false;}}
 function stationAutoPrintToggle(){
@@ -166,7 +187,7 @@ function stationSubmitNow(raw){
     его скид не уедет (аудит проделанной работы). */
  if((check.kind==='already'||check.kind==='held'&&check.here)&&stationIsReady()){const moved=stationRestack(check,who);if(moved){render();return moved;}}
  if(check.kind==='skipped'&&!stationQuestions.some(q=>q.code===check.code))stationQuestions.push({code:check.code,at:new Date().toISOString()});
- const out=STATION_RECORDED.includes(check.kind)?stationMove(stationCode,check,who,{manual:/^(\d+|U-?\d{1,6})$/i.test(String(raw).trim()),on:stationPutOn()||stationStaysOn(check)}):null;
+ const out=STATION_RECORDED.includes(check.kind)?stationMove(stationCode,check,who,{manual:/^(\d+|U-?\d{1,6})$/i.test(String(raw).trim()),on:stationPutOn()||stationStaysOn(check),machine:stationMachineHere()}):null;
  if(out&&!out.ok){stationSaveError(check.code,out.error);return 'saveError';}
  const rec=out?out.value.rec:null,mates=out?out.value.mates:[];
  stationLooseAdd([rec].concat(mates));
@@ -318,7 +339,7 @@ function stationMark(piece){
  const who=stationWho();if(!who)return;
  if(stationIsShip())return stationShipSubmit(piece,who,true);
  const check=stationCheck(stationCode,piece);if(!check)return;
- const out=STATION_RECORDED.includes(check.kind)?stationMove(stationCode,check,who,{manual:true,on:stationPutOn()}):null;
+ const out=STATION_RECORDED.includes(check.kind)?stationMove(stationCode,check,who,{manual:true,on:stationPutOn(),machine:stationMachineHere()}):null;
  if(out&&!out.ok){stationSaveError(check.code,out.error);return false;}
  const rec=out?out.value.rec:null,mates=out?out.value.mates:[];
  stationLooseAdd([rec].concat(mates));
@@ -476,6 +497,7 @@ function stationTop(who){
   (who&&stationLoose().length?'<button type="button" class="st-chip st-loose-chip" data-station-loose '+onAct('click',stationDollyOpen,'','out')+' title="Scanned without a '+stationTareWord()+'">No '+stationTareWord()+' · <b>'+stationLoose().length+'</b></button>':'')+
   (who&&stationPutOn()?'<div class="st-chip st-puton" data-station-puton title="Putting on"><span class="st-chip-more">Putting on </span><b>'+esc(stationPutOn())+'</b><button type="button" title="Stop putting on this dolly" '+onAct('click',stationClearPutOn)+'>✕</button></div>':'')+
   (who?stationTripChip():'')+
+  (who?stationMachineChip():'')+
   (who?'<button type="button" class="st-btn" data-station-drawings '+onAct('click',stationDrawPick)+'>Drawings</button>':'')+
   (who?stationBatchChip()+'<div class="st-chip"><span class="st-av">'+esc(stationInitials(who.name))+'</span><b data-raw>'+esc(who.name)+'</b></div><button type="button" class="st-btn" '+onAct('click',stationSwitch)+'>Switch</button>':'')+
   stationThemeButton()+'<button type="button" class="st-btn st-exit" '+onAct('click',stationExit)+' title="Back to ERP">ERP</button></div>';

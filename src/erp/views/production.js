@@ -112,6 +112,7 @@ function viewSfStations(edit,framed){
    {k:'step',label:'Step',type:'number',v:s=>s.seq,cell:(s,v,info)=>`<span style="white-space:nowrap">${edit?`<input class="sf-step" type="number" min="1" step="1" value="${s.seq}" data-sf-step="${esc(s.code)}" ${onAct('change',sfStationSetStep,info.i,EL_VALUE)}>`:`<b class="mono">${s.seq}</b>`}${steps.get(s.seq)>1?' <span class="pill info" title="Same step as another station">parallel</span>':''}</span>`},
    {k:'code',label:'Code',type:'text',v:s=>s.code,cell:s=>`<b class="mono">${raw(s.code)}</b>`},
    {k:'name',label:'Name',type:'text',v:s=>plain(sfLabel(s)),cell:s=>sfLabel(s)},
+   {k:'machines',label:'Machines',type:'text',v:s=>(s.machines||[]).join(' · '),cell:s=>(s.machines||[]).length?`<span class="mono">${esc(s.machines.join(' · '))}</span>`:'<span class="mut">—</span>'},
    {k:'route',label:'In route',type:'list',v:s=>s.always?'always':'when required',cell:s=>`<span class="pill ${s.always?'ok':'info'}">${s.always?'always':'when required'}</span>`},
    {k:'size',label:'Size, W × L',type:'text',v:s=>plain(sfDimText(s)),cell:s=>`<span class="mono">${sfDimText(s)}</span>`},
    {k:'putsOn',label:'Puts on',type:'list',v:s=>plain(sfPutsOnCell(s,false)),cell:s=>sfPutsOnCell(s,edit)},
@@ -156,6 +157,7 @@ function sfStationForm(){
    <div><label>Step *</label><input id="sf_seq" type="number" min="1" step="1" value="${r.seq}"><div class="hint">Same number as another station — parallel.</div></div>
    <div><label>Code *</label><input id="sf_code" value="${esc(r.code)}" placeholder="POLISH"></div>
    <div><label>Name *</label><input id="sf_nameEn" value="${esc(sfName(r))}" placeholder="Polishing"></div>
+   <div><label>Machines</label><input id="sf_machines" value="${esc((r.machines||[]).join(', '))}" placeholder="P1, P2, P3"><div class="hint">One per scan screen. Empty — the whole station.</div></div>
    <div><label>Size W, inches</label><input id="sf_maxW" type="number" step="0.1" min="0" value="${r.maxW==null?'':r.maxW}"></div>
    <div><label>Size L, inches</label><input id="sf_maxL" type="number" step="0.1" min="0" value="${r.maxL==null?'':r.maxL}"></div>
    <div style="grid-column:1/-1"><label class="chk"><input type="checkbox" id="sf_measured" ${r.sizeMeasured?'checked':''}> Size measured in the shop</label>
@@ -187,6 +189,8 @@ function saveSfStationCommand(){
  if(!Number.isInteger(seq)||seq<=0) return fail(e,'Step: a positive whole number');
  if(!code||!nameEn) return fail(e,'Code and name are required');
  if(!SF_CODE_RE.test(code)) return fail(e,'Code: use only A–Z, 0–9, hyphen and underscore');
+ const machinesRaw=(document.getElementById('sf_machines')||{value:''}).value,machines=sfMachines(machinesRaw);
+ if(machinesRaw.split(/[\s,;]+/).filter(Boolean).length!==machines.length) return fail(e,'Machines: short codes like P1, P2 — A–Z, 0–9, no repeats');
  if(DB.station.some((s,i)=>i!==stEdit && s.code===code)) return fail(e,'This code already exists');
  const dim=id=>{const v=document.getElementById(id).value.trim();if(v==='')return null;const n=+v;return isFinite(n)&&n>0?n:NaN;};
  const maxW=dim('sf_maxW'),maxL=dim('sf_maxL');
@@ -208,8 +212,8 @@ function saveSfStationCommand(){
  const o={seq,code,name:prev&&prev.name||nameEn,nameEn,
   always:document.getElementById('sf_always').checked,
   maxW,maxL,sizeMeasured:document.getElementById('sf_measured').checked,
-  note:document.getElementById('sf_note').value.trim()};
- if(stEdit==='new') DB.station.push(o); else Object.assign(DB.station[stEdit],o);
+  note:document.getElementById('sf_note').value.trim(),...(machines.length?{machines}:{})};
+ if(stEdit==='new') DB.station.push(o); else {Object.assign(DB.station[stEdit],o);if(!machines.length)delete DB.station[stEdit].machines;}
  DB.station.sort((a,b)=>a.seq-b.seq);
  stEdit=null; stSeen=null; stationRouteReset(); touch(); render();return true;
 }

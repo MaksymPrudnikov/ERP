@@ -37,6 +37,11 @@ function sfStr(v){return String(v==null?'':v).trim();}
 function sfCode(v){return sfStr(v).toUpperCase();}
 function sfNum(v){if(v==null||v==='')return null;const n=+v;return Number.isFinite(n)&&n>0?n:null;}
 const SF_CODE_RE=/^[A-Z0-9][A-Z0-9_-]{0,39}$/;
+/* Коды станков станции: из массива или строки «P1, P2, P3» — без повторов, до 12. */
+function sfMachines(v){
+ const list=Array.isArray(v)?v:String(v==null?'':v).split(/[\s,;]+/),seen=new Set();
+ return list.map(x=>sfCode(x)).filter(c=>c&&SF_CODE_RE.test(c)&&c.length<=12&&!seen.has(c)&&(seen.add(c),true)).slice(0,12);
+}
 const SF_OP_CODE_RE=/^[a-z0-9][a-z0-9_]{0,39}$/;
 
 /* =====================================================================
@@ -241,7 +246,10 @@ function normalizeShopFloor(){
    /* Цвет станции на плане цеха (erp/production/floor) — имя токена. */
    ...(/^series-([1-9]|1\d|2[0-4])$/.test(s.color)?{color:s.color}:{}),
    /* Колонки листа долли/скида станции (erp/shopfloor/carriers). */
-   ...(Array.isArray(s.sheetCols)&&typeof carrierColsClean==='function'&&carrierColsClean(s.sheetCols).length?{sheetCols:carrierColsClean(s.sheetCols)}:{})};
+   ...(Array.isArray(s.sheetCols)&&typeof carrierColsClean==='function'&&carrierColsClean(s.sheetCols).length?{sheetCols:carrierColsClean(s.sheetCols)}:{}),
+   /* Станки станции (20.11.2026): у трёх POLISH — P1, P2, P3. Только пометка
+      на скане — маршрут, очереди и переходы остаются по станции. */
+   ...(sfMachines(s.machines).length?{machines:sfMachines(s.machines)}:{})};
  }).sort((a,b)=>a.seq-b.seq);
 
  const tSeen=Object.create(null);

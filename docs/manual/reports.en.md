@@ -280,6 +280,7 @@ Glass through every station.
 |---|---|
 | Scan time | Date |
 | Station | List |
+| Machine | List |
 | Person | List |
 | Customer | List |
 | Order | Text |
@@ -324,6 +325,7 @@ Glass cut at CUT.
 |---|---|
 | Scan time | Date |
 | Station | List |
+| Machine | List |
 | Cutter | List |
 | Customer | List |
 | Order | Text |
@@ -397,6 +399,7 @@ Linear inches by operation.
 |---|---|
 | Scan time | Date |
 | Station | List |
+| Machine | List |
 | Person | List |
 | Customer | List |
 | Order | Text |
@@ -443,6 +446,7 @@ Holes, notches, cutouts, hardware.
 |---|---|
 | Scan time | Date |
 | Station | List |
+| Machine | List |
 | Person | List |
 | Customer | List |
 | Order | Text |
@@ -488,6 +492,7 @@ Every priced work at every station.
 |---|---|
 | Scan time | Date |
 | Station | List |
+| Machine | List |
 | Person | List |
 | Customer | List |
 | Order | Text |
@@ -535,6 +540,7 @@ Glass through the furnace.
 |---|---|
 | Scan time | Date |
 | Station | List |
+| Machine | List |
 | Operator | List |
 | Customer | List |
 | Order | Text |
@@ -577,6 +583,7 @@ Units assembled.
 |---|---|
 | Scan time | Date |
 | Station | List |
+| Machine | List |
 | Assembler | List |
 | Customer | List |
 | Order | Text |
@@ -619,6 +626,7 @@ Glass and units handed out at SHIP.
 |---|---|
 | Scan time | Date |
 | Station | List |
+| Machine | List |
 | Handed out by | List |
 | Customer | List |
 | Order | Text |
