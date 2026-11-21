@@ -164,18 +164,40 @@ function repWorkFacts(day){
  const stamp=repWorkStamp();if(repWorkCache.stamp===stamp&&repWorkCache.rows)return day?repWorkCache.rows.filter(f=>f.day===day):repWorkCache.rows;
  if(day&&repWorkDayCache.stamp===stamp&&repWorkDayCache.day===day)return repWorkDayCache.rows;
  repWorkBuilds++;
+ const rows=repWorkBuild(day?repDayTest(day):null,'');
+ if(day)repWorkDayCache={stamp,day,rows};else repWorkCache={stamp,rows};
+ return rows;
+}
+/* Одна станция за дни from…to (карточка станции на плане цеха, 21.11.2026):
+   те же строки, что repWorkFacts() этой станции за эти дни, но без работы
+   остальных станций и остальных дней года — «30 days» считали весь год всех
+   станций (8.5 с на годовой базе). Год уже посчитан — берётся из него. */
+let repWorkSpanCache={key:'',rows:null};
+function repWorkSpan(station,from,to){
+ const stamp=repWorkStamp(),key=stamp+'|'+station+'|'+from+'|'+to;
+ if(repWorkCache.stamp===stamp&&repWorkCache.rows)return repWorkCache.rows.filter(f=>f.station===station&&f.day>=from&&f.day<=to);
+ if(repWorkSpanCache.key===key)return repWorkSpanCache.rows;
+ const a=new Date(to+'T00:00:00'),hiIso=new Date(a.getFullYear(),a.getMonth(),a.getDate()+1).toISOString(),loIso=new Date(from+'T00:00:00').toISOString();
+ const inSpan=iso=>typeof iso==='string'&&iso.length===24&&iso[23]==='Z'?iso>=loIso&&iso<hiIso:(d=>d>=from&&d<=to)(repDay(iso));
+ const rows=repWorkBuild(inSpan,station);repWorkSpanCache={key,rows};return rows;
+}
+/* inDay — только сканы этих дней; station — только эта станция (номер
+   захода — по сканам стекла на этой же станции, другие станции на него не
+   влияют). */
+function repWorkBuild(inDay,station){
+ const day=!!inDay;
  const index=stationPieceIndex(),batches=stationBatchIndex(),rows=[],orders=new Map(),lines=new Map(),visits=new Map();
  /* Юнит после сборки — сама сборка (стеклопакет на IGU, склейка на LAM), а
     не номер стекла в позиции: лайты одного пакета бывают из разных юнитов
     позиции, и «юниты» на выдаче считались бы по стёклам. */
- const asmAt=new Map(),built=new Map(),inDay=day?repDayTest(day):null,today=day?new Set():null;
+ const asmAt=new Map(),built=new Map(),today=day?new Set():null;
  /* Номер захода считается только у стёкол этого дня. */
- if(day)(DB.stationScan||[]).forEach(s=>{if(inDay(s.at))today.add(s.piece);});
+ if(day)(DB.stationScan||[]).forEach(s=>{if((!station||s.station===station)&&inDay(s.at))today.add(s.piece);});
  (DB.stationScan||[]).forEach(s=>{if(s.undoneAt||s.broken||!s.asm||!(s.unit||s.joined))return;const t=asmAt.get(s.asm);if(!t||s.at>t)asmAt.set(s.asm,s.at);});
  (DB.stationScan||[]).forEach(s=>{if(s.undoneAt||s.broken||!s.asm||!(s.unit||s.joined))return;const was=built.get(s.piece);if(!was||s.unit&&!was.unit)built.set(s.piece,{asm:s.asm,unit:!!s.unit,at:asmAt.get(s.asm)});});
  const oInfo=o=>{if(!orders.has(o.id))orders.set(o.id,repOrderInfo(o));return orders.get(o.id);},lInfo=l=>{if(!lines.has(l))lines.set(l,repLineInfo(l));return lines.get(l);};
  (DB.stationScan||[]).forEach(s=>{
-  if(s.undoneAt||s.broken||s.park||today&&!today.has(s.piece))return;
+  if(s.undoneAt||s.broken||s.park||station&&s.station!==station||today&&!today.has(s.piece))return;
   const vk=s.piece+'|'+s.station,nth=(visits.get(vk)||0)+1;visits.set(vk,nth);
   if(day&&!inDay(s.at))return;
   const g=stationGlass(s.piece,index,batches),w=g?repGlassWork(g,s.station,Number.isInteger(s.step)?s.step:-nth):{area:null,mm:null,heat:'',unitType:'',works:[]};
@@ -190,6 +212,5 @@ function repWorkFacts(day){
    asm:s.asm||'',unitDone:!!(s.unit||s.joined),asmDone:(s.unit||s.joined)&&s.asm?s.asm:'',manual:!!s.manual,confirmedAt:s.confirmedAt||'',
    on:s.on||'',recut:g&&typeof g.unit==='string'?'Recut':'Original',sizeBand:repSizeBand(w.area),maker:w.maker||'',...(g?oInfo(g.o):{}),...(g?lInfo(g.l):{})});
  });
- if(day)repWorkDayCache={stamp,day,rows};else repWorkCache={stamp,rows};
  return rows;
 }

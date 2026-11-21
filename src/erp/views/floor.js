@@ -100,14 +100,18 @@ function floorSvgBody(){
   const st=r.station&&r.kind!=='wall'?floorStation(r.station):null,col=r.station?floorColor(r.station):'';
   const status=r.kind==='machine'&&st?floorBlockStatus(r,live):'',s=live&&st?live.st[r.station]:null;
   const cls=['fl-'+r.kind,r.station&&!st?'fl-unknown':'',r.station&&st?'fl-st':'',!r.station&&r.kind==='machine'?'fl-free':'',status?'is-'+status:'',floorFilter&&live&&r.kind!=='zone'&&status!==floorFilter?'dim':'',sel.has(r.id)?'sel':'',!edit&&floorPick&&r.station===floorPick?'pick':'',r.kind==='zone'&&findZone&&r.station===findZone?'blink':''].filter(Boolean).join(' ');
-  const title=s&&r.kind!=='zone'?`${r.station}${r.machine?' '+r.machine:''} · ${FLOOR_STATUS[status]||''} · ${s.waiting} waiting · last scan ${floorClock(r.machine&&s.machines[r.machine]?s.machines[r.machine].last:s.last)}`:'';
+  const title=r.station&&!st&&r.kind!=='wall'?'Unknown station '+r.station:s&&r.kind!=='zone'?`${r.station}${r.machine?' '+r.machine:''} · ${FLOOR_STATUS[status]||''} · ${s.waiting} waiting · last scan ${floorClock(r.machine&&s.machines[r.machine]?s.machines[r.machine].last:s.last)}`:'';
   parts.push(floorRect(r,cls,` data-floor-item="${r.id}"${col?` style="--fc:var(--${col})"`:''}`,title));
   if(r.kind==='wall')return;
   const t=floorBlockText(r,st,live,leads),name=t.name;
-  if(!name)return;
-  const len=name.length+(t.dot?2:0),rot=r.l>r.w*1.6&&r.w<len*fs*0.62,cx=r.x+r.w/2,cy=r.kind==='zone'?r.y+fs*0.65:r.y+r.l/2;
-  const room=rot?r.l:r.w,f=r.kind==='zone'?fs*0.7:Math.min(fs,Math.max(fs*0.45,room/(len*0.62)));
-  labels.push(floorLabel(cx,cy,name,f,'fl-label'+(r.kind==='zone'?' fl-zl':''),r.kind!=='zone'&&rot,t.dot,r.id));
+  if(!name&&!t.dot)return;
+  const cx=r.x+r.w/2,cy=r.kind==='zone'?r.y+fs*0.65:r.y+r.l/2;
+  if(r.kind==='zone'){labels.push(floorLabel(cx,cy,name,Math.min(fs*0.7,r.w/(name.length*0.62+0.6)),'fl-label fl-zl',false,'',r.id));return;}
+  /* Подпись — внутри блока по обеим сторонам (владелец 21.11: «блоки вылазят на
+     контур»): шрифт по длине и по толщине блока; не влезает и мелко — только точка. */
+  const len=name.length+(t.dot?2:0),rot=r.l>r.w*1.25,room=(rot?r.l:r.w)*0.9,thick=(rot?r.w:r.l)*0.8,f=Math.min(fs,room/(len*0.62),thick);
+  if(!name||f<fs*0.4){if(t.dot)labels.push(floorDot(cx,cy,Math.min(fs*0.3,Math.min(r.w,r.l)*0.3),t.dot,r.id));return;}
+  labels.push(floorLabel(cx,cy,name,f,'fl-label',rot,t.dot,r.id));
  });
  parts.push(...labels);
  if(live)parts.push(floorTare(items,live,fs));
@@ -121,8 +125,10 @@ function floorSvgBody(){
    состояния, на верхнем блоке станции — число в очереди: «● HEAT 5». Простой
    блок — только код. Слова — в подсказке и карточке. Зона — только код. */
 function floorLeads(items,live){
- const lead=new Map();
- items.forEach(r=>{if(r.kind!=='machine'||!r.station||!live.st[r.station])return;const g=lead.get(r.station);if(!g||r.y<g.y||r.y===g.y&&r.x<g.x)lead.set(r.station,r);});
+ /* Подпись станции — на самом толстом её блоке (у LAM и IGU — середина «H», а
+    не рельса в метр), равные — на большем, затем на верхнем. */
+ const lead=new Map(),thick=r=>Math.min(r.w,r.l),better=(r,g)=>thick(r)>thick(g)+1e-9||Math.abs(thick(r)-thick(g))<1e-9&&(r.w*r.l>g.w*g.l+1e-9||Math.abs(r.w*r.l-g.w*g.l)<1e-9&&(r.y<g.y||r.y===g.y&&r.x<g.x));
+ items.forEach(r=>{if(r.kind!=='machine'||!r.station||!live.st[r.station])return;const g=lead.get(r.station);if(!g||better(r,g))lead.set(r.station,r);});
  return new Map([...lead].map(([k,r])=>[k,r.id]));
 }
 function floorBlockText(r,st,live,leads){
@@ -130,9 +136,12 @@ function floorBlockText(r,st,live,leads){
  if(r.station&&!st)return {name:'Unknown station',dot:''};
  if(!r.station)return {name:r.label?(r.kind==='object'?r.label:'#'+r.label):'',dot:''};
  if(!live)return {name:r.station+(r.machine?' '+r.machine:''),dot:''};
- const s=live.st[r.station],status=r.kind==='machine'?floorBlockStatus(r,live):'',q=leads.get(r.station)===r.id&&s&&s.waiting?' '+s.waiting:'';
- return {name:(r.machine||r.station)+q,dot:status&&status!=='idle'?status:''};
+ /* Код станции — один раз, на верхнем её блоке; остальные блоки — только точка
+    (у LAM три блока: «LAM 166 · LAM · LAM» слипались в «LAMAM»). Станок — свой код. */
+ const s=live.st[r.station],status=r.kind==='machine'?floorBlockStatus(r,live):'',lead=leads.get(r.station)===r.id,q=lead&&s&&s.waiting?' '+s.waiting:'';
+ return {name:r.machine?r.machine+q:lead||r.kind!=='machine'?r.station+q:'',dot:status&&status!=='idle'?status:''};
 }
+function floorDot(x,y,r,dot,id){return `<circle cx="${x}" cy="${y}" r="${r}" class="fl-dotc is-${dot}"${id?` data-floor-label="${esc(id)}"`:''}/>`;}
 function floorLabel(x,y,s,fs,cls,rot,dot,id){return `<text x="${x}" y="${y}" font-size="${fs}" class="${cls}" text-anchor="middle" dominant-baseline="central"${id?` data-floor-label="${esc(id)}"`:''}${rot?` transform="rotate(-90 ${x} ${y})"`:''}>${dot?`<tspan class="fl-dt is-${dot}">● </tspan>`:''}${esc(s)}</text>`;}
 /* Тара — только значки, без номеров («иначе картинка будет слишком шумной»):
    в зоне станции, которую ждёт её стекло, иначе под первым станком станции.
@@ -209,11 +218,15 @@ function floorSummary(){
  return `<span class="mut fl-now" data-floor-now>${d.toLocaleDateString('en-US',{weekday:'short'})} ${floorClock(live.at)}</span>${helpChip}${chip('working','working')}${chip('waiting','waiting')}${floorFilter?`<button type="button" class="fl-show-all" ${onAct('click',floorSetFilter,'')}>Show all</button>`:''}`;
 }
 function floorStationList(){
- const items=floorItems(),missing=new Set(floorNotPlaced(items)),live=floorLive();
+ /* «Not placed» — ни станка, ни зоны: у SHIP / SHIPR бывает только зона. */
+ const items=floorItems(),zones=new Set(items.filter(r=>r.kind==='zone'&&r.station).map(r=>r.station)),missing=new Set(floorNotPlaced(items).filter(c=>!zones.has(c))),live=floorLive();
  const list=(DB.station||[]).slice().sort((a,b)=>a.code.localeCompare(b.code));
  return `<h3>Stations</h3><div class="fl-stations">${list.map(s=>{const l=live.st[s.code]||{status:'idle',waiting:0};return `<button type="button" class="fl-st-row${floorPick===s.code?' on':''}" data-floor-station="${esc(s.code)}" ${onAct('click',floorPickStation,s.code)}><i class="fl-sw" style="--fc:var(--${floorColor(s.code)})"></i><b>${esc(s.code)}</b><span class="fl-dot is-${l.status}" title="${FLOOR_STATUS[l.status]}"></span><span class="mut">${missing.has(s.code)?'Not placed':l.help?'Help · '+stationCallMinutes(l.help)+' min':FLOOR_STATUS[l.status]+(l.waiting?' · '+l.waiting+' waiting':'')}</span></button>`;}).join('')}</div>`;
 }
-/* Карточка станции: период, работа в её единицах, брак, станки, тара. */
+/* Карточка станции: период, работа в её единицах, брак, станки, тара.
+   Владелец, 21.11.2026: «компактнее, красивее, лаконичнее» — короткие
+   подписи (Broken, NCR — карточка и так одной станции), дата в таблице
+   «11-20», как под столбиками; полная — в подсказке. */
 function floorCardHTML(code){
  const s=floorStation(code),live=floorLive(),l=live.st[code]||{status:'idle',waiting:0,last:'',machines:{}},today=repDay(live.at);
  const c=floorCard(code,floorPeriod,today),one=c.range.days.length===1,num=(v,d)=>chNum(v,d);
@@ -221,13 +234,15 @@ function floorCardHTML(code){
  const tare=live.carriers.filter(x=>x.split[code]).map(x=>({code:x.code,n:x.split[code]}));
  const tiles=[tile('Done',num(c.done,0),'glass',' data-floor-done')].concat(c.measures.slice(1).map(m=>tile(m.label,num(m.value,m.digits))),[tile('People',num(c.people,0))],
   floorPeriod==='today'?[tile('Waiting now',num(l.waiting,0),tare.length?'on '+tare.length+' '+(tare.every(x=>/^S/.test(x.code))?(tare.length===1?'skid':'skids'):(tare.length===1?'dolly':'dollies')):''),tile('Last scan',floorClock(l.last))]:[],
-  [tile('Broken here',num(c.broken,0),'',' data-floor-broken'),tile('NCR for this station',num(c.ncr,0),'glass',' data-floor-ncr')]);
- const ops=c.ops.length?`<div class="fl-ops" data-floor-ops>${c.ops.map(o=>`<div><b>${esc(o.name)}</b> <span>${num(o.qty,o.unit==='ft²'?1:0)} ${o.unit}</span>${o.sizes.size?`<small class="mut">${[...o.sizes.entries()].sort((a,b)=>parseFloat(a[0])-parseFloat(b[0])).map(([k,v])=>esc(k)+' '+num(v,0)).join(' · ')}</small>`:''}</div>`).join('')}</div>`:'';
+  [tile('Broken',num(c.broken,0),'',' data-floor-broken'),tile('NCR',num(c.ncr,0),'glass',' data-floor-ncr')]);
+ const ops=c.ops.length?`<div class="fl-ops" data-floor-ops>${c.ops.map(o=>`<div><b>${esc(o.name)}</b> <span>${num(o.qty,o.unit==='ft²'?1:0)} ${o.unit}</span>${o.sizes.size&&Math.abs([...o.sizes.values()].reduce((n,v)=>n+v,0)-o.qty)<0.5?`<small class="mut">${[...o.sizes.entries()].sort((a,b)=>parseFloat(a[0])-parseFloat(b[0])).map(([k,v])=>esc(k)+' '+num(v,0)).join(' · ')}</small>`:''}</div>`).join('')}</div>`:'';
  const ms=c.byMachine.length?`<div class="fl-machines" data-floor-machines><h4>Machines running: ${c.byMachine.filter(m=>m.done).length} of ${c.byMachine.length}</h4>${c.byMachine.map(m=>`<div class="fl-mrow"><span class="fl-dot is-${l.machines[m.code]&&l.machines[m.code].working?'working':'idle'}"></span><b>${esc(m.code)}</b><span class="fl-sp"></span>${m.done?num(m.main,c.main.digits)+' '+esc(c.main.label.replace(/^Works, /,'').toLowerCase()):'—'}</div>`).join('')}${one?'':`<p class="mut small" data-floor-machine-days>${c.machinesDays.map(x=>'Days with '+x.k+': '+x.days).join(' · ')}</p>`}</div>`:'';
- const series=one?c.byHour.map(x=>({k:String(x.hour),v:x.done})):c.byDay.map(x=>({k:x.day.slice(5),v:x.done}));
- const top=Math.max(1,...series.map(x=>x.v));
- const chart=series.length?`<h4>${one?'By hour':'By date'}</h4><div class="fl-bars">${series.map(x=>`<div><b style="height:${Math.round(x.v/top*100)}%" title="${x.v}"></b><span>${esc(x.k)}</span></div>`).join('')}</div>`:'<p class="mut">Nothing scanned here in this period.</p>';
- const table=one?'':`<table class="fl-days" data-floor-days><thead><tr><th>Date</th><th>Done</th><th>${esc(c.main.label)}</th><th>People</th><th>Broken</th><th>NCR</th></tr></thead><tbody>${c.byDay.slice().reverse().map(d=>`<tr><td>${esc(d.day)}</td><td>${num(d.done,0)}</td><td>${num(d.main,c.main.digits)}</td><td>${num(d.people,0)}</td><td>${num(d.broken,0)}</td><td>${num(d.ncr,0)}</td></tr>`).join('')}</tbody></table>`;
+ const series=one?c.byHour.map(x=>({k:String(x.hour),t:x.hour+':00 · '+x.done,v:x.done})):c.byDay.map(x=>({k:x.day.slice(5),t:x.day+' · '+x.done,v:x.done}));
+ const top=Math.max(1,...series.map(x=>x.v)),every=Math.max(1,Math.ceil(series.length/8));
+ /* Подписи — не больше восьми (за 30 дней «10-23-24-25…» налезали), остальные —
+    в подсказке столбика; нулевой день — пустое место, без «пенька». */
+ const chart=series.length?`<h4>${one?'By hour':'By date'}</h4><div class="fl-bars">${series.map((x,i)=>`<div title="${esc(x.t)}">${x.v?`<b style="height:${Math.round(x.v/top*100)}%"></b>`:''}<span>${i%every===0||i===series.length-1&&series.length<=8?esc(x.k):''}</span></div>`).join('')}</div>`:'<p class="mut">Nothing scanned here in this period.</p>';
+ const table=one?'':`<table class="fl-days" data-floor-days><thead><tr><th>Date</th><th>Done</th><th>${esc(c.main.label)}</th><th>People</th><th>Broken</th><th>NCR</th></tr></thead><tbody>${c.byDay.slice().reverse().map(d=>`<tr><td title="${esc(d.day)}">${esc(d.day.slice(5))}</td><td>${num(d.done,0)}</td><td>${num(d.main,c.main.digits)}</td><td>${num(d.people,0)}</td><td>${num(d.broken,0)}</td><td>${num(d.ncr,0)}</td></tr>`).join('')}</tbody></table>`;
  const wait=c.archive==='loading'&&typeof archiveScope!=='undefined'&&archiveScope?`<p class="mut" data-rep-archive-wait>${esc(archiveFactsText(archiveScope))}</p>`:'';
  return `<div class="fl-card" data-floor-card="${esc(code)}"><div class="fl-card-head"><i class="fl-sw" style="--fc:var(--${floorColor(code)})"></i><div><h3>${esc(code)}</h3><span class="mut">${esc(s.nameEn||s.name||'')}</span></div><span class="fl-sp"></span><span class="fl-pill is-${l.status}" data-floor-status>${FLOOR_STATUS[l.status]}</span><button type="button" class="fl-x" aria-label="Close" ${onAct('click',floorPickStation,code)}>×</button></div>
   ${l.help?`<div class="fl-help" data-floor-help-card><b>Help · ${stationCallMinutes(l.help)} min</b>${l.help.machine?' · '+esc(l.help.machine):''}${l.help.by?' · '+esc(l.help.by):''}<span class="fl-sp"></span><button type="button" class="pri" data-floor-resolved ${onAct('click',floorResolvedSave,code)}>Resolved</button></div>`:''}

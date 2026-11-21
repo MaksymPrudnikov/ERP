@@ -7,7 +7,7 @@ module.exports=async function({page,eq,ok}){
  await require('./optimization-fixture')(t.p);
  await t.p.evaluate(()=>{
   window.flvReset=function(){oqReset();DB.stationScan=[];DB.stationScanSeq=0;DB.carrier=[];DB.carrierSeq={};DB.ncr=[];DB.sheetBreak=[];DB.floorItem=[];
-   DB.station.forEach(s=>{delete s.machines;delete s.workingMin;delete s.color;});floorEdit=null;floorPick='';floorFind='';floorFilter='';floorPeriod='today';floorLiveMemo={key:'',data:null};carrierWin=null;
+   DB.station.forEach(s=>{delete s.machines;delete s.workingMin;delete s.color;});floorEdit=null;floorPick='';floorFind='';floorFilter='';floorPeriod='today';floorLiveMemo={key:'',data:null};carrierWin=null;floorCam=null;
    carrierAdd('DL',6);
    if(!DB.glassSheet.some(s=>s.productCode==='6CLEAR'&&+s.sheetWIn===144))DB.glassSheet.push(normalizeGlassSheet({productCode:'6CLEAR',supplier:'Vitro',sheetWIn:144,sheetHIn:96,availability:'stock'}));};
   window.flvOrder=function(sizes,name){
@@ -27,7 +27,8 @@ module.exports=async function({page,eq,ok}){
    (zones||[]).forEach((code,i)=>rows.push(floorClean({id:'z-'+code,kind:'zone',station:code,x:2+i*12,y:20,w:10,l:6})));
    DB.floorItem=rows;touch();
   };
-  window.flvOpen=function(){tab='production';subtab='floor';floorLiveMemo={key:'',data:null};render();};
+  /* Вид приближен: подписи не влезающие в блок прячутся (остаётся точка) — тесту нужен текст. */
+  window.flvOpen=function(){tab='production';subtab='floor';floorLiveMemo={key:'',data:null};floorCam={x:0,y:0,w:24,h:16};render();};
   window.flvText=function(sel){const el=document.querySelector(sel);return el?(el.innerText==null?el.textContent:el.innerText).replace(/\s+/g,' ').trim():'';};
   window.flvIn=function(rect,zone){const x=+rect.getAttribute('x'),y=+rect.getAttribute('y');return x>=zone.x&&y>=zone.y&&x<=zone.x+zone.w&&y<=zone.y+zone.l;};
  });
@@ -91,7 +92,9 @@ module.exports=async function({page,eq,ok}){
   floorPickStation(next);const wait=[...document.querySelectorAll('.fl-tile')].find(x=>x.textContent.startsWith('Waiting now')).innerText.replace(/\s+/g,' ');
   const list=flvText('[data-floor-tare-list]');
   floorPickStation(code);document.querySelector('[data-floor-period="7"]').click();
-  const rows=document.querySelectorAll('[data-floor-days] tbody tr').length,head=[...document.querySelectorAll('[data-floor-days] th')].map(x=>x.textContent).join(',');
+  /* Рабочие дни: выходные без работы — не строки (сегодня работа есть — строка). */
+  const work=floorPeriodRange('7',today).days.filter(d=>{const w=new Date(d+'T12:00:00').getDay();return d===today||(w!==0&&w!==6);}).length;
+  const rows=document.querySelectorAll('[data-floor-days] tbody tr').length===work?7:-1,head=[...document.querySelectorAll('[data-floor-days] th')].map(x=>x.textContent).join(',');
   floorSetPeriod('today');
   return {done:done===String(facts.length),broken,ncr,wait,list,rows,head:head.startsWith('Date,Done,')&&head.endsWith(',People,Broken,NCR'),remembered:localStorage.getItem('glass_erp_floor_period_v1')};
  }),{done:true,broken:'1',ncr:'2',wait:'Waiting now 3 on 1 dolly',list:'DL-2 · 3 glass',rows:7,head:true,remembered:'today'});
@@ -131,6 +134,41 @@ module.exports=async function({page,eq,ok}){
   const st=document.getElementById('fl_station');st.value='CUT';st.dispatchEvent(new Event('change',{bubbles:true}));
   const r=floorEdit.items.find(x=>x.id==='m-POLISH'),out={set,after:[r.station,r.machine],field:!!document.getElementById('fl_machine')};floorEdit=null;return out;
  }),{set:'P2',after:['CUT',''],field:false});
+
+ eq('карточка за 7 / 30 дней — только эта станция за эти дни (repWorkSpan): те же строки, что год всех станций; выходные без работы — не строки; подписей под столбиками не больше восьми; панель своей прокруткой — страница не скачет',await t.p.evaluate(()=>{
+  flvReset();const id=flvOrder([[36,24,4]]),ids=flvIds(id);flvScan(ids);flvScan(ids.slice(0,2));flvPlan();const today=repDay(new Date().toISOString());
+  const same=['CUT','ARRIS',flvWait(ids[0])].every(st=>['7','30'].every(p=>{const r=floorPeriodRange(p,today);repWorkSpanCache={key:'',rows:null};const keep=repWorkCache;repWorkCache={stamp:'',rows:null};
+   const a=JSON.stringify(repWorkSpan(st,r.from,r.to));repWorkCache=keep;return a===JSON.stringify(repWorkFacts().filter(f=>f.station===st&&f.day>=r.from&&f.day<=r.to));}));
+  const c=floorCard('CUT','30',today),weekendRows=c.byDay.filter(d=>{const w=new Date(d.day+'T12:00:00').getDay();return (w===0||w===6)&&!d.done&&!d.broken&&!d.ncr;}).length;
+  flvOpen();floorPickStation('CUT');floorSetPeriod('30');const labels=[...document.querySelectorAll('.fl-bars span')].filter(s=>s.textContent).length;
+  const side=getComputedStyle(document.querySelector('[data-floor-side]')).overflowY;floorSetPeriod('today');
+  return {same,weekendRows,labels:labels<=8,side};
+ }),{same:true,weekendRows:0,labels:true,side:'auto'});
+
+ /* Владелец, 21.11.2026: «а зачем CUT нужен архив?» — отбор Reports брал старый заказ
+    за «Valid until» квоты в будущем: полгода архива ради нуля строк. */
+ eq('карточка за 7 / 30 дней читает архив, только если ушедший заказ ушёл в периоде или позже; старый заказ с «Valid until» в будущем — без архива',await t.p.evaluate(()=>{
+  flvReset();flvPlan();const today=repDay(new Date().toISOString()),r=floorPeriodRange('30',today),keep=archiveIndex;
+  try{
+   archiveIndex=new Map([['SO-old',{kind:'order',createdAt:'2025-01-02',day:'2025-01-20',row:{due:'2025-01-25',validUntil:'2099-01-01'}}]]);archiveScopeDrop();
+   const old=floorCard('CUT','30',today).archive,scope=!!archiveScope;
+   archiveIndex.set('SO-new',{kind:'order',createdAt:r.from,day:r.from,row:{}});
+   return {old,scope,fresh:floorCard('CUT','30',today).archive};
+  }finally{archiveScopeDrop();archiveIndex=keep;}
+ }),{old:'none',scope:false,fresh:'loading'});
+
+ /* Владелец, 21.11.2026: «карточка станций справа налазит на задний блок»;
+    «даты блоки компактнее» — период одной строкой, ничего не вылезает. */
+ await t.p.setViewportSize({width:1024,height:768});
+ eq('раскладка на 1024: карта и панель с отступом, как вкладки (не у края карточки Production), низы вровень; период — одной строкой, без обрезки; в панели ничего не шире её',await t.p.evaluate(()=>{
+  flvReset();const id=flvOrder([[36,24,4]]),ids=flvIds(id);flvScan(ids);flvPlan();flvOpen();floorPickStation('CUT');floorSetPeriod('30');
+  const R=s=>document.querySelector(s).getBoundingClientRect(),card=R('.card.sales-list-card'),pill=R('.sl-quick-pill'),map=R('.fl-map'),side=R('[data-floor-side]'),el=document.querySelector('[data-floor-side]');
+  const inset=Math.round(pill.left-card.left),per=[...document.querySelectorAll('[data-floor-period]')];
+  const out={inset:inset>=16,left:Math.round(map.left-card.left)===inset,right:Math.round(card.right-side.right)===inset,bottom:Math.round(map.bottom)===Math.round(side.bottom),
+   row:new Set(per.map(b=>Math.round(b.getBoundingClientRect().top))).size===1&&per.every(b=>b.scrollWidth<=b.clientWidth+1),wide:el.scrollWidth<=el.clientWidth+1};
+  floorSetPeriod('today');return out;
+ }),{inset:true,left:true,right:true,bottom:true,row:true,wide:true});
+ await t.p.setViewportSize({width:1280,height:720});
 
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
