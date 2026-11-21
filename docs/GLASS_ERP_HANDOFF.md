@@ -347,7 +347,8 @@ A3, C) — `docs/ЗАДАЧА_КАРТА_ЦЕХА.md`.
   `views/floor.js` (черновик в `STORAGE_UNSAVED`, SVG в метрах). Живой план — `production/floor-state.js`:
   `floorLive()` — Working по `workingMin` станции (по умолчанию 15), станки по своим сканам, тара из
   `prodBoard().onAt` в зоне станции, где её стекла больше; `floorCard()` — Today…30 дней, меры станции, брак (сканы
-  `broken`, `sheetBreak`) и NCR по `where`, архивные месяцы через `archiveScopeFor`; 7 / 30 дней — `repWorkSpan`
+  `broken`, `sheetBreak`) и NCR по `where`, архивные месяцы через `archiveScopeFor` — только если ушедший заказ ушёл в периоде или позже
+  (`floorArchiveNeeded`); 7 / 30 дней — `repWorkSpan`
   (reports/facts: одна станция за дни, те же строки, что год всех станций), рабочие дни без пустых выходных. Карта и панель — с отступом 20px внутри карточки Production (как вкладки); панель
   ровно высотой с карту (`contain:size`, своя прокрутка), плитки — по три / две по ширине панели (`@container`). Overview «Shop now» → Floor,
   если станция на плане. 3D — `views/floor-3d.js` (только просмотр): проекция с поворотом и наклоном, бока по углу

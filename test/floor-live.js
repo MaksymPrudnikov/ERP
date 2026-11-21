@@ -145,6 +145,18 @@ module.exports=async function({page,eq,ok}){
   return {same,weekendRows,labels:labels<=8,side};
  }),{same:true,weekendRows:0,labels:true,side:'auto'});
 
+ /* Владелец, 21.11.2026: «а зачем CUT нужен архив?» — отбор Reports брал старый заказ
+    за «Valid until» квоты в будущем: полгода архива ради нуля строк. */
+ eq('карточка за 7 / 30 дней читает архив, только если ушедший заказ ушёл в периоде или позже; старый заказ с «Valid until» в будущем — без архива',await t.p.evaluate(()=>{
+  flvReset();flvPlan();const today=repDay(new Date().toISOString()),r=floorPeriodRange('30',today),keep=archiveIndex;
+  try{
+   archiveIndex=new Map([['SO-old',{kind:'order',createdAt:'2025-01-02',day:'2025-01-20',row:{due:'2025-01-25',validUntil:'2099-01-01'}}]]);archiveScopeDrop();
+   const old=floorCard('CUT','30',today).archive,scope=!!archiveScope;
+   archiveIndex.set('SO-new',{kind:'order',createdAt:r.from,day:r.from,row:{}});
+   return {old,scope,fresh:floorCard('CUT','30',today).archive};
+  }finally{archiveScopeDrop();archiveIndex=keep;}
+ }),{old:'none',scope:false,fresh:'loading'});
+
  /* Владелец, 21.11.2026: «карточка станций справа налазит на задний блок»;
     «даты блоки компактнее» — период одной строкой, ничего не вылезает. */
  await t.p.setViewportSize({width:1024,height:768});

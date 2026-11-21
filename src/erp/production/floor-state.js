@@ -9,7 +9,8 @@
    OUT: floorLive() — {at, st:{code:{waiting, last, working, status,
         machines:{P1:{last, working}}}}, carriers:[{code, skid, station,
         count, split}]} · floorUsualGap(code) · floorWorkingMin(code) ·
-        floorPeriodRange(p, today) · floorCard(code, p); status 'help' — открыт
+        floorPeriodRange(p, today) · floorCard(code, p) ·
+        floorArchiveNeeded(from); status 'help' — открыт
         вызов HELP (erp/shopfloor/station-call), он важнее Working / Waiting
    Владелец, 20.11.2026 (docs/ЗАДАЧА_КАРТА_ЦЕХА.md, A2):
    - Working — неотменённый скан станции за последние N минут; N — свой у
@@ -81,11 +82,17 @@ function floorPeriodRange(p,today){
 /* Ключи фактов работы, которые читает карточка (архивные месяцы — только они). */
 const FLOOR_WORK_KEYS=['station','machine','day','hour','personId','area','inches','workFt2','pcs','works','unitDone','asm','at'];
 
+/* Архив нужен карточке, только если ушедший заказ ушёл в периоде или позже:
+   day заказа — последняя его дата (Done, отгрузка, оплата), работа станции —
+   раньше неё. Отбор Reports берёт заказ по любой дате, и «Valid until» квоты
+   тянул полгода архива ради нуля строк (владелец, 21.11.2026: «а зачем CUT
+   нужен архив?» — 440 заказов, 0 строк, 11.6 с первого чтения с диска). */
+function floorArchiveNeeded(from){for(const a of archiveIndex.values())if(!a.day||String(a.day)>=from)return true;return false;}
 /* Цифры карточки станции за период. archive: 'none' | 'loading' | 'ready'. */
 function floorCard(code,p,today){
  const r=floorPeriodRange(p,today),one=r.days.length===1;
  let archive='none';
- if(!one&&typeof archiveScopeFor==='function'&&typeof archiveIndex!=='undefined'&&archiveIndex.size)
+ if(!one&&typeof archiveScopeFor==='function'&&typeof archiveIndex!=='undefined'&&archiveIndex.size&&floorArchiveNeeded(r.from))
   archive=archiveScopeFor([[r.from,r.to]],new Map([['work',new Set(FLOOR_WORK_KEYS)]]));
  /* Только эта станция за эти дни (repWorkSpan); заказы из архива — как Reports. */
  let list=one?repWorkFacts(r.from).filter(f=>f.station===code):repWorkSpan(code,r.from,r.to);

@@ -102,7 +102,8 @@ The card shows a red strip “Help · 4 min”, the machine and who called, and 
   2, 3 machines ran;
 - bars by hour (one day) or by day and a table by day — working days only: a Saturday or Sunday without work is not
   shown; at most eight dates under the bars, the day's number is in the bar's tooltip; 7 and 30 days with orders that
-  went to the archive are counted as in Reports — while the archive is read, a line with a percentage shows;
+  went to the archive are counted as in Reports — the archive is read only if an order left in that period or later;
+  while it is read, a line with a percentage shows;
 - the card scrolls on its own: changing the period does not move the page;
 - **Dollies here** — carrier numbers (click — Show on floor); **Orders** — the station's orders; **Open screen** — the
   station screen.
