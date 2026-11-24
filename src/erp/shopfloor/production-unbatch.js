@@ -122,7 +122,7 @@ function productionUnbatchCommand(d,forDelete){
   const s=shippingFind(p.id),removed=shippingUnbatchItems(s.id,sel,scans,record.id);
   orderLogPush(o,'Packing slip corrected',s.number+' · '+shippingCount(removed.length,'unit')+' unbatched');
  });
- (DB.stationScan||[]).filter(s=>scans.has(s.id)).sort((a,b)=>+b.id.slice(3)-+a.id.slice(3)).forEach(s=>{s.undoneAt=now;s.undoneBy=('Unbatch · '+record.by).slice(0,80);stationAsmReopen(s);});
+ (DB.stationScan||[]).filter(s=>scans.has(s.id)).sort((a,b)=>stationScanOrder(b,a)).forEach(s=>{s.undoneAt=now;s.undoneBy=('Unbatch · '+record.by).slice(0,80);stationAsmReopen(s);});
  const lines=new Set(),batches=new Map();
  plan.pieces.forEach(id=>{
   const g=stationGlass(id);lines.add(g.l);

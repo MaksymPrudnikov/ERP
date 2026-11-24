@@ -16,15 +16,22 @@ function cloudUrl(v){
  const s=String(v||'').trim().replace(/\/+$/,''),m=s.match(/supabase\.com\/dashboard\/project\/([a-z0-9]+)/i);
  return m?'https://'+m[1].toLowerCase()+'.supabase.co':s;
 }
+/* Запрос без ответа кончается сам (аудит 24.11.2026, С1): один зависший
+   запрос держал синхронизацию до F5, а статус писал «N waiting». */
+let CLOUD_FETCH_MS=60000;
 async function cloudFetch(path,body,token,method){
  const c=cloudConfig();
  if(!/^https:\/\//.test(c.url||'')||!c.key)throw new Error('Set the server and key first.');
  /* Ключ — ASCII; лишний символ при копировании ломает заголовок запроса. */
  if(/[^\x21-\x7e]/.test(c.key))throw new Error('The key has extra characters. Copy it again.');
- let r;
- try{r=await fetch(c.url+path,{method:method||'POST',headers:{'Content-Type':'application/json',apikey:c.key,Authorization:'Bearer '+(token||c.key)},body:JSON.stringify(body||{})});}
- catch(e){throw new Error('No connection to the server.');}
- let j=null;try{j=await r.json();}catch(e){}
+ const stop=typeof AbortController==='function'?new AbortController():null;let timer=null;
+ const late=new Promise((_,no)=>{timer=setTimeout(()=>{if(stop)stop.abort();no(new Error('timeout'));},CLOUD_FETCH_MS);});
+ let r,j=null;
+ try{
+  try{r=await Promise.race([fetch(c.url+path,{method:method||'POST',headers:{'Content-Type':'application/json',apikey:c.key,Authorization:'Bearer '+(token||c.key)},body:JSON.stringify(body||{}),signal:stop?stop.signal:undefined}),late]);}
+  catch(e){throw new Error('No connection to the server.');}
+  try{j=await Promise.race([r.json(),late]);}catch(e){if(e&&e.message==='timeout')throw new Error('No connection to the server.');}
+ }finally{clearTimeout(timer);}
  /* Сервер старше ERP: нет функции, которую ждёт эта версия (08.11.2026 —
     erp_apply с grp) — нужен свежий schema.sql в SQL Editor. */
  if(!r.ok&&j&&j.code==='PGRST202')throw new Error('Server update needed: run schema.sql.');

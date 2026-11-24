@@ -41,15 +41,17 @@ const CLOUD_NUMBER={
 const CLOUD_BLOCK={
  glass:[1000,()=>DB.glassPieceSeq],unit:[500,()=>DB.glassUnitIdSeq],scan:[1000,()=>DB.stationScanSeq],
  offcut:[100,()=>DB.stockOffcutSeq],batch:[20,()=>typeof salesBatchTop==='function'?salesBatchTop():0],journal:[50,()=>finJournalTop()]};
-let cloudSync={loaded:false,on:false,ref:'',base:null,newBase:false,since:0,n:0,vers:new Map(),out:[],early:[],lost:new Set(),lostGrp:new Set(),blocks:new Map(),blockDirty:new Set(),refresh:new Set(),
+let cloudSync={loaded:false,on:false,ref:'',base:null,newBase:false,since:0,n:0,vers:new Map(),out:[],parked:0,parkN:0,replay:[],scanFail:[],warnNames:[],intent:null,lost:new Set(),lostGrp:new Set(),blocks:new Map(),blockDirty:new Set(),refresh:new Set(),
  uploading:false,dirty:null,running:false,timer:null,wait:CLOUD_POLL_MS,busy:'',error:'',warn:'',offline:false,at:''};
 const CLOUD_NO_BLOCK='No server numbers here yet. IDs may repeat.';
 function cloudKey(tbl,id){return tbl+'\u0000'+id;}
 /* Следующий внутренний номер name. Без связи — local, как раньше; связь
    есть, а блока нет (ещё не пришёл или кончился без сети) — тоже local, с
-   предупреждением: такой номер может совпасть с чужим. */
+   предупреждением: такой номер может совпасть с чужим. Вход заново
+   (loaded=false до следующего такта) блоков не отменяет: номер из своего
+   счётчика совпадал с номером из блока (аудит 24.11.2026, А2). */
 function cloudSeq(name,local){
- const s=cloudSync;if(!(s.loaded||s.head)||!s.on)return local;
+ const s=cloudSync;if(!(s.loaded||s.head||s.blocksRead)||!s.on)return local;
  const b=s.blocks.get(name)||[];
  while(b.length&&b[0][0]>b[0][1])b.shift();
  if(!b.length){s.warn=CLOUD_NO_BLOCK;cloudSoon();return local;}
@@ -126,7 +128,9 @@ function cloudDevice(){const c=cloudConfig();if(!c.device){c.device=cloudId();cl
 /* Старт: только связь, курсор, очередь и блоки номеров. Версии строк (по
    одной на каждую строку сервера, год — полмиллиона) читает первый такт
    синхронизации, после отрисовки: F5 их не ждёт (2,5 с, 01.11.2026). Правки
-   этой паузы ждут в s.early, как и раньше. */
+   этой паузы (и без входа на сервер) лежат в складе cloud ключами e␀…: в
+   памяти их терял второй F5, без входа они не вставали в очередь вовсе
+   (аудит 24.11.2026, А3 и В2). */
 async function cloudLoadHead(){
  const got=await storageIdbCloudHead(),s=cloudSync;
  s.out=[];
@@ -134,25 +138,33 @@ async function cloudLoadHead(){
   const v=got.values[i];
   if(k==='ref')s.ref=v;else if(k.startsWith('b\u0000'))s.blocks.set(k.slice(2),v);
   else if(k.startsWith('o\u0000'))s.out.push(Object.assign({key:k},v));
+  else if(k.startsWith('e\u0000'))s.parked++;else if(k==='f')s.scanFail=Array.isArray(v)?v:[];
  });
- s.on=!!s.ref&&s.ref===cloudConfig().url;s.head=true;
+ s.on=!!s.ref&&s.ref===cloudConfig().url;s.head=true;s.blocksRead=true;
 }
 async function cloudLoad(){
- const got=await storageIdbCloudAll(),s=cloudSync,head=s.head;
- s.vers=new Map();s.out=[];s.ref='';s.base=null;s.since=0;s.n=0;
+ const got=await storageIdbCloudAll(),s=cloudSync,head=s.head,parked=[];
+ s.vers=new Map();s.out=[];s.ref='';s.base=null;s.since=0;s.n=0;s.replay=[];
  got.keys.forEach((k,i)=>{
   const v=got.values[i];
   if(k==='ref')s.ref=v;else if(k==='base')s.base=v;else if(k==='since')s.since=+v||0;else if(k==='n')s.n=+v||0;
   else if(k.startsWith('v\u0000'))s.vers.set(k.slice(2),v);
   else if(k.startsWith('o\u0000'))s.out.push(Object.assign({key:k},v));
   /* Блоки старта уже в ходу: их остаток новее записанного. */
-  else if(k.startsWith('b\u0000')){if(!head)s.blocks.set(k.slice(2),v);}
+  else if(k.startsWith('b\u0000')){if(!head&&!s.blocksRead)s.blocks.set(k.slice(2),v);}
   else if(k.startsWith('r\u0000'))s.refresh.add(k.slice(2));
+  else if(k.startsWith('e\u0000'))parked.push([k,v]);
+  else if(k.startsWith('p\u0000'))s.replay.push({key:k,intent:v});
+  else if(k==='f')s.scanFail=Array.isArray(v)?v:[];
  });
- s.on=!!s.ref&&s.ref===cloudConfig().url;s.loaded=true;s.head=false;
- /* Правки, сделанные до чтения склада, — в очередь теперь. */
- const early=s.early;s.early=[];
- if(s.on&&early.length){const out=cloudOutbox([].concat(...early));if(out){storageWrite([],out.ops);out.done();}}
+ s.on=!!s.ref&&s.ref===cloudConfig().url;s.loaded=true;s.head=false;s.blocksRead=true;s.parked=0;
+ /* Правки, сделанные до чтения склада, — в очередь теперь: каждая своей
+    командой, как была сделана (отказ одной не тянет другие, скан помнит,
+    как его повторить). */
+ if(!parked.length)return;
+ const ops=[];
+ parked.forEach(([k,v])=>{ops.push([k,null]);if(!s.on||!v||!Array.isArray(v.rows))return;const out=cloudOutbox(v.rows,v);if(out){ops.push(...out.ops);out.done();}});
+ storageWrite([],ops);
 }
 /* Сверка по остатку (план «до 10», этап 1, 09.11.2026). Команда, которая
    по общему остатку создаёт новую строку (возврат по свободному остатку
@@ -240,18 +252,25 @@ function cloudCheckKeys(rows){
    строки — её не должно быть на сервере (ver 0). Строка уже есть в очереди —
    chain: версию даст ответ на ту команду (иначе вторая правка подряд без
    сети спорила бы с первой). */
-function cloudOutbox(changes){
- const s=cloudSync;
+function cloudOutbox(changes,park){
+ const s=cloudSync,intent=park?park.intent||null:s.intent;if(!park)s.intent=null;
  const rows=changes.filter(c=>!c.coldClear&&c.tbl&&!(c.tbl==='_meta'&&/Seq$/.test(c.id)));
  const ops=[...s.blockDirty].map(name=>['b\u0000'+name,s.blocks.get(name)]);s.blockDirty.clear();
  if(!rows.length||!s.loaded||!s.on||s.uploading){
-  if(!s.loaded&&rows.length&&cloudConfig().session)s.early.push(rows);
+  /* Склад синхронизации ещё не прочитан (F5, вход заново, без входа) — в
+     склад cloud той же записью; cloudLoad поставит в очередь. Строки
+     сверки — сейчас: потом в storageBase уже новая строка. */
+  if(!s.loaded&&s.on&&!s.uploading&&rows.length){
+   const key='e\u0000'+String(Date.now()).padStart(15,'0')+'.'+String(++s.parkN).padStart(6,'0');
+   ops.push([key,{rows,guard:[...cloudCheckKeys(rows).values()],intent}]);
+   return {ops,done(){s.parked++;}};
+  }
   if(s.uploading)rows.forEach(c=>s.dirty.set(cloudKey(c.tbl,c.id),c));
   return ops.length?{ops,done(){}}:null;
  }
  const cmds=[],queued=new Set();let n=s.n;
  s.out.forEach(cmd=>cmd.changes.forEach(c=>queued.add(cloudKey(c.tbl,c.id))));
- const guard=cloudCheckKeys(rows);
+ const guard=park&&Array.isArray(park.guard)?new Map(park.guard.map(x=>[cloudKey(x.tbl,x.id),x])):cloudCheckKeys(rows);
  if(guard.size){const have=new Set(rows.map(c=>cloudKey(c.tbl,c.id)));guard.forEach((x,k)=>{const b=storageBase.get(x.tbl),r=b&&b.get(x.id);if(have.has(k)||!r||!s.vers.has(k)&&!queued.has(k))return;rows.push({tbl:x.tbl,id:x.id,seq:r.s,data:r.t});});}
  /* Набор больше одной части — группа: сервер пишет её целиком последней
     частью (erp_apply grp, C3). keys — все строки группы: ответ и отказ
@@ -265,6 +284,8 @@ function cloudOutbox(changes){
   const cmd={id:cloudId(),expect,changes:part.map(cloudChange)};
   cmd.changes.forEach((x,i)=>{const num=fresh.has(part[i])&&!x.cold&&cloudNumber(part[i]);if(num)x.number=num;});
   if(grp){cmd.grp=Object.assign({part:pi},grp);cmd.changes.forEach(x=>keys.push(cloudRowOf(x)));if(pi===grp.total-1)cmd.keys=keys;}
+  /* Что сделал человек (скан, Undo) — чтобы повторить, если сервер откажет. */
+  if(intent&&pi===parts.length-1)cmd.intent=intent;
   const key='o\u0000'+String(++n).padStart(12,'0');
   cmds.push(Object.assign({key},cmd));ops.push([key,cmd]);
  });
@@ -349,7 +370,17 @@ function cloudRedrawTick(){
  if(wait>0&&now-cloudRedrawAt<CLOUD_REDRAW_MS){cloudRedrawTimer=setTimeout(cloudRedrawTick,wait);return;}
  cloudRedrawAt=0;storageRerenderQuiet();
 }
+/* Очередь — на сервер; отклонённые сканы и Undo — повторить на свежих
+   строках и отправить ещё раз (аудит 24.11.2026, К1). */
 async function cloudPushAll(){
+ await cloudPushQueue();
+ if(cloudReplayRun())await cloudPushQueue();
+}
+/* Ошибка связи и входа — подождать; другая ошибка сервера (statement
+   timeout, Bad document number) три раза подряд — команда не держит всю
+   очередь, а отклоняется, как конфликт (С2). */
+const CLOUD_RETRY_RE=/No connection|JWT|refresh token|Not signed in|Set the server|extra characters|Server update needed/i;
+async function cloudPushQueue(){
  const s=cloudSync;
  while(s.out.length){
   const cmd=s.out[0],ops=[[cmd.key,null]];
@@ -358,7 +389,9 @@ async function cloudPushAll(){
   const lost=cmd.expect.some(e=>e.chain&&s.lost.has(cloudKey(e.tbl,e.id)))||!!cmd.grp&&s.lostGrp.has(cmd.grp.id);
   const expect=cmd.expect.map(e=>e.chain?{tbl:e.tbl,id:e.id,ver:s.vers.get(cloudKey(e.tbl,e.id))||0}:e);
   if(lost&&cmd.grp&&!cmd.keys){s.lostGrp.add(cmd.grp.id);s.out.shift();cloudWriteLocal([],ops);continue;}
-  const r=lost?{ok:false,conflict:[]}:await cloudRpc('erp_apply',Object.assign({command_id:cmd.id,build:storageBuildId(),device:cloudDevice(),expect,changes:cmd.changes},cmd.grp?{grp:cmd.grp}:{}));
+  let r={ok:false,conflict:[]};
+  if(!lost)try{r=await cloudRpc('erp_apply',Object.assign({command_id:cmd.id,build:storageBuildId(),device:cloudDevice(),expect,changes:cmd.changes},cmd.grp?{grp:cmd.grp}:{}));cmd.fails=0;}
+  catch(e){if(CLOUD_RETRY_RE.test(e.message)||(cmd.fails=(cmd.fails||0)+1)<3)throw e;r={ok:false,conflict:[],failed:e.message};}
   if(s.out[0]!==cmd)return;
   /* Часть группы принята на хранение — версии даст последняя. */
   if(r&&r.ok&&r.staged){s.out.shift();cloudWriteLocal([],ops);continue;}
@@ -382,13 +415,72 @@ async function cloudPushAll(){
   const keys=rows.map(c=>({tbl:c.tbl,id:c.id}));
   const now=await cloudRpc('erp_get',{keys});
   if(s.out[0]!==cmd)return;
-  s.out.shift();keys.forEach(k=>s.lost.add(cloudKey(k.tbl,k.id)));cloudApplyServer(Array.isArray(now)?now:[],keys,ops);
-  /* Заказ людям виден номером, а не внутренним ключом строки. */
-  const names=[...new Set((r&&r.conflict||[]).map(x=>{const o=(x.tbl==='salesOrder'||x.tbl==='financeTerms')&&salesRecord(x.id),d=!o&&Array.isArray(DB[x.tbl])&&DB[x.tbl].find(y=>y&&y.id===x.id);return o?o.businessNumber||'order':d?d.number||d.name||x.id:x.id;}))].slice(0,3).join(', ');
+  /* Имена — до того, как строки станут серверной копией. */
+  const names=cmd.intent&&!r.denied?[]:cloudRejectNames(cmd,r);
+  s.out.shift();keys.forEach(k=>s.lost.add(cloudKey(k.tbl,k.id)));
+  /* Скан и Undo повторятся на свежих строках (cloudReplayRun): записан с
+     отказом тем же write — F5 посреди не теряет. */
+  if(cmd.intent&&!r.denied){const k='p\u0000'+cmd.key.slice(2);ops.push([k,cmd.intent]);s.replay.push({key:k,intent:cmd.intent});}
+  cloudApplyServer(Array.isArray(now)?now:[],keys,ops);
   if(!s.out.length){s.lost.clear();s.lostGrp.clear();}
-  s.warn=r&&r.denied?'No access on server: '+r.denied.join(', ')+'. Server copy shown.':'Changed on another computer: '+(names||'rows')+'. Server copy shown.';s.warnAt=Date.now();
+  if(r.denied)cloudWarn('No access on server: '+r.denied.join(', ')+'. Server copy shown.');
+  else if(names.length)cloudWarnNames(names,r.failed?'Not accepted by the server ('+String(r.failed).slice(0,80)+')':'Changed on another computer');
  }
 }
+/* Предупреждение копит имена отклонённого (А4): раньше каждый отказ затирал
+   прошлый, и видно было только последний. Заказ — номером, стекло — своим
+   номером, а не внутренним ключом строки. */
+function cloudWarn(text){const s=cloudSync;s.warn=text;s.warnAt=Date.now();s.warnNames=[];}
+function cloudWarnNames(names,head){
+ const s=cloudSync,all=[...new Set((s.warn&&s.warnHead===head?s.warnNames:[]).concat(names))];
+ s.warnNames=all;s.warnHead=head;s.warnAt=Date.now();
+ s.warn=head+': '+all.slice(0,6).join(', ')+(all.length>6?' +'+(all.length-6)+' more':'')+'. Server copy shown.';
+}
+function cloudRejectNames(cmd,r){
+ const mine=new Map();cmd.changes.forEach(c=>mine.set(cloudKey(c.tbl,c.id),c));
+ const list=(r.conflict||[]).length?r.conflict:cmd.changes.slice(0,6);
+ return [...new Set(list.map(x=>{
+  let d=null;const c=mine.get(cloudKey(x.tbl,x.id));
+  if(c&&typeof c.data==='string')try{d=JSON.parse(c.data);}catch(e){}
+  if(!d&&Array.isArray(DB[x.tbl]))d=DB[x.tbl].find(y=>y&&y.id===x.id)||null;
+  if(x.tbl==='salesOrder'||x.tbl==='financeTerms'){const o=x.tbl==='salesOrder'&&d||salesRecord(x.id);return o&&o.businessNumber||'order';}
+  if(x.tbl==='stationScan')return d&&d.piece||'scan';
+  return d&&(d.number||d.name||d.code)||x.id;
+ }))];
+}
+/* Повторить отклонённые сканы и Undo на свежих строках сервера: отказ
+   стоял не из-за самого скана, а из-за строки заказа или батча, которую в
+   ту же минуту изменил другой компьютер (аудит 24.11.2026, К1). Повтор
+   невозможен (стекло уже дальше, три отказа подряд) — станция показывает
+   стекло красной полосой: «Scan again». */
+function cloudReplayRun(){
+ const s=cloudSync;if(!s.replay.length)return false;
+ const list=s.replay;s.replay=[];const ops=[],fail=[];let queued=false;
+ list.forEach(({key,intent})=>{
+  ops.push([key,null]);
+  const why=cloudReplayOne(intent);
+  if(why===true)queued=true;else if(why)fail.push({piece:intent.piece||'',station:intent.station||'',undo:intent.kind==='undo',at:intent.at||'',why});
+ });
+ if(fail.length){s.scanFail=s.scanFail.concat(fail).slice(-50);ops.push(['f',s.scanFail]);}
+ storageWrite([],ops);if(fail.length&&typeof afterRender==='function')afterRender();
+ return queued;
+}
+/* true — записан снова; '' — повторять нечего; текст — почему не вышло. */
+function cloudReplayOne(x){
+ if(!x||typeof stationCheck!=='function')return '';
+ const tries=(+x.tries||0)+1;if(tries>3)return 'Not accepted by the server';
+ if(x.kind==='undo'){
+  const rec=(DB.stationScan||[]).find(r=>r.id===x.id);if(!rec||rec.undoneAt)return '';
+  const out=stationUndo(x.id,x.who,{replay:tries});return out&&out.error?out.error:true;
+ }
+ const check=stationCheck(x.station,x.piece);
+ if(!check)return 'Glass not found';
+ if(check.kind==='already')return '';
+ if(!STATION_RECORDED.includes(check.kind))return check.kind==='passed'?'Glass has moved on':check.kind==='skipped'?'Station skipped':'Not '+check.kind;
+ const out=stationMove(x.station,check,x.who,Object.assign({},x.opts,{now:x.at,replay:tries}));
+ return out.ok?true:out.error||'Not saved';
+}
+function cloudScanFailHide(){const s=cloudSync;s.scanFail=[];if(s.on)storageWrite([],[['f',null]]);render();}
 /* Отметка Upload в ленте — другая база (сервер очистили и залили заново,
    номера изменений растут дальше): пачку не пишем и курсор не двигаем —
    иначе компьютер без своих правок дописывал новую базу в старую, пока не
@@ -419,8 +511,10 @@ async function cloudSyncTick(){
  if(s.running)return;
  const was=cloudSyncText();
  /* Предупреждение о конфликте сказало своё и уходит само. */
- if(s.warnAt&&Date.now()-s.warnAt>120e3){s.warn='';s.warnAt=0;}
- if(!storageWriter||storageStale||storageRecovery){s.loaded=false;s.early=[];}
+ if(s.warnAt&&Date.now()-s.warnAt>120e3){s.warn='';s.warnAt=0;s.warnNames=[];}
+ /* Не пишет эта вкладка — склад cloud ведёт другая: и блоки номеров потом
+    перечитать. */
+ if(!storageWriter||storageStale||storageRecovery){s.loaded=false;s.blocksRead=false;}
  else if(cloudConfig().session&&!storageFailed&&!s.busy){
   s.running=true;
   try{
@@ -439,7 +533,7 @@ async function cloudSyncTick(){
 }
 /* Статус — в Users → Cloud и внизу экрана. */
 function cloudSyncText(){
- const s=cloudSync,n=s.out.length;
+ const s=cloudSync,n=s.out.length+(s.loaded?0:s.parked||0);
  if(s.busy)return s.busy;
  if(!s.on)return '';
  if(s.newBase)return 'Server has a new database · Download';
@@ -457,7 +551,7 @@ async function cloudSaveAll(ref,since,vers,base){
   const st=tx.objectStore('cloud');st.clear();
   if(ref){st.put(ref,'ref');st.put(base||'','base');st.put(since,'since');st.put(0,'n');vers.forEach((v,k)=>st.put(v,'v\u0000'+k));}
  });
- Object.assign(cloudSync,{loaded:true,on:!!ref,ref:ref||'',base:ref?base||'':null,newBase:false,since:since||0,n:0,vers:ref?vers:new Map(),out:[],early:[],blocks:new Map(),blockDirty:new Set(),refresh:new Set()});
+ Object.assign(cloudSync,{loaded:true,on:!!ref,ref:ref||'',base:ref?base||'':null,newBase:false,since:since||0,n:0,vers:ref?vers:new Map(),out:[],parked:0,replay:[],scanFail:[],blocksRead:true,blocks:new Map(),blockDirty:new Set(),refresh:new Set()});
 }
 async function cloudRun(label,fn){
  const s=cloudSync;
