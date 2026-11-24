@@ -97,4 +97,10 @@ async function cloudSignup(email,password){
  try{await cloudFetch('/auth/v1/signup',{email,password});return '';}
  catch(e){return /already|registered|exists/i.test(e.message)?'':e.message;}
 }
-function cloudSignOut(){const c=cloudConfig();delete c.session;cloudConfigSave(c);cloudState={busy:false,error:'',me:null};render();}
+/* Выход закрывает вход и на сервере (/auth/v1/logout): раньше токен жил до
+   конца срока (аудит 24.11.2026, Н7). Ответа не ждём — без связи выход тот же. */
+function cloudSignOut(){
+ const c=cloudConfig(),s=c.session;delete c.session;cloudConfigSave(c);cloudState={busy:false,error:'',me:null};
+ if(s&&s.access)cloudFetch('/auth/v1/logout',{},s.access).catch(()=>{});
+ render();
+}

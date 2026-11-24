@@ -517,8 +517,17 @@ async function cloudRightsCheck(){
  const now=me.admin?['*']:[...(me.sections||[])].map(String).sort(),was=s.rights;
  const grew=!!was&&!was.includes('*')&&(now.includes('*')||now.some(x=>!was.includes(x)));
  if(JSON.stringify(now)===JSON.stringify(was))return;
+ const shrank=!!was&&!now.includes('*')&&(was.includes('*')||was.some(x=>!now.includes(x)));
  s.rights=now;const ops=[['rt',now]];if(grew){s.since=0;ops.push(['since',0]);}
- storageWrite([],ops);
+ if(!shrank){storageWrite([],ops);return;}
+ /* Права сузили — строки таблиц, которые больше не читаются, уходят с этого
+    ПК (и из Export): раньше оставались до Download (аудит 24.11.2026, Н3).
+    Только здесь, на сервер ничего не идёт. */
+ const rules=await cloudRpc('erp_rules'),closed=new Set((Array.isArray(rules)?rules:[]).filter(r=>r&&r.read&&!String(r.read).split(',').some(x=>now.includes(x.trim()))).map(r=>r.tbl));
+ const list=[];
+ closed.forEach(tbl=>{const b=storageBase.get(tbl);if(b)b.forEach((x,id)=>{list.push({tbl,id,del:true});const k=cloudKey(tbl,id);if(s.vers.has(k)){s.vers.delete(k);ops.push(['v\u0000'+k,null]);}});});
+ if(typeof archiveLedgerKeys!=='undefined')archiveLedgerKeys.forEach((v,key)=>{if(closed.has(String(key).split(':')[1]))list.push({tbl:'_archive',id:key,del:true});});
+ cloudWriteLocal(list,ops);
 }
 async function cloudPull(){
  const s=cloudSync;

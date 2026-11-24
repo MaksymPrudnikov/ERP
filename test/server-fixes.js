@@ -89,6 +89,11 @@ module.exports = async function ({ page, eq, ok }) {
     await B.p.evaluate(() => { cloudSync.rightsAt = 0; }); await w.tick(B);
     const after = await B.p.evaluate(() => (DB.receipt || []).some(r => r.id === 'RCPT-B3'));
     eq('В3: без Finance оплаты не приходят; дали Finance — старая оплата пришла', { before, after }, { before: false, after: true });
+    /* Н3: права сузили — оплаты уходят с ПК (и из Export), на сервере целы. */
+    await w.srv.member(OFFICE, 'office-b3@glass-erp.test', ['production']);
+    await B.p.evaluate(() => { cloudSync.rightsAt = 0; }); await w.tick(B);
+    const cut = await B.p.evaluate(async () => { await storageFlush(); return { local: (DB.receipt || []).some(r => r.id === 'RCPT-B3'), export: JSON.stringify(storageExportEnvelope()).includes('RCPT-B3'), out: cloudSync.out.length }; });
+    eq('Н3: сняли Finance — оплата ушла с ПК и из Export, на сервер ничего не ушло, там она цела', Object.assign(cut, { server: !!(await w.srv.row('receipt', 'RCPT-B3')) }), { local: false, export: false, out: 0, server: true });
     await w.close();
   }
 };

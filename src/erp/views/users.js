@@ -60,7 +60,7 @@ function viewUsers(){
  const off=DB.user.some(userOffice)&&!signinOn()?'<span class="pill warn" data-signin-off>Sign-in is off — set a password for someone with Users</span>':'';
  const tabs=`<div class="sl-filter-row"><div class="sl-quick" role="tablist">${[['office','Office'],['production','Production'],['log','Sign-in log'],['cloud','Cloud']].map(([k,l])=>`<button type="button" role="tab" class="sl-quick-pill${side===k?' on':''}" data-users-side="${k}" ${onAct('click',usersTab,String(k))}>${l} <b>${count(k)}</b></button>`).join('')}</div></div>`;
  const selI=list.findIndex(x=>x.u.viewProfileId===uSel),sel=selI<0?null:list[selI];
- const bar=`<div class="sales-toolbar">${sel?`<b class="oq-sel" title="${esc(sel.u.name)}">1 selected</b>`:''}<button type="button" class="sl-quiet" data-user-edit ${sel?'':'disabled'} ${onAct('click',userEditOpen,sel?sel.i:-1)}>Edit</button><button type="button" class="sl-quiet sl-delete-quiet" data-user-remove ${sel?'':'disabled'} title="${prod?'Remove from production':'Remove from office'}" ${onAct('click',delUserSel,sel?sel.i:-1,String(side))}>Remove</button><span class="sales-toolbar-sp"></span>${off}${uEdit!==null||log||cloud?'':`<button class="pri" data-user-add ${onAct('click',userEditOpen,'new')}>Add user</button>`}</div>`;
+ const bar=`<div class="sales-toolbar">${sel?`<b class="oq-sel" title="${esc(sel.u.name)}">1 selected</b>`:''}<button type="button" class="sl-quiet" data-user-edit ${sel?'':'disabled'} ${onAct('click',userEditOpen,sel?sel.i:-1)}>Edit</button><button type="button" class="sl-quiet sl-delete-quiet" data-user-remove ${sel?'':'disabled'} title="${prod?'Remove from production':'Remove from office'}" ${onAct('click',delUserSel,sel?String(sel.u.viewProfileId):'',String(side))}>Remove</button><span class="sales-toolbar-sp"></span>${off}${uEdit!==null||log||cloud?'':`<button class="pri" data-user-add ${onAct('click',userEditOpen,'new')}>Add user</button>`}</div>`;
  return `${cloud?`<div class="card sales-list-card"><div class="sales-toolbar"><span class="sales-toolbar-sp"></span>${off}</div>${tabs}<div style="padding:0 20px 16px">${usersCloudHTML()}</div></div>`:log?`<div class="card sales-list-card users-log-card">${tabs}${authLogTable()}</div>`:`<div class="card sales-list-card sl-foot-pin">${bar}${tabs}
   ${uEdit!==null?userForm():''}
   ${table}
@@ -309,7 +309,7 @@ function userSaveButton(busy){const b=document.querySelector('[data-user-save]')
 /* Действия экрана Users (были кодом в разметке, задание «CSP без inline»). */
 function usersSelTick(id,checked){uSel=checked?id:'';render();}
 /* Имя del… — кнопка серая без записи (storageLockButtons), как прежний onclick="delUser(…)". */
-function delUserSel(i,side){delUser(i,side);uSel='';}
+function delUserSel(id,side){delUser(id,side);uSel='';}
 function usersImportPick(){document.getElementById('imp').click();}
 /* Имя …Save — так же: прежний onclick="cloudRulesSave(…)". */
 function cloudRulesDraftSave(){return cloudRulesSave(cloudAccess.draft);}
@@ -318,8 +318,11 @@ function cloudJoinSubmit(ev){ev.preventDefault();cloudJoinGo();}
 function uDraftSet(key,v,redraw){uDraft[key]=v;if(redraw)render();}
 function uDraftDigits(key,el){el.value=el.value.replace(/\D/g,'').slice(0,4);uDraft[key]=el.value;}
 function userEditCancel(){uEdit=null;uDraft=null;render();}
-function delUser(i,side){
- const u=DB.user[i];if(!u)return Promise.resolve(null);
+/* Человек — по id (viewProfileId): номер строки сдвигался, если список
+   изменила синхронизация, и Remove удалял соседа (аудит 24.11.2026, Н4).
+   Число — номер строки, как раньше (тесты и старые вызовы). */
+function delUser(key,side){
+ const u=typeof key==='number'?DB.user[key]:usersFind(key);if(!u)return Promise.resolve(null);
  const rev=u.rev,err=usersDropError(u.viewProfileId,side,rev);if(err){alert(err);return Promise.resolve(usersFail(err));}
  const prod=side==='production',other=prod?userOffice(u):userHasPin(u),name=u.name||'this user';
  if(!confirm(other?(prod?'Remove station sign-in for ':'Remove office sign-in for ')+name+'?':'Delete '+name+'?'))return Promise.resolve(null);

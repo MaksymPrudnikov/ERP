@@ -426,12 +426,27 @@ function storageStatusHTML(){
   (admin&&storageLastAction!=null?'<small>Last action '+storageLastAction+' ms</small>':'')+'</div>';
 }
 function storageCloudWarnHide(){cloudSync.warn='';render();}
+/* Упавшее действие молча ничего не делало (аудит 24.11.2026, Н2): ошибка
+   страницы — полосой с её текстом, пока не скроют. Ошибку не гасим — консоль и
+   тесты (t.errs) её видят. Картинки и скрипты, которые не загрузились, — не она. */
+let storageCrash='';
+function storageCrashShow(err){
+ const m=String(err&&(err.message||err)||'').trim();if(!m||/ResizeObserver loop/.test(m))return;
+ storageCrash=m.length>160?m.slice(0,157)+'…':m;
+ const bar=typeof document!=='undefined'&&document.getElementById('storageAlert');if(bar){bar.innerHTML=storageAlertHTML();bar.hidden=!bar.innerHTML;}
+}
+function storageCrashHide(){storageCrash='';render();}
+if(typeof window!=='undefined'){
+ window.addEventListener('error',e=>{if(e&&(e.error||e.message)&&!(e.target&&e.target!==window))storageCrashShow(e.error||e.message);});
+ window.addEventListener('unhandledrejection',e=>storageCrashShow(e&&e.reason));
+}
 function storageReload(){location.reload();}
 function storageAlertHTML(){
  const text=storageRecovery?'Database recovery needed. '+(storageLastError||''):!navigator.locks?'This browser cannot coordinate editing. Open Glass Farm in a current Chrome, Edge, Firefox or Safari.':storageStale?storageReadOnlyText():storageLastError||(storageUsageFull()?'Storage almost full. Export and tell admin.':'');
  /* Скан, который сервер не принял и повтор не помог (erp/cloud-sync,
     cloudReplayRun): видно и на станции, пока не скроют. */
  const fail=!text&&typeof cloudSync!=='undefined'&&cloudSync.scanFail||[];
+ if(!text&&!fail.length&&storageCrash)return '<span data-crash>Something went wrong: '+esc(storageCrash)+'</span><button type="button" '+onAct('click',storageCrashHide)+'>Hide</button>';
  if(fail.length)return '<span data-scan-fail>Not saved on the server: '+esc(fail.slice(0,3).map(f=>(f.undo?'Undo ':'')+f.piece+' · '+f.station).join(', ')+(fail.length>3?' +'+(fail.length-3)+' more':''))+'. Scan again.</span><button type="button" '+onAct('click',cloudScanFailHide)+'>Hide</button>';
  if(!text)return '';
  return '<span>'+esc(text)+'</span>'+
