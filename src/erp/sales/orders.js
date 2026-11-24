@@ -182,6 +182,7 @@ function salesCloseClick(){const go=()=>salesOrderClose();if(soDraft&&salesDraft
    копия вместо прежнего Repeat («Замени», «Тоже пусть будет копия»). Кнопка
    и пункт меню — одно слово Copy («Может просто одно слово copy»). */
 let soCopyOf=null;
+function salesCopyOrderClick(id,ev){if(ev&&ev.detail>1&&Date.now()-salesSavedAt<800)return;salesCopyOrder(id);}
 function salesCopyOrder(id){
  const o=salesRecord(id);if(!o)return;
  /* Из архива: копия до того, как его записи уйдут из DB (salesDraftDrop
@@ -250,6 +251,10 @@ function salesOrderScope(id){
    opts.noRender — экран нарисует он сам, opts.failed — ему текст отказа:
    заказа на экране может и не быть. */
 function salesOrderSave(opts){
+ /* Пишет другая вкладка: первый Update забирал запись и ничего не сохранял,
+    а «repeat the action» стирала перерисовка (аудит 24.11.2026, О5) —
+    Update повторяется сам, когда запись перешла сюда. */
+ if(opts&&opts.bg&&!opts.taken&&typeof storageWriter!=='undefined'&&!storageWriter&&!storageStale&&!storageRecovery&&navigator.locks){storageWhenWriter(()=>salesOrderSave(Object.assign({},opts,{taken:true})));return;}
  if(opts&&opts.bg)return salesOrderSaveBg();
  const editor={draft:soDraft?JSON.parse(JSON.stringify(soDraft)):null,edit:soEdit,quote:soQuoteCopyOf,shapes:soShapeSnapshot,baseline:soSavedBaseline};
  const out=storageCommand(()=>{
@@ -257,8 +262,12 @@ function salesOrderSave(opts){
   const result=salesOrderSaveCommand(opts);if(result!==true){const e=salesOrderErrorBox();throw new Error(e.style.display!=='none'&&e.textContent||'The order was not saved.');}return true;
  },salesOrderScope(soEdit));
  if(!out.ok){soDraft=editor.draft;soEdit=editor.edit;soQuoteCopyOf=editor.quote;soShapeSnapshot=editor.shapes;soSavedBaseline=editor.baseline;render();const e=document.getElementById('e_sales_order');if(e)fail(e,out.error);if(opts&&opts.failed)opts.failed(out.error);return false;}
- soSavedBaseline=JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit));if(!(opts&&opts.noRender))render();return true;
+ soSavedBaseline=JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit));salesSavedAt=Date.now();if(!(opts&&opts.noRender))render();return true;
 }
+/* Второй клик двойного Save попадал в Copy, вставшую рядом после записи
+   (аудит 24.11.2026, О2): второй клик двойного сразу после Save кнопку
+   Copy не нажимает (salesCopyOrderClick). */
+let salesSavedAt=0;
 /* Строка ошибки заказа. Save в фоне идёт и без заказа на экране — тогда
    ошибка пишется в строку вне экрана. */
 let salesOrderErrorSpare=null;
@@ -267,7 +276,7 @@ function salesOrderErrorBox(){return document.getElementById('e_sales_order')||s
    без записи; opts.checked — вопросы уже заданы; opts.pre — цены и
    количества строк, посчитанные заранее. Они берутся, только если база и
    заказ с тех пор не менялись, иначе — всё заново, как у обычного Save. */
-const SALES_QTY_ASK=2000;
+const SALES_QTY_ASK=2000,SALES_QTY_MAX=10000,SALES_DIM_MAX=999;
 function salesOrderSaveCommand(opts){
  opts=opts||{};
  const e=salesOrderErrorBox();e.style.display='none';
@@ -278,6 +287,13 @@ function salesOrderSaveCommand(opts){
  if(!pre){
  /* Опечатка в количестве: не запрет, а вопрос (проверка 02.11.2026: 50 000
     в строке записывались молча, с номерами на каждое стекло). */
+ /* Жёсткие пределы строки (владелец 24.11.2026: «больше 500 не разу не
+    видел», «не думаю что цифры нужны больше 999 если в инчах»): 99 999 999
+    после «Is this right?» вешали вкладку, 999 999″ давали $165 млрд (О8, О9). */
+ const tooMany=(soDraft.lines||[]).findIndex(l=>l.qty>SALES_QTY_MAX);
+ if(tooMany>=0)return fail(e,'Line '+(tooMany+1)+': up to '+SALES_QTY_MAX.toLocaleString('en-US')+' units.');
+ const tooBig=(soDraft.lines||[]).findIndex(l=>l.width16>SALES_DIM_MAX*16||l.height16>SALES_DIM_MAX*16);
+ if(tooBig>=0)return fail(e,'Line '+(tooBig+1)+': width and height up to '+SALES_DIM_MAX+'″.');
  const typo=(soDraft.lines||[]).findIndex(l=>l.qty>SALES_QTY_ASK);
  if(typo>=0&&!ask('Line '+(typo+1)+': '+soDraft.lines[typo].qty.toLocaleString('en-US')+' units. Is this right?')){render();return false;}
  salesSnapshotAllChargePricing();
@@ -289,6 +305,10 @@ function salesOrderSaveCommand(opts){
  if(!customer.contacts.some(x=>x.id===soDraft.customerContactId))soDraft.customerContactId=customerPrimaryContact(customer).id||'';
  /* 29.10.2026 — у всех клиентов: «PO для всех обязательно». */
  if(!salesIsQuote(soDraft)&&!String(soDraft.customerPo||'').trim())return fail(e,'Enter the Customer PO.');
+ /* Тот же PO у того же клиента — чаще всего дубль (аудит 24.11.2026, О2):
+    вопрос, а не запрет — бывает и PO на несколько заказов. */
+ if(soEdit==='new'&&!salesIsQuote(soDraft)){const po=String(soDraft.customerPo).trim().toLowerCase(),same=(DB.salesOrder||[]).find(o=>o.id!==soDraft.id&&!salesIsQuote(o)&&o.status!=='cancelled'&&o.customerId===soDraft.customerId&&String(o.customerPo||'').trim().toLowerCase()===po);
+  if(same&&!ask('PO '+String(soDraft.customerPo).trim()+' is already on order '+same.businessNumber+' of this customer.\n\nSave another order with it?')){render();return false;}}
  /* Без Due date заказ не пишется (владелец 17.11.2026); Priority ставит её сам.
     Кроме переделки NCR: она — свой заказ без срока и в On time % не входит (правило Late, 16.11.2026). */
  if(!salesIsQuote(soDraft)&&!soDraft.remakeNcrId&&!String(soDraft.dueDate||'').trim())return fail(e,'Enter the Due Date.');

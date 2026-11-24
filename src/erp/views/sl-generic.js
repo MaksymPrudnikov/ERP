@@ -103,7 +103,8 @@ function slHtmlTable(scope,head,body,o){
    заголовки и строки как есть. Пустой заголовок первой колонки — галочка
    строки, пустой последней — кнопки строки. Строки с классом o.sub
    (подстроки связей) идут под своей строкой, фильтр их не считает; строки
-   tfoot — под списком. Класс и data-атрибуты таблицы — у обёртки. */
+   tfoot — под списком. Класс и data-атрибуты таблицы — у обёртки; data-w
+   у заголовка — ширина колонки (px). */
 function slFromTable(scope,html,o){
  o=o||{};
  const t=document.createElement('template');t.innerHTML=html;const tb=t.content.querySelector('table');if(!tb)return html;
@@ -114,7 +115,7 @@ function slFromTable(scope,html,o){
  const first=ths.length>1&&!lab(ths[0]),last=ths.length>2&&!lab(ths[ths.length-1])&&!ths[ths.length-1].querySelector('input');
  const from=first?1:0,to=last?ths.length-1:ths.length;
  const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'')||'c';
- const head=ths.slice(from,to).map((th,i)=>({k:slug(lab(th))+'_'+(i+from),label:lab(th),n:th.classList.contains('n')||th.classList.contains('cs-n'),td:i+from}));
+ const head=ths.slice(from,to).map((th,i)=>({k:slug(lab(th))+'_'+(i+from),label:lab(th),n:th.classList.contains('n')||th.classList.contains('cs-n'),td:i+from,w:+th.dataset.w||undefined}));
  const rows=[...tb.querySelectorAll(':scope > tbody > tr')],list=[];
  rows.forEach(tr=>{
   /* Строка с одной ячейкой на всю ширину: до данных — «пусто», после — пояснение под своей строкой. */
@@ -131,6 +132,6 @@ function slFromTable(scope,html,o){
  const firstTh=first&&ths[0].querySelector('input')?ths[0].innerHTML:undefined;
  const out=slTable(scope,Object.assign({list,firstTh,rowHTML:x=>x.html+x.sub.join(''),firstTd:first?0:undefined,lastTd:last?-1:undefined,
   empty:emptyRow?emptyRow.textContent.trim():undefined,cls,acts:last?90:20,tail:foot?()=>foot:undefined,noun:l=>l.length+' row'+(l.length===1?'':'s'),
-  columns:()=>head.map(h=>({k:h.k,label:h.label,type:h.n?'number':'text',td:h.td,v:x=>h.n?num(x.tds[h.td]):x.tds[h.td]}))},o));
+  columns:()=>head.map(h=>({k:h.k,label:h.label,type:h.n?'number':'text',td:h.td,w:h.w,v:x=>h.n?num(x.tds[h.td]):x.tds[h.td]}))},o));
  return attrs?`<div${attrs}>${out}</div>`:out;
 }

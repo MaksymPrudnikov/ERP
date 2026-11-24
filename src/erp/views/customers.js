@@ -192,7 +192,9 @@ function custSet(key,v,redraw){cDraft[key]=v;if(redraw)render();}
 function custSetRow(list,i,key,v){cDraft[list][i][key]=v;}
 function custSetLegacy(key,v){cDraft.legacyRefs[key]=v;}
 /* Legal name заполняет и пустое Display name. */
-function custSetLegal(v){cDraft.legalName=v;if(!cDraft.displayName)cDraft.displayName=v;}
+/* Display Name идёт за Legal Name, пока человек его не менял (аудит 24.11.2026, О1:
+   первая буква оставалась именем клиента). */
+function custSetLegal(v){const follow=!cDraft.displayName||cDraft.displayName===cDraft.legalName;cDraft.legalName=v;if(follow)cDraft.displayName=v;}
 function cTabGo(id){cTab=id;render();}
 function customerCancelEdit(){customerLeave(()=>{cEdit=null;cDraft=null;render();});}
 function custDupClose(){cDup=null;render();}

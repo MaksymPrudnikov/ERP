@@ -23,7 +23,8 @@ On top the name and Account, **Save** and **Cancel** (Cancel asks when there are
 
 - **General** — Account / Customer Code, **Legal Name** (required), Display Name, Status (Active, Inactive, Archived),
   Customer Type, **Group** (special price group from Data → Prices), Area / Territory, Sales Rep, Account Open Date, TAX
-  Number, Registration, Prospect, **PO required**, Notes, Internal Notes.
+  Number, Registration, Prospect, **PO required**, Notes, Internal Notes. Display Name follows Legal Name until someone
+  changes it; empty, it becomes Legal Name on Save.
 - **Contacts** — any number of people (purchasing, accounting, receiving, project manager): Name, Role / title, Phone,
   Phone 2, Mobile, Fax, Email and the marks **Primary**, **Invoice**, **Shipping** — who gets what.
 - **Addresses** — billing and any number of delivery and job-site addresses: Type (Billing, Delivery, Other), Name,

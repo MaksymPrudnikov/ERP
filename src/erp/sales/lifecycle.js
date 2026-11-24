@@ -513,7 +513,7 @@ function salesHeaderActions(o){
  /* Copy (пункт 8, Copy order) — у записанного заказа, черновика и квоты
     (у отправленной ревизии на экране — её рабочая копия). */
  const copyId=soQuoteCopyOf||(soEdit!=='new'?soEdit:null);
- if(copyId)parts.push(`<button data-copy-order ${onAct('click',salesCopyOrder,String(copyId??''))}>Copy</button>`);
+ if(copyId)parts.push(`<button data-copy-order ${onAct('click',salesCopyOrderClick,String(copyId??''),EVENT)}>Copy</button>`);
  if(typeof recutCanOpenHere==='function'&&recutCanOpenHere(o))parts.push('<button class="recut-btn" data-recut-open '+onAct('click',ncrOpenForm,'recut')+'>Recut</button>');
  if(typeof ncrCanOpen==='function'&&ncrCanOpen(o))parts.push('<button class="ncr-btn" data-ncr-open '+onAct('click',ncrOpenForm,'ncr')+'>NCR</button>');
  if(salesIsQuote(o)){if(!salesQuoteWonMember(o))parts.push('<button class="go" data-convert-quote '+onAct('click',salesConvertQuote)+'>Convert to order</button>');}

@@ -32,7 +32,7 @@ let storageRev=0,storageBusy=false,storageQueued=null,storageFailed=null,storage
    клал старое поверх того, что сохранила другая вкладка (проверка Codex).
    storageFailedExported — незаписанное уже в файле Export; storageOtherHeld —
    другая вкладка ответила, что держит запись. */
-let storageFailedExported=false,storageOtherHeld=false,storageTakeoverAbort=null;
+let storageCommandError='',storageFailedExported=false,storageOtherHeld=false,storageTakeoverAbort=null;
 /* Проверка версии (владелец, 21.10.2026). Главная — последняя открытая
    версия: открылась вкладка другой сборки — эта больше ничего не пишет,
    иначе её нормализация срезала бы новые графы. storageStale — сборка,
@@ -292,16 +292,19 @@ function storageCommand(fn,scope){
  let scopeBefore=null;if(scope&&typeof window!=='undefined'&&window.GF_SCOPE_CHECK)try{scopeBefore=storageScopeSig();}catch(e){}
  /* Таблицы разделов: что запишет команда, должен отметить свой раздел (erp/sections). */
  if(typeof sectionGuardReset==='function')sectionGuardReset();
- storageDepth++;
+ storageDepth++;let writeFail=false;
  try{
   const value=fn();if(value===false||value&&value.error)throw new Error(value&&value.error||'The operation could not be completed.');
   storageDepth--;storageCommanding=true;storageScope=scope?storageScopeMap(scope):null;
   let saved;try{saved=touch();}finally{storageCommanding=false;storageScope=null;}
-  if(saved===false)throw new Error(storageLastError||'Not saved. Retry the operation.');
+  if(saved===false){writeFail=true;throw new Error(storageLastError||'Not saved. Retry the operation.');}
   if(scopeBefore)storageScopeCheck(scopeBefore);
   if(scope)storageSweepLater();
   return {ok:true,value};
- }catch(e){storageDepth=0;storageCommanding=false;storageColdPending.clear();storageColdImport=null;storageColdWarm.clear();storageArchivePending.clear();storageRollback(before);dirty=wasDirty;if(draftBefore!==null&&JSON.stringify(soDraft)!==draftBefore)soDraft=JSON.parse(draftBefore);storageInvalidate();storageLastError=e.message;return {ok:false,error:e.message};}
+ }catch(e){storageDepth=0;storageCommanding=false;storageColdPending.clear();storageColdImport=null;storageColdWarm.clear();storageArchivePending.clear();storageRollback(before);dirty=wasDirty;if(draftBefore!==null&&JSON.stringify(soDraft)!==draftBefore)soDraft=JSON.parse(draftBefore);storageInvalidate();
+  /* «Not saved» и полоса — только когда не удалась запись; отказ проверки
+     команды пишет свой текст тот, кто её вызвал (аудит 24.11.2026, О6). */
+  storageCommandError=e.message;if(writeFail)storageLastError=e.message;return {ok:false,error:e.message};}
 }
 /* Запись правки, сделанной до вызова (раскрой: Build и правки листа, порядок
    батчей): touch() только по области scope, как у storageCommand. Вне

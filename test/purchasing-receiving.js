@@ -1,5 +1,6 @@
 /* Receiving facts remain separate from purchasing intent, stock and
-   customer money. Excess and damage are warnings, not blocked commands. */
+   customer money. Excess is a warning, not a blocked command; broken above
+   what arrived is refused (owner, 24.11.2026, audit О7). */
 module.exports=async function({page,eq}){
  console.log('purchase receiving');const t=await page(undefined,{width:1440,height:1000});
  await t.p.waitForFunction(()=>storageWriter&&!storageStarting);
@@ -13,10 +14,11 @@ module.exports=async function({page,eq}){
   const r=prSave(4,{damaged:1,reason:'Factory defect',resolution:'Credit requested',note:'Scratch on one sheet'});window.prReceipt=r.value.id;
   const b=purReceived(prPO,prPO.lines[0]);return {ok:r.ok,number:r.value.number,received:b.received,remaining:b.remaining,damaged:b.damaged,status:purOrderStatus(prPO),reason:r.value.lines[0].reason,who:r.value.receivedBy,backorder:purWaitingRows(false).map(x=>x.b.remaining)};
  }),{ok:true,number:'GR-0001',received:4,remaining:6,damaged:1,status:'Partially received',reason:'Factory defect',who:'Alex at receiving',backorder:[6]});
- eq('overdelivery and even damage exceeding the count are recorded with warnings',await t.p.evaluate(()=>{
-  const raw={poId:prPO.id,lines:[{id:'excess',poLineId:'sheets',unit:'sheet',qty:8,damaged:9}]},warnings=purFulfilWarnings('receipt',raw),r=purFulfilSave('receipt',raw);window.prExcess=r.value.id;
-  return {ok:r.ok,over:warnings.some(s=>s.includes('more than ordered')),damage:warnings.some(s=>s.includes('damaged quantity')),remaining:purReceived(prPO,prPO.lines[0]).remaining};
- }),{ok:true,over:true,damage:true,remaining:-2});
+ eq('overdelivery is recorded with a warning; damage exceeding the count is warned and refused',await t.p.evaluate(()=>{
+  const bad={poId:prPO.id,lines:[{id:'excess',poLineId:'sheets',unit:'sheet',qty:8,damaged:9}]},warnings=purFulfilWarnings('receipt',bad),refused=purFulfilSave('receipt',bad);
+  const r=purFulfilSave('receipt',{poId:prPO.id,lines:[{id:'excess',poLineId:'sheets',unit:'sheet',qty:8,damaged:8}]});window.prExcess=r.value.id;
+  return {ok:r.ok,over:warnings.some(s=>s.includes('more than ordered')),damage:warnings.some(s=>s.includes('damaged quantity')),refused:refused.error,remaining:purReceived(prPO,prPO.lines[0]).remaining};
+ }),{ok:true,over:true,damage:true,refused:'Line 1: broken is more than received.',remaining:-2});
  eq('undo and restore keep both audit trails and recalculate the same PO balance',await t.p.evaluate(()=>{
   const r=purFulfilFind('receipt',prExcess);purFulfilUndo('receipt',r.id,r.rev,false);const undone=purReceived(prPO,prPO.lines[0]).remaining;
   purFulfilUndo('receipt',r.id,r.rev,true);return {undone,restored:purReceived(prPO,prPO.lines[0]).remaining,history:purHistory('receipt',r.id).map(e=>e.what),po:purHistory('po',prPO.id).some(e=>e.what==='Undone GR-0002')};

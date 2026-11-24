@@ -30,7 +30,7 @@ const FIN_EVENT_LABELS={opening:'Opening record',received:'Payment received',cor
 let finActor='';
 function finCopy(x){return JSON.parse(JSON.stringify(x));}
 function finDateValid(s){if(!/^\d{4}-\d{2}-\d{2}$/.test(String(s)))return false;const d=new Date(s+'T00:00:00Z');return !isNaN(d)&&d.toISOString().slice(0,10)===s;}
-function finCents(v){const n=Number(v);return v!==''&&v!=null&&Number.isFinite(n)&&Math.abs(n)<=1e10?Math.round((n+Number.EPSILON)*100):null;}
+function finCents(v){const n=finMoneyIn(v);return v!==''&&v!=null&&Number.isFinite(n)&&Math.abs(n)<=1e10?Math.round((n+Number.EPSILON)*100):null;}
 function finAssert(cond,message){if(!cond)throw new Error(message);}
 function finCurrency(r){return r&&r.currency||'CAD';}
 function finRefunded(id){return finMoney((DB.refund||[]).filter(r=>r.receiptId===id&&!r.voided).reduce((s,r)=>s+r.amount,0));}
