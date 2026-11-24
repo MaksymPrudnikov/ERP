@@ -98,6 +98,13 @@ function carrierSetCommand(code,field,value){
    (карточка «Dollies at …» на каждом скане): чужие не считаются. codes —
    только эта тара (Set кодов): скиды одной PS. */
 function carrierContents(station,codes){
+ /* Вся тара — один раз, пока база та же (erp/read-scope, READ_KEEP): окно
+    тележки спрашивало её несколько раз за отрисовку, и каждый клик по строке
+    перебирал весь журнал сканов года — 1,5 с на слабом ПК (24.11.2026). */
+ if(!station&&!codes)return readMemo('carrierContents',[DB.stationScan],()=>carrierContentsBuild('',null));
+ return carrierContentsBuild(station,codes);
+}
+function carrierContentsBuild(station,codes){
  /* Сканы стекла собираются одним проходом: иначе каждое стекло на таре
     заново перебирало весь журнал (на SHIP — на каждый скан скида). */
  const last=new Map(),scans=new Map(),out=new Map();
@@ -127,7 +134,9 @@ function carrierContents(station,codes){
 /* Время обнуления (emptiedAt): «кладу на» в другой вкладке, выбранное до
    него, устарело — стекло не ляжет на новую загрузку (план v1.16, P3-R4). */
 function carrierEmpty(code,who){const out=storageCommand(()=>{
- const c=carrierCode(code),list=carrierContents().get(c)||[],now=new Date().toISOString(),was=[],off=[],rec=carrierFind(c);if(rec)rec.emptiedAt=now;
+ /* Только эта тара, чистым чтением до правок (readScopeNow): вся тара без
+    указателей — 3,7 с из 5,8 с на Empty (24.11.2026). */
+ const c=carrierCode(code),list=readScopeNow(()=>carrierContents('',new Set([c])).get(c)||[]),now=new Date().toISOString(),was=[],off=[],rec=carrierFind(c);if(rec)rec.emptiedAt=now;
  list.forEach(x=>{was.push({id:x.scan.id,on:x.scan.on||'',moved:x.scan.moved||null});x.scan.moved={from:c,at:now,by:String(who&&who.name||'')};delete x.scan.on;});
  const ghosts=typeof unitOnSkid==='function'?unitOnSkid(c):[];ghosts.forEach(x=>{off.push({orderId:x.o.id,pieces:x.u.pieces.slice(),off:(x.u.off||[]).slice()});x.u.off=[...new Set((x.u.off||[]).concat(x.pieces))];x.o.updatedAt=now;salesSyncRecordLifecycle(x.o);});
  return {code:c,count:list.length+ghosts.reduce((n,x)=>n+x.pieces.length,0),was,off};
@@ -149,7 +158,7 @@ function carrierEmptyUndo(r){
    только то, что лежит на этой таре сейчас; Undo — carrierEmptyUndo. */
 function carrierTakeOff(code,pieces,who){const out=storageCommand(()=>{
  const c=carrierCode(code),want=new Set(pieces||[]),now=new Date().toISOString(),was=[];
- (carrierContents().get(c)||[]).forEach(x=>{if(!want.has(x.id))return;was.push({id:x.scan.id,on:x.scan.on||'',moved:x.scan.moved||null});x.scan.moved={from:c,at:now,by:String(who&&who.name||'')};delete x.scan.on;});
+ readScopeNow(()=>carrierContents('',new Set([c])).get(c)||[]).forEach(x=>{if(!want.has(x.id))return;was.push({id:x.scan.id,on:x.scan.on||'',moved:x.scan.moved||null});x.scan.moved={from:c,at:now,by:String(who&&who.name||'')};delete x.scan.on;});
  if(!was.length)throw new Error('Nothing to take off.');
  return {code:c,count:was.length,was,off:[]};
 });return out.ok?out.value:{error:out.error};}

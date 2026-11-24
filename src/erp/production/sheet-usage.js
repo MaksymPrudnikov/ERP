@@ -18,7 +18,11 @@
 const SHEET_USAGE_STATUS={'Awaiting cutting':'Planned','Cutting started':'Cutting','Cutting complete':'Cut'};
 /* Одна строка — батч × стекло × размер листа. Кусок со стеллажа (S-…) —
    своя строка: это не купленный лист. */
-function sheetUsageRows(){
+/* В отрисовке — один раз, пока база та же (erp/read-scope, READ_KEEP): число
+   на вкладке Sheets считало журнал всех раскроев на каждый клик Optimization
+   (0,3–0,6 с на слабом ПК, 24.11.2026). Строки только читают. */
+function sheetUsageRows(){return readMemo('sheetUsageRows',[DB.cutPlan,DB.glassBatch,DB.sheetBreak,DB.salesOrder],sheetUsageRowsBuild);}
+function sheetUsageRowsBuild(){
  /* Батч по номеру — один проход: на годе раскроев и батчей тысячи. */
  const out=[],byNo=new Map();
  (DB.glassBatch||[]).forEach(b=>{if(!byNo.has(b.number))byNo.set(b.number,b);});

@@ -1053,13 +1053,13 @@ function storageSameCheck(){
    tools/perf-year.js (задание «База», этап 2). */
 let storageBootMs=null;
 async function boot(){
- let hadSavedState=false,counted='',same=false;const T=()=>performance.now(),t0=T(),ms={};
+ let hadSavedState=false,counted='',same=false;const T=()=>performance.now(),t0=T(),ms={},seen=new Map();
  try{
   await storageIdbOpen();
   const got=await storageIdbReadAll();ms.read=T()-t0;
   storageBaseFrom(got.records);if(typeof archiveIndexLoad==='function')archiveIndexLoad(got.archive);storageRev=got.rev;storageBuildAtLoad=got.build;storageCopyAt=got.copyAt||'';storageBackupPresent=!!got.copyAt;storageTest=got.test===true;counted=got.counted;
   if(got.records.length){
-   hadSavedState=true;const parsed=storageJoin(got.records);ms.join=T()-t0-ms.read;
+   hadSavedState=true;const parsed=storageJoin(got.records,false,seen);ms.join=T()-t0-ms.read;
    if(!Object.keys(parsed).some(k=>Object.prototype.hasOwnProperty.call(DEFAULT,k)))throw new Error('Expected a database object.');
    mergeState(parsed);
   }
@@ -1092,7 +1092,7 @@ async function boot(){
   /* Своя база той же сборки, без пересева и правок: старт ничего не меняет
      (год цеха: 0 из 3 211 раскроев) — полное сравнение (3,7 с на слабом ПК)
      уходит в простой (storageSweep). */
-  if(hadSavedState&&storageBuildAtLoad===storageBuildId()&&!reseeded&&!fixed)storageSweepLater();
+  if(hadSavedState&&storageBuildAtLoad===storageBuildId()&&!reseeded&&!fixed){storageSeenSeed(seen);storageSweepLater();}
   else{
    touch();
    if(!storageBusy&&storageBuildAtLoad!==storageBuildId())storageIdbMetaPut('build',storageBuildId()).catch(e=>console.warn('Version mark was not written:',e.message));

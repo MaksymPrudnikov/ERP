@@ -32,8 +32,8 @@ function carrierWord(code){const t=carrierType(code);return t&&t.kind==='Skid'?'
 /* Стеклопакет, собранный на IGU, — одна строка: на скиде его считают
    юнитом; остальное — по стеклу. # — порядок укладки, #1 положили первым. */
 function carrierItems(list){
- const unitOf=new Map(),items=new Map();
- (DB.stationScan||[]).forEach(s=>{if(!s.undoneAt&&s.asm&&s.unit)unitOf.set(s.piece,s);});
+ /* Юнит по стеклу — один проход журнала на отрисовку, а не на каждую тару. */
+ const unitOf=readMemo('carrierUnitOf',[DB.stationScan],()=>{const m=new Map();(DB.stationScan||[]).forEach(s=>{if(!s.undoneAt&&s.asm&&s.unit)m.set(s.piece,s);});return m;}),items=new Map();
  list.forEach(x=>{
   const s=unitOf.get(x.id),u=s&&stationUnitMerge(x.g.o,x.g.l)===s.station?s:null,key=u?'a|'+u.asm:'g|'+x.id;
   if(!items.has(key))items.set(key,{key,g:x.g,o:x.g.o,l:x.g.l,unit:u?u.unit:0,label:u&&unitIdAt(x.g.o.id,x.g.l.id,u.unit)||x.id,pieces:[],glass:[],scan:x.scan,place:x.place});
@@ -190,15 +190,18 @@ function carrierCell(it,c){
 /* ------------------------------ Окно ------------------------------- */
 function carrierWinOpen(code,station){carrierWin={code:carrierCode(code||''),station:station||'',sel:new Set(),to:'',error:'',done:null,menu:false};render();return true;}
 function carrierWinClose(){carrierWin=null;render();}
-function carrierModelOf(code,station){
+/* one — только эта тара (окно тары): вся тара цеха при открытии окна —
+   0,7 с на слабом ПК (24.11.2026). Перебор всех тар (печать, поиск
+   загрузчика) берёт общее carrierContents(). */
+function carrierModelOf(code,station,one){
  if(code){
-  const list=carrierContents().get(code)||[],out=typeof skidsOut==='function'?skidsOut().get(code)||null:null;
+  const list=one?readMemo('carrierOn:'+code,[DB.stationScan],()=>carrierContents('',new Set([code])).get(code)||[]):carrierContents().get(code)||[],out=typeof skidsOut==='function'?skidsOut().get(code)||null:null;
   return {code,type:carrierType(code),list,items:carrierItems(list),out,gone:out&&!list.length?carrierShippedItems(out):[]};
  }
  const list=carrierLoose().get(station)||[];
  return {code:'',station,word:carrierLooseWord(list),list,items:carrierItems(list),out:null,gone:[]};
 }
-function carrierWinModel(){const w=carrierWin;return w?carrierModelOf(w.code,w.station):null;}
+function carrierWinModel(){const w=carrierWin;return w?carrierModelOf(w.code,w.station,true):null;}
 /* Кто положил: станция последнего скана на эту тару. */
 function carrierLoaderOf(m){const top=m&&m.items.length?m.items[m.items.length-1]:null;return top&&top.scan&&top.scan.station||'';}
 function carrierWinLoader(){return carrierWin?carrierLoaderOf(carrierWinModel()):'';}

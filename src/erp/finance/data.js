@@ -123,11 +123,11 @@ function finTotalsForget(changes){
   else if(c.tbl==='shapeDef'){
    const was=storageBase.get('shapeDef'),old=was&&was.get(c.id);if(!old)continue;
    const owners=[old.t,c.del?null:c.data].filter(Boolean).map(t=>{try{return JSON.parse(t).ownerLineId||'';}catch(e){return '';}});
-   if(owners.some(x=>!x)){finTotalsKeep=new Map();return;}
+   if(owners.some(x=>!x)){finTotalsKeep=new Map();finTotalsWarm();return;}
    if(!lines){lines=new Map();finTotalsKeep.forEach((k,id)=>(k.order.lines||[]).forEach(l=>lines.set(l.id,id)));}
    owners.forEach(x=>{if(lines.has(x))finTotalsKeep.delete(lines.get(x));});
   }
-  else if(!FIN_TOTALS_NEUTRAL.has(c.tbl==='_meta'?c.id:c.tbl)&&c.tbl!=='_archive'){finTotalsKeep=new Map();return;}
+  else if(!FIN_TOTALS_NEUTRAL.has(c.tbl==='_meta'?c.id:c.tbl)&&c.tbl!=='_archive'){finTotalsKeep=new Map();finTotalsWarm();return;}
  }
 }
 function finOrderTotals(order){
@@ -143,10 +143,14 @@ function finOrderTotals(order){
 }
 /* После F5 итоги заказов считаются понемногу в простое (30 мс за шаг), и
    первый вход в Finance берёт готовое. Не на станции, не без Finance и не
-   во время ввода: скан и набор заказа важнее. */
+   во время ввода: скан и набор заказа важнее. Правка, после которой итоги
+   забыты все (клиент, прайс, настройки — finTotalsForget), прогревает их
+   заново с начала: иначе следующий вход в Finance считал бы весь год
+   (2,5 с на слабом ПК, задание скорости 24.11.2026). */
 let finTotalsWarmTimer=null;
 function finTotalsWarm(delay){
- if(finTotalsWarmTimer||typeof window==='undefined'||window.GF_NO_ARCHIVE)return;
+ if(typeof window==='undefined'||window.GF_NO_ARCHIVE)return;
+ if(finTotalsWarmTimer)clearTimeout(finTotalsWarmTimer);
  let i=0;
  const step=()=>{
   finTotalsWarmTimer=null;
