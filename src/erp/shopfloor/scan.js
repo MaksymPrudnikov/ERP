@@ -576,8 +576,12 @@ function stationLineKeys(o,l){return glassBatchComponents(o,l).filter(c=>!c.miss
 /* pre — готовые сканы этой строки и разбитые стёкла (erp/shipping/data,
    shippingCtx): экран Shipping не перебирает весь журнал на каждую строку. */
 function stationAsms(o,l,station,index,pre){
- index=index||stationPieceIndex();
+ const own=!index;index=index||stationPieceIndex();
  if(!pre&&stationBulkNow){const b=stationBulkLines();pre={scans:b.lines.get(o.id+'|'+l.id)||[],broken:b.broken};}
+ /* В отрисовке — та же разбивка журнала по строкам, один раз (erp/read-scope):
+    окно тележки спрашивало размер юнита по каждой строке, и каждая строка
+    перебирала все сканы года (1,2 с на клик на слабом ПК, 24.11.2026). */
+ if(!pre&&own&&readOn()){const b=readMemo('stationAsmsLines',[DB.stationScan],()=>{const m=new Map(),br=new Set();(DB.stationScan||[]).forEach(s=>{if(s.broken&&!s.undoneAt)br.add(s.piece);const h=index.get(s.piece);if(!h)return;const k=h.orderId+'|'+h.lineId;let a=m.get(k);if(!a)m.set(k,a=[]);a.push(s);});return {lines:m,broken:br};});pre={scans:b.lines.get(o.id+'|'+l.id)||[],broken:b.broken};}
  const broken=pre?pre.broken:new Set(),out=new Map();
  if(!pre)(DB.stationScan||[]).forEach(s=>{if(s.broken&&!s.undoneAt)broken.add(s.piece);});
  (pre?pre.scans:DB.stationScan||[]).forEach(s=>{

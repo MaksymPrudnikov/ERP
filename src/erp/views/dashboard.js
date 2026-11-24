@@ -18,7 +18,7 @@
 
 /* Переход из Overview в раздел — сразу с нужным видом. Уход может придержать
    несохранённый заказ (NAV_GUARDS) — тогда вид не ставится. */
-function dashGo(k,then){navGo(k);if(tab===k&&then)then();}
+function dashGo(k,then){navGo(k,then);}
 function dashSalesQuick(key){dashGo('sales',()=>salesQuickSet(key));}
 function dashQueue(key){dashGo('optimization',()=>optimizationSetTab(key));}
 function dashShipping(key){dashGo('shipping',()=>{if(key==='delivery')deliveryDate='';shippingSetTab(key);});}

@@ -148,12 +148,15 @@ function viewOrderQueue(shipping){
  const tabs=orderQueueTabs().map(t=>`<button type="button" role="tab" aria-selected="${key===t[0]}" data-queue-tab="${t[0]}" class="sl-quick-pill${key===t[0]?' on':''}" ${onAct('click',optimizationSetTab,String(t[0]))}>${t[1]} <b>${optimizationTabCount(t[0])}</b></button>`).join('');
  const cwId=salesListCwId(),keys=cols.map(c=>c.k);
  const th=c=>{const f=salesListLoadPrefs().filters[c.k],active=salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th"><span data-cw-label>${esc(c.label)}</span><button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" ${onAct('click',salesListOpenFilter,EVENT,String(c.k))}></button></span>${cwGrip()}</th>`;};
- const body=filtered.map(info=>{
+ /* Строки — как в Sales и Production (views/list-window): сразу видимое с
+    запасом, остальное в простое и при прокрутке. All на годе — 601 заказ
+    в странице: 4 с на вкладку и 2,4 с на любой клик на слабом ПК (24.11.2026). */
+ const body=listWindowBody(filtered,info=>{
   const o=info.o,chosen=optimizationSel.has(o.id);
   const cell=c=>c.k==='readyQty'?`<td>${shippingSummary(o).physicalReady} / ${shippingSummary(o).glass}</td>`:c.k==='batch'?`<td class="oq-batches">${salesOrderBatchNumbers(o).map(v=>`<span class="pill">${esc(v)}</span>`).join(' ')||'—'}</td>`:c.k==='newLines'?`<td class="n">${salesUnbatchedLines(o).length}</td>`:salesListCell(info,c);
   return `<tr data-queue-order="${esc(o.id)}" class="${o.onHold?'oq-hold':chosen?'oq-selected':''}" ${onAct('contextmenu',optimizationContext,EVENT,String(o.id??''))}><td class="sl-check"><input type="checkbox" data-queue-check aria-label="Select order ${esc(o.businessNumber)}" ${chosen?'checked':''} ${onAct('change',optimizationToggle,String(o.id??''),EL_CHECKED)}></td>${cols.map(cell).join('')}
    <td></td></tr>`;
- }).join('');
+ },cols.length+2);
  return `<section class="optimization-queue ${shipping?'shipping-queue':''}">
   <div class="card sales-list-card oq-card sl-foot-pin"><div class="sales-toolbar">${shipping?`<button type="button" class="sl-quiet" data-queue-open-order ${n===1?'':'disabled'} ${onAct('click',optimizationOpenOrder,String(n===1?esc(selected[0].id):''))}>Open</button>`:''}${n?`<b class="oq-sel" data-queue-selection>${n} selected</b>${bar}`:`<b class="oq-sel" data-queue-selection hidden>0 selected</b>`}${shipping&&typeof shippingBarRight==='function'?'<span class="sales-toolbar-sp"></span>'+shippingBarRight():''}</div>
   ${shipping?shippingTabs():`<div class="sl-filter-row"><div class="sl-quick" role="tablist" aria-label="Order queues">${tabs}</div></div>`}

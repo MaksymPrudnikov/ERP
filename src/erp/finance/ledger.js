@@ -34,7 +34,14 @@ function finCents(v){const n=finMoneyIn(v);return v!==''&&v!=null&&Number.isFini
 function finAssert(cond,message){if(!cond)throw new Error(message);}
 function finCurrency(r){return r&&r.currency||'CAD';}
 function finRefunded(id){return finMoney((DB.refund||[]).filter(r=>r.receiptId===id&&!r.voided).reduce((s,r)=>s+r.amount,0));}
-function finHistoryFor(id){return (DB.financeEvent||[]).filter(e=>e.entityId===id);}
+/* В отрисовке — указатель «запись → её события» один проход журнала
+   (erp/read-scope): фильтр Payments по заказу спрашивал историю каждой оплаты
+   года перебором всего журнала — 0,8 с на клик на слабом ПК (24.11.2026).
+   Порядок событий тот же. Списки только читают. */
+function finHistoryFor(id){
+ if(readOn())return readMemo('finHistoryBy',[DB.financeEvent],()=>{const m=new Map();(DB.financeEvent||[]).forEach(e=>{let a=m.get(e.entityId);if(!a)m.set(e.entityId,a=[]);a.push(e);});return m;}).get(id)||[];
+ return (DB.financeEvent||[]).filter(e=>e.entityId===id);
+}
 function finJournalTop(){return (DB.financeEvent||[]).reduce((n,e)=>Math.max(n,e.seq||0),typeof archiveFloor==='function'?archiveFloor('financeEvent'):0);}
 function finEvent(kind,before,after,reason,entity){
  finMark('financeEvent',{refund:'refund',terms:'financeTerms'}[entity]||'receipt');

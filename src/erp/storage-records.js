@@ -127,7 +127,7 @@ function storageDiff(db,only){
     was.forEach((x,id)=>{if(id!=='*')out.push({tbl:k,id,del:true});});
     return;
    }
-   const seq=storageSeqs(ids,was),now=new Set(ids);storageSeen.set(k,{rows:v.slice(),ids,seq,at:null});
+   const seq=storageSeqs(ids,was),now=new Set(ids),seen={rows:v.slice(),ids,seq,at:null};storageSeen.set(k,seen);storageSeenIndexLater(seen);
    for(let i=0;i<v.length;i++){
     if(rows){const x=was.get(ids[i]);if(x&&x.s===seq[i]&&!rows.has(ids[i]))continue;}
     const t=JSON.stringify(v[i]),b=was.get(ids[i]);
@@ -175,7 +175,9 @@ function storageBaseTexts(tbl){
 }
 /* Записи → объект базы, как прежде JSON.parse всего localStorage. parsed —
    data уже объект (строки файла Export v2), а не текст JSON. */
-function storageJoin(records,parsed){
+/* seen — Map: сюда кладётся порядок строк таблицы {rows, ids, seq}, как его
+   оставило бы полное сравнение (старт, storageSeenSeed). */
+function storageJoin(records,parsed,seen){
  const state={},tables=new Map(),value=r=>parsed?r.data:JSON.parse(r.data);
  records.forEach(r=>{
   if(!r||typeof r.tbl!=='string'||typeof r.id!=='string'||(!parsed&&typeof r.data!=='string')||!Number.isFinite(r.seq))throw new Error('A stored record is damaged.');
@@ -191,8 +193,41 @@ function storageJoin(records,parsed){
    state[tbl]=rows;return;
   }
   state[tbl]=list.sort((a,b)=>a.seq-b.seq).map(value);
+  if(seen)seen.set(tbl,{rows:state[tbl].slice(),ids:list.map(r=>r.id),seq:list.map(r=>r.seq),at:null});
  });
  return state;
+}
+/* Первый скан после F5 (задание скорости 24.11.2026): сравнение базы
+   перебирало все 290 тысяч сканов года (2,1 с на слабом ПК при пороге 1 с),
+   потому что порядок строк (storageSeen) знает только прошлое полное
+   сравнение, а после F5 его ещё не было — его отложили в простой
+   (storageSweepLater). Порядок строк тот же, что прочитан из базы: берём
+   его при старте. Таблица, чьи строки нормализация заменила, — без него,
+   как раньше. Пропущенное областью записи по-прежнему найдёт полное
+   сравнение в простое (storageSweep). */
+function storageSeenSeed(seen){
+ seen.forEach((s,tbl)=>{
+  const v=DB[tbl],base=storageBase.get(tbl);
+  if(!Array.isArray(v)||!base||base.size!==s.rows.length||v.length!==s.rows.length||storageVisit.has(tbl))return;
+  for(let i=0;i<v.length;i++)if(v[i]!==s.rows[i])return;
+  storageSeen.set(tbl,s);storageSeenIndexLater(s);
+ });
+}
+/* Указатель «ключ → место» (s.at) для storageDiffTail на 290 тысяч сканов —
+   0,3 с на слабом ПК одним куском: первый скан ждал бы его. Большая таблица
+   строит его в простое кусками по 20 тысяч; скан раньше конца — строит сам,
+   как раньше, и кусок в простое видит готовое. */
+function storageSeenIndexLater(s){
+ if(s.ids.length<20000||typeof setTimeout!=='function')return;
+ const m=new Map();let i=0;
+ const step=()=>{
+  /* Готов (скан построил сам) или таблицу уже сравнили заново — не нужен.
+     Пока s.at нет, s.ids не растёт: storageDiffTail сначала строит указатель. */
+  if(s.at||![...storageSeen.values()].includes(s))return;
+  const end=Math.min(i+20000,s.ids.length);for(;i<end;i++)m.set(s.ids[i],i);
+  if(i<s.ids.length)setTimeout(step,0);else s.at=m;
+ };
+ setTimeout(step,0);
 }
 /* Записи, пришедшие из базы (чужая вкладка) или из опорного состояния
    (откат), — в DB и в опорное состояние. Немного строк — правка на месте;

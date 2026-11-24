@@ -105,7 +105,10 @@ function finSummaryHTML(amount,applied,refunded){
  return `<span>Receipt <b>${finFmt(amount)}</b></span><span>Applied <b>${finFmt(applied)}</b></span>${refunded?`<span>Refunded <b>${finFmt(refunded)}</b></span>`:''}${left<0?`<span class="fin-over">Applied more than received by <b>${finFmt(-left)}</b></span>`:`<span>Left on account (deposit) <b class="fin-deposit">${finFmt(left)}</b></span>`}`;
 }
 function finFormApplied(){return finMoney(finFormOrders().reduce((s,x)=>s+Math.max(0,finMoney(finDraft.apply[x.order.id]||0)),0));}
-function finRefreshSummary(){const el=document.getElementById('finSummary');if(el&&finDraft)el.innerHTML=finReceiptSummary();}
+/* Итоги заказов — из посчитанного (erp/read-scope), как при отрисовке: вне
+   области каждая цифра суммы пересчитывала цены всех заказов клиента по
+   фигурам — 1,9 с на клавишу на слабом ПК (24.11.2026). */
+function finRefreshSummary(){const el=document.getElementById('finSummary');if(el&&finDraft)el.innerHTML=readScope(finReceiptSummary);}
 /* Поля формы прихода и окна Apply deposit: прямо в черновик. */
 function finDraftSet(key,v,redraw){finDraft[key]=v;if(redraw)render();}
 function finDraftCustomer(v){finDraft.customerId=v;finDraft.apply={};render();}

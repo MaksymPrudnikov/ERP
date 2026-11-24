@@ -70,10 +70,15 @@ function renderNav(){
 /* Переход по меню. Модуль может придержать уход (заказ с несохранёнными
    правками спрашивает «сохранить?») — стражи в window.NAV_GUARDS; этот файл
    про заказы по-прежнему не знает. */
-function navGo(k){
+/* then — вид раздела (плитки Overview: вкладка, фильтр): экран рисуется один
+   раз, уже с ним. Раньше раздел рисовался, потом ещё раз с видом — To batch
+   и Due this week дважды (0,5–0,8 с лишних на слабом ПК, 24.11.2026). Уход
+   придержали (несохранённый заказ) — вид не ставится, как и раньше. */
+function navGo(k,then){
  if(!accessCan(k))return;
- const go=()=>{tab=k;subtab=null;navMoreOpen=false;render();};
- if((window.NAV_GUARDS||[]).some(g=>g(k,go)))return;
+ let now=true;
+ const go=()=>{tab=k;subtab=null;navMoreOpen=false;if(!then||!now){render();return;}const n=renderCount;then();if(renderCount===n)render();};
+ if((window.NAV_GUARDS||[]).some(g=>g(k,go))){now=false;return;}
  go();
 }
 let subtab=null;
@@ -111,7 +116,8 @@ document.addEventListener('keydown',e=>{const t=e.target;if(t&&t.matches&&t.matc
 
 /* Отрисовка — одна область указателей (erp/read-scope): экран строит «где
    стёкла заказа» и подобное один раз, а не на каждый заказ. */
-function render(){return readScope(renderScreen);}
+let renderCount=0;
+function render(){renderCount++;return readScope(renderScreen);}
 function renderScreen(){
  document.body.classList.toggle('shape-workspace-mode',tab==='configurators'&&typeof sEdit!=='undefined'&&sEdit!==null&&typeof sDraft!=='undefined'&&!!sDraft);
  /* Экран станции — без меню и шапки ERP (view/station). */

@@ -18,9 +18,9 @@ let readDepth=0,readMemos=null,readForce=false;
    вкладки, с сервера — сбрасывает (storageInvalidate); новый день тоже:
    «сегодня» и просрочка считаются от даты. От экрана, фильтров и открытого
    заказа эти значения не зависят. Внутри записи — только свежие. */
-const READ_KEEP=new Set(['cutPlanByBatch','finPaidByOrder','finTermsByOrder','glassBatchByNo','glassBatchByOrder','glassByCode','glassPieceByOrder','glassProductByCode',
+const READ_KEEP=new Set(['carrierContents','carrierUnitOf','stationAsmsLines','glassQueueEnsure','sheetUsageRows','finHistoryBy','cutPlanByBatch','finPaidByOrder','finTermsByOrder','glassBatchByNo','glassBatchByOrder','glassByCode','glassPieceByOrder','glassProductByCode',
  'recutByOrder','salesById','salesLineStatus','salesMeasureDraft','shapeById','shippingByOrder','shippingCtx','shippingReady','shippingOrders','stationBatchIndex','stationPieceIndex','stationScansByPiece','unitIdByKey','salesListInfos']);
-function readKeepKey(key){return READ_KEEP.has(key)||key.startsWith('mdById:')||key.startsWith('optQueue:');}
+function readKeepKey(key){return READ_KEEP.has(key)||key.startsWith('mdById:')||key.startsWith('optQueue:')||key.startsWith('carrierOn:');}
 let readKeep=new Map(),readKeepDay=0;
 function readScope(fn){
  if(!readDepth++){readMemos=new Map();const d=new Date().getDate();if(d!==readKeepDay){readKeepDay=d;readKeep=new Map();}}

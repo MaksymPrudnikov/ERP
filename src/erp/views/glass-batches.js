@@ -158,8 +158,13 @@ function viewGlassBatches(){
  if(optimizationScope!==tab){optimizationScope=tab;optimizationSel.clear();glassBatchSelection.clear();glassBatchAnchor='';salesListMenu=null;}
  let scope=glassBatchViewScope(),b=glassBatchOpenNumber&&glassBatchFind(glassBatchOpenNumber);
  if(scope==='glassContents'&&!b){glassBatchOpenNumber='';scope='glassBatches';}
- /* Страховка: проверенный заказ без номеров стёкол получает их до показа очереди. */
- if(scope==='glassQueue'&&(DB.salesOrder||[]).reduce((changed,o)=>glassPieceEnsure(o)||changed,false))touch();
+ /* Страховка: проверенный заказ без номеров стёкол получает их до показа очереди.
+    С указателями на весь проход, как на старте (normalizeGlassBatches): без них
+    каждый заказ перебирал все стёкла, юниты и батчи года — To batch на годе
+    рисовался 9 с на каждый клик, 37 с на слабом ПК (24.11.2026). Проход — раз
+    до следующей записи (erp/read-scope, READ_KEEP): фильтр и выбор строки базу
+    не меняют, а проход по году — 0,6 с на клик на слабом ПК. */
+ if(scope==='glassQueue')readMemo('glassQueueEnsure',[DB.salesOrder,DB.glassPiece,DB.glassUnitId],()=>{const ctx=glassPieceCtx();if((DB.salesOrder||[]).reduce((changed,o)=>glassPieceEnsure(o,ctx)||changed,false))touch();return true;});
  const infos=glassBatchInfos(),registry=scope==='glassBatches',filteredRows=salesListRows(infos),pages=registry?Math.max(1,Math.ceil(filteredRows.length/GLASS_BATCH_PAGE_SIZE)):1;
  if(registry){glassBatchPageForFilters();glassBatchPage=Math.min(Math.max(1,glassBatchPage),pages);}
  const rows=registry?filteredRows.slice((glassBatchPage-1)*GLASS_BATCH_PAGE_SIZE,glassBatchPage*GLASS_BATCH_PAGE_SIZE):filteredRows,cols=salesListColumns(),pickable=rows.filter(glassBatchPickable),keys=new Set(pickable.map(glassBatchRowKey));
