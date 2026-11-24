@@ -21,7 +21,7 @@ Owner, 17 Nov 2026: Priority comes first and sets the due date by itself.
 - A line takes up to **10,000** units and up to **999″** width and height: above that Save stops and names the line.
   Above 2,000 it asks “Is this right?” (owner, 24 Nov 2026).
 - A new order with a PO already on another order of the same customer asks “PO … is already on order …”: most often it
-  is a duplicate. **Copy** right after Save does nothing: the second click of a double Save used to open a copy.
+  is a duplicate. The second click of a double Save no longer presses the **Copy** that appears.
 - An order open in two tabs: Update in the tab that is not writing takes over and saves on the first click.
 
 ## Order note (Notes)

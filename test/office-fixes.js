@@ -33,7 +33,7 @@ module.exports = async function ({ page, eq, ok }) {
     const r2 = await p.evaluate(() => {
       const keep = window.confirm; window.confirm = () => true;
       const saved = salesOrderSave(); window.confirm = keep;
-      const id = soEdit; salesCopyOrder(id);
+      render(); document.querySelector('[data-copy-order]').dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 2 }));
       const copy = soEdit === 'new';
       salesDraftDrop(true);
       return { saved, copy, n: DB.salesOrder.length };
@@ -53,17 +53,17 @@ module.exports = async function ({ page, eq, ok }) {
 
   /* О3: сумма с запятой — в 100 раз больше. */
   eq('О3: разбор суммы — US и десятичная запятая, неоднозначное — отказ', await p.evaluate(() =>
-    ['592,40', '1,234.50', '1.234,50', '4,07', '1,234', '1.234', '12,345.678', '$1 200'].map(finMoneyIn)),
-    [592.4, 1234.5, 1234.5, 4.07, 1234, null, null, 1200]);
+    ['592,40', '1,234.50', '1.234,50', '4,07', '1,234', '1,2,3', '12,345.678', '$1 200', '99.999'].map(finMoneyIn)),
+    [592.4, 1234.5, 1234.5, 4.07, 1234, null, null, 1200, 99.999]);
   {
     const cid = await p.evaluate(() => { tab = 'finance'; const c = DB.customer[0]; finNewReceipt(c.id); render(); return c.id; });
     await p.locator('#finAmount').fill('592,40');
     const r = await p.evaluate(() => { finSaveReceipt(); const rc = DB.receipt.filter(x => !x.voided).slice(-1)[0]; return rc && rc.amount; });
     eq('О3: квитанция 592,40 записана как $592.40', r, 592.4);
     await p.evaluate(id => { finNewReceipt(id); render(); }, cid);
-    await p.locator('#finAmount').fill('1.234');
+    await p.locator('#finAmount').fill('1,2,3');
     const bad = await p.evaluate(() => { const n = DB.receipt.length; finSaveReceipt(); const e = document.getElementById('e_fin'); const r = { n: DB.receipt.length - n, err: e && e.style.display !== 'none' && e.textContent }; finDraft = null; finEdit = null; render(); return r; });
-    eq('О3: «1.234» — не записано, причина видна', bad, { n: 0, err: 'Enter a positive amount with a maximum of 10 billion.' });
+    eq('О3: «1,2,3» — не записано, причина видна', bad, { n: 0, err: 'Enter a positive amount with a maximum of 10 billion.' });
   }
 
   /* О4: поле Apply now перекрывала ячейка Balance — клик мышью не попадал. */

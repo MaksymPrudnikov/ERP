@@ -137,7 +137,7 @@ Last month, All time or your own).
 
 1. **Customer**, **Date**, **Method** (Cash, Cheque, E-transfer, Debit, Credit card), **Amount · CAD**, **Reference**
    (cheque or transfer number, last 4 digits of the card), **Note**. Amounts (Amount, Apply now, Refund, Apply deposit)
-   take US format `1,234.50` or a decimal comma `592,40`; an ambiguous entry (`1.234`, three digits after the point) is
+   take US format `1,234.50` or a decimal comma `592,40`; an ambiguous entry (`1,2,3`) is
    not saved (24 Nov 2026).
 2. **Apply to orders of this customer** — the customer's orders with a balance; **Apply now** — how much of the
    receipt goes to that order. **Max** — the whole order balance (if the receipt amount is still empty, it becomes

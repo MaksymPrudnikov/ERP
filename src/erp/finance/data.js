@@ -22,10 +22,12 @@ function finMethodChoices(current){return FIN_METHODS.filter(m=>!m.legacy||m.k==
 function finMoney(v){const n=finMoneyIn(v);return Number.isFinite(n)?Math.round((n+Number.EPSILON)*100)/100:0;}
 /* Сумма, набранная в поле: американский формат «1,234.50» и десятичная
    запятая «592,40» (владелец 24.11.2026). Поле type=number выбрасывало
-   запятую — 592,40 записывалось как $59 240 (аудит, О3). Неоднозначное
-   («1.234», «1,2,3», больше двух знаков после запятой) — NaN: отказ. */
+   запятую — 592,40 записывалось как $59 240 (аудит, О3). Обычное число
+   («99.999», «1.234») — как прежде; с запятой неоднозначное («1,2,3», три
+   знака после десятичной запятой) — NaN: отказ. */
 function finMoneyIn(v){
  if(typeof v!=='string')return Number(v);
+ if(v.trim()!==''&&Number.isFinite(Number(v)))return Number(v);
  const m=v.replace(/[\s$]/g,'').match(/^(-?)([\d.,]*)$/);if(!m||!/\d/.test(m[2]))return v.trim()===''?0:NaN;
  const body=m[2],c=body.lastIndexOf(','),d=body.lastIndexOf('.');
  const grouped=(s,g)=>{const p=s.split(g);return /^\d{1,3}$/.test(p[0])&&p.slice(1).every(x=>/^\d{3}$/.test(x));};

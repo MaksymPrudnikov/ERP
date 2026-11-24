@@ -182,8 +182,9 @@ function salesCloseClick(){const go=()=>salesOrderClose();if(soDraft&&salesDraft
    копия вместо прежнего Repeat («Замени», «Тоже пусть будет копия»). Кнопка
    и пункт меню — одно слово Copy («Может просто одно слово copy»). */
 let soCopyOf=null;
+function salesCopyOrderClick(id,ev){if(ev&&ev.detail>1&&Date.now()-salesSavedAt<800)return;salesCopyOrder(id);}
 function salesCopyOrder(id){
- const o=salesRecord(id);if(!o||Date.now()-salesSavedAt<800)return;
+ const o=salesRecord(id);if(!o)return;
  /* Из архива: копия до того, как его записи уйдут из DB (salesDraftDrop
     убрал бы копии фигур как ничьи). */
  if(typeof archiveViewing==='function'&&archiveViewing(o)){const d=salesCopyOrderDraft(o);archiveVisitEnd();salesCopyOrderShow(d,o);return;}
@@ -264,7 +265,8 @@ function salesOrderSave(opts){
  soSavedBaseline=JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit));salesSavedAt=Date.now();if(!(opts&&opts.noRender))render();return true;
 }
 /* Второй клик двойного Save попадал в Copy, вставшую рядом после записи
-   (аудит 24.11.2026, О2): Copy сразу после Save не срабатывает. */
+   (аудит 24.11.2026, О2): второй клик двойного сразу после Save кнопку
+   Copy не нажимает (salesCopyOrderClick). */
 let salesSavedAt=0;
 /* Строка ошибки заказа. Save в фоне идёт и без заказа на экране — тогда
    ошибка пишется в строку вне экрана. */
