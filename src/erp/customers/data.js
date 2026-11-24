@@ -148,8 +148,8 @@ function exportCustomersJSON(){
  customerDownload('glass_erp_customers.json',JSON.stringify({schema:'glass-erp-customers-v1',exportedAt:new Date().toISOString(),customers:DB.customer},null,2),'application/json');
 }
 /* Текст, который Excel принял бы за формулу (=HYPERLINK… в имени клиента), —
-   с апострофом, как в CSV Finance (аудит 24.11.2026, Н1); parseCsv его снимает. */
-function csvCell(v){return finCsvCell(v);}
+   с апострофом, как в CSV Finance (finCsvCell; аудит 24.11.2026, Н1); parseCsv его снимает. */
+function csvCell(v){let s=String(v==null?'':v);if(!/^-?\d+(\.\d+)?$/.test(s)&&/^(\s*[=+@-]|[\t\r\n])/.test(s))s="'"+s;return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
 function customerPrimaryContact(c){return c.contacts.find(x=>x.isPrimary)||c.contacts[0]||{};}
 function customerAddressByType(c,type){return c.addresses.find(x=>x.type===type&&x.isDefault)||c.addresses.find(x=>x.type===type)||{};}
 function customerCsvRows(){

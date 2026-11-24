@@ -441,8 +441,8 @@ function repExportRows(r,w){
 }
 function repCsvText(r,w){
  const x=repExportRows(r,w);if(!x)return '';
- /* Формула в тексте — с апострофом (Н1, finCsvCell). */
- const cell=v=>{const s=finCsvCell(v);return s[0]!=='"'&&/;/.test(s)?'"'+s+'"':s;};
+ /* Формула в тексте — с апострофом (Н1, csvCell). */
+ const cell=v=>{const s=csvCell(v);return s[0]!=='"'&&/;/.test(s)?'"'+s+'"':s;};
  const val=c=>c.t!=='n'?c.v:c.v==null?'':c.money?c.v.toFixed(2):String(+c.v.toFixed(6));
  return [x.head].concat(x.rows.map(row=>row.map(val))).map(l=>l.map(cell).join(',')).join('\r\n')+'\r\n';
 }
