@@ -61,7 +61,7 @@ async function shopPcs(page, n, make) {
       if (x.hang && x.hang(fn, a)) return new Promise(() => {});
       const bad = x.err && x.err(fn, a);
       if (bad) return Promise.reject(new Error(bad));
-      return srv.rpc(fn, a);
+      return srv.rpc(fn, a, x.user);
     });
     await x.p.evaluate(async ({ keys, url, i }) => {
       cloudConfigSave({ url, key: 'k', device: 'dev-' + i, session: { access: 'x', refresh: 'y', exp: Date.now() + 864e5, email: 'admin@glass-erp.test' } });

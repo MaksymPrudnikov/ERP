@@ -5,7 +5,8 @@
    один вход администратора. s.rpc(name, args) — как PostgREST: вызов
    функции public.<name> с именованными аргументами, ответ — её JSON.
    s.calls — что пришло в erp_apply (staged, таблицы expect, конфликты);
-   s.fail(name, args) — обрыв связи; s.row(tbl, id) — строка на сервере. */
+   s.fail(name, args) — обрыв связи; s.row(tbl, id) — строка на сервере;
+   s.member(uid, email, sections) — ещё один вход, s.rpc(…, uid) — от него. */
 const { pgliteServer } = require('../tools/supabase/pglite');
 
 const ADMIN = '00000000-0000-0000-0000-0000000000a1';
@@ -26,13 +27,13 @@ async function server(records) {
   const one = fn => { const p = queue.then(fn, fn); queue = p.catch(() => {}); return p; };
   const s = {
     calls: [], fail: null,
-    rpc(name, a) {
+    rpc(name, a, uid) {
       return one(async () => {
         if (s.fail && s.fail(name, a)) throw new Error('No connection to the server.');
         if (!RPC.has(name)) throw new Error('Unexpected ' + name);
         const keys = Object.keys(a || {}), vals = keys.map(k => a[k] !== null && typeof a[k] === 'object' ? JSON.stringify(a[k]) : a[k]);
         const args = keys.map((k, i) => k + ' => $' + (i + 1) + (a[k] !== null && typeof a[k] === 'object' ? '::jsonb' : '')).join(', ');
-        await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ADMIN]);
+        await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [uid || ADMIN]);
         await db.exec('set role authenticated');
         let out;
         try { out = (await db.query(`select public.${name}(${args}) as r`, vals)).rows[0].r; }
@@ -45,6 +46,12 @@ async function server(records) {
     async row(tbl, id) {
       const r = (await db.query(`select data #>> '{}' as data, deleted from public.erp_record where tbl = $1 and id = $2`, [tbl, id])).rows[0];
       return r && !r.deleted ? { data: r.data } : null;
+    },
+    /* Ещё один вход: участник с разделами (s.rpc(name, args, uid)). */
+    async member(uid, email, sections) {
+      await db.query(`insert into auth.users (id, email) values ($1, $2) on conflict (id) do nothing`, [uid, email]);
+      await db.query(`insert into public.erp_member (user_id, name, admin, sections) values ($1, $2, false, $3)
+        on conflict (user_id) do update set sections = excluded.sections`, [uid, email, sections]);
     },
     async ids(tbl) { return (await db.query(`select id from public.erp_record where tbl = $1 and not deleted order by id`, [tbl])).rows.map(r => r.id); },
     async count(tbl) { return Number((await db.query(`select count(*) as n from public.erp_record where tbl = $1 and not deleted`, [tbl])).rows[0].n); },

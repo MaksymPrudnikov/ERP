@@ -151,10 +151,17 @@ language sql stable set search_path = public, pg_temp as $$
 $$;
 -- Строка архива (_archive) читается ещё и по правилу своей таблицы: выписка
 -- `L:<таблица>:<id>` — как та таблица (оплата — как оплата), указатель Sales
--- — как заказ (аудит 25.10.2026, A-6). Пишет архив любой пишущий ПК.
+-- — как заказ (аудит 25.10.2026, A-6). Пишется так же — по правилу записи
+-- своей таблицы: с одним Production архив оплат переписывали с планшета
+-- (аудит 24.11.2026, В4).
 create or replace function public.erp_can_read_row(m public.erp_member, t text, id text) returns boolean
 language sql stable set search_path = public, pg_temp as $$
   select public.erp_can_read(m, t) and (t <> '_archive' or public.erp_can_read(m,
+    case when id like 'L:%:%' then split_part(id, ':', 2) else 'salesOrder' end))
+$$;
+create or replace function public.erp_can_write_row(m public.erp_member, t text, id text) returns boolean
+language sql stable set search_path = public, pg_temp as $$
+  select public.erp_can_write(m, t) and (t <> '_archive' or public.erp_can_write(m,
     case when id like 'L:%:%' then split_part(id, ':', 2) else 'salesOrder' end))
 $$;
 
@@ -207,8 +214,10 @@ begin
   end if;
   -- Одна запись за раз: rev в журнале идут в порядке записи.
   perform pg_advisory_xact_lock(7240001);
-  select result into prev from public.erp_command where id = command_id;
+  -- Повтор — только своей команды: чужой id не отдаёт чужой ответ (Н6).
+  select result into prev from public.erp_command where id = command_id and user_id = me.user_id;
   if found then return prev; end if;
+  if exists (select 1 from public.erp_command where id = command_id) then raise exception 'Command id is taken.'; end if;
 
   -- Save частями: до последней — в erp_stage; последняя забирает все.
   if grp is not null and coalesce((grp->>'total')::int, 1) > 1 then
@@ -240,7 +249,7 @@ begin
 
   -- Таблица чужого раздела — отказ всей команды, ничего не записано.
   select coalesce(jsonb_agg(distinct x->>'tbl'), '[]'::jsonb) into bad
-    from jsonb_array_elements(changes) x where not public.erp_can_write(me, x->>'tbl');
+    from jsonb_array_elements(changes) x where not public.erp_can_write_row(me, x->>'tbl', x->>'id');
   if jsonb_array_length(bad) > 0 then
     res := jsonb_build_object('ok', false, 'denied', bad);
     insert into public.erp_command (id, user_id, device, build, result)
@@ -254,6 +263,19 @@ begin
       bad := bad || jsonb_build_object('tbl', e->>'tbl', 'id', e->>'id', 'ver', (e->>'ver')::bigint, 'now', coalesce(cur, 0));
     end if;
   end loop;
+  -- Строка есть на сервере, а версии команда не знает — не затирать вслепую:
+  -- конфликт, ERP возьмёт серверную копию (аудит 24.11.2026, С5). Upload
+  -- администратора (команды up-…) пишет базу целиком и продолжает прерванный.
+  if not (me.admin and command_id like 'up-%') then
+    for c in select * from jsonb_array_elements(changes) loop
+      if not exists (select 1 from jsonb_array_elements(coalesce(expect, '[]')) x where x->>'tbl' = c->>'tbl' and x->>'id' = c->>'id') then
+        select ver into cur from public.erp_record where tbl = c->>'tbl' and id = c->>'id' and not deleted;
+        if found then
+          bad := bad || jsonb_build_object('tbl', c->>'tbl', 'id', c->>'id', 'ver', null, 'now', cur);
+        end if;
+      end if;
+    end loop;
+  end if;
 
   if jsonb_array_length(bad) > 0 then
     res := jsonb_build_object('ok', false, 'conflict', bad);
@@ -269,8 +291,9 @@ begin
         insert into public.erp_counter as k (name, next) values (c->'number'->>'name', substr(v, length(pre) + 1)::bigint + 1)
           on conflict (name) do update set next = greatest(k.next, substr(v, length(pre) + 1)::bigint) + 1
           returning next - 1 into n;
-        t := pre || case when length(n::text) >= coalesce((c->'number'->>'pad')::int, 0) then n::text
-                         else lpad(n::text, (c->'number'->>'pad')::int, '0') end;
+        -- pad — до 12 знаков: 100 000 000 клал сервер по памяти (С4).
+        i := least(greatest(coalesce((c->'number'->>'pad')::int, 0), 0), 12);
+        t := pre || case when length(n::text) >= i then n::text else lpad(n::text, i, '0') end;
         nums := nums || jsonb_build_object((c->>'tbl') || '|' || (c->>'id'), t);
         if t <> v then swap := swap || jsonb_build_array(jsonb_build_array(v, t)); end if;
       end if;
@@ -281,7 +304,7 @@ begin
       -- Замена в два шага: новый номер одной пары бывает старым у другой.
       if d is not null and jsonb_array_length(swap) > 0 then
         txt := case when jsonb_typeof(d) = 'string' then d #>> '{}' else d::text end;
-        keys := 'businessNumber|number|no|order|orderNumber|ps|doc|before|after' || case when c->>'tbl' = 'orderEvent' then '|note' else '' end;
+        keys := 'businessNumber|number|no|order|orderNumber|ps|doc|before|after' || case c->>'tbl' when 'orderEvent' then '|note' when 'customer' then '|code' else '' end;
         for i in 0 .. jsonb_array_length(swap) - 1 loop
           txt := regexp_replace(txt, '("(?:' || keys || ')"\s*:\s*|[\[,]\s*)"' || (swap->i->>0) || '"(?=\s*[,\]}])',
                                 '\1"' || chr(1) || i || chr(1) || '"', 'g');
@@ -545,6 +568,33 @@ end $$;
 revoke all on function public.erp_facts_full(public.erp_member) from public, anon, authenticated;
 revoke all on function public.erp_facts_get(jsonb, boolean), public.erp_facts_put(jsonb) from public, anon;
 grant execute on function public.erp_facts_get(jsonb, boolean), public.erp_facts_put(jsonb) to authenticated;
+
+-- День архива (аудит 24.11.2026, Н5): уход в архив делает один ПК. Его
+-- занимает тот, кто может писать все таблицы (архив переносит строки всех
+-- разделов); пачки он продлевает тем же вызовом. Другой ПК получает false и
+-- ждёт; ПК пропал на 30 минут — день берёт следующий.
+create table if not exists public.erp_archive_lock (
+  day text primary key,
+  device text not null,
+  at timestamptz not null default now()
+);
+alter table public.erp_archive_lock enable row level security;
+revoke all on public.erp_archive_lock from public, anon, authenticated;
+create or replace function public.erp_archive_take(day text, device text)
+returns boolean language plpgsql volatile security definer set search_path = public, pg_temp as $$
+declare me public.erp_member := public.erp_me(); got text;
+begin
+  if coalesce(day, '') !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' or coalesce(device, '') = '' then raise exception 'Bad archive day.'; end if;
+  if exists (select 1 from public.erp_table_rule r where not public.erp_can(me, r.write_section)) then return false; end if;
+  delete from public.erp_archive_lock l where l.day < to_char(now() - interval '7 days', 'YYYY-MM-DD');
+  insert into public.erp_archive_lock as l (day, device, at) values (erp_archive_take.day, erp_archive_take.device, now())
+    on conflict on constraint erp_archive_lock_pkey do update set device = excluded.device, at = now()
+    where l.device = excluded.device or l.at < now() - interval '30 minutes'
+    returning l.device into got;
+  return got is not null;
+end $$;
+revoke all on function public.erp_archive_take(text, text) from public, anon;
+grant execute on function public.erp_archive_take(text, text) to authenticated;
 
 -- Первый администратор — вход admin@glass-erp.test (тестовый проект). Для
 -- другого адреса поменяйте его здесь перед запуском.

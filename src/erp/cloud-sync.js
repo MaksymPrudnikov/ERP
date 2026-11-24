@@ -29,13 +29,15 @@
    базы (_meta …Seq) на сервер не ходят: каждый компьютер ведёт свой.
    ============================================================================ */
 /* Команда — до 500 строк и около 1 МБ: заказ с чертежами весит десятки КБ. */
-const CLOUD_CHUNK=500,CLOUD_CHUNK_BYTES=1e6,CLOUD_POLL_MS=5000;
+const CLOUD_CHUNK=500,CLOUD_CHUNK_BYTES=1e6,CLOUD_POLL_MS=5000,CLOUD_RIGHTS_MS=300e3;
 /* Номер документа новой строки: [счётчик, поле, префикс, цифр не меньше]. */
 const CLOUD_NUMBER={
  salesOrder:o=>o.kind==='quote'?['quote','businessNumber','Q-',0]:['order','businessNumber','',0],
  receipt:()=>['receipt','number','R-',4],refund:()=>['refund','number','RF-',4],shipment:()=>['shipment','number','PS-',4],ncr:()=>['ncr','number','NCR',0],
  purchaseOrder:()=>['po','number','PO-',4],purchaseInvoice:()=>['pi','number','PI-',4],purchasePayment:()=>['pp','number','PP-',4],
- purchaseReceipt:()=>['gr','number','GR-',4],purchaseDeliveryRequest:()=>['dr','number','DR-',4]};
+ purchaseReceipt:()=>['gr','number','GR-',4],purchaseDeliveryRequest:()=>['dr','number','DR-',4],
+ /* Код клиента C-00012 — тоже от сервера: два ПК без связи давали один (В1). */
+ customer:()=>['customer','code','C-',5]};
 /* Блоки внутренних номеров: [размер, последний номер в базе]. Осталось
    меньше половины — берётся следующий. */
 const CLOUD_BLOCK={
@@ -96,6 +98,8 @@ async function cloudBlocksFill(){
  /* Блоки снова есть — предупреждение больше не верно. */
  if(s.warn===CLOUD_NO_BLOCK&&Object.keys(CLOUD_BLOCK).every(k=>cloudBlockLeft(s.blocks.get(k))>0))s.warn='';
 }
+/* Номер строки ещё ждёт сервера: команда с ним в очереди (С3, печать DRAFT). */
+function cloudNumberPending(tbl,id){const s=cloudSync;return !!s.on&&s.out.some(o=>cloudCmdRows(o).some(c=>c.num&&c.tbl===tbl&&c.id===id));}
 /* Номер, который дал этот компьютер новой строке документа. */
 function cloudNumber(c){
  const f=CLOUD_NUMBER[c.tbl];if(!f||typeof c.data!=='string')return null;
@@ -108,7 +112,7 @@ function cloudNumber(c){
    и строка списка (рейс — список PS). PO клиента, Mark, Notes с тем же
    текстом не меняются (аудит 25.10.2026, A-4). */
 const CLOUD_NUMBER_KEYS='businessNumber|number|no|order|orderNumber|ps|doc|before|after';
-function cloudNumberRe(tbl,a){return new RegExp('("(?:'+CLOUD_NUMBER_KEYS+(tbl==='orderEvent'?'|note':'')+')"\\s*:\\s*|[\\[,]\\s*)"'+a+'"(?=\\s*[,\\]}])','g');}
+function cloudNumberRe(tbl,a){return new RegExp('("(?:'+CLOUD_NUMBER_KEYS+(tbl==='orderEvent'?'|note':tbl==='customer'?'|code':'')+')"\\s*:\\s*|[\\[,]\\s*)"'+a+'"(?=\\s*[,\\]}])','g');}
 function cloudRenumber(changes,moved){
  let hit=false;
  changes.forEach(c=>{if(typeof c.data!=='string')return;let t=c.data;
@@ -144,7 +148,7 @@ async function cloudLoadHead(){
 }
 async function cloudLoad(){
  const got=await storageIdbCloudAll(),s=cloudSync,head=s.head,parked=[];
- s.vers=new Map();s.out=[];s.ref='';s.base=null;s.since=0;s.n=0;s.replay=[];
+ s.vers=new Map();s.out=[];s.ref='';s.base=null;s.since=0;s.n=0;s.replay=[];s.rights=null;s.rightsAt=0;
  got.keys.forEach((k,i)=>{
   const v=got.values[i];
   if(k==='ref')s.ref=v;else if(k==='base')s.base=v;else if(k==='since')s.since=+v||0;else if(k==='n')s.n=+v||0;
@@ -156,6 +160,7 @@ async function cloudLoad(){
   else if(k.startsWith('e\u0000'))parked.push([k,v]);
   else if(k.startsWith('p\u0000'))s.replay.push({key:k,intent:v});
   else if(k==='f')s.scanFail=Array.isArray(v)?v:[];
+  else if(k==='rt')s.rights=Array.isArray(v)?v:null;
  });
  s.on=!!s.ref&&s.ref===cloudConfig().url;s.loaded=true;s.head=false;s.blocksRead=true;s.parked=0;
  /* Правки, сделанные до чтения склада, — в очередь теперь: каждая своей
@@ -189,8 +194,10 @@ async function cloudLoad(){
    Только с сервером; строки без версии на сервере (ещё не отправленные) —
    своей командой и так. */
 const CLOUD_CHECK={
- /* Разнесение по долгу заказа (C4). */
- receipt:(r,old)=>{const now=cloudAllocated(r),was=cloudAllocated(old);return [...now].filter(([id,v])=>v>(was.get(id)||0)).map(([id])=>cloudOrderKey(id));},
+ /* Разнесение по долгу заказа (C4). Меньше на заказе (Void, правка) — тоже:
+    заказ тем временем мог уйти в архив оплаченным, и долг прятался в
+    архиве (аудит 24.11.2026, Т3). */
+ receipt:(r,old)=>{const now=cloudAllocated(r),was=cloudAllocated(old);return [...new Set([...now.keys(),...was.keys()])].filter(id=>(now.get(id)||0)!==(was.get(id)||0)).map(cloudOrderKey);},
  /* Возврат по свободному остатку оплаты (C4). */
  refund:(r,old)=>old?[]:[['receipt',r.receiptId]],
  /* Выплата агенту по его долгу (F06). */
@@ -202,7 +209,10 @@ const CLOUD_CHECK={
   (old&&old.extras||[]).forEach(x=>qty.set(x.orderId+'|'+x.extraId,(qty.get(x.orderId+'|'+x.extraId)||0)+x.qty));
   const ids=(s.items||[]).filter(i=>!i.added&&!had.has(i.label)).map(i=>i.orderId)
    .concat((s.extras||[]).filter(x=>x.qty>(qty.get(x.orderId+'|'+x.extraId)||0)).map(x=>x.orderId));
-  return [...new Set(ids)].map(cloudOrderKey);
+  /* Shipped — по сканам погрузки этих стёкол: грузчик в ту же минуту
+     отменял скан, и юнит был и отгружен, и снова ждал погрузки (Т2). */
+  const scans=old&&old.status!=='shipped'&&s.status==='shipped'&&typeof shippingStations==='function'?cloudShipScans(s):[];
+  return [...new Set(ids)].map(cloudOrderKey).concat(scans);
  },
  /* Пересчёт Stock items «было → стало» (C13); Add и Remove — факты. */
  stockItemEvent:(e,old)=>!old&&e.kind==='count'?[['stockItem',e.itemId]]:[],
@@ -230,6 +240,7 @@ const CLOUD_FACT={
  skidReturn:'skid scanned back: a fact',truck:'truck card',carrier:'dolly or skid card',carrierEvent:'scan: a fact',
  tripKm:'trip kilometres',stockReason:'reason list',financeVersion:'format mark'
 };
+function cloudShipScans(s){const st=shippingStations().ship,pieces=new Set((s.items||[]).flatMap(i=>i.pieces||[]));return (DB.stationScan||[]).filter(x=>x.station===st&&!x.undoneAt&&pieces.has(x.piece)).map(x=>['stationScan',x.id]);}
 /* Заказ — по его условиям оплаты (financeTerms, строка маленькая); нет их —
    по самому заказу. */
 function cloudOrderKey(id){const t=storageBase.get('financeTerms');return [t&&t.has(id)?'financeTerms':'salesOrder',id];}
@@ -407,6 +418,8 @@ async function cloudPushQueue(){
    if(moved.length){
     s.out.forEach(o=>{if(cloudRenumber(o.changes,moved)){o.renum=true;const{key,...keep}=o;ops.push([key,keep]);}});
     if(typeof soDraft!=='undefined'&&soDraft)moved.forEach(([a,b])=>{if(soDraft.businessNumber===a)soDraft.businessNumber=b;});
+    /* Номер сменился — видно, пока не закрыли: печать до этого шла с DRAFT (С3). */
+    cloudWarnNames(moved.map(([a,b])=>a+' → '+b),'Number changed');s.warnAt=0;
    }
    if(moved.length||cmd.renum)rows.forEach(c=>{if(c.del)return;const k=cloudKey(c.tbl,c.id);s.refresh.add(k);ops.push(['r\u0000'+k,1]);});
    if(!s.out.length){s.lost.clear();s.lostGrp.clear();}cloudWriteLocal([],ops);continue;
@@ -417,6 +430,9 @@ async function cloudPushQueue(){
   if(s.out[0]!==cmd)return;
   /* Имена — до того, как строки станут серверной копией. */
   const names=cmd.intent&&!r.denied?[]:cloudRejectNames(cmd,r);
+  /* Строка ушла в архив на другом ПК — так и сказать (Т5), а не «изменена». */
+  const gone=new Set((Array.isArray(now)?now:[]).filter(x=>x&&x.cold).map(x=>cloudKey(x.tbl,x.id)));
+  const archived=gone.size&&!r.denied&&!r.failed?cloudRejectNames(cmd,{conflict:(r.conflict||[]).filter(x=>gone.has(cloudKey(x.tbl,x.id)))}):[];
   s.out.shift();keys.forEach(k=>s.lost.add(cloudKey(k.tbl,k.id)));
   /* Скан и Undo повторятся на свежих строках (cloudReplayRun): записан с
      отказом тем же write — F5 посреди не теряет. */
@@ -424,6 +440,7 @@ async function cloudPushQueue(){
   cloudApplyServer(Array.isArray(now)?now:[],keys,ops);
   if(!s.out.length){s.lost.clear();s.lostGrp.clear();}
   if(r.denied)cloudWarn('No access on server: '+r.denied.join(', ')+'. Server copy shown.');
+  else if(archived.length)cloudWarnNames(archived,'Went to the archive on another computer');
   else if(names.length)cloudWarnNames(names,r.failed?'Not accepted by the server ('+String(r.failed).slice(0,80)+')':'Changed on another computer');
  }
 }
@@ -434,7 +451,7 @@ function cloudWarn(text){const s=cloudSync;s.warn=text;s.warnAt=Date.now();s.war
 function cloudWarnNames(names,head){
  const s=cloudSync,all=[...new Set((s.warn&&s.warnHead===head?s.warnNames:[]).concat(names))];
  s.warnNames=all;s.warnHead=head;s.warnAt=Date.now();
- s.warn=head+': '+all.slice(0,6).join(', ')+(all.length>6?' +'+(all.length-6)+' more':'')+'. Server copy shown.';
+ s.warn=head+': '+all.slice(0,6).join(', ')+(all.length>6?' +'+(all.length-6)+' more':'')+(head==='Number changed'?'.':'. Server copy shown.');
 }
 function cloudRejectNames(cmd,r){
  const mine=new Map();cmd.changes.forEach(c=>mine.set(cloudKey(c.tbl,c.id),c));
@@ -491,6 +508,18 @@ function cloudNewBaseIn(rows){
  if(m)cloudBaseSeen(m.deleted?null:cloudUploadOf(m));
  return cloudSync.newBase;
 }
+/* Новые права (раздел, администратор): опрос не приносил старых строк этих
+   таблиц — курсор erp_changes шёл и через нечитаемые (аудит 24.11.2026,
+   В3). Права выросли — опрос с нуля: известные версии пропускаются. */
+async function cloudRightsCheck(){
+ const s=cloudSync;if(Date.now()-(s.rightsAt||0)<CLOUD_RIGHTS_MS)return;
+ const me=await cloudRpc('erp_whoami');s.rightsAt=Date.now();if(!me||typeof me!=='object')return;
+ const now=me.admin?['*']:[...(me.sections||[])].map(String).sort(),was=s.rights;
+ const grew=!!was&&!was.includes('*')&&(now.includes('*')||now.some(x=>!was.includes(x)));
+ if(JSON.stringify(now)===JSON.stringify(was))return;
+ s.rights=now;const ops=[['rt',now]];if(grew){s.since=0;ops.push(['since',0]);}
+ storageWrite([],ops);
+}
 async function cloudPull(){
  const s=cloudSync;
  for(;;){
@@ -521,7 +550,7 @@ async function cloudSyncTick(){
    if(!s.loaded)await cloudLoad();
    /* Чья это база: до первой отправки и перед каждой (cloudBaseCheck). */
    if(s.on&&storageWriter&&!s.newBase&&(s.base==null||s.out.length))await cloudBaseCheck();
-   if(s.on&&storageWriter&&!s.newBase){await cloudPushAll();await cloudPull();await cloudBlocksFill();s.offline=false;s.error='';s.wait=CLOUD_POLL_MS;s.at=new Date().toISOString();}
+   if(s.on&&storageWriter&&!s.newBase){await cloudPushAll();await cloudRightsCheck();await cloudPull();await cloudBlocksFill();s.offline=false;s.error='';s.wait=CLOUD_POLL_MS;s.at=new Date().toISOString();}
   }catch(e){
    /* Просрочен вход: сырой ответ сервера людям ни о чём не говорит. */
    if(/No connection/.test(e.message))s.offline=true;else s.error=/JWT|refresh token/i.test(e.message)?'Sign in to the server again.':e.message;

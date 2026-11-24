@@ -136,7 +136,7 @@ module.exports=async function({page,eq}){
  const no=(t,id)=>t.p.evaluate(id=>DB.salesOrder.find(o=>o.id===id).businessNumber,id);
  eq('два ПК сохранили заказ с одним номером: первый его держит, второй получает следующий — и у себя, и у первого',
   {same:oa.no===ob.no,a:await no(A,oa.id),b:await no(B,ob.id),bOnA:await no(A,ob.id),warn:await B.p.evaluate(()=>cloudSync.warn)},
-  {same:true,a:oa.no,b:String(+oa.no+1),bOnA:String(+oa.no+1),warn:''});
+  {same:true,a:oa.no,b:String(+oa.no+1),bOnA:String(+oa.no+1),warn:'Number changed: '+oa.no+' → '+(+oa.no+1)+'.'});
  eq('следующий заказ на любом ПК — после обоих',await (async()=>{const x=await order(B);await sync(B);return no(B,x.id);})(),String(+oa.no+2));
  await sync(A);srv.down=true;const oc=await order(B);
  await B.p.evaluate(id=>storageCommand(()=>{const o=DB.salesOrder.find(o=>o.id===id);o.customerPo=o.businessNumber;o.notes=o.businessNumber;}),oc.id);

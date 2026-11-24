@@ -1,6 +1,6 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 5.339 · 24 ноября 2026 — офис: суммы с запятой, двойной Save, пределы строки, Update во второй вкладке.
+Версия 5.340 · 24 ноября 2026 — сервер: номер без связи — DRAFT, день архива — один ПК.
 
 ## Как читать
 
@@ -684,12 +684,12 @@ masterdata.*` и `forms.*`.
 - **Два ПК — правильно всегда** (09.11): общий список сверок принят владельцем — возврат, разнесение, оплата в два
   заказа, Void против возврата, QuickBooks дважды, стекло в два батча, выплата агенту, юнит в две PS, пересчёты,
   кусок `S-`. Факты человека — без сверки.
-- Номера документов подряд с сервера (заказ, квота, PS, NCR, PO…); внутренние (G-, U-, S-, B-) — блоками, пропуски
+- Номера документов подряд с сервера (заказ, квота, PS, NCR, PO, код `C-`), до ответа печать DRAFT (24.11); внутренние (G-, U-, S-, B-) — блоками, пропуски
   допустимы (23.10).
 - `schema.sql` запускает владелец в Supabase SQL Editor (повтор безопасен), затем F5 на ПК. `service_role` никогда в
   браузер. Сервер очищают по слову владельца, без сброса `erp_log.rev` (09.11). Компьютер со старой базой — и без
   своих правок — из новой ничего не дописывает: отметка Upload другой базы в ленте останавливает приём, курсор стоит;
-  Download from server — рядом с «Server has a new database», без Stop sync (19.11, «Второй ПК со старой базой…» (2026-11)).
+  Download from server — рядом с «Server has a new database», без Stop sync (19.11).
 - Export, Import, Clear — в Users → Cloud → Data; Import на подключённом ПК — отказ, сначала Stop sync (02.11).
   Upload, когда запись этого браузера не удалась (`storageFlush` → false, «Not saved»), — отказ «Not saved here. Retry
   save, then Upload.»: иначе на сервер ушла бы база без незаписанного с меткой «готово» (19.11).
@@ -752,7 +752,7 @@ masterdata.*` и `forms.*`.
 
 **Как устроено**: запись `{tbl, id, seq, data}`, `storageCommand(fn, scope)` пишет только изменённое,
 `storageFlush`; отказ — «Not saved…» и Retry; Export v2 — `glazing_system_data.ndjson` построчно; архив
-`archive.js` (`archiveDue`, `archiveAuto` пачками по 20 при пустой очереди, `archiveFloor` — номера не повторяются,
+`archive.js` (`archiveDue`, `archiveAuto` пачками по 20 при пустой очереди, день — один ПК (`erp_archive_take`), `archiveFloor` — номера не повторяются,
 `archiveReturn`, `archiveOpen`); указатели `readScope` / `readMemo`. Сторожа: `test/storage-records.js`,
 `storage-cold`, `archive`, `base-start`, `read-scope`, `narrow-write`.
 

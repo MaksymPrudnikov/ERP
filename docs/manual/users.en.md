@@ -96,6 +96,12 @@ is a new server sign-in.
   copy; every such order is named, six at a time and “+N more”. Station scans and Undo are not lost this way: they
   repeat by themselves (Production, “Server link”). “Not accepted by the server (…)” — the server refused a record three
   times: it leaves the queue so it does not hold the rest. “No access on server: …” — the person lacks the section for those records.
+  “Went to the archive on another computer: …” — an order edited here was already sent to the archive by another computer.
+- The server gives the number of a new document (order, quote, PS, payment, PO, customer code `C-`). While the document
+  waits to be sent (no connection), its paper and PDF print with a small red **DRAFT** next to the number. If another
+  computer took the number first, the server gives the next one, and “Number changed: 76003 → 76004” stays at the
+  bottom until closed (24 Nov 2026). When a person gets more rights (Finance added), the old rows of that section arrive
+  by themselves, no Download needed.
 - A decision on a shared balance made on two computers the same minute is recorded once; the second gets “Changed on
   another computer”: a refund or allocation from one payment, payments on one debt, an agent payout, a PS with the same
   units, a count of sheets, consumables or Stock items, an `S-` piece in a cut layout or Not found, a batch with the same
@@ -106,4 +112,5 @@ is a new server sign-in.
 ### Archive
 
 Finished work (shipped and fully paid, after 3 months) goes to the archive; with a server the archive lives only there
-and opens on request (owner, 22 Oct and 1 Nov 2026).
+and opens on request (owner, 22 Oct and 1 Nov 2026). With a server one computer a day sends work to the archive — one
+with rights to every section; the others wait (24 Nov 2026).
