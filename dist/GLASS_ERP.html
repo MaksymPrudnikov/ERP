@@ -8,7 +8,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-lM8iNBxEL7PSmOycFmrv3U5VC/sU9MWixOep7nsJolI=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-7vMIZJudLhcA4/3Ut6JyK8VDuFBghrptFkTav7MFSYY=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GLASS ERP — Glazing System</title>
 <style>
@@ -4698,7 +4698,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='311be2041fe9';
+var ERP_BUILD='b4f24719751c';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -16471,11 +16471,11 @@ function finTotalsForget(changes){
   else if(c.tbl==='shapeDef'){
    const was=storageBase.get('shapeDef'),old=was&&was.get(c.id);if(!old)continue;
    const owners=[old.t,c.del?null:c.data].filter(Boolean).map(t=>{try{return JSON.parse(t).ownerLineId||'';}catch(e){return '';}});
-   if(owners.some(x=>!x)){finTotalsKeep=new Map();return;}
+   if(owners.some(x=>!x)){finTotalsKeep=new Map();finTotalsWarm();return;}
    if(!lines){lines=new Map();finTotalsKeep.forEach((k,id)=>(k.order.lines||[]).forEach(l=>lines.set(l.id,id)));}
    owners.forEach(x=>{if(lines.has(x))finTotalsKeep.delete(lines.get(x));});
   }
-  else if(!FIN_TOTALS_NEUTRAL.has(c.tbl==='_meta'?c.id:c.tbl)&&c.tbl!=='_archive'){finTotalsKeep=new Map();return;}
+  else if(!FIN_TOTALS_NEUTRAL.has(c.tbl==='_meta'?c.id:c.tbl)&&c.tbl!=='_archive'){finTotalsKeep=new Map();finTotalsWarm();return;}
  }
 }
 function finOrderTotals(order){
@@ -16491,10 +16491,14 @@ function finOrderTotals(order){
 }
 /* После F5 итоги заказов считаются понемногу в простое (30 мс за шаг), и
    первый вход в Finance берёт готовое. Не на станции, не без Finance и не
-   во время ввода: скан и набор заказа важнее. */
+   во время ввода: скан и набор заказа важнее. Правка, после которой итоги
+   забыты все (клиент, прайс, настройки — finTotalsForget), прогревает их
+   заново с начала: иначе следующий вход в Finance считал бы весь год
+   (2,5 с на слабом ПК, задание скорости 24.11.2026). */
 let finTotalsWarmTimer=null;
 function finTotalsWarm(delay){
- if(finTotalsWarmTimer||typeof window==='undefined'||window.GF_NO_ARCHIVE)return;
+ if(typeof window==='undefined'||window.GF_NO_ARCHIVE)return;
+ if(finTotalsWarmTimer)clearTimeout(finTotalsWarmTimer);
  let i=0;
  const step=()=>{
   finTotalsWarmTimer=null;
@@ -16708,7 +16712,14 @@ function finCents(v){const n=finMoneyIn(v);return v!==''&&v!=null&&Number.isFini
 function finAssert(cond,message){if(!cond)throw new Error(message);}
 function finCurrency(r){return r&&r.currency||'CAD';}
 function finRefunded(id){return finMoney((DB.refund||[]).filter(r=>r.receiptId===id&&!r.voided).reduce((s,r)=>s+r.amount,0));}
-function finHistoryFor(id){return (DB.financeEvent||[]).filter(e=>e.entityId===id);}
+/* В отрисовке — указатель «запись → её события» один проход журнала
+   (erp/read-scope): фильтр Payments по заказу спрашивал историю каждой оплаты
+   года перебором всего журнала — 0,8 с на клик на слабом ПК (24.11.2026).
+   Порядок событий тот же. Списки только читают. */
+function finHistoryFor(id){
+ if(readOn())return readMemo('finHistoryBy',[DB.financeEvent],()=>{const m=new Map();(DB.financeEvent||[]).forEach(e=>{let a=m.get(e.entityId);if(!a)m.set(e.entityId,a=[]);a.push(e);});return m;}).get(id)||[];
+ return (DB.financeEvent||[]).filter(e=>e.entityId===id);
+}
 function finJournalTop(){return (DB.financeEvent||[]).reduce((n,e)=>Math.max(n,e.seq||0),typeof archiveFloor==='function'?archiveFloor('financeEvent'):0);}
 function finEvent(kind,before,after,reason,entity){
  finMark('financeEvent',{refund:'refund',terms:'financeTerms'}[entity]||'receipt');
@@ -18205,9 +18216,9 @@ let readDepth=0,readMemos=null,readForce=false;
    вкладки, с сервера — сбрасывает (storageInvalidate); новый день тоже:
    «сегодня» и просрочка считаются от даты. От экрана, фильтров и открытого
    заказа эти значения не зависят. Внутри записи — только свежие. */
-const READ_KEEP=new Set(['cutPlanByBatch','finPaidByOrder','finTermsByOrder','glassBatchByNo','glassBatchByOrder','glassByCode','glassPieceByOrder','glassProductByCode',
+const READ_KEEP=new Set(['carrierContents','carrierUnitOf','stationAsmsLines','glassQueueEnsure','sheetUsageRows','finHistoryBy','cutPlanByBatch','finPaidByOrder','finTermsByOrder','glassBatchByNo','glassBatchByOrder','glassByCode','glassPieceByOrder','glassProductByCode',
  'recutByOrder','salesById','salesLineStatus','salesMeasureDraft','shapeById','shippingByOrder','shippingCtx','shippingReady','shippingOrders','stationBatchIndex','stationPieceIndex','stationScansByPiece','unitIdByKey','salesListInfos']);
-function readKeepKey(key){return READ_KEEP.has(key)||key.startsWith('mdById:')||key.startsWith('optQueue:');}
+function readKeepKey(key){return READ_KEEP.has(key)||key.startsWith('mdById:')||key.startsWith('optQueue:')||key.startsWith('carrierOn:');}
 let readKeep=new Map(),readKeepDay=0;
 function readScope(fn){
  if(!readDepth++){readMemos=new Map();const d=new Date().getDate();if(d!==readKeepDay){readKeepDay=d;readKeep=new Map();}}
@@ -18359,10 +18370,15 @@ function renderNav(){
 /* Переход по меню. Модуль может придержать уход (заказ с несохранёнными
    правками спрашивает «сохранить?») — стражи в window.NAV_GUARDS; этот файл
    про заказы по-прежнему не знает. */
-function navGo(k){
+/* then — вид раздела (плитки Overview: вкладка, фильтр): экран рисуется один
+   раз, уже с ним. Раньше раздел рисовался, потом ещё раз с видом — To batch
+   и Due this week дважды (0,5–0,8 с лишних на слабом ПК, 24.11.2026). Уход
+   придержали (несохранённый заказ) — вид не ставится, как и раньше. */
+function navGo(k,then){
  if(!accessCan(k))return;
- const go=()=>{tab=k;subtab=null;navMoreOpen=false;render();};
- if((window.NAV_GUARDS||[]).some(g=>g(k,go)))return;
+ let now=true;
+ const go=()=>{tab=k;subtab=null;navMoreOpen=false;if(!then||!now){render();return;}const n=renderCount;then();if(renderCount===n)render();};
+ if((window.NAV_GUARDS||[]).some(g=>g(k,go))){now=false;return;}
  go();
 }
 let subtab=null;
@@ -18400,7 +18416,8 @@ document.addEventListener('keydown',e=>{const t=e.target;if(t&&t.matches&&t.matc
 
 /* Отрисовка — одна область указателей (erp/read-scope): экран строит «где
    стёкла заказа» и подобное один раз, а не на каждый заказ. */
-function render(){return readScope(renderScreen);}
+let renderCount=0;
+function render(){renderCount++;return readScope(renderScreen);}
 function renderScreen(){
  document.body.classList.toggle('shape-workspace-mode',tab==='configurators'&&typeof sEdit!=='undefined'&&sEdit!==null&&typeof sDraft!=='undefined'&&!!sDraft);
  /* Экран станции — без меню и шапки ERP (view/station). */
@@ -18512,7 +18529,7 @@ function navHideRepeatedTitle(section){
 
 /* Переход из Overview в раздел — сразу с нужным видом. Уход может придержать
    несохранённый заказ (NAV_GUARDS) — тогда вид не ставится. */
-function dashGo(k,then){navGo(k);if(tab===k&&then)then();}
+function dashGo(k,then){navGo(k,then);}
 function dashSalesQuick(key){dashGo('sales',()=>salesQuickSet(key));}
 function dashQueue(key){dashGo('optimization',()=>optimizationSetTab(key));}
 function dashShipping(key){dashGo('shipping',()=>{if(key==='delivery')deliveryDate='';shippingSetTab(key);});}
@@ -32863,12 +32880,15 @@ function viewOrderQueue(shipping){
  const tabs=orderQueueTabs().map(t=>`<button type="button" role="tab" aria-selected="${key===t[0]}" data-queue-tab="${t[0]}" class="sl-quick-pill${key===t[0]?' on':''}" ${onAct('click',optimizationSetTab,String(t[0]))}>${t[1]} <b>${optimizationTabCount(t[0])}</b></button>`).join('');
  const cwId=salesListCwId(),keys=cols.map(c=>c.k);
  const th=c=>{const f=salesListLoadPrefs().filters[c.k],active=salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th"><span data-cw-label>${esc(c.label)}</span><button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" ${onAct('click',salesListOpenFilter,EVENT,String(c.k))}></button></span>${cwGrip()}</th>`;};
- const body=filtered.map(info=>{
+ /* Строки — как в Sales и Production (views/list-window): сразу видимое с
+    запасом, остальное в простое и при прокрутке. All на годе — 601 заказ
+    в странице: 4 с на вкладку и 2,4 с на любой клик на слабом ПК (24.11.2026). */
+ const body=listWindowBody(filtered,info=>{
   const o=info.o,chosen=optimizationSel.has(o.id);
   const cell=c=>c.k==='readyQty'?`<td>${shippingSummary(o).physicalReady} / ${shippingSummary(o).glass}</td>`:c.k==='batch'?`<td class="oq-batches">${salesOrderBatchNumbers(o).map(v=>`<span class="pill">${esc(v)}</span>`).join(' ')||'—'}</td>`:c.k==='newLines'?`<td class="n">${salesUnbatchedLines(o).length}</td>`:salesListCell(info,c);
   return `<tr data-queue-order="${esc(o.id)}" class="${o.onHold?'oq-hold':chosen?'oq-selected':''}" ${onAct('contextmenu',optimizationContext,EVENT,String(o.id??''))}><td class="sl-check"><input type="checkbox" data-queue-check aria-label="Select order ${esc(o.businessNumber)}" ${chosen?'checked':''} ${onAct('change',optimizationToggle,String(o.id??''),EL_CHECKED)}></td>${cols.map(cell).join('')}
    <td></td></tr>`;
- }).join('');
+ },cols.length+2);
  return `<section class="optimization-queue ${shipping?'shipping-queue':''}">
   <div class="card sales-list-card oq-card sl-foot-pin"><div class="sales-toolbar">${shipping?`<button type="button" class="sl-quiet" data-queue-open-order ${n===1?'':'disabled'} ${onAct('click',optimizationOpenOrder,String(n===1?esc(selected[0].id):''))}>Open</button>`:''}${n?`<b class="oq-sel" data-queue-selection>${n} selected</b>${bar}`:`<b class="oq-sel" data-queue-selection hidden>0 selected</b>`}${shipping&&typeof shippingBarRight==='function'?'<span class="sales-toolbar-sp"></span>'+shippingBarRight():''}</div>
   ${shipping?shippingTabs():`<div class="sl-filter-row"><div class="sl-quick" role="tablist" aria-label="Order queues">${tabs}</div></div>`}
@@ -36419,7 +36439,10 @@ function finSummaryHTML(amount,applied,refunded){
  return `<span>Receipt <b>${finFmt(amount)}</b></span><span>Applied <b>${finFmt(applied)}</b></span>${refunded?`<span>Refunded <b>${finFmt(refunded)}</b></span>`:''}${left<0?`<span class="fin-over">Applied more than received by <b>${finFmt(-left)}</b></span>`:`<span>Left on account (deposit) <b class="fin-deposit">${finFmt(left)}</b></span>`}`;
 }
 function finFormApplied(){return finMoney(finFormOrders().reduce((s,x)=>s+Math.max(0,finMoney(finDraft.apply[x.order.id]||0)),0));}
-function finRefreshSummary(){const el=document.getElementById('finSummary');if(el&&finDraft)el.innerHTML=finReceiptSummary();}
+/* Итоги заказов — из посчитанного (erp/read-scope), как при отрисовке: вне
+   области каждая цифра суммы пересчитывала цены всех заказов клиента по
+   фигурам — 1,9 с на клавишу на слабом ПК (24.11.2026). */
+function finRefreshSummary(){const el=document.getElementById('finSummary');if(el&&finDraft)el.innerHTML=readScope(finReceiptSummary);}
 /* Поля формы прихода и окна Apply deposit: прямо в черновик. */
 function finDraftSet(key,v,redraw){finDraft[key]=v;if(redraw)render();}
 function finDraftCustomer(v){finDraft.customerId=v;finDraft.apply={};render();}
@@ -44894,7 +44917,11 @@ function validateStockOffcutPayload(src){
 const SHEET_USAGE_STATUS={'Awaiting cutting':'Planned','Cutting started':'Cutting','Cutting complete':'Cut'};
 /* Одна строка — батч × стекло × размер листа. Кусок со стеллажа (S-…) —
    своя строка: это не купленный лист. */
-function sheetUsageRows(){
+/* В отрисовке — один раз, пока база та же (erp/read-scope, READ_KEEP): число
+   на вкладке Sheets считало журнал всех раскроев на каждый клик Optimization
+   (0,3–0,6 с на слабом ПК, 24.11.2026). Строки только читают. */
+function sheetUsageRows(){return readMemo('sheetUsageRows',[DB.cutPlan,DB.glassBatch,DB.sheetBreak,DB.salesOrder],sheetUsageRowsBuild);}
+function sheetUsageRowsBuild(){
  /* Батч по номеру — один проход: на годе раскроев и батчей тысячи. */
  const out=[],byNo=new Map();
  (DB.glassBatch||[]).forEach(b=>{if(!byNo.has(b.number))byNo.set(b.number,b);});
@@ -45978,8 +46005,13 @@ function viewGlassBatches(){
  if(optimizationScope!==tab){optimizationScope=tab;optimizationSel.clear();glassBatchSelection.clear();glassBatchAnchor='';salesListMenu=null;}
  let scope=glassBatchViewScope(),b=glassBatchOpenNumber&&glassBatchFind(glassBatchOpenNumber);
  if(scope==='glassContents'&&!b){glassBatchOpenNumber='';scope='glassBatches';}
- /* Страховка: проверенный заказ без номеров стёкол получает их до показа очереди. */
- if(scope==='glassQueue'&&(DB.salesOrder||[]).reduce((changed,o)=>glassPieceEnsure(o)||changed,false))touch();
+ /* Страховка: проверенный заказ без номеров стёкол получает их до показа очереди.
+    С указателями на весь проход, как на старте (normalizeGlassBatches): без них
+    каждый заказ перебирал все стёкла, юниты и батчи года — To batch на годе
+    рисовался 9 с на каждый клик, 37 с на слабом ПК (24.11.2026). Проход — раз
+    до следующей записи (erp/read-scope, READ_KEEP): фильтр и выбор строки базу
+    не меняют, а проход по году — 0,6 с на клик на слабом ПК. */
+ if(scope==='glassQueue')readMemo('glassQueueEnsure',[DB.salesOrder,DB.glassPiece,DB.glassUnitId],()=>{const ctx=glassPieceCtx();if((DB.salesOrder||[]).reduce((changed,o)=>glassPieceEnsure(o,ctx)||changed,false))touch();return true;});
  const infos=glassBatchInfos(),registry=scope==='glassBatches',filteredRows=salesListRows(infos),pages=registry?Math.max(1,Math.ceil(filteredRows.length/GLASS_BATCH_PAGE_SIZE)):1;
  if(registry){glassBatchPageForFilters();glassBatchPage=Math.min(Math.max(1,glassBatchPage),pages);}
  const rows=registry?filteredRows.slice((glassBatchPage-1)*GLASS_BATCH_PAGE_SIZE,glassBatchPage*GLASS_BATCH_PAGE_SIZE):filteredRows,cols=salesListColumns(),pickable=rows.filter(glassBatchPickable),keys=new Set(pickable.map(glassBatchRowKey));
@@ -47078,8 +47110,12 @@ function stationLineKeys(o,l){return glassBatchComponents(o,l).filter(c=>!c.miss
 /* pre — готовые сканы этой строки и разбитые стёкла (erp/shipping/data,
    shippingCtx): экран Shipping не перебирает весь журнал на каждую строку. */
 function stationAsms(o,l,station,index,pre){
- index=index||stationPieceIndex();
+ const own=!index;index=index||stationPieceIndex();
  if(!pre&&stationBulkNow){const b=stationBulkLines();pre={scans:b.lines.get(o.id+'|'+l.id)||[],broken:b.broken};}
+ /* В отрисовке — та же разбивка журнала по строкам, один раз (erp/read-scope):
+    окно тележки спрашивало размер юнита по каждой строке, и каждая строка
+    перебирала все сканы года (1,2 с на клик на слабом ПК, 24.11.2026). */
+ if(!pre&&own&&readOn()){const b=readMemo('stationAsmsLines',[DB.stationScan],()=>{const m=new Map(),br=new Set();(DB.stationScan||[]).forEach(s=>{if(s.broken&&!s.undoneAt)br.add(s.piece);const h=index.get(s.piece);if(!h)return;const k=h.orderId+'|'+h.lineId;let a=m.get(k);if(!a)m.set(k,a=[]);a.push(s);});return {lines:m,broken:br};});pre={scans:b.lines.get(o.id+'|'+l.id)||[],broken:b.broken};}
  const broken=pre?pre.broken:new Set(),out=new Map();
  if(!pre)(DB.stationScan||[]).forEach(s=>{if(s.broken&&!s.undoneAt)broken.add(s.piece);});
  (pre?pre.scans:DB.stationScan||[]).forEach(s=>{
@@ -47315,6 +47351,13 @@ function carrierSetCommand(code,field,value){
    (карточка «Dollies at …» на каждом скане): чужие не считаются. codes —
    только эта тара (Set кодов): скиды одной PS. */
 function carrierContents(station,codes){
+ /* Вся тара — один раз, пока база та же (erp/read-scope, READ_KEEP): окно
+    тележки спрашивало её несколько раз за отрисовку, и каждый клик по строке
+    перебирал весь журнал сканов года — 1,5 с на слабом ПК (24.11.2026). */
+ if(!station&&!codes)return readMemo('carrierContents',[DB.stationScan],()=>carrierContentsBuild('',null));
+ return carrierContentsBuild(station,codes);
+}
+function carrierContentsBuild(station,codes){
  /* Сканы стекла собираются одним проходом: иначе каждое стекло на таре
     заново перебирало весь журнал (на SHIP — на каждый скан скида). */
  const last=new Map(),scans=new Map(),out=new Map();
@@ -47344,7 +47387,9 @@ function carrierContents(station,codes){
 /* Время обнуления (emptiedAt): «кладу на» в другой вкладке, выбранное до
    него, устарело — стекло не ляжет на новую загрузку (план v1.16, P3-R4). */
 function carrierEmpty(code,who){const out=storageCommand(()=>{
- const c=carrierCode(code),list=carrierContents().get(c)||[],now=new Date().toISOString(),was=[],off=[],rec=carrierFind(c);if(rec)rec.emptiedAt=now;
+ /* Только эта тара, чистым чтением до правок (readScopeNow): вся тара без
+    указателей — 3,7 с из 5,8 с на Empty (24.11.2026). */
+ const c=carrierCode(code),list=readScopeNow(()=>carrierContents('',new Set([c])).get(c)||[]),now=new Date().toISOString(),was=[],off=[],rec=carrierFind(c);if(rec)rec.emptiedAt=now;
  list.forEach(x=>{was.push({id:x.scan.id,on:x.scan.on||'',moved:x.scan.moved||null});x.scan.moved={from:c,at:now,by:String(who&&who.name||'')};delete x.scan.on;});
  const ghosts=typeof unitOnSkid==='function'?unitOnSkid(c):[];ghosts.forEach(x=>{off.push({orderId:x.o.id,pieces:x.u.pieces.slice(),off:(x.u.off||[]).slice()});x.u.off=[...new Set((x.u.off||[]).concat(x.pieces))];x.o.updatedAt=now;salesSyncRecordLifecycle(x.o);});
  return {code:c,count:list.length+ghosts.reduce((n,x)=>n+x.pieces.length,0),was,off};
@@ -47366,7 +47411,7 @@ function carrierEmptyUndo(r){
    только то, что лежит на этой таре сейчас; Undo — carrierEmptyUndo. */
 function carrierTakeOff(code,pieces,who){const out=storageCommand(()=>{
  const c=carrierCode(code),want=new Set(pieces||[]),now=new Date().toISOString(),was=[];
- (carrierContents().get(c)||[]).forEach(x=>{if(!want.has(x.id))return;was.push({id:x.scan.id,on:x.scan.on||'',moved:x.scan.moved||null});x.scan.moved={from:c,at:now,by:String(who&&who.name||'')};delete x.scan.on;});
+ readScopeNow(()=>carrierContents('',new Set([c])).get(c)||[]).forEach(x=>{if(!want.has(x.id))return;was.push({id:x.scan.id,on:x.scan.on||'',moved:x.scan.moved||null});x.scan.moved={from:c,at:now,by:String(who&&who.name||'')};delete x.scan.on;});
  if(!was.length)throw new Error('Nothing to take off.');
  return {code:c,count:was.length,was,off:[]};
 });return out.ok?out.value:{error:out.error};}
@@ -54355,8 +54400,8 @@ function carrierWord(code){const t=carrierType(code);return t&&t.kind==='Skid'?'
 /* Стеклопакет, собранный на IGU, — одна строка: на скиде его считают
    юнитом; остальное — по стеклу. # — порядок укладки, #1 положили первым. */
 function carrierItems(list){
- const unitOf=new Map(),items=new Map();
- (DB.stationScan||[]).forEach(s=>{if(!s.undoneAt&&s.asm&&s.unit)unitOf.set(s.piece,s);});
+ /* Юнит по стеклу — один проход журнала на отрисовку, а не на каждую тару. */
+ const unitOf=readMemo('carrierUnitOf',[DB.stationScan],()=>{const m=new Map();(DB.stationScan||[]).forEach(s=>{if(!s.undoneAt&&s.asm&&s.unit)m.set(s.piece,s);});return m;}),items=new Map();
  list.forEach(x=>{
   const s=unitOf.get(x.id),u=s&&stationUnitMerge(x.g.o,x.g.l)===s.station?s:null,key=u?'a|'+u.asm:'g|'+x.id;
   if(!items.has(key))items.set(key,{key,g:x.g,o:x.g.o,l:x.g.l,unit:u?u.unit:0,label:u&&unitIdAt(x.g.o.id,x.g.l.id,u.unit)||x.id,pieces:[],glass:[],scan:x.scan,place:x.place});
@@ -54513,15 +54558,18 @@ function carrierCell(it,c){
 /* ------------------------------ Окно ------------------------------- */
 function carrierWinOpen(code,station){carrierWin={code:carrierCode(code||''),station:station||'',sel:new Set(),to:'',error:'',done:null,menu:false};render();return true;}
 function carrierWinClose(){carrierWin=null;render();}
-function carrierModelOf(code,station){
+/* one — только эта тара (окно тары): вся тара цеха при открытии окна —
+   0,7 с на слабом ПК (24.11.2026). Перебор всех тар (печать, поиск
+   загрузчика) берёт общее carrierContents(). */
+function carrierModelOf(code,station,one){
  if(code){
-  const list=carrierContents().get(code)||[],out=typeof skidsOut==='function'?skidsOut().get(code)||null:null;
+  const list=one?readMemo('carrierOn:'+code,[DB.stationScan],()=>carrierContents('',new Set([code])).get(code)||[]):carrierContents().get(code)||[],out=typeof skidsOut==='function'?skidsOut().get(code)||null:null;
   return {code,type:carrierType(code),list,items:carrierItems(list),out,gone:out&&!list.length?carrierShippedItems(out):[]};
  }
  const list=carrierLoose().get(station)||[];
  return {code:'',station,word:carrierLooseWord(list),list,items:carrierItems(list),out:null,gone:[]};
 }
-function carrierWinModel(){const w=carrierWin;return w?carrierModelOf(w.code,w.station):null;}
+function carrierWinModel(){const w=carrierWin;return w?carrierModelOf(w.code,w.station,true):null;}
 /* Кто положил: станция последнего скана на эту тару. */
 function carrierLoaderOf(m){const top=m&&m.items.length?m.items[m.items.length-1]:null;return top&&top.scan&&top.scan.station||'';}
 function carrierWinLoader(){return carrierWin?carrierLoaderOf(carrierWinModel()):'';}
@@ -62357,7 +62405,7 @@ function storageDiff(db,only){
     was.forEach((x,id)=>{if(id!=='*')out.push({tbl:k,id,del:true});});
     return;
    }
-   const seq=storageSeqs(ids,was),now=new Set(ids);storageSeen.set(k,{rows:v.slice(),ids,seq,at:null});
+   const seq=storageSeqs(ids,was),now=new Set(ids),seen={rows:v.slice(),ids,seq,at:null};storageSeen.set(k,seen);storageSeenIndexLater(seen);
    for(let i=0;i<v.length;i++){
     if(rows){const x=was.get(ids[i]);if(x&&x.s===seq[i]&&!rows.has(ids[i]))continue;}
     const t=JSON.stringify(v[i]),b=was.get(ids[i]);
@@ -62405,7 +62453,9 @@ function storageBaseTexts(tbl){
 }
 /* Записи → объект базы, как прежде JSON.parse всего localStorage. parsed —
    data уже объект (строки файла Export v2), а не текст JSON. */
-function storageJoin(records,parsed){
+/* seen — Map: сюда кладётся порядок строк таблицы {rows, ids, seq}, как его
+   оставило бы полное сравнение (старт, storageSeenSeed). */
+function storageJoin(records,parsed,seen){
  const state={},tables=new Map(),value=r=>parsed?r.data:JSON.parse(r.data);
  records.forEach(r=>{
   if(!r||typeof r.tbl!=='string'||typeof r.id!=='string'||(!parsed&&typeof r.data!=='string')||!Number.isFinite(r.seq))throw new Error('A stored record is damaged.');
@@ -62421,8 +62471,41 @@ function storageJoin(records,parsed){
    state[tbl]=rows;return;
   }
   state[tbl]=list.sort((a,b)=>a.seq-b.seq).map(value);
+  if(seen)seen.set(tbl,{rows:state[tbl].slice(),ids:list.map(r=>r.id),seq:list.map(r=>r.seq),at:null});
  });
  return state;
+}
+/* Первый скан после F5 (задание скорости 24.11.2026): сравнение базы
+   перебирало все 290 тысяч сканов года (2,1 с на слабом ПК при пороге 1 с),
+   потому что порядок строк (storageSeen) знает только прошлое полное
+   сравнение, а после F5 его ещё не было — его отложили в простой
+   (storageSweepLater). Порядок строк тот же, что прочитан из базы: берём
+   его при старте. Таблица, чьи строки нормализация заменила, — без него,
+   как раньше. Пропущенное областью записи по-прежнему найдёт полное
+   сравнение в простое (storageSweep). */
+function storageSeenSeed(seen){
+ seen.forEach((s,tbl)=>{
+  const v=DB[tbl],base=storageBase.get(tbl);
+  if(!Array.isArray(v)||!base||base.size!==s.rows.length||v.length!==s.rows.length||storageVisit.has(tbl))return;
+  for(let i=0;i<v.length;i++)if(v[i]!==s.rows[i])return;
+  storageSeen.set(tbl,s);storageSeenIndexLater(s);
+ });
+}
+/* Указатель «ключ → место» (s.at) для storageDiffTail на 290 тысяч сканов —
+   0,3 с на слабом ПК одним куском: первый скан ждал бы его. Большая таблица
+   строит его в простое кусками по 20 тысяч; скан раньше конца — строит сам,
+   как раньше, и кусок в простое видит готовое. */
+function storageSeenIndexLater(s){
+ if(s.ids.length<20000||typeof setTimeout!=='function')return;
+ const m=new Map();let i=0;
+ const step=()=>{
+  /* Готов (скан построил сам) или таблицу уже сравнили заново — не нужен.
+     Пока s.at нет, s.ids не растёт: storageDiffTail сначала строит указатель. */
+  if(s.at||![...storageSeen.values()].includes(s))return;
+  const end=Math.min(i+20000,s.ids.length);for(;i<end;i++)m.set(s.ids[i],i);
+  if(i<s.ids.length)setTimeout(step,0);else s.at=m;
+ };
+ setTimeout(step,0);
 }
 /* Записи, пришедшие из базы (чужая вкладка) или из опорного состояния
    (откат), — в DB и в опорное состояние. Немного строк — правка на месте;
@@ -63680,13 +63763,13 @@ function storageSameCheck(){
    tools/perf-year.js (задание «База», этап 2). */
 let storageBootMs=null;
 async function boot(){
- let hadSavedState=false,counted='',same=false;const T=()=>performance.now(),t0=T(),ms={};
+ let hadSavedState=false,counted='',same=false;const T=()=>performance.now(),t0=T(),ms={},seen=new Map();
  try{
   await storageIdbOpen();
   const got=await storageIdbReadAll();ms.read=T()-t0;
   storageBaseFrom(got.records);if(typeof archiveIndexLoad==='function')archiveIndexLoad(got.archive);storageRev=got.rev;storageBuildAtLoad=got.build;storageCopyAt=got.copyAt||'';storageBackupPresent=!!got.copyAt;storageTest=got.test===true;counted=got.counted;
   if(got.records.length){
-   hadSavedState=true;const parsed=storageJoin(got.records);ms.join=T()-t0-ms.read;
+   hadSavedState=true;const parsed=storageJoin(got.records,false,seen);ms.join=T()-t0-ms.read;
    if(!Object.keys(parsed).some(k=>Object.prototype.hasOwnProperty.call(DEFAULT,k)))throw new Error('Expected a database object.');
    mergeState(parsed);
   }
@@ -63719,7 +63802,7 @@ async function boot(){
   /* Своя база той же сборки, без пересева и правок: старт ничего не меняет
      (год цеха: 0 из 3 211 раскроев) — полное сравнение (3,7 с на слабом ПК)
      уходит в простой (storageSweep). */
-  if(hadSavedState&&storageBuildAtLoad===storageBuildId()&&!reseeded&&!fixed)storageSweepLater();
+  if(hadSavedState&&storageBuildAtLoad===storageBuildId()&&!reseeded&&!fixed){storageSeenSeed(seen);storageSweepLater();}
   else{
    touch();
    if(!storageBusy&&storageBuildAtLoad!==storageBuildId())storageIdbMetaPut('build',storageBuildId()).catch(e=>console.warn('Version mark was not written:',e.message));
