@@ -21,7 +21,8 @@
 
 - **General** — Account / Customer Code, **Legal Name** (обязательно), Display Name, Status (Active, Inactive, Archived),
   Customer Type, **Group** (группа спец-цен из Data → Prices), Area / Territory, Sales Rep, Account Open Date, TAX
-  Number, Registration, Prospect, **PO required**, Notes, Internal Notes.
+  Number, Registration, Prospect, **PO required**, Notes, Internal Notes. Display Name, пока его не меняли, повторяет
+  Legal Name; пустой — при Save им станет Legal Name.
 - **Contacts** — сколько угодно людей (закупка, бухгалтерия, приёмка, прораб): Name, Role / title, Phone, Phone 2,
   Mobile, Fax, Email и отметки **Primary**, **Invoice**, **Shipping** — кому что уходит.
 - **Addresses** — платёжный и сколько угодно адресов доставки и объектов: Type (Billing, Delivery, Other), Name,

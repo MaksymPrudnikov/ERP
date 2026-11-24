@@ -53,7 +53,8 @@ Currency (CAD, USD), Status, Email / notes.
 - Поля: Purchase order (optional), Supplier, Received date, Received by, Supplier packing slip, Notes.
 - **What arrived** — + Glass, + Material, + Other item: Item, Width, Height, Waiting, Arrived, Unit, **Sheets**, **Broken**,
   Reason, Resolution. У каждой строки свой фактический размер и своё число листов (владелец, 13.10.2026: размеры
-  листов тоже бывают разные). Размер не как в PO — помечен. Пустые строки не сохраняются.
+  листов тоже бывают разные). Размер не как в PO — помечен. Пустые строки не сохраняются. **Broken** больше, чем
+  пришло, — не сохраняется; половина и больше — можно (24.11.2026).
 - Стекло пришло блоками и число листов не вписано — под строкой **Enter sheets**, в списке у приёмки та же пометка, на
   складе приход не считается, пока листы не вписаны.
 - Другая единица, чем в PO, молча не складывается: предупреждение «unit differs from the PO; quantities need review» и

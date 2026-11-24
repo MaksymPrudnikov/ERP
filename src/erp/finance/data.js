@@ -19,7 +19,25 @@ if(!Array.isArray(DB.receipt))DB.receipt=[];
 const FIN_METHODS=[{k:'cash',label:'Cash'},{k:'cheque',label:'Cheque'},{k:'etransfer',label:'E-transfer'},{k:'debit',label:'Debit'},{k:'creditcard',label:'Credit card'},{k:'card',label:'Card',legacy:true}];
 function finMethodLabel(k){const m=FIN_METHODS.find(x=>x.k===k);return m?m.label:'Other';}
 function finMethodChoices(current){return FIN_METHODS.filter(m=>!m.legacy||m.k===current);}
-function finMoney(v){const n=Number(v);return Number.isFinite(n)?Math.round((n+Number.EPSILON)*100)/100:0;}
+function finMoney(v){const n=finMoneyIn(v);return Number.isFinite(n)?Math.round((n+Number.EPSILON)*100)/100:0;}
+/* Сумма, набранная в поле: американский формат «1,234.50» и десятичная
+   запятая «592,40» (владелец 24.11.2026). Поле type=number выбрасывало
+   запятую — 592,40 записывалось как $59 240 (аудит, О3). Неоднозначное
+   («1.234», «1,2,3», больше двух знаков после запятой) — NaN: отказ. */
+function finMoneyIn(v){
+ if(typeof v!=='string')return Number(v);
+ const m=v.replace(/[\s$]/g,'').match(/^(-?)([\d.,]*)$/);if(!m||!/\d/.test(m[2]))return v.trim()===''?0:NaN;
+ const body=m[2],c=body.lastIndexOf(','),d=body.lastIndexOf('.');
+ const grouped=(s,g)=>{const p=s.split(g);return /^\d{1,3}$/.test(p[0])&&p.slice(1).every(x=>/^\d{3}$/.test(x));};
+ let int=body,frac='';
+ if(c>=0&&d>=0){const dec=c>d?',':'.',i=Math.max(c,d);int=body.slice(0,i);frac=body.slice(i+1);if(int.includes(dec)||!grouped(int,dec===','?'.':','))return NaN;int=int.replace(/[.,]/g,'');}
+ else if(c>=0||d>=0){const ch=c>=0?',':'.',p=body.split(ch);
+  if(p.length===2&&p[1].length<=2){int=p[0];frac=p[1];}
+  else if(grouped(body,ch)&&(ch===','||p.length>2))int=p.join('');
+  else return NaN;}
+ if(!/^\d*$/.test(int)||!/^\d{0,2}$/.test(frac))return NaN;
+ return Number(m[1]+(int||'0')+(frac?'.'+frac:''));
+}
 function finUid(){
  try{if(globalThis.crypto&&typeof crypto.randomUUID==='function')return 'RCPT-'+crypto.randomUUID();}catch(e){}
  return 'RCPT-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,9).toUpperCase();

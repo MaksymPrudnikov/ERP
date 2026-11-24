@@ -77,7 +77,10 @@ function purFulfilSave(kind,raw){
   const ids=new Set();d.lines.forEach((l,i)=>{if(ids.has(l.id))throw new Error('Duplicate line.');ids.add(l.id);['qty','damaged','actualSheets','damagedSheets','widthIn','heightIn'].forEach(k=>{if(purText(raw.lines[i][k])!==''&&(l[k]==null||l[k]<0))throw new Error('Line '+(i+1)+': enter a non-negative number or leave empty.');});
    /* Листы стекла — до 10 000 в строке (INV_SHEETS_MAX, erp/inventory). */
    const sheets=['glass','sheet'].includes(l.kind)?['actualSheets','damagedSheets'].concat(['sheet','block'].includes(purUnit(l.unit))?['qty','damaged']:[]):[];
-   if(sheets.some(k=>l[k]>INV_SHEETS_MAX))throw new Error('Line '+(i+1)+': up to 10,000 sheets.');});
+   if(sheets.some(k=>l[k]>INV_SHEETS_MAX))throw new Error('Line '+(i+1)+': up to 10,000 sheets.');
+   /* Боя больше, чем пришло, не бывает: «received» на складе уходил в минус
+      (аудит 24.11.2026, О7). Половина и больше — можно (владелец). */
+   if(l.qty!=null&&l.damaged>l.qty||l.actualSheets!=null&&l.damagedSheets>l.actualSheets)throw new Error('Line '+(i+1)+': broken is more than received.');});
   /* Пересчёт расходника в единицу склада запоминается в строке (аудит
      25.10.2026, I-2): смена упаковки в карточке прошлые приёмки не меняет.
      Та же строка с той же единицей при правке — прежний пересчёт. */

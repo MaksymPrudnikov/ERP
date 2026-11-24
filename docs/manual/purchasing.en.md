@@ -53,7 +53,8 @@ ordered and against a closed PO.
 - Fields: Purchase order (optional), Supplier, Received date, Received by, Supplier packing slip, Notes.
 - **What arrived** — + Glass, + Material, + Other item: Item, Width, Height, Waiting, Arrived, Unit, **Sheets**,
   **Broken**, Reason, Resolution. Each row has its own actual size and sheet count (owner, 13 Oct 2026: sheet sizes
-  vary too). A size different from the PO is flagged. Empty rows are not saved.
+  vary too). A size different from the PO is flagged. Empty rows are not saved. **Broken** above what arrived is not
+  saved; half or more is fine (24 Nov 2026).
 - Glass that came in blocks without a sheet count shows **Enter sheets** under the row and on the receipt in the list;
   stock does not count it until the sheets are entered.
 - A unit different from the PO is never added silently: the warning “unit differs from the PO; quantities need review”
