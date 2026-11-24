@@ -151,10 +151,17 @@ language sql stable set search_path = public, pg_temp as $$
 $$;
 -- Строка архива (_archive) читается ещё и по правилу своей таблицы: выписка
 -- `L:<таблица>:<id>` — как та таблица (оплата — как оплата), указатель Sales
--- — как заказ (аудит 25.10.2026, A-6). Пишет архив любой пишущий ПК.
+-- — как заказ (аудит 25.10.2026, A-6). Пишется так же — по правилу записи
+-- своей таблицы: с одним Production архив оплат переписывали с планшета
+-- (аудит 24.11.2026, В4).
 create or replace function public.erp_can_read_row(m public.erp_member, t text, id text) returns boolean
 language sql stable set search_path = public, pg_temp as $$
   select public.erp_can_read(m, t) and (t <> '_archive' or public.erp_can_read(m,
+    case when id like 'L:%:%' then split_part(id, ':', 2) else 'salesOrder' end))
+$$;
+create or replace function public.erp_can_write_row(m public.erp_member, t text, id text) returns boolean
+language sql stable set search_path = public, pg_temp as $$
+  select public.erp_can_write(m, t) and (t <> '_archive' or public.erp_can_write(m,
     case when id like 'L:%:%' then split_part(id, ':', 2) else 'salesOrder' end))
 $$;
 
@@ -207,8 +214,10 @@ begin
   end if;
   -- Одна запись за раз: rev в журнале идут в порядке записи.
   perform pg_advisory_xact_lock(7240001);
-  select result into prev from public.erp_command where id = command_id;
+  -- Повтор — только своей команды: чужой id не отдаёт чужой ответ (Н6).
+  select result into prev from public.erp_command where id = command_id and user_id = me.user_id;
   if found then return prev; end if;
+  if exists (select 1 from public.erp_command where id = command_id) then raise exception 'Command id is taken.'; end if;
 
   -- Save частями: до последней — в erp_stage; последняя забирает все.
   if grp is not null and coalesce((grp->>'total')::int, 1) > 1 then
@@ -240,7 +249,7 @@ begin
 
   -- Таблица чужого раздела — отказ всей команды, ничего не записано.
   select coalesce(jsonb_agg(distinct x->>'tbl'), '[]'::jsonb) into bad
-    from jsonb_array_elements(changes) x where not public.erp_can_write(me, x->>'tbl');
+    from jsonb_array_elements(changes) x where not public.erp_can_write_row(me, x->>'tbl', x->>'id');
   if jsonb_array_length(bad) > 0 then
     res := jsonb_build_object('ok', false, 'denied', bad);
     insert into public.erp_command (id, user_id, device, build, result)
@@ -254,6 +263,19 @@ begin
       bad := bad || jsonb_build_object('tbl', e->>'tbl', 'id', e->>'id', 'ver', (e->>'ver')::bigint, 'now', coalesce(cur, 0));
     end if;
   end loop;
+  -- Строка есть на сервере, а версии команда не знает — не затирать вслепую:
+  -- конфликт, ERP возьмёт серверную копию (аудит 24.11.2026, С5). Upload
+  -- администратора (команды up-…) пишет базу целиком и продолжает прерванный.
+  if not (me.admin and command_id like 'up-%') then
+    for c in select * from jsonb_array_elements(changes) loop
+      if not exists (select 1 from jsonb_array_elements(coalesce(expect, '[]')) x where x->>'tbl' = c->>'tbl' and x->>'id' = c->>'id') then
+        select ver into cur from public.erp_record where tbl = c->>'tbl' and id = c->>'id' and not deleted;
+        if found then
+          bad := bad || jsonb_build_object('tbl', c->>'tbl', 'id', c->>'id', 'ver', null, 'now', cur);
+        end if;
+      end if;
+    end loop;
+  end if;
 
   if jsonb_array_length(bad) > 0 then
     res := jsonb_build_object('ok', false, 'conflict', bad);
@@ -269,8 +291,9 @@ begin
         insert into public.erp_counter as k (name, next) values (c->'number'->>'name', substr(v, length(pre) + 1)::bigint + 1)
           on conflict (name) do update set next = greatest(k.next, substr(v, length(pre) + 1)::bigint) + 1
           returning next - 1 into n;
-        t := pre || case when length(n::text) >= coalesce((c->'number'->>'pad')::int, 0) then n::text
-                         else lpad(n::text, (c->'number'->>'pad')::int, '0') end;
+        -- pad — до 12 знаков: 100 000 000 клал сервер по памяти (С4).
+        i := least(greatest(coalesce((c->'number'->>'pad')::int, 0), 0), 12);
+        t := pre || case when length(n::text) >= i then n::text else lpad(n::text, i, '0') end;
         nums := nums || jsonb_build_object((c->>'tbl') || '|' || (c->>'id'), t);
         if t <> v then swap := swap || jsonb_build_array(jsonb_build_array(v, t)); end if;
       end if;

@@ -29,7 +29,7 @@
    базы (_meta …Seq) на сервер не ходят: каждый компьютер ведёт свой.
    ============================================================================ */
 /* Команда — до 500 строк и около 1 МБ: заказ с чертежами весит десятки КБ. */
-const CLOUD_CHUNK=500,CLOUD_CHUNK_BYTES=1e6,CLOUD_POLL_MS=5000;
+const CLOUD_CHUNK=500,CLOUD_CHUNK_BYTES=1e6,CLOUD_POLL_MS=5000,CLOUD_RIGHTS_MS=300e3;
 /* Номер документа новой строки: [счётчик, поле, префикс, цифр не меньше]. */
 const CLOUD_NUMBER={
  salesOrder:o=>o.kind==='quote'?['quote','businessNumber','Q-',0]:['order','businessNumber','',0],
@@ -144,7 +144,7 @@ async function cloudLoadHead(){
 }
 async function cloudLoad(){
  const got=await storageIdbCloudAll(),s=cloudSync,head=s.head,parked=[];
- s.vers=new Map();s.out=[];s.ref='';s.base=null;s.since=0;s.n=0;s.replay=[];
+ s.vers=new Map();s.out=[];s.ref='';s.base=null;s.since=0;s.n=0;s.replay=[];s.rights=null;s.rightsAt=0;
  got.keys.forEach((k,i)=>{
   const v=got.values[i];
   if(k==='ref')s.ref=v;else if(k==='base')s.base=v;else if(k==='since')s.since=+v||0;else if(k==='n')s.n=+v||0;
@@ -156,6 +156,7 @@ async function cloudLoad(){
   else if(k.startsWith('e\u0000'))parked.push([k,v]);
   else if(k.startsWith('p\u0000'))s.replay.push({key:k,intent:v});
   else if(k==='f')s.scanFail=Array.isArray(v)?v:[];
+  else if(k==='rt')s.rights=Array.isArray(v)?v:null;
  });
  s.on=!!s.ref&&s.ref===cloudConfig().url;s.loaded=true;s.head=false;s.blocksRead=true;s.parked=0;
  /* Правки, сделанные до чтения склада, — в очередь теперь: каждая своей
@@ -189,8 +190,10 @@ async function cloudLoad(){
    Только с сервером; строки без версии на сервере (ещё не отправленные) —
    своей командой и так. */
 const CLOUD_CHECK={
- /* Разнесение по долгу заказа (C4). */
- receipt:(r,old)=>{const now=cloudAllocated(r),was=cloudAllocated(old);return [...now].filter(([id,v])=>v>(was.get(id)||0)).map(([id])=>cloudOrderKey(id));},
+ /* Разнесение по долгу заказа (C4). Меньше на заказе (Void, правка) — тоже:
+    заказ тем временем мог уйти в архив оплаченным, и долг прятался в
+    архиве (аудит 24.11.2026, Т3). */
+ receipt:(r,old)=>{const now=cloudAllocated(r),was=cloudAllocated(old);return [...new Set([...now.keys(),...was.keys()])].filter(id=>(now.get(id)||0)!==(was.get(id)||0)).map(cloudOrderKey);},
  /* Возврат по свободному остатку оплаты (C4). */
  refund:(r,old)=>old?[]:[['receipt',r.receiptId]],
  /* Выплата агенту по его долгу (F06). */
@@ -202,7 +205,10 @@ const CLOUD_CHECK={
   (old&&old.extras||[]).forEach(x=>qty.set(x.orderId+'|'+x.extraId,(qty.get(x.orderId+'|'+x.extraId)||0)+x.qty));
   const ids=(s.items||[]).filter(i=>!i.added&&!had.has(i.label)).map(i=>i.orderId)
    .concat((s.extras||[]).filter(x=>x.qty>(qty.get(x.orderId+'|'+x.extraId)||0)).map(x=>x.orderId));
-  return [...new Set(ids)].map(cloudOrderKey);
+  /* Shipped — по сканам погрузки этих стёкол: грузчик в ту же минуту
+     отменял скан, и юнит был и отгружен, и снова ждал погрузки (Т2). */
+  const scans=old&&old.status!=='shipped'&&s.status==='shipped'&&typeof shippingStations==='function'?cloudShipScans(s):[];
+  return [...new Set(ids)].map(cloudOrderKey).concat(scans);
  },
  /* Пересчёт Stock items «было → стало» (C13); Add и Remove — факты. */
  stockItemEvent:(e,old)=>!old&&e.kind==='count'?[['stockItem',e.itemId]]:[],
@@ -230,6 +236,7 @@ const CLOUD_FACT={
  skidReturn:'skid scanned back: a fact',truck:'truck card',carrier:'dolly or skid card',carrierEvent:'scan: a fact',
  tripKm:'trip kilometres',stockReason:'reason list',financeVersion:'format mark'
 };
+function cloudShipScans(s){const st=shippingStations().ship,pieces=new Set((s.items||[]).flatMap(i=>i.pieces||[]));return (DB.stationScan||[]).filter(x=>x.station===st&&!x.undoneAt&&pieces.has(x.piece)).map(x=>['stationScan',x.id]);}
 /* Заказ — по его условиям оплаты (financeTerms, строка маленькая); нет их —
    по самому заказу. */
 function cloudOrderKey(id){const t=storageBase.get('financeTerms');return [t&&t.has(id)?'financeTerms':'salesOrder',id];}
@@ -491,6 +498,18 @@ function cloudNewBaseIn(rows){
  if(m)cloudBaseSeen(m.deleted?null:cloudUploadOf(m));
  return cloudSync.newBase;
 }
+/* Новые права (раздел, администратор): опрос не приносил старых строк этих
+   таблиц — курсор erp_changes шёл и через нечитаемые (аудит 24.11.2026,
+   В3). Права выросли — опрос с нуля: известные версии пропускаются. */
+async function cloudRightsCheck(){
+ const s=cloudSync;if(Date.now()-(s.rightsAt||0)<CLOUD_RIGHTS_MS)return;
+ const me=await cloudRpc('erp_whoami');s.rightsAt=Date.now();if(!me||typeof me!=='object')return;
+ const now=me.admin?['*']:[...(me.sections||[])].map(String).sort(),was=s.rights;
+ const grew=!!was&&!was.includes('*')&&(now.includes('*')||now.some(x=>!was.includes(x)));
+ if(JSON.stringify(now)===JSON.stringify(was))return;
+ s.rights=now;const ops=[['rt',now]];if(grew){s.since=0;ops.push(['since',0]);}
+ storageWrite([],ops);
+}
 async function cloudPull(){
  const s=cloudSync;
  for(;;){
@@ -521,7 +540,7 @@ async function cloudSyncTick(){
    if(!s.loaded)await cloudLoad();
    /* Чья это база: до первой отправки и перед каждой (cloudBaseCheck). */
    if(s.on&&storageWriter&&!s.newBase&&(s.base==null||s.out.length))await cloudBaseCheck();
-   if(s.on&&storageWriter&&!s.newBase){await cloudPushAll();await cloudPull();await cloudBlocksFill();s.offline=false;s.error='';s.wait=CLOUD_POLL_MS;s.at=new Date().toISOString();}
+   if(s.on&&storageWriter&&!s.newBase){await cloudPushAll();await cloudRightsCheck();await cloudPull();await cloudBlocksFill();s.offline=false;s.error='';s.wait=CLOUD_POLL_MS;s.at=new Date().toISOString();}
   }catch(e){
    /* Просрочен вход: сырой ответ сервера людям ни о чём не говорит. */
    if(/No connection/.test(e.message))s.offline=true;else s.error=/JWT|refresh token/i.test(e.message)?'Sign in to the server again.':e.message;
