@@ -170,6 +170,6 @@ module.exports = async function ({ page, eq, ok }) {
     eq('К2: связь вернулась — снова Synced', await chip(), 'Synced');
     await B.p.evaluate(() => { cloudSync.scanFail = [{ piece: 'G-0000001', station: 'CUT', at: new Date().toISOString(), why: 'Glass has moved on' }]; afterRender(); });
     const bar = await B.p.evaluate(() => { const el = document.getElementById('storageAlert'); return el && !el.hidden ? el.textContent : ''; });
-    ok('К2: скан, который не удалось записать, — красная полоса с номером стекла', /G-0000001/.test(bar) && /Scan again/i.test(bar), bar);
+    ok('К2: скан, который не удалось записать, — полоса с номером стекла', /G-0000001/.test(bar) && /Scan again/i.test(bar), bar);
   });
 };

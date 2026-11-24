@@ -165,7 +165,7 @@ waits is counted by station, as before.
 (yellow) — N records wait to be sent; **Offline · N**, **Sign in · N**, **Server error** (red) — scans are saved here and
 go out when the link or sign-in comes back; F5 does not lose them. A scan the server did not accept because the office
 or another station changed the same order or batch the same minute is repeated by itself. If that fails (the glass has
-moved on), a red bar on top says “Not saved on the server: G-… · CUT. Scan again.”: scan that glass again, **Hide**
+moved on), a bar on top says “Not saved on the server: G-… · CUT. Scan again.”: scan that glass again, **Hide**
 hides the bar (24 Nov 2026).
 
 ### Scan
