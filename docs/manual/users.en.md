@@ -98,7 +98,7 @@ is a new server sign-in.
   times: it leaves the queue so it does not hold the rest. “No access on server: …” — the person lacks the section for those records.
   “Went to the archive on another computer: …” — an order edited here was already sent to the archive by another computer.
 - The server gives the number of a new document (order, quote, PS, payment, PO, customer code `C-`). While the document
-  waits to be sent (no connection), its paper and PDF print with a **DRAFT - NUMBER NOT CONFIRMED** band. If another
+  waits to be sent (no connection), its paper and PDF print with a small red **DRAFT** next to the number. If another
   computer took the number first, the server gives the next one, and “Number changed: 76003 → 76004” stays at the
   bottom until closed (24 Nov 2026). When a person gets more rights (Finance added), the old rows of that section arrive
   by themselves, no Download needed.

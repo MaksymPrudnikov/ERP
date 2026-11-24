@@ -119,13 +119,23 @@ function docPage(){
   img(x,y,w,h,src){items.push({t:'img',x,y,w,h,src});}
  };
 }
-/* Номер документа ещё не подтвердил сервер (без связи, в очереди): на каждом
-   листе полоса DRAFT — бумага с номером, который может смениться, не уходит
-   к клиенту под видом настоящей (аудит 24.11.2026, С3). */
+/* Номер документа ещё не подтвердил сервер (без связи, в очереди): у номера
+   на листе — маленькое DRAFT, бумага с номером, который может смениться, не
+   похожа на настоящую (аудит 24.11.2026, С3; владелец: без огромной полосы).
+   Номера на листе нет — DRAFT в правом верхнем углу. */
 function docDraftMark(pages,tbl,id){
  if(typeof cloudNumberPending!=='function'||!cloudNumberPending(tbl,id))return pages;
- pages.forEach(pg=>{pg.items.push({t:'rect',x:DOC_PAGE.left,y:8,w:DOC_PAGE.right-DOC_PAGE.left,h:20,fill:'#fdecea',stroke:'',lw:.6,r:3},
-  {t:'text',x:DOC_PAGE.w/2,y:22,s:'DRAFT - NUMBER NOT CONFIRMED',size:10,bold:true,color:DOC_COLOR.due,align:'center',ls:.8,pageLabel:false});});
+ const row=(DB[tbl]||[]).find(x=>x&&x.id===id),no=row&&String(row.number||row.businessNumber||'');
+ pages.forEach(pg=>{
+  const n=no&&pg.items.find(x=>x.t==='text'&&x.s===no),size=n?Math.max(6,Math.min(9,n.size*.6)):7;
+  const mark={t:'text',x:DOC_PAGE.right,y:24,s:'DRAFT',size,bold:true,color:DOC_COLOR.due,align:'right',ls:.6,pageLabel:false};
+  /* Рядом с номером бывает подпись (No.): DRAFT — за всей группой текста этой строки. */
+  if(n){const span=x=>{const w=docTextWidth(x.s,x.size,x.bold,x.ls,x.face),l=x.align==='right'?x.x-w:x.align==='center'?x.x-w/2:x.x;return [l,l+w];};
+   let [l,r]=span(n),grew=true;
+   while(grew){grew=false;pg.items.forEach(x=>{if(x.t!=='text'||Math.abs(x.y-n.y)>2||x===n)return;const [a,b]=span(x);if(b>=l-14&&a<l){l=a;grew=true;}if(a<=r+14&&b>r){r=b;grew=true;}});}
+   Object.assign(mark,n.align==='right'?{y:n.y,x:l-8,align:'right'}:{y:n.y,x:r+8,align:'left'});}
+  pg.items.push(mark);
+ });
  return pages;
 }
 function docLabel(P,x,y,s,o){P.text(x,y,String(s).toUpperCase(),Object.assign({size:5.8,bold:true,color:DOC_COLOR.mut,ls:.6},o||{}));}

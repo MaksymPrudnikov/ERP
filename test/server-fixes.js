@@ -47,7 +47,7 @@ module.exports = async function ({ page, eq, ok }) {
       storageCommand(() => { DB.customer.push(c); });
       const r = a8Pay(c.id, '2026-11-24', 10, []); await storageFlush();
       const pages = docDraftMark(finReceiptDoc(r.id), 'receipt', r.id);
-      return { id: c.id, code: c.code, r: r.id, num: r.number, pending: cloudNumberPending('receipt', r.id), draft: pages.length > 0 && pages.every(pg => pg.items.some(x => x.s === 'DRAFT - NUMBER NOT CONFIRMED')) };
+      return { id: c.id, code: c.code, r: r.id, num: r.number, pending: cloudNumberPending('receipt', r.id), draft: pages.length > 0 && pages.every(pg => pg.items.some(x => x.s === 'DRAFT')) };
     }, 'A');
     const a = await mk(w.A.p), b = await w.B.p.evaluate(async () => {
       const c = normalizeCustomer({ id: 'CUS-B1B', code: nextCustomerCode(), legalName: 'Offline B', paymentMode: 'credit', creditDays: 30 });
@@ -60,7 +60,7 @@ module.exports = async function ({ page, eq, ok }) {
     const after = await w.B.p.evaluate(x => {
       const c = DB.customer.find(y => y.id === 'CUS-B1B'), r = DB.receipt.find(y => y.id === x.r);
       const pages = docDraftMark(finReceiptDoc(x.r), 'receipt', x.r);
-      return { code: c && c.code, num: r && r.number, pending: cloudNumberPending('receipt', x.r), draft: pages.some(pg => pg.items.some(i => i.s === 'DRAFT - NUMBER NOT CONFIRMED')), warn: cloudSync.warn };
+      return { code: c && c.code, num: r && r.number, pending: cloudNumberPending('receipt', x.r), draft: pages.some(pg => pg.items.some(i => i.s === 'DRAFT')), warn: cloudSync.warn };
     }, b);
     eq('В1, С3: сервер дал второму ПК следующий код и номер, DRAFT снят, «Number changed» видно', {
       code: after.code !== a.code && /^C-\d{5}$/.test(after.code), num: after.num !== a.num, pending: after.pending, draft: after.draft,
