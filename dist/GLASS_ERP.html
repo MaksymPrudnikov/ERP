@@ -8,7 +8,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-sHAuWLljUJBwW97s9LrvEj2I+pzD40aC3ZktsEP9SXI=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-ZWf8Jw3QQPhYrkE5jSdBVVCifZpMGodc8AS4jS4lQXs=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GLASS ERP — Glazing System</title>
 <style>
@@ -4698,7 +4698,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='e3ba59b85c0b';
+var ERP_BUILD='1c55e1e92bea';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -15596,7 +15596,7 @@ function salesHeaderActions(o){
  /* Copy (пункт 8, Copy order) — у записанного заказа, черновика и квоты
     (у отправленной ревизии на экране — её рабочая копия). */
  const copyId=soQuoteCopyOf||(soEdit!=='new'?soEdit:null);
- if(copyId)parts.push(`<button data-copy-order ${onAct('click',salesCopyOrder,String(copyId??''))}>Copy</button>`);
+ if(copyId)parts.push(`<button data-copy-order ${onAct('click',salesCopyOrderClick,String(copyId??''),EVENT)}>Copy</button>`);
  if(typeof recutCanOpenHere==='function'&&recutCanOpenHere(o))parts.push('<button class="recut-btn" data-recut-open '+onAct('click',ncrOpenForm,'recut')+'>Recut</button>');
  if(typeof ncrCanOpen==='function'&&ncrCanOpen(o))parts.push('<button class="ncr-btn" data-ncr-open '+onAct('click',ncrOpenForm,'ncr')+'>NCR</button>');
  if(salesIsQuote(o)){if(!salesQuoteWonMember(o))parts.push('<button class="go" data-convert-quote '+onAct('click',salesConvertQuote)+'>Convert to order</button>');}
@@ -16359,7 +16359,27 @@ if(!Array.isArray(DB.receipt))DB.receipt=[];
 const FIN_METHODS=[{k:'cash',label:'Cash'},{k:'cheque',label:'Cheque'},{k:'etransfer',label:'E-transfer'},{k:'debit',label:'Debit'},{k:'creditcard',label:'Credit card'},{k:'card',label:'Card',legacy:true}];
 function finMethodLabel(k){const m=FIN_METHODS.find(x=>x.k===k);return m?m.label:'Other';}
 function finMethodChoices(current){return FIN_METHODS.filter(m=>!m.legacy||m.k===current);}
-function finMoney(v){const n=Number(v);return Number.isFinite(n)?Math.round((n+Number.EPSILON)*100)/100:0;}
+function finMoney(v){const n=finMoneyIn(v);return Number.isFinite(n)?Math.round((n+Number.EPSILON)*100)/100:0;}
+/* Сумма, набранная в поле: американский формат «1,234.50» и десятичная
+   запятая «592,40» (владелец 24.11.2026). Поле type=number выбрасывало
+   запятую — 592,40 записывалось как $59 240 (аудит, О3). Обычное число
+   («99.999», «1.234») — как прежде; с запятой неоднозначное («1,2,3», три
+   знака после десятичной запятой) — NaN: отказ. */
+function finMoneyIn(v){
+ if(typeof v!=='string')return Number(v);
+ if(v.trim()!==''&&Number.isFinite(Number(v)))return Number(v);
+ const m=v.replace(/[\s$]/g,'').match(/^(-?)([\d.,]*)$/);if(!m||!/\d/.test(m[2]))return v.trim()===''?0:NaN;
+ const body=m[2],c=body.lastIndexOf(','),d=body.lastIndexOf('.');
+ const grouped=(s,g)=>{const p=s.split(g);return /^\d{1,3}$/.test(p[0])&&p.slice(1).every(x=>/^\d{3}$/.test(x));};
+ let int=body,frac='';
+ if(c>=0&&d>=0){const dec=c>d?',':'.',i=Math.max(c,d);int=body.slice(0,i);frac=body.slice(i+1);if(int.includes(dec)||!grouped(int,dec===','?'.':','))return NaN;int=int.replace(/[.,]/g,'');}
+ else if(c>=0||d>=0){const ch=c>=0?',':'.',p=body.split(ch);
+  if(p.length===2&&p[1].length<=2){int=p[0];frac=p[1];}
+  else if(grouped(body,ch)&&(ch===','||p.length>2))int=p.join('');
+  else return NaN;}
+ if(!/^\d*$/.test(int)||!/^\d{0,2}$/.test(frac))return NaN;
+ return Number(m[1]+(int||'0')+(frac?'.'+frac:''));
+}
 function finUid(){
  try{if(globalThis.crypto&&typeof crypto.randomUUID==='function')return 'RCPT-'+crypto.randomUUID();}catch(e){}
  return 'RCPT-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,9).toUpperCase();
@@ -16676,7 +16696,7 @@ const FIN_EVENT_LABELS={opening:'Opening record',received:'Payment received',cor
 let finActor='';
 function finCopy(x){return JSON.parse(JSON.stringify(x));}
 function finDateValid(s){if(!/^\d{4}-\d{2}-\d{2}$/.test(String(s)))return false;const d=new Date(s+'T00:00:00Z');return !isNaN(d)&&d.toISOString().slice(0,10)===s;}
-function finCents(v){const n=Number(v);return v!==''&&v!=null&&Number.isFinite(n)&&Math.abs(n)<=1e10?Math.round((n+Number.EPSILON)*100):null;}
+function finCents(v){const n=finMoneyIn(v);return v!==''&&v!=null&&Number.isFinite(n)&&Math.abs(n)<=1e10?Math.round((n+Number.EPSILON)*100):null;}
 function finAssert(cond,message){if(!cond)throw new Error(message);}
 function finCurrency(r){return r&&r.currency||'CAD';}
 function finRefunded(id){return finMoney((DB.refund||[]).filter(r=>r.receiptId===id&&!r.voided).reduce((s,r)=>s+r.amount,0));}
@@ -17696,7 +17716,10 @@ function purFulfilSave(kind,raw){
   const ids=new Set();d.lines.forEach((l,i)=>{if(ids.has(l.id))throw new Error('Duplicate line.');ids.add(l.id);['qty','damaged','actualSheets','damagedSheets','widthIn','heightIn'].forEach(k=>{if(purText(raw.lines[i][k])!==''&&(l[k]==null||l[k]<0))throw new Error('Line '+(i+1)+': enter a non-negative number or leave empty.');});
    /* Листы стекла — до 10 000 в строке (INV_SHEETS_MAX, erp/inventory). */
    const sheets=['glass','sheet'].includes(l.kind)?['actualSheets','damagedSheets'].concat(['sheet','block'].includes(purUnit(l.unit))?['qty','damaged']:[]):[];
-   if(sheets.some(k=>l[k]>INV_SHEETS_MAX))throw new Error('Line '+(i+1)+': up to 10,000 sheets.');});
+   if(sheets.some(k=>l[k]>INV_SHEETS_MAX))throw new Error('Line '+(i+1)+': up to 10,000 sheets.');
+   /* Боя больше, чем пришло, не бывает: «received» на складе уходил в минус
+      (аудит 24.11.2026, О7). Половина и больше — можно (владелец). */
+   if(l.qty!=null&&l.damaged>l.qty||l.actualSheets!=null&&l.damagedSheets>l.actualSheets)throw new Error('Line '+(i+1)+': broken is more than received.');});
   /* Пересчёт расходника в единицу склада запоминается в строке (аудит
      25.10.2026, I-2): смена упаковки в карточке прошлые приёмки не меняет.
      Та же строка с той же единицей при правке — прежний пересчёт. */
@@ -20257,7 +20280,9 @@ function custSet(key,v,redraw){cDraft[key]=v;if(redraw)render();}
 function custSetRow(list,i,key,v){cDraft[list][i][key]=v;}
 function custSetLegacy(key,v){cDraft.legacyRefs[key]=v;}
 /* Legal name заполняет и пустое Display name. */
-function custSetLegal(v){cDraft.legalName=v;if(!cDraft.displayName)cDraft.displayName=v;}
+/* Display Name идёт за Legal Name, пока человек его не менял (аудит 24.11.2026, О1:
+   первая буква оставалась именем клиента). */
+function custSetLegal(v){const follow=!cDraft.displayName||cDraft.displayName===cDraft.legalName;cDraft.legalName=v;if(follow)cDraft.displayName=v;}
 function cTabGo(id){cTab=id;render();}
 function customerCancelEdit(){customerLeave(()=>{cEdit=null;cDraft=null;render();});}
 function custDupClose(){cDup=null;render();}
@@ -20470,6 +20495,7 @@ function salesCloseClick(){const go=()=>salesOrderClose();if(soDraft&&salesDraft
    копия вместо прежнего Repeat («Замени», «Тоже пусть будет копия»). Кнопка
    и пункт меню — одно слово Copy («Может просто одно слово copy»). */
 let soCopyOf=null;
+function salesCopyOrderClick(id,ev){if(ev&&ev.detail>1&&Date.now()-salesSavedAt<800)return;salesCopyOrder(id);}
 function salesCopyOrder(id){
  const o=salesRecord(id);if(!o)return;
  /* Из архива: копия до того, как его записи уйдут из DB (salesDraftDrop
@@ -20538,6 +20564,10 @@ function salesOrderScope(id){
    opts.noRender — экран нарисует он сам, opts.failed — ему текст отказа:
    заказа на экране может и не быть. */
 function salesOrderSave(opts){
+ /* Пишет другая вкладка: первый Update забирал запись и ничего не сохранял,
+    а «repeat the action» стирала перерисовка (аудит 24.11.2026, О5) —
+    Update повторяется сам, когда запись перешла сюда. */
+ if(opts&&opts.bg&&!opts.taken&&typeof storageWriter!=='undefined'&&!storageWriter&&!storageStale&&!storageRecovery&&navigator.locks){storageWhenWriter(()=>salesOrderSave(Object.assign({},opts,{taken:true})));return;}
  if(opts&&opts.bg)return salesOrderSaveBg();
  const editor={draft:soDraft?JSON.parse(JSON.stringify(soDraft)):null,edit:soEdit,quote:soQuoteCopyOf,shapes:soShapeSnapshot,baseline:soSavedBaseline};
  const out=storageCommand(()=>{
@@ -20545,8 +20575,12 @@ function salesOrderSave(opts){
   const result=salesOrderSaveCommand(opts);if(result!==true){const e=salesOrderErrorBox();throw new Error(e.style.display!=='none'&&e.textContent||'The order was not saved.');}return true;
  },salesOrderScope(soEdit));
  if(!out.ok){soDraft=editor.draft;soEdit=editor.edit;soQuoteCopyOf=editor.quote;soShapeSnapshot=editor.shapes;soSavedBaseline=editor.baseline;render();const e=document.getElementById('e_sales_order');if(e)fail(e,out.error);if(opts&&opts.failed)opts.failed(out.error);return false;}
- soSavedBaseline=JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit));if(!(opts&&opts.noRender))render();return true;
+ soSavedBaseline=JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit));salesSavedAt=Date.now();if(!(opts&&opts.noRender))render();return true;
 }
+/* Второй клик двойного Save попадал в Copy, вставшую рядом после записи
+   (аудит 24.11.2026, О2): второй клик двойного сразу после Save кнопку
+   Copy не нажимает (salesCopyOrderClick). */
+let salesSavedAt=0;
 /* Строка ошибки заказа. Save в фоне идёт и без заказа на экране — тогда
    ошибка пишется в строку вне экрана. */
 let salesOrderErrorSpare=null;
@@ -20555,7 +20589,7 @@ function salesOrderErrorBox(){return document.getElementById('e_sales_order')||s
    без записи; opts.checked — вопросы уже заданы; opts.pre — цены и
    количества строк, посчитанные заранее. Они берутся, только если база и
    заказ с тех пор не менялись, иначе — всё заново, как у обычного Save. */
-const SALES_QTY_ASK=2000;
+const SALES_QTY_ASK=2000,SALES_QTY_MAX=10000,SALES_DIM_MAX=999;
 function salesOrderSaveCommand(opts){
  opts=opts||{};
  const e=salesOrderErrorBox();e.style.display='none';
@@ -20566,6 +20600,13 @@ function salesOrderSaveCommand(opts){
  if(!pre){
  /* Опечатка в количестве: не запрет, а вопрос (проверка 02.11.2026: 50 000
     в строке записывались молча, с номерами на каждое стекло). */
+ /* Жёсткие пределы строки (владелец 24.11.2026: «больше 500 не разу не
+    видел», «не думаю что цифры нужны больше 999 если в инчах»): 99 999 999
+    после «Is this right?» вешали вкладку, 999 999″ давали $165 млрд (О8, О9). */
+ const tooMany=(soDraft.lines||[]).findIndex(l=>l.qty>SALES_QTY_MAX);
+ if(tooMany>=0)return fail(e,'Line '+(tooMany+1)+': up to '+SALES_QTY_MAX.toLocaleString('en-US')+' units.');
+ const tooBig=(soDraft.lines||[]).findIndex(l=>l.width16>SALES_DIM_MAX*16||l.height16>SALES_DIM_MAX*16);
+ if(tooBig>=0)return fail(e,'Line '+(tooBig+1)+': width and height up to '+SALES_DIM_MAX+'″.');
  const typo=(soDraft.lines||[]).findIndex(l=>l.qty>SALES_QTY_ASK);
  if(typo>=0&&!ask('Line '+(typo+1)+': '+soDraft.lines[typo].qty.toLocaleString('en-US')+' units. Is this right?')){render();return false;}
  salesSnapshotAllChargePricing();
@@ -20577,6 +20618,10 @@ function salesOrderSaveCommand(opts){
  if(!customer.contacts.some(x=>x.id===soDraft.customerContactId))soDraft.customerContactId=customerPrimaryContact(customer).id||'';
  /* 29.10.2026 — у всех клиентов: «PO для всех обязательно». */
  if(!salesIsQuote(soDraft)&&!String(soDraft.customerPo||'').trim())return fail(e,'Enter the Customer PO.');
+ /* Тот же PO у того же клиента — чаще всего дубль (аудит 24.11.2026, О2):
+    вопрос, а не запрет — бывает и PO на несколько заказов. */
+ if(soEdit==='new'&&!salesIsQuote(soDraft)){const po=String(soDraft.customerPo).trim().toLowerCase(),same=(DB.salesOrder||[]).find(o=>o.id!==soDraft.id&&!salesIsQuote(o)&&o.status!=='cancelled'&&o.customerId===soDraft.customerId&&String(o.customerPo||'').trim().toLowerCase()===po);
+  if(same&&!ask('PO '+String(soDraft.customerPo).trim()+' is already on order '+same.businessNumber+' of this customer.\n\nSave another order with it?')){render();return false;}}
  /* Без Due date заказ не пишется (владелец 17.11.2026); Priority ставит её сам.
     Кроме переделки NCR: она — свой заказ без срока и в On time % не входит (правило Late, 16.11.2026). */
  if(!salesIsQuote(soDraft)&&!soDraft.remakeNcrId&&!String(soDraft.dueDate||'').trim())return fail(e,'Enter the Due Date.');
@@ -32843,7 +32888,11 @@ function shippingOpen(customerId,id){
 function shippingDraftQty(orderId,lineId,n){
  const d=shippingDraft,o=salesRecord(orderId);if(!d||!o)return;const available=shippingAvailable(o,d.id).filter(i=>i.lineId===lineId);
  available.sort((a,b)=>Number(!!b.loaded)-Number(!!a.loaded)||Number(d.items.some(i=>i.label===b.label))-Number(d.items.some(i=>i.label===a.label)));
- d.items=d.items.filter(i=>i.orderId!==orderId||i.lineId!==lineId).concat(available.slice(0,Math.max(0,Math.floor(+n)||0)).map(shippingItem));render();
+ d.items=d.items.filter(i=>i.orderId!==orderId||i.lineId!==lineId).concat(available.slice(0,Math.max(0,Math.floor(+n)||0)).map(shippingItem));
+ /* Без render(): change приходит на blur, и перерисовка съедала клик по
+    Create packing slip (аудит 24.11.2026, Т4). Поле — до того, что есть. */
+ const el=document.querySelector('[data-ps-qty="'+CSS.escape(orderId+'|'+lineId)+'"]'),qty=d.items.filter(i=>i.orderId===orderId&&i.lineId===lineId).length;
+ if(el){if(String(qty)!==el.value)el.value=String(qty);}else render();
 }
 function shippingDraftExtra(orderId,extraId,n){const d=shippingDraft;if(!d)return;d.extras=d.extras.filter(i=>i.orderId!==orderId||i.extraId!==extraId);if(+n>0)d.extras.push({orderId,extraId,qty:Math.floor(+n)});}
 function shippingDraftAddress(id){const c=salesFindCustomer(shippingDraft.customerId),a=(c.addresses||[]).find(a=>a.id===id);shippingDraft.shipTo=a?shippingAddress(Object.assign({},a,{contact:shippingDraft.shipTo.contact,phone:shippingDraft.shipTo.phone})):shippingAddress({});render();}
@@ -33120,7 +33169,7 @@ function shippingDraftHTML(){
  const d=shippingDraft;if(!d)return '';const c=salesFindCustomer(d.customerId),os=shippingOrders().filter(o=>o.customerId===d.customerId);
  const field=(key,label)=>`<label>${label}<input value="${esc(d.shipTo[key])}" ${onAct('input',shippingShipToSet,key,EL_VALUE)}></label>`;
  const rows=os.map(o=>{
-  const a=shippingAvailable(o,d.id),q=shippingSummary(o),shown=k=>!d.only||d.only.has(o.id+'|'+k);const body=(o.lines||[]).map((l,n)=>{const max=a.filter(i=>i.lineId===l.id).length,qty=d.items.filter(i=>i.orderId===o.id&&i.lineId===l.id).length;if(!max&&!qty||!shown(l.id))return '';return `<label class="shipping-pick"><span>Line ${n+1} · ${esc(docSize(l))} · ${esc(l.mark)}<small>${esc(salesMakeupSummary(salesMakeupById(o,l.makeupId)))}</small></span><input type="number" aria-label="PS quantity line ${n+1}" min="0" max="${max}" step="1" inputmode="numeric" value="${qty}" ${onAct('change',shippingDraftQty,String(o.id??''),String(l.id??''),EL_VALUE)}><span>of ${max} ready</span></label>`;}).join('')+q.extras.filter(r=>o.status!=='new'&&!o.onHold&&shown(r.x.id)).map(r=>{const current=d.extras.find(i=>i.extraId===r.x.id),original=d.id&&shippingFind(d.id).extras.find(i=>i.extraId===r.x.id),max=r.ready+(original?original.qty:0);return `<label class="shipping-pick"><span>From stock · ${esc(salesExtraItemName(r.x))}</span><input type="number" min="0" max="${max}" step="1" inputmode="numeric" value="${current?current.qty:0}" ${onAct('change',shippingDraftExtra,String(o.id??''),String(r.x.id??''),EL_VALUE)}><span>of ${max}</span></label>`;}).join('');
+  const a=shippingAvailable(o,d.id),q=shippingSummary(o),shown=k=>!d.only||d.only.has(o.id+'|'+k);const body=(o.lines||[]).map((l,n)=>{const max=a.filter(i=>i.lineId===l.id).length,qty=d.items.filter(i=>i.orderId===o.id&&i.lineId===l.id).length;if(!max&&!qty||!shown(l.id))return '';return `<label class="shipping-pick"><span>Line ${n+1} · ${esc(docSize(l))} · ${esc(l.mark)}<small>${esc(salesMakeupSummary(salesMakeupById(o,l.makeupId)))}</small></span><input type="number" aria-label="PS quantity line ${n+1}" data-ps-qty="${esc(o.id+'|'+l.id)}" min="0" max="${max}" step="1" inputmode="numeric" value="${qty}" ${onAct('change',shippingDraftQty,String(o.id??''),String(l.id??''),EL_VALUE)}><span>of ${max} ready</span></label>`;}).join('')+q.extras.filter(r=>o.status!=='new'&&!o.onHold&&shown(r.x.id)).map(r=>{const current=d.extras.find(i=>i.extraId===r.x.id),original=d.id&&shippingFind(d.id).extras.find(i=>i.extraId===r.x.id),max=r.ready+(original?original.qty:0);return `<label class="shipping-pick"><span>From stock · ${esc(salesExtraItemName(r.x))}</span><input type="number" min="0" max="${max}" step="1" inputmode="numeric" value="${current?current.qty:0}" ${onAct('change',shippingDraftExtra,String(o.id??''),String(r.x.id??''),EL_VALUE)}><span>of ${max}</span></label>`;}).join('');
   return body?`<h4>Order ${esc(o.businessNumber)}${o.customerPo?' · PO '+esc(o.customerPo):''}</h4>`+body:'';
  }).join('');
  return `<div class="sales-service-modal-back"><div class="sales-service-modal shipping-modal" role="dialog" aria-modal="true" aria-label="Packing slip"><div class="sales-service-modal-head"><h3>${d.id?'Edit '+esc(d.number):'Create packing slip'} · ${esc(salesCustomerDisplay(d.customerId))}</h3><button aria-label="Close" ${onAct('click',shippingDraftCancel)}>×</button></div><div class="shipping-form"><div class="shipping-form-fields"><label>Method<select aria-label="Method" ${onAct('change',shippingDraftSet,'method',EL_VALUE,true)}><option value="delivery" ${d.method==='delivery'?'selected':''}>Delivery</option><option value="pickup" ${d.method==='pickup'?'selected':''}>Pickup</option></select></label><label>Date<input type="date" value="${d.date}" ${onAct('change',shippingDraftSet,'date',EL_VALUE)}></label></div>${d.method==='delivery'?`<label>Delivery address<select ${onAct('change',shippingDraftAddress,EL_VALUE)}><option value="">Job site / custom address</option>${(c.addresses||[]).filter(a=>a.type==='delivery').map(a=>`<option value="${esc(a.id)}" ${a.address1===d.shipTo.address1?'selected':''}>${esc(a.label||docAddressText(a))}</option>`).join('')}</select></label><div class="shipping-form-fields">${field('addressee','Ship to')}${field('address1','Address')}${field('address2','Address line 2')}${field('address3','Address line 3')}${field('city','City')}${field('province','Province')}${field('postalCode','Postal code')}${field('contact','Contact')}${field('phone','Phone')}</div>`:''}${rows}${(d.takes||[]).map(salesRecord).filter(Boolean).map(o=>unitTakes(o).map(x=>`<div class="shipping-pick" data-draft-takes><span>Order ${esc(o.businessNumber)} · cancelled · customer takes · line ${x.line} · ${esc(docSize(x.l))}</span><span>${x.pieces} glass</span></div>`).join('')).join('')}<label>Note<textarea ${onAct('input',shippingDraftSet,'note',EL_VALUE)}>${esc(d.note)}</textarea></label>${d.error?'<p class="err" role="alert" style="display:block">'+esc(d.error)+'</p>':''}</div><div class="sales-dialog-actions"><button ${onAct('click',shippingDraftCancel)}>Back</button><button class="pri" data-save-ps ${onAct('click',shippingSave)}>${d.id?'Save':'Create packing slip'}</button></div></div></div>`;
@@ -36317,16 +36366,16 @@ function finReceiptForm(){
  const customers=(DB.customer||[]).filter(c=>c.status!=='archived'||c.id===d.customerId),rows=finFormOrders(),noPrice=finFormNoPrice();
  const ph=({cheque:'Cheque #',etransfer:'Transfer reference',debit:'Last 4 digits or approval #',creditcard:'Last 4 digits or approval #',card:'Last 4 digits or approval #'})[d.method]||'Optional';
  const table=!d.customerId?'<p class="mut">Select a customer to apply the receipt to orders.</p>':rows.length?`<h4 class="fin-h4">Apply to orders of this customer</h4>
-  <div class="fin-table-wrap">${slFromTable('finReceiptApply',`<table class="fin-table"><thead><tr><th>Order</th><th>Customer PO</th><th class="n">Order total</th><th class="n">Paid before</th><th class="n">Balance</th><th class="n">Apply now</th></tr></thead><tbody>${rows.map(x=>`<tr>
+  <div class="fin-table-wrap">${slFromTable('finReceiptApply',`<table class="fin-table"><thead><tr><th>Order</th><th>Customer PO</th><th class="n">Order total</th><th class="n">Paid before</th><th class="n">Balance</th><th class="n" data-w="200">Apply now</th></tr></thead><tbody>${rows.map(x=>`<tr>
    <td><b class="mono">${raw(x.order.businessNumber||'draft')}</b>${!locked&&d.method==='creditcard'?finCardFeeTag(x.order):''}</td><td>${raw(x.order.customerPo||'—')}</td><td class="n">${finFmt(x.total)}</td><td class="n">${finFmt(x.paid)}</td><td class="n"><b>${finFmt(x.balance)}</b></td>
-   <td class="n fin-apply-cell"><div><input type="number" min="0" step="0.01" data-fin-apply="${esc(x.order.id)}"${dis} value="${esc(d.apply[x.order.id]||'')}" placeholder="0.00" ${onAct('input',finApplyInput,String(x.order.id??''),EL_VALUE)}>${locked?'':`<button type="button" class="sm" ${onAct('click',finApplyMax,String(x.order.id??''))}>Max</button>`}</div></td></tr>`).join('')}</tbody></table>`)}</div>`
+   <td class="n fin-apply-cell"><div><input type="text" inputmode="decimal" data-fin-apply="${esc(x.order.id)}"${dis} value="${esc(d.apply[x.order.id]||'')}" placeholder="0.00" ${onAct('input',finApplyInput,String(x.order.id??''),EL_VALUE)}>${locked?'':`<button type="button" class="sm" ${onAct('click',finApplyMax,String(x.order.id??''))}>Max</button>`}</div></td></tr>`).join('')}</tbody></table>`)}</div>`
   :'<p class="mut fin-apply-empty">This customer has no orders with a balance due — the whole amount stays on account as a deposit.</p>';
  return `<div class="fin-form"><div class="fin-form-head"><h3>${r?'Receipt '+raw(r.number):'New receipt'}</h3>${locked?`<span class="pill bad">Void</span><span class="mut">${raw(r.voidReason)}</span>`:''}</div>
  <div class="fin-grid">
   <div class="fin-span2"><label>Customer *</label><select${r?' disabled':dis} aria-label="Payment customer" ${onAct('change',finDraftCustomer,EL_VALUE)}><option value="">— select customer —</option>${customers.map(c=>`<option data-raw value="${esc(c.id)}" ${c.id===d.customerId?'selected':''}>${esc(c.code||'')} · ${esc(finCustomerName(c))}</option>`).join('')}</select>${!r&&d.customerId&&finCustomerDeposit(d.customerId)>0?`<div class="mut small">Already on account ${finFmt(finCustomerDeposit(d.customerId))}</div>`:''}</div>
   <div><label>Date</label><input type="date"${dis} value="${esc(d.date)}" ${onAct('change',finDraftSet,'date',EL_VALUE)}></div>
   <div class="fin-span2"><label>Method</label><div class="fin-seg">${finMethodChoices(d.method).map(m=>`<button type="button"${dis} data-fin-method="${m.k}" class="${d.method===m.k?'on':''}" ${onAct('click',finDraftSet,'method',String(m.k),true)}>${m.label}</button>`).join('')}</div></div>
-  <div><label>Amount · CAD *</label><input type="number" min="0" step="0.01" id="finAmount"${dis} value="${esc(d.amount)}" ${onAct('input',finDraftAmount,EL_VALUE)}></div>
+  <div><label>Amount · CAD *</label><input type="text" inputmode="decimal" id="finAmount"${dis} value="${esc(d.amount)}" ${onAct('input',finDraftAmount,EL_VALUE)}></div>
   <div class="fin-span2"><label>Reference</label><input${dis} id="finReference" value="${esc(d.reference)}" placeholder="${ph}" ${onAct('input',finDraftSet,'reference',EL_VALUE)}></div>
   <div class="fin-span4"><label>Note</label><input${dis} id="finNote" value="${esc(d.note)}" ${onAct('input',finDraftSet,'note',EL_VALUE)}></div>
  </div>
@@ -36395,7 +36444,7 @@ function finApplyModal(){
  return `<div class="sales-service-modal-back fin-modal-back" ${onActSelf('click',finCloseApply)}><div class="sales-service-modal fin-modal" role="dialog" aria-modal="true" aria-label="Apply deposit">
   <div class="sales-service-modal-head"><h3>Apply deposit · ${raw(finCustomerName(c))}</h3><button type="button" aria-label="Close" ${onAct('click',finCloseApply)}>×</button></div>
   <div class="fin-modal-body"><p>On account: <b class="fin-deposit">${finFmt(dep)}</b></p>
-  ${orders.length?`<div class="fin-grid"><div class="fin-span4"><label>Order</label><select id="finApplyOrder" ${onAct('change',finSetApplyOrder,EL_VALUE)}>${orders.map(x=>`<option value="${esc(x.order.id)}" ${x.order.id===finApply.orderId?'selected':''}>${esc(x.order.businessNumber||'draft')} · balance ${finFmt(x.balance)}</option>`).join('')}</select></div><div class="fin-span2"><label>Amount</label><input type="number" min="0" step="0.01" id="finApplyAmount" value="${esc(finApply.amount)}" ${onAct('input',finApplySetAmount,EL_VALUE)}></div></div>`:'<p class="mut">No orders with a balance due.</p>'}
+  ${orders.length?`<div class="fin-grid"><div class="fin-span4"><label>Order</label><select id="finApplyOrder" ${onAct('change',finSetApplyOrder,EL_VALUE)}>${orders.map(x=>`<option value="${esc(x.order.id)}" ${x.order.id===finApply.orderId?'selected':''}>${esc(x.order.businessNumber||'draft')} · balance ${finFmt(x.balance)}</option>`).join('')}</select></div><div class="fin-span2"><label>Amount</label><input type="text" inputmode="decimal" id="finApplyAmount" value="${esc(finApply.amount)}" ${onAct('input',finApplySetAmount,EL_VALUE)}></div></div>`:'<p class="mut">No orders with a balance due.</p>'}
   <div class="err" id="e_fin_apply"></div>
   <div class="fin-form-actions"><button type="button" ${onAct('click',finCloseApply)}>Cancel</button>${orders.length?'<button type="button" class="pri" '+onAct('click',finConfirmApply)+'>Apply</button>':''}</div></div></div></div>`;
 }
@@ -36529,7 +36578,7 @@ function finActionHTML(){
  const auto=o?finLocalDate(o.statusDates&&o.statusDates.done):'';
  return `<div class="sales-service-modal-back fin-modal-back"><div class="sales-service-modal fin-modal" role="dialog" aria-modal="true" aria-label="${terms?'Payment terms':'Record refund'}"><div class="sales-service-modal-head"><h3>${terms?'Terms · '+esc(finOrderNumber(d.orderId)):'Refund · '+esc(r&&r.number||'')}</h3><button aria-label="Close" ${onAct('click',finCloseAction)}>×</button></div><div class="fin-modal-body">
  ${terms?`<div class="fin-grid"><label class="fin-span3">Payment terms<select ${onAct('change',finActionSet,'paymentMode',EL_VALUE,true)}><option value="cash" ${d.paymentMode==='cash'?'selected':''}>Cash / deposit</option><option value="credit" ${d.paymentMode==='credit'?'selected':''}>Credit</option></select></label>${d.paymentMode==='cash'?`<label class="fin-span3">Deposit %<input type="number" min="0" max="100" value="${esc(d.depositPercent)}" ${onAct('input',finActionSet,'depositPercent',EL_VALUE)}></label>`:`<label class="fin-span3">Net days<input type="number" min="0" max="365" value="${d.creditDays==null?'':esc(d.creditDays)}" ${onAct('input',finActionSet,'creditDays',EL_VALUE)}></label>`}<label class="fin-span3">Billing date<input type="date" value="${esc(d.issuedOn)}" ${onAct('change',finActionSet,'issuedOn',EL_VALUE)}><small class="mut">${auto?'Blank = pickup '+esc(finShortDate(auto)):'Blank = pickup day'}</small></label><label class="fin-span3">Due date<input type="date" value="${esc(d.dueOn)}" ${onAct('change',finActionSet,'dueOn',EL_VALUE)}><small class="mut">Blank = by terms</small></label></div><label>Note<input value="${esc(d.reason)}" ${onAct('input',finActionSet,'reason',EL_VALUE)}></label>`:
- `<p>Available <b>${finFmt(r?finReceiptOnAccount(r):0)}</b></p><div class="fin-grid"><label class="fin-span3">Amount · CAD<input id="finRefundAmount" type="number" min="0.01" step="0.01" value="${esc(d.amount)}" ${onAct('input',finActionSet,'amount',EL_VALUE)}></label><label class="fin-span3">Date<input type="date" value="${esc(d.date)}" ${onAct('change',finActionSet,'date',EL_VALUE)}></label><label class="fin-span3">Method<select ${onAct('change',finActionSet,'method',EL_VALUE)}>${finMethodChoices(d.method).map(m=>`<option value="${m.k}" ${d.method===m.k?'selected':''}>${m.label}</option>`).join('')}</select></label><label class="fin-span3">Reference<input value="${esc(d.reference)}" ${onAct('input',finActionSet,'reference',EL_VALUE)}></label></div><label>Reason *<input id="finActionReason" value="${esc(d.reason)}" ${onAct('input',finActionSet,'reason',EL_VALUE)}></label>`}
+ `<p>Available <b>${finFmt(r?finReceiptOnAccount(r):0)}</b></p><div class="fin-grid"><label class="fin-span3">Amount · CAD<input id="finRefundAmount" type="text" inputmode="decimal" value="${esc(d.amount)}" ${onAct('input',finActionSet,'amount',EL_VALUE)}></label><label class="fin-span3">Date<input type="date" value="${esc(d.date)}" ${onAct('change',finActionSet,'date',EL_VALUE)}></label><label class="fin-span3">Method<select ${onAct('change',finActionSet,'method',EL_VALUE)}>${finMethodChoices(d.method).map(m=>`<option value="${m.k}" ${d.method===m.k?'selected':''}>${m.label}</option>`).join('')}</select></label><label class="fin-span3">Reference<input value="${esc(d.reference)}" ${onAct('input',finActionSet,'reference',EL_VALUE)}></label></div><label>Reason *<input id="finActionReason" value="${esc(d.reason)}" ${onAct('input',finActionSet,'reason',EL_VALUE)}></label>`}
  <div class="err" id="e_fin_action"></div><div class="fin-form-actions"><button ${onAct('click',finCloseAction)}>Cancel</button><button class="pri" ${onAct('click',finSaveAction)}>${terms?'Save terms':'Record refund'}</button></div></div></div></div>`;
 }
 function finSaveAction(){if(!finAction)return;const d=finCopy(finAction),out=finPersist(()=>d.type==='terms'?finSaveTerms(d.orderId,d,d.reason):finCreateRefund(d));if(!out.ok)return fail(document.getElementById('e_fin_action'),out.error);finAction=null;render();}
@@ -39365,7 +39414,8 @@ function slHtmlTable(scope,head,body,o){
    заголовки и строки как есть. Пустой заголовок первой колонки — галочка
    строки, пустой последней — кнопки строки. Строки с классом o.sub
    (подстроки связей) идут под своей строкой, фильтр их не считает; строки
-   tfoot — под списком. Класс и data-атрибуты таблицы — у обёртки. */
+   tfoot — под списком. Класс и data-атрибуты таблицы — у обёртки; data-w
+   у заголовка — ширина колонки (px). */
 function slFromTable(scope,html,o){
  o=o||{};
  const t=document.createElement('template');t.innerHTML=html;const tb=t.content.querySelector('table');if(!tb)return html;
@@ -39376,7 +39426,7 @@ function slFromTable(scope,html,o){
  const first=ths.length>1&&!lab(ths[0]),last=ths.length>2&&!lab(ths[ths.length-1])&&!ths[ths.length-1].querySelector('input');
  const from=first?1:0,to=last?ths.length-1:ths.length;
  const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'')||'c';
- const head=ths.slice(from,to).map((th,i)=>({k:slug(lab(th))+'_'+(i+from),label:lab(th),n:th.classList.contains('n')||th.classList.contains('cs-n'),td:i+from}));
+ const head=ths.slice(from,to).map((th,i)=>({k:slug(lab(th))+'_'+(i+from),label:lab(th),n:th.classList.contains('n')||th.classList.contains('cs-n'),td:i+from,w:+th.dataset.w||undefined}));
  const rows=[...tb.querySelectorAll(':scope > tbody > tr')],list=[];
  rows.forEach(tr=>{
   /* Строка с одной ячейкой на всю ширину: до данных — «пусто», после — пояснение под своей строкой. */
@@ -39393,7 +39443,7 @@ function slFromTable(scope,html,o){
  const firstTh=first&&ths[0].querySelector('input')?ths[0].innerHTML:undefined;
  const out=slTable(scope,Object.assign({list,firstTh,rowHTML:x=>x.html+x.sub.join(''),firstTd:first?0:undefined,lastTd:last?-1:undefined,
   empty:emptyRow?emptyRow.textContent.trim():undefined,cls,acts:last?90:20,tail:foot?()=>foot:undefined,noun:l=>l.length+' row'+(l.length===1?'':'s'),
-  columns:()=>head.map(h=>({k:h.k,label:h.label,type:h.n?'number':'text',td:h.td,v:x=>h.n?num(x.tds[h.td]):x.tds[h.td]}))},o));
+  columns:()=>head.map(h=>({k:h.k,label:h.label,type:h.n?'number':'text',td:h.td,w:h.w,v:x=>h.n?num(x.tds[h.td]):x.tds[h.td]}))},o));
  return attrs?`<div${attrs}>${out}</div>`:out;
 }
 
@@ -52299,7 +52349,7 @@ function stationCarrierCard(L){
  if(c.took)return '<div class="st-res st-ok" data-station-result="carrierTook"><div class="st-res-h">Putting on '+esc(c.code)+' · took '+c.took+' glass'+stationBackText(c)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>PUT ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">'+c.took+' glass without a '+stationTareWord()+' — on '+esc(c.code)+' now</div><div class="mut">Next glass goes on '+esc(c.code)+'</div></div></div></div>';
  return '<div class="st-res st-ok" data-station-result="carrierPut"><div class="st-res-h">Putting on '+esc(c.code)+stationBackText(c)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>PUT ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Next glass goes on '+esc(c.code)+'</div><div class="mut">'+(c.count?'On it now: '+c.count+' glass'+(c.since?' · since '+esc(c.since):''):'Empty')+' · another dolly — scan it</div>'+stationSkidSummary(c.code)+'</div></div>'+stationSkidEmptyButton(c)+'</div>';
 }
-function stationScanOffClick(id){const saved=stationScanOff(id);stationNote=saved?'By hand — not on a dolly':storageLastError||'Nothing to change';if(stationLast&&stationLast.rec&&stationLast.rec.id===id)stationLast.rec=(DB.stationScan||[]).find(s=>s.id===id)||null;render();}
+function stationScanOffClick(id){const saved=stationScanOff(id);stationNote=saved?'By hand — not on a dolly':storageCommandError||'Nothing to change';if(stationLast&&stationLast.rec&&stationLast.rec.id===id)stationLast.rec=(DB.stationScan||[]).find(s=>s.id===id)||null;render();}
 function stationNextLabel(x){
  const svc=(stationRouteOf(x.g).services||[]).find(s=>s.station===x.place.waiting&&(s.step==null||s.step===x.place.far+1));
  return x.place.waiting+(svc?' · '+svc.text:'');
@@ -62528,7 +62578,7 @@ let storageRev=0,storageBusy=false,storageQueued=null,storageFailed=null,storage
    клал старое поверх того, что сохранила другая вкладка (проверка Codex).
    storageFailedExported — незаписанное уже в файле Export; storageOtherHeld —
    другая вкладка ответила, что держит запись. */
-let storageFailedExported=false,storageOtherHeld=false,storageTakeoverAbort=null;
+let storageCommandError='',storageFailedExported=false,storageOtherHeld=false,storageTakeoverAbort=null;
 /* Проверка версии (владелец, 21.10.2026). Главная — последняя открытая
    версия: открылась вкладка другой сборки — эта больше ничего не пишет,
    иначе её нормализация срезала бы новые графы. storageStale — сборка,
@@ -62788,16 +62838,19 @@ function storageCommand(fn,scope){
  let scopeBefore=null;if(scope&&typeof window!=='undefined'&&window.GF_SCOPE_CHECK)try{scopeBefore=storageScopeSig();}catch(e){}
  /* Таблицы разделов: что запишет команда, должен отметить свой раздел (erp/sections). */
  if(typeof sectionGuardReset==='function')sectionGuardReset();
- storageDepth++;
+ storageDepth++;let writeFail=false;
  try{
   const value=fn();if(value===false||value&&value.error)throw new Error(value&&value.error||'The operation could not be completed.');
   storageDepth--;storageCommanding=true;storageScope=scope?storageScopeMap(scope):null;
   let saved;try{saved=touch();}finally{storageCommanding=false;storageScope=null;}
-  if(saved===false)throw new Error(storageLastError||'Not saved. Retry the operation.');
+  if(saved===false){writeFail=true;throw new Error(storageLastError||'Not saved. Retry the operation.');}
   if(scopeBefore)storageScopeCheck(scopeBefore);
   if(scope)storageSweepLater();
   return {ok:true,value};
- }catch(e){storageDepth=0;storageCommanding=false;storageColdPending.clear();storageColdImport=null;storageColdWarm.clear();storageArchivePending.clear();storageRollback(before);dirty=wasDirty;if(draftBefore!==null&&JSON.stringify(soDraft)!==draftBefore)soDraft=JSON.parse(draftBefore);storageInvalidate();storageLastError=e.message;return {ok:false,error:e.message};}
+ }catch(e){storageDepth=0;storageCommanding=false;storageColdPending.clear();storageColdImport=null;storageColdWarm.clear();storageArchivePending.clear();storageRollback(before);dirty=wasDirty;if(draftBefore!==null&&JSON.stringify(soDraft)!==draftBefore)soDraft=JSON.parse(draftBefore);storageInvalidate();
+  /* «Not saved» и полоса — только когда не удалась запись; отказ проверки
+     команды пишет свой текст тот, кто её вызвал (аудит 24.11.2026, О6). */
+  storageCommandError=e.message;if(writeFail)storageLastError=e.message;return {ok:false,error:e.message};}
 }
 /* Запись правки, сделанной до вызова (раскрой: Build и правки листа, порядок
    батчей): touch() только по области scope, как у storageCommand. Вне
