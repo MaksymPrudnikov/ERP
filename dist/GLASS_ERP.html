@@ -8,7 +8,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-iQxdvz+D2Xe7hhIQOscuwduXBxKjHPC9jN6gV5ptnUc=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-lM8iNBxEL7PSmOycFmrv3U5VC/sU9MWixOep7nsJolI=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GLASS ERP — Glazing System</title>
 <style>
@@ -4698,7 +4698,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='0cc2260e925c';
+var ERP_BUILD='311be2041fe9';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -10895,7 +10895,8 @@ function normalizeShopFloor(){
 function parseCsv(text){
  const src=String(text==null?'':text).replace(/^﻿/,'');
  const rows=[];let row=[],field='',quoted=false,i=0;
- const endField=()=>{row.push(field);field='';};
+ /* Апостроф перед формулой ставит наш же экспорт (csvCell, Н1) — снимаем. */
+ const endField=()=>{row.push(/^'(\s*[=+@-]|[\t\r])/.test(field)?field.slice(1):field);field='';};
  const endRow=()=>{endField();if(row.length>1||row[0]!=='')rows.push(row);row=[];};
  while(i<src.length){
   const c=src[i];
@@ -13824,7 +13825,9 @@ function customerDownload(name,text,type){
 function exportCustomersJSON(){
  customerDownload('glass_erp_customers.json',JSON.stringify({schema:'glass-erp-customers-v1',exportedAt:new Date().toISOString(),customers:DB.customer},null,2),'application/json');
 }
-function csvCell(v){const s=String(v==null?'':v);return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
+/* Текст, который Excel принял бы за формулу (=HYPERLINK… в имени клиента), —
+   с апострофом, как в CSV Finance (finCsvCell; аудит 24.11.2026, Н1); parseCsv его снимает. */
+function csvCell(v){let s=String(v==null?'':v);if(!/^-?\d+(\.\d+)?$/.test(s)&&/^(\s*[=+@-]|[\t\r\n])/.test(s))s="'"+s;return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
 function customerPrimaryContact(c){return c.contacts.find(x=>x.isPrimary)||c.contacts[0]||{};}
 function customerAddressByType(c,type){return c.addresses.find(x=>x.type===type&&x.isDefault)||c.addresses.find(x=>x.type===type)||{};}
 function customerCsvRows(){
@@ -18696,7 +18699,13 @@ async function cloudSignup(email,password){
  try{await cloudFetch('/auth/v1/signup',{email,password});return '';}
  catch(e){return /already|registered|exists/i.test(e.message)?'':e.message;}
 }
-function cloudSignOut(){const c=cloudConfig();delete c.session;cloudConfigSave(c);cloudState={busy:false,error:'',me:null};render();}
+/* Выход закрывает вход и на сервере (/auth/v1/logout): раньше токен жил до
+   конца срока (аудит 24.11.2026, Н7). Ответа не ждём — без связи выход тот же. */
+function cloudSignOut(){
+ const c=cloudConfig(),s=c.session;delete c.session;cloudConfigSave(c);cloudState={busy:false,error:'',me:null};
+ if(s&&s.access)cloudFetch('/auth/v1/logout',{},s.access).catch(()=>{});
+ render();
+}
 
 /* ==== src/erp/cloud-sync.js ==== */
 /* ============================================================================
@@ -19218,8 +19227,17 @@ async function cloudRightsCheck(){
  const now=me.admin?['*']:[...(me.sections||[])].map(String).sort(),was=s.rights;
  const grew=!!was&&!was.includes('*')&&(now.includes('*')||now.some(x=>!was.includes(x)));
  if(JSON.stringify(now)===JSON.stringify(was))return;
+ const shrank=!!was&&!now.includes('*')&&(was.includes('*')||was.some(x=>!now.includes(x)));
  s.rights=now;const ops=[['rt',now]];if(grew){s.since=0;ops.push(['since',0]);}
- storageWrite([],ops);
+ if(!shrank){storageWrite([],ops);return;}
+ /* Права сузили — строки таблиц, которые больше не читаются, уходят с этого
+    ПК (и из Export): раньше оставались до Download (аудит 24.11.2026, Н3).
+    Только здесь, на сервер ничего не идёт. */
+ const rules=await cloudRpc('erp_rules'),closed=new Set((Array.isArray(rules)?rules:[]).filter(r=>r&&r.read&&!String(r.read).split(',').some(x=>now.includes(x.trim()))).map(r=>r.tbl));
+ const list=[];
+ closed.forEach(tbl=>{const b=storageBase.get(tbl);if(b)b.forEach((x,id)=>{list.push({tbl,id,del:true});const k=cloudKey(tbl,id);if(s.vers.has(k)){s.vers.delete(k);ops.push(['v\u0000'+k,null]);}});});
+ if(typeof archiveLedgerKeys!=='undefined')archiveLedgerKeys.forEach((v,key)=>{if(closed.has(String(key).split(':')[1]))list.push({tbl:'_archive',id:key,del:true});});
+ cloudWriteLocal(list,ops);
 }
 async function cloudPull(){
  const s=cloudSync;
@@ -19564,7 +19582,7 @@ function viewUsers(){
  const off=DB.user.some(userOffice)&&!signinOn()?'<span class="pill warn" data-signin-off>Sign-in is off — set a password for someone with Users</span>':'';
  const tabs=`<div class="sl-filter-row"><div class="sl-quick" role="tablist">${[['office','Office'],['production','Production'],['log','Sign-in log'],['cloud','Cloud']].map(([k,l])=>`<button type="button" role="tab" class="sl-quick-pill${side===k?' on':''}" data-users-side="${k}" ${onAct('click',usersTab,String(k))}>${l} <b>${count(k)}</b></button>`).join('')}</div></div>`;
  const selI=list.findIndex(x=>x.u.viewProfileId===uSel),sel=selI<0?null:list[selI];
- const bar=`<div class="sales-toolbar">${sel?`<b class="oq-sel" title="${esc(sel.u.name)}">1 selected</b>`:''}<button type="button" class="sl-quiet" data-user-edit ${sel?'':'disabled'} ${onAct('click',userEditOpen,sel?sel.i:-1)}>Edit</button><button type="button" class="sl-quiet sl-delete-quiet" data-user-remove ${sel?'':'disabled'} title="${prod?'Remove from production':'Remove from office'}" ${onAct('click',delUserSel,sel?sel.i:-1,String(side))}>Remove</button><span class="sales-toolbar-sp"></span>${off}${uEdit!==null||log||cloud?'':`<button class="pri" data-user-add ${onAct('click',userEditOpen,'new')}>Add user</button>`}</div>`;
+ const bar=`<div class="sales-toolbar">${sel?`<b class="oq-sel" title="${esc(sel.u.name)}">1 selected</b>`:''}<button type="button" class="sl-quiet" data-user-edit ${sel?'':'disabled'} ${onAct('click',userEditOpen,sel?sel.i:-1)}>Edit</button><button type="button" class="sl-quiet sl-delete-quiet" data-user-remove ${sel?'':'disabled'} title="${prod?'Remove from production':'Remove from office'}" ${onAct('click',delUserSel,sel?String(sel.u.viewProfileId):'',String(side))}>Remove</button><span class="sales-toolbar-sp"></span>${off}${uEdit!==null||log||cloud?'':`<button class="pri" data-user-add ${onAct('click',userEditOpen,'new')}>Add user</button>`}</div>`;
  return `${cloud?`<div class="card sales-list-card"><div class="sales-toolbar"><span class="sales-toolbar-sp"></span>${off}</div>${tabs}<div style="padding:0 20px 16px">${usersCloudHTML()}</div></div>`:log?`<div class="card sales-list-card users-log-card">${tabs}${authLogTable()}</div>`:`<div class="card sales-list-card sl-foot-pin">${bar}${tabs}
   ${uEdit!==null?userForm():''}
   ${table}
@@ -19813,7 +19831,7 @@ function userSaveButton(busy){const b=document.querySelector('[data-user-save]')
 /* Действия экрана Users (были кодом в разметке, задание «CSP без inline»). */
 function usersSelTick(id,checked){uSel=checked?id:'';render();}
 /* Имя del… — кнопка серая без записи (storageLockButtons), как прежний onclick="delUser(…)". */
-function delUserSel(i,side){delUser(i,side);uSel='';}
+function delUserSel(id,side){delUser(id,side);uSel='';}
 function usersImportPick(){document.getElementById('imp').click();}
 /* Имя …Save — так же: прежний onclick="cloudRulesSave(…)". */
 function cloudRulesDraftSave(){return cloudRulesSave(cloudAccess.draft);}
@@ -19822,8 +19840,11 @@ function cloudJoinSubmit(ev){ev.preventDefault();cloudJoinGo();}
 function uDraftSet(key,v,redraw){uDraft[key]=v;if(redraw)render();}
 function uDraftDigits(key,el){el.value=el.value.replace(/\D/g,'').slice(0,4);uDraft[key]=el.value;}
 function userEditCancel(){uEdit=null;uDraft=null;render();}
-function delUser(i,side){
- const u=DB.user[i];if(!u)return Promise.resolve(null);
+/* Человек — по id (viewProfileId): номер строки сдвигался, если список
+   изменила синхронизация, и Remove удалял соседа (аудит 24.11.2026, Н4).
+   Число — номер строки, как раньше (тесты и старые вызовы). */
+function delUser(key,side){
+ const u=typeof key==='number'?DB.user[key]:usersFind(key);if(!u)return Promise.resolve(null);
  const rev=u.rev,err=usersDropError(u.viewProfileId,side,rev);if(err){alert(err);return Promise.resolve(usersFail(err));}
  const prod=side==='production',other=prod?userOffice(u):userHasPin(u),name=u.name||'this user';
  if(!confirm(other?(prod?'Remove station sign-in for ':'Remove office sign-in for ')+name+'?':'Delete '+name+'?'))return Promise.resolve(null);
@@ -60869,7 +60890,8 @@ function repExportRows(r,w){
 }
 function repCsvText(r,w){
  const x=repExportRows(r,w);if(!x)return '';
- const cell=v=>{const s=v==null?'':String(v);return /[",\n;]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+ /* Формула в тексте — с апострофом (Н1, csvCell). */
+ const cell=v=>{const s=csvCell(v);return s[0]!=='"'&&/;/.test(s)?'"'+s+'"':s;};
  const val=c=>c.t!=='n'?c.v:c.v==null?'':c.money?c.v.toFixed(2):String(+c.v.toFixed(6));
  return [x.head].concat(x.rows.map(row=>row.map(val))).map(l=>l.map(cell).join(',')).join('\r\n')+'\r\n';
 }
@@ -63031,12 +63053,27 @@ function storageStatusHTML(){
   (admin&&storageLastAction!=null?'<small>Last action '+storageLastAction+' ms</small>':'')+'</div>';
 }
 function storageCloudWarnHide(){cloudSync.warn='';render();}
+/* Упавшее действие молча ничего не делало (аудит 24.11.2026, Н2): ошибка
+   страницы — полосой с её текстом, пока не скроют. Ошибку не гасим — консоль и
+   тесты (t.errs) её видят. Картинки и скрипты, которые не загрузились, — не она. */
+let storageCrash='';
+function storageCrashShow(err){
+ const m=String(err&&(err.message||err)||'').trim();if(!m||/ResizeObserver loop/.test(m))return;
+ storageCrash=m.length>160?m.slice(0,157)+'…':m;
+ const bar=typeof document!=='undefined'&&document.getElementById('storageAlert');if(bar){bar.innerHTML=storageAlertHTML();bar.hidden=!bar.innerHTML;}
+}
+function storageCrashHide(){storageCrash='';render();}
+if(typeof window!=='undefined'){
+ window.addEventListener('error',e=>{if(e&&(e.error||e.message)&&!(e.target&&e.target!==window))storageCrashShow(e.error||e.message);});
+ window.addEventListener('unhandledrejection',e=>storageCrashShow(e&&e.reason));
+}
 function storageReload(){location.reload();}
 function storageAlertHTML(){
  const text=storageRecovery?'Database recovery needed. '+(storageLastError||''):!navigator.locks?'This browser cannot coordinate editing. Open Glass Farm in a current Chrome, Edge, Firefox or Safari.':storageStale?storageReadOnlyText():storageLastError||(storageUsageFull()?'Storage almost full. Export and tell admin.':'');
  /* Скан, который сервер не принял и повтор не помог (erp/cloud-sync,
     cloudReplayRun): видно и на станции, пока не скроют. */
  const fail=!text&&typeof cloudSync!=='undefined'&&cloudSync.scanFail||[];
+ if(!text&&!fail.length&&storageCrash)return '<span data-crash>Something went wrong: '+esc(storageCrash)+'</span><button type="button" '+onAct('click',storageCrashHide)+'>Hide</button>';
  if(fail.length)return '<span data-scan-fail>Not saved on the server: '+esc(fail.slice(0,3).map(f=>(f.undo?'Undo ':'')+f.piece+' · '+f.station).join(', ')+(fail.length>3?' +'+(fail.length-3)+' more':''))+'. Scan again.</span><button type="button" '+onAct('click',cloudScanFailHide)+'>Hide</button>';
  if(!text)return '';
  return '<span>'+esc(text)+'</span>'+
