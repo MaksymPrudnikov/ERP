@@ -426,6 +426,10 @@ function storageCloudWarnHide(){cloudSync.warn='';render();}
 function storageReload(){location.reload();}
 function storageAlertHTML(){
  const text=storageRecovery?'Database recovery needed. '+(storageLastError||''):!navigator.locks?'This browser cannot coordinate editing. Open Glass Farm in a current Chrome, Edge, Firefox or Safari.':storageStale?storageReadOnlyText():storageLastError||(storageUsageFull()?'Storage almost full. Export and tell admin.':'');
+ /* Скан, который сервер не принял и повтор не помог (erp/cloud-sync,
+    cloudReplayRun): видно и на станции, пока не скроют. */
+ const fail=!text&&typeof cloudSync!=='undefined'&&cloudSync.scanFail||[];
+ if(fail.length)return '<span data-scan-fail>Not saved on the server: '+esc(fail.slice(0,3).map(f=>(f.undo?'Undo ':'')+f.piece+' · '+f.station).join(', ')+(fail.length>3?' +'+(fail.length-3)+' more':''))+'. Scan again.</span><button type="button" '+onAct('click',cloudScanFailHide)+'>Hide</button>';
  if(!text)return '';
  return '<span>'+esc(text)+'</span>'+
   (storageStale?'<button type="button" '+onAct('click',storageReload)+'>Reload</button>':'')+
@@ -439,6 +443,7 @@ function afterRender(){
  const host=document.getElementById('storageStatus');if(host)host.innerHTML=storageStatusHTML();
  const alertBar=document.getElementById('storageAlert');if(alertBar){const h=storageAlertHTML();alertBar.innerHTML=h;alertBar.hidden=!h;}
  const chip=document.getElementById('testChip');if(chip)chip.hidden=!storageTest;
+ const sync=document.querySelector('[data-station-sync]');if(sync&&typeof stationSyncChip==='function')sync.outerHTML=stationSyncChip()||'<span data-station-sync hidden></span>';
  /* Save в фоне: стекло в углу и полоса в заказе (erp/sales/save-job). */
  if(typeof salesSaveDom==='function')salesSaveDom();
  storageLockButtons();
@@ -533,6 +538,7 @@ async function storageApplySaved(d){
  if(shapes&&typeof salesDraftKeepShapes==='function')salesDraftKeepShapes(shapes,DB);
  storageInvalidate();storageRerenderQuiet();
  const chip=document.getElementById('testChip');if(chip)chip.hidden=!storageTest;
+ const sync=document.querySelector('[data-station-sync]');if(sync&&typeof stationSyncChip==='function')sync.outerHTML=stationSyncChip()||'<span data-station-sync hidden></span>';
 }
 /* Записи пропущены (вкладка спала, сообщение не дошло) — база целиком. */
 async function storageReloadAll(){

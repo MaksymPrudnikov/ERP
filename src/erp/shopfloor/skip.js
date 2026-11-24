@@ -217,7 +217,7 @@ function skipUndoCommand(id){
  k.shipments.forEach(sid=>{const s=shippingFind(sid);if(s)(s.scanIds||[]).forEach(id=>own.add(id));});
  /* День Skip может быть прошлым. Зависимость — порядок записи SC, а не
     выбранная дата. Собственные сканы выдачи снимаются вместе с этим Skip. */
- const later=group.find(r=>stationScansFor(r.piece).some(s=>!own.has(s.id)&&+s.id.slice(3)>+r.id.slice(3)));
+ const later=group.find(r=>stationScansFor(r.piece).some(s=>!own.has(s.id)&&stationScanOrder(s,r)>0));
  const reserved=(DB.shipment||[]).find(s=>shippingActive(s)&&!k.shipments.includes(s.id)&&s.items.some(i=>i.pieces.some(p=>k.pieces.includes(p))));
  shippingAssert(!later,'Glass '+(later?later.piece:'')+' has moved on. Undo the later scans first.');
  shippingAssert(!reserved,'Glass is on a packing slip. Cancel the packing slip before Undo.');

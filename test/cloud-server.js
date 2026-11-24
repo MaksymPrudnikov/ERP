@@ -46,6 +46,7 @@ async function server(records) {
       const r = (await db.query(`select data #>> '{}' as data, deleted from public.erp_record where tbl = $1 and id = $2`, [tbl, id])).rows[0];
       return r && !r.deleted ? { data: r.data } : null;
     },
+    async ids(tbl) { return (await db.query(`select id from public.erp_record where tbl = $1 and not deleted order by id`, [tbl])).rows.map(r => r.id); },
     async count(tbl) { return Number((await db.query(`select count(*) as n from public.erp_record where tbl = $1 and not deleted`, [tbl])).rows[0].n); },
     close: () => db.close()
   };

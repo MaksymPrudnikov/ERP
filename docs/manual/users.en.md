@@ -93,7 +93,9 @@ is a new server sign-in.
   (9 Nov 2026). The same for a computer with no changes of its own: it adds nothing from the new database, after F5
   too (19 Nov 2026).
 - “Changed on another computer: … Server copy shown.” — someone was first: this computer's rows went back to the server
-  copy. “No access on server: …” — the person lacks the section for those records.
+  copy; every such order is named, six at a time and “+N more”. Station scans and Undo are not lost this way: they
+  repeat by themselves (Production, “Server link”). “Not accepted by the server (…)” — the server refused a record three
+  times: it leaves the queue so it does not hold the rest. “No access on server: …” — the person lacks the section for those records.
 - A decision on a shared balance made on two computers the same minute is recorded once; the second gets “Changed on
   another computer”: a refund or allocation from one payment, payments on one debt, an agent payout, a PS with the same
   units, a count of sheets, consumables or Stock items, an `S-` piece in a cut layout or Not found, a batch with the same

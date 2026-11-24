@@ -275,19 +275,41 @@ function stationRecordCommand(station,check,who,opts){
  if(!opts.deferTouch)touch();
  return rec;
 }
+/* Сервер отклонил команду скана (офис или другая станция в ту же минуту
+   правили заказ или батч) — сервер ERP повторит скан поверх свежей копии
+   (erp/cloud-sync, cloudReplayRun): что сделал рабочий — intent. */
 function stationMove(station,check,who,opts){
- return storageCommand(()=>{
+ opts=opts||{};
+ const top=!storageDepth&&typeof cloudSync!=='undefined';
+ const out=storageCommand(()=>{
   const rec=stationRecord(station,check,who,Object.assign({},opts,{deferTouch:true}));
   if(!rec)throw new Error('Nothing was recorded.');
   const mates=stationRecordMates(station,check,who,opts);
+  if(top)cloudSync.intent={kind:'scan',station,piece:rec.piece,who:{name:String(who&&who.name||''),id:String(who&&who.id||'')},opts:{manual:!!opts.manual,on:opts.on||'',machine:opts.machine||''},at:rec.at,tries:+opts.replay||0};
   return {rec,mates};
  },stationScope(station,check));
+ if(top)cloudSync.intent=null;
+ return out;
+}
+/* Порядок сканов одного стекла: шаг маршрута, затем номер записи (дата
+   Skip бывает прошлой). Номера идут блоками своего компьютера
+   (erp/cloud-sync): у второго скана с другого ПК номер бывает меньше
+   первого — шаг решает раньше номера (аудит 24.11.2026, Т1). */
+function stationScanOrder(a,b){
+ if(Number.isInteger(a.step)&&Number.isInteger(b.step)&&a.step!==b.step)return a.step-b.step;
+ return +a.id.slice(3)-+b.id.slice(3);
 }
 /* Undo — только последний скан стекла: отменить CUT, когда стекло уже
    прошло EDGE, значило бы оставить его «на EDGE без реза». */
 function stationUndo(id,who,opts){
  if(storageDepth||opts&&opts.deferTouch)return stationUndoCommand(id,who,opts);
- const out=storageCommand(()=>stationUndoCommand(id,who,opts));
+ const rec=(DB.stationScan||[]).find(s=>s.id===id),top=!!rec&&typeof cloudSync!=='undefined';
+ const out=storageCommand(()=>{
+  const v=stationUndoCommand(id,who,opts);
+  if(top&&v&&v.ok)cloudSync.intent={kind:'undo',id,piece:rec.piece,station:rec.station,who:{name:String(who&&who.name||''),id:String(who&&who.id||'')},at:rec.undoneAt,tries:+(opts&&opts.replay)||0};
+  return v;
+ });
+ if(top)cloudSync.intent=null;
  return out.ok?out.value:{error:out.error};
 }
 function stationUndoCommand(id,who,opts){
@@ -304,7 +326,7 @@ function stationUndoCommand(id,who,opts){
  if(ps&&!(ps.status==='planned'&&(rec.station===shippingStations().ship||restack)))return {error:'Glass is on a packing slip. Undo or cancel that packing slip first.'};
  const group=rec.actionId?(DB.stationScan||[]).filter(s=>s.actionId===rec.actionId&&!s.undoneAt):[rec];
  /* Дата Skip может быть прошлой; зависимость задаёт порядок записи SC. */
- const ordered=id=>stationScansFor(id).sort((a,b)=>+a.id.slice(3)-+b.id.slice(3));
+ const ordered=id=>stationScansFor(id).sort(stationScanOrder);
  if(group.some(r=>ordered(r.piece).pop()!==r))return {error:'Glass has moved on — undo the later scan first.'};
  if(rec.asm){
   const assembly=(DB.stationScan||[]).filter(s=>s.asm===rec.asm&&!s.undoneAt);

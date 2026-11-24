@@ -513,7 +513,16 @@ function stationTop(who){
   (who?stationHelpChip(who):'')+
   (who?'<button type="button" class="st-btn" data-station-drawings '+onAct('click',stationDrawPick)+'>Drawings</button>':'')+
   (who?stationBatchChip()+'<div class="st-chip"><span class="st-av">'+esc(stationInitials(who.name))+'</span><b data-raw>'+esc(who.name)+'</b></div><button type="button" class="st-btn" '+onAct('click',stationSwitch)+'>Switch</button>':'')+
-  stationThemeButton()+'<button type="button" class="st-btn st-exit" '+onAct('click',stationExit)+' title="Back to ERP">ERP</button></div>';
+  stationSyncChip()+stationThemeButton()+'<button type="button" class="st-btn st-exit" '+onAct('click',stationExit)+' title="Back to ERP">ERP</button></div>';
+}
+/* Связь с сервером на станции (аудит 24.11.2026, К2): подвал ERP здесь
+   скрыт, а рабочий должен видеть, что сканы уходят. Обновляет afterRender. */
+function stationSyncChip(){
+ const s=typeof cloudSync!=='undefined'?cloudSync:null;if(!s||!s.on)return '';
+ const n=s.out.length+(s.loaded?0:s.parked||0);
+ const text=s.newBase?'Server: new database':!cloudConfig().session?'Sign in'+(n?' · '+n:''):s.offline?'Offline · '+n:s.error?'Server error':n?n+' waiting':'Synced';
+ const bad=s.newBase||!cloudConfig().session||s.offline||!!s.error;
+ return '<div class="st-chip st-sync'+(bad?' bad':n?' wait':'')+'" data-station-sync title="'+esc(cloudSyncText())+'">'+esc(text)+'</div>';
 }
 /* Тема на станции: бокового меню с логотипом GF здесь нет, а сменить тему
    нужно (владелец, 6 октября 2026: «тему сменить нельзя»). Тот же выбор

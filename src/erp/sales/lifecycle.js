@@ -473,8 +473,12 @@ function salesConvertQuoteRecord(id,po){
   const order=normalizeSalesOrder(copy);DB.salesOrder.push(order);
   if(typeof finCaptureTerms==='function')finCaptureTerms(order);
   quote.status='won';quote.wonOrderId=copy.id;quote.statusDates=Object.assign({},quote.statusDates,{won:now});quote.updatedAt=now;
-  normalizeSalesOrderIn(copy.id);normalizeSalesOrderIn(quote.id);return copy.id;
- },{salesOrder:[quote.id],financeTerms:[],financeEvent:[]});
+  normalizeSalesOrderIn(copy.id);normalizeSalesOrderIn(quote.id);
+  /* Номера стёкол — сразу, как при Save заказа: иначе их выдавал первый
+     открывший заказ компьютер, а второй — другие (аудит 24.11.2026, А5). */
+  if(typeof glassPieceEnsure==='function')glassPieceEnsure(salesRecord(copy.id));
+  return copy.id;
+ },{salesOrder:[quote.id],financeTerms:[],financeEvent:[],glassPiece:true,glassPieceSeq:true,glassUnitId:true,glassUnitIdSeq:true});
  if(!out.ok){alert(out.error);render();return;}
  salesOrderEdit(out.value);
 }
