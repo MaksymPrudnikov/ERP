@@ -57,6 +57,12 @@ address (9 Nov 2026).
   this browser database?”). Any server member may download, not only Users.
 - **One sign-in**: once connected, ERP signs in with the server password — no separate ERP password. Sign out in Cloud
   signs out of ERP too. Stations sign in as before, with number and PIN.
+- **A station computer** is connected once by someone from the office: Connect server, email and password of a server
+  login. That login's rights are the whole computer's rights: Production is enough for a station (with it the station
+  cannot rewrite payments or the archive). People then sign in with number and PIN and never see the server login.
+  Sign out also closes the sign-in on the server (24 Nov 2026).
+- **Server sign-in expired** — the bottom bar says “Sign in to the server again.”: changes wait in the queue and are not
+  lost. Users → Cloud (or Connect server at the bottom) → the same email and password → Connect; the queue goes by itself.
 
 ### Users → Cloud
 
@@ -95,13 +101,18 @@ is a new server sign-in.
 - “Changed on another computer: … Server copy shown.” — someone was first: this computer's rows went back to the server
   copy; every such order is named, six at a time and “+N more”. Station scans and Undo are not lost this way: they
   repeat by themselves (Production, “Server link”). “Not accepted by the server (…)” — the server refused a record three
-  times: it leaves the queue so it does not hold the rest. “No access on server: …” — the person lacks the section for those records.
+  times: it leaves the queue so it does not hold the rest. After “Changed on another computer”: this computer's change to
+  the named orders was not recorded — open the order (it already shows the server copy) and make the change again; who
+  wrote what first — Users → Cloud → Journal, Conflict rows (24 Nov 2026). “No access on server: …” — the person lacks the section for those records.
   “Went to the archive on another computer: …” — an order edited here was already sent to the archive by another computer.
 - The server gives the number of a new document (order, quote, PS, payment, PO, customer code `C-`). While the document
   waits to be sent (no connection), its paper and PDF print with a small red **DRAFT** next to the number. If another
   computer took the number first, the server gives the next one, and “Number changed: 76003 → 76004” stays at the
   bottom until closed (24 Nov 2026). When a person gets more rights (Finance added), the old rows of that section arrive
-  by themselves, no Download needed.
+  by themselves, no Download needed; when rights shrink, rows of sections the person no longer sees leave this computer
+  (and Export), they stay on the server.
+- “Something went wrong: …” — an action failed with a program error and may not have finished: check the result. Tell the administrator
+  the error text; **Hide** hides it.
 - A decision on a shared balance made on two computers the same minute is recorded once; the second gets “Changed on
   another computer”: a refund or allocation from one payment, payments on one debt, an agent payout, a PS with the same
   units, a count of sheets, consumables or Stock items, an `S-` piece in a cut layout or Not found, a batch with the same

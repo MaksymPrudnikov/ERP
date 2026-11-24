@@ -1,6 +1,6 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 5.340 · 24 ноября 2026 — сервер: номер без связи — DRAFT, день архива — один ПК.
+Версия 5.341 · 24 ноября 2026 — мелочи аудита.
 
 ## Как читать
 
@@ -713,6 +713,7 @@ masterdata.*` и `forms.*`.
 - Экраны Users и вход — на действиях `onAct` (PR 5 задания CSP, 14.11): поля карточки — `uDraftSet`, номер и PIN —
   `uDraftDigits`; Remove — `delUserSel`, Save access — `cloudRulesDraftSave` (имена `del…` / `…Save`, чтобы кнопки
   оставались серыми без записи, `storageLockButtons`).
+- Права сузили — строки закрытых таблиц уходят с ПК; Sign out — и `/auth/v1/logout` (24.11).
 - Сторожа: `test/cloud*.js`, `two-pcs` (на настоящем `schema.sql` через PGlite), `shop-sync`, `users-commands`, `csp`;
   `node tools/supabase/check-pglite.js`.
 

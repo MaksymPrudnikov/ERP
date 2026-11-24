@@ -280,7 +280,8 @@ function normalizeShopFloor(){
 function parseCsv(text){
  const src=String(text==null?'':text).replace(/^﻿/,'');
  const rows=[];let row=[],field='',quoted=false,i=0;
- const endField=()=>{row.push(field);field='';};
+ /* Апостроф перед формулой ставит наш же экспорт (csvCell, Н1) — снимаем. */
+ const endField=()=>{row.push(/^'(\s*[=+@-]|[\t\r])/.test(field)?field.slice(1):field);field='';};
  const endRow=()=>{endField();if(row.length>1||row[0]!=='')rows.push(row);row=[];};
  while(i<src.length){
   const c=src[i];

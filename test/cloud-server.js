@@ -10,7 +10,7 @@
 const { pgliteServer } = require('../tools/supabase/pglite');
 
 const ADMIN = '00000000-0000-0000-0000-0000000000a1';
-const RPC = new Set(['erp_apply', 'erp_get', 'erp_changes', 'erp_take', 'erp_whoami', 'erp_cold_of', 'erp_cold']);
+const RPC = new Set(['erp_apply', 'erp_get', 'erp_changes', 'erp_take', 'erp_whoami', 'erp_cold_of', 'erp_cold', 'erp_rules']);
 
 async function server(records) {
   const db = await pgliteServer();
