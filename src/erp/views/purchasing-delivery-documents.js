@@ -8,7 +8,7 @@ function purRequestPages(d,options){
   const source=p&&p.lines.find(x=>x.id===l.poLineId);
   return Object.assign({},source||{},l,{held:false,sheetsPerBlock:null});
  })}));
- return purDocPages(model,Object.assign({},purDocOptions(options),{currency:false,prices:false,totals:false,receiving:false,damage:false,invoices:false,payments:false}),'DELIVERY REQUEST');
+ return docDraftMark(purDocPages(model,Object.assign({},purDocOptions(options),{currency:false,prices:false,totals:false,receiving:false,damage:false,invoices:false,payments:false}),'DELIVERY REQUEST'),'purchaseDeliveryRequest',d.id);
 }
 function purRequestPreviewOpen(){
  if(!purFulfilSaveForm())return;purFulfilPreview={opts:purDocOptions(DB.purchaseDocumentOptions),panel:false};render();

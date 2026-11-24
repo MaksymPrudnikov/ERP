@@ -419,8 +419,13 @@ function archiveAuto(){
  if(DB.archiveRunDay===today){next(60*60e3);return;}
  const cloud=typeof cloudSync!=='undefined'&&cloudSync.on,batch=cloud?ARCHIVE_BATCH_CLOUD:ARCHIVE_BATCH;
  if(cloud&&cloudSync.out.length){next(30e3);return;}
- const r=archiveRun(today,{limit:batch,mark:true});
- next(!r.ok?10*60e3:r.value.orders>=batch?2000:60*60e3);
+ const run=()=>{if(typeof soDraft!=="undefined"&&soDraft){next(10*60e3);return;}const r=archiveRun(today,{limit:batch,mark:true});next(!r.ok?10*60e3:r.value.orders>=batch?2000:60*60e3);};
+ if(!cloud){run();return;}
+ /* С сервером день занимает один ПК (Н5, erp_archive_take): десять ПК
+    уходили в архив разом, и их пачки спорили друг с другом. Занят другим —
+    через 30 минут снова: он закончит, и отметка дня придёт с сервера. */
+ archiveTimer=-1;
+ cloudRpc('erp_archive_take',{day:today,device:cloudDevice()}).then(ok=>{archiveTimer=null;if(ok===true)run();else next(30*60e3);},()=>{archiveTimer=null;next(10*60e3);});
 }
 if(typeof window!=='undefined')setTimeout(archiveAuto,60e3);
 

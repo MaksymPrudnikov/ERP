@@ -35,7 +35,9 @@ const CLOUD_NUMBER={
  salesOrder:o=>o.kind==='quote'?['quote','businessNumber','Q-',0]:['order','businessNumber','',0],
  receipt:()=>['receipt','number','R-',4],refund:()=>['refund','number','RF-',4],shipment:()=>['shipment','number','PS-',4],ncr:()=>['ncr','number','NCR',0],
  purchaseOrder:()=>['po','number','PO-',4],purchaseInvoice:()=>['pi','number','PI-',4],purchasePayment:()=>['pp','number','PP-',4],
- purchaseReceipt:()=>['gr','number','GR-',4],purchaseDeliveryRequest:()=>['dr','number','DR-',4]};
+ purchaseReceipt:()=>['gr','number','GR-',4],purchaseDeliveryRequest:()=>['dr','number','DR-',4],
+ /* Код клиента C-00012 — тоже от сервера: два ПК без связи давали один (В1). */
+ customer:()=>['customer','code','C-',5]};
 /* Блоки внутренних номеров: [размер, последний номер в базе]. Осталось
    меньше половины — берётся следующий. */
 const CLOUD_BLOCK={
@@ -96,6 +98,8 @@ async function cloudBlocksFill(){
  /* Блоки снова есть — предупреждение больше не верно. */
  if(s.warn===CLOUD_NO_BLOCK&&Object.keys(CLOUD_BLOCK).every(k=>cloudBlockLeft(s.blocks.get(k))>0))s.warn='';
 }
+/* Номер строки ещё ждёт сервера: команда с ним в очереди (С3, печать DRAFT). */
+function cloudNumberPending(tbl,id){const s=cloudSync;return !!s.on&&s.out.some(o=>cloudCmdRows(o).some(c=>c.num&&c.tbl===tbl&&c.id===id));}
 /* Номер, который дал этот компьютер новой строке документа. */
 function cloudNumber(c){
  const f=CLOUD_NUMBER[c.tbl];if(!f||typeof c.data!=='string')return null;
@@ -108,7 +112,7 @@ function cloudNumber(c){
    и строка списка (рейс — список PS). PO клиента, Mark, Notes с тем же
    текстом не меняются (аудит 25.10.2026, A-4). */
 const CLOUD_NUMBER_KEYS='businessNumber|number|no|order|orderNumber|ps|doc|before|after';
-function cloudNumberRe(tbl,a){return new RegExp('("(?:'+CLOUD_NUMBER_KEYS+(tbl==='orderEvent'?'|note':'')+')"\\s*:\\s*|[\\[,]\\s*)"'+a+'"(?=\\s*[,\\]}])','g');}
+function cloudNumberRe(tbl,a){return new RegExp('("(?:'+CLOUD_NUMBER_KEYS+(tbl==='orderEvent'?'|note':tbl==='customer'?'|code':'')+')"\\s*:\\s*|[\\[,]\\s*)"'+a+'"(?=\\s*[,\\]}])','g');}
 function cloudRenumber(changes,moved){
  let hit=false;
  changes.forEach(c=>{if(typeof c.data!=='string')return;let t=c.data;
@@ -414,6 +418,8 @@ async function cloudPushQueue(){
    if(moved.length){
     s.out.forEach(o=>{if(cloudRenumber(o.changes,moved)){o.renum=true;const{key,...keep}=o;ops.push([key,keep]);}});
     if(typeof soDraft!=='undefined'&&soDraft)moved.forEach(([a,b])=>{if(soDraft.businessNumber===a)soDraft.businessNumber=b;});
+    /* Номер сменился — видно, пока не закрыли: печать до этого шла с DRAFT (С3). */
+    cloudWarnNames(moved.map(([a,b])=>a+' → '+b),'Number changed');s.warnAt=0;
    }
    if(moved.length||cmd.renum)rows.forEach(c=>{if(c.del)return;const k=cloudKey(c.tbl,c.id);s.refresh.add(k);ops.push(['r\u0000'+k,1]);});
    if(!s.out.length){s.lost.clear();s.lostGrp.clear();}cloudWriteLocal([],ops);continue;
@@ -424,6 +430,9 @@ async function cloudPushQueue(){
   if(s.out[0]!==cmd)return;
   /* Имена — до того, как строки станут серверной копией. */
   const names=cmd.intent&&!r.denied?[]:cloudRejectNames(cmd,r);
+  /* Строка ушла в архив на другом ПК — так и сказать (Т5), а не «изменена». */
+  const gone=new Set((Array.isArray(now)?now:[]).filter(x=>x&&x.cold).map(x=>cloudKey(x.tbl,x.id)));
+  const archived=gone.size&&!r.denied&&!r.failed?cloudRejectNames(cmd,{conflict:(r.conflict||[]).filter(x=>gone.has(cloudKey(x.tbl,x.id)))}):[];
   s.out.shift();keys.forEach(k=>s.lost.add(cloudKey(k.tbl,k.id)));
   /* Скан и Undo повторятся на свежих строках (cloudReplayRun): записан с
      отказом тем же write — F5 посреди не теряет. */
@@ -431,6 +440,7 @@ async function cloudPushQueue(){
   cloudApplyServer(Array.isArray(now)?now:[],keys,ops);
   if(!s.out.length){s.lost.clear();s.lostGrp.clear();}
   if(r.denied)cloudWarn('No access on server: '+r.denied.join(', ')+'. Server copy shown.');
+  else if(archived.length)cloudWarnNames(archived,'Went to the archive on another computer');
   else if(names.length)cloudWarnNames(names,r.failed?'Not accepted by the server ('+String(r.failed).slice(0,80)+')':'Changed on another computer');
  }
 }
@@ -441,7 +451,7 @@ function cloudWarn(text){const s=cloudSync;s.warn=text;s.warnAt=Date.now();s.war
 function cloudWarnNames(names,head){
  const s=cloudSync,all=[...new Set((s.warn&&s.warnHead===head?s.warnNames:[]).concat(names))];
  s.warnNames=all;s.warnHead=head;s.warnAt=Date.now();
- s.warn=head+': '+all.slice(0,6).join(', ')+(all.length>6?' +'+(all.length-6)+' more':'')+'. Server copy shown.';
+ s.warn=head+': '+all.slice(0,6).join(', ')+(all.length>6?' +'+(all.length-6)+' more':'')+(head==='Number changed'?'.':'. Server copy shown.');
 }
 function cloudRejectNames(cmd,r){
  const mine=new Map();cmd.changes.forEach(c=>mine.set(cloudKey(c.tbl,c.id),c));

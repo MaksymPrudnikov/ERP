@@ -193,6 +193,19 @@ do $$ declare r jsonb; begin
   assert r->'denied' = '["_archive"]', 'Production подделал архив оплаты: ' || r::text;
   assert pg_temp.fails($q$select public.erp_apply('adm-arch', 'b1', 'pc2', '[]', '[]')$q$, 'Command id is taken%'), 'чужой id команды отдал ответ';
 end $$;
+-- День архива (Н5): Production не занимает; администратор занял — другой ПК
+-- ждёт, тот же ПК продлевает.
+do $$ begin assert not public.erp_archive_take('2026-11-24', 'pc2'), 'Production занял день архива'; end $$;
+reset role;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+do $$ begin
+  assert public.erp_archive_take('2026-11-24', 'pc1'), 'день архива не занят';
+  assert not public.erp_archive_take('2026-11-24', 'pc3'), 'второй ПК занял тот же день';
+  assert public.erp_archive_take('2026-11-24', 'pc1'), 'свой ПК не продлил день';
+  assert pg_temp.fails($q$select public.erp_archive_take('bad', 'pc1')$q$, 'Bad archive day%'), 'день без формата';
+end $$;
+reset role;
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
 -- Склад читает приёмки (остаток листов и расходников), комиссии — оплаты (A-5).
 reset role;
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');

@@ -68,8 +68,8 @@ function docToggleRev(id,on){
 }
 function docCurrentPages(){
  const form=docState.form||'';
- if(docState.kind!=='quote')return docPages(Object.assign(docBuildModel(docState.kind,soDraft,docState.opts),{form}));
- return docQuoteRecords().flatMap(r=>docPages(Object.assign(docBuildModel('quote',r,docState.opts),{form})));
+ if(docState.kind!=='quote')return docDraftMark(docPages(Object.assign(docBuildModel(docState.kind,soDraft,docState.opts),{form})),'salesOrder',soDraft.id);
+ return docDraftMark(docQuoteRecords().flatMap(r=>docPages(Object.assign(docBuildModel('quote',r,docState.opts),{form}))),'salesOrder',soDraft.id);
 }
 function docRevisionPicker(){
  if(!docState||docState.kind!=='quote')return '';
@@ -82,6 +82,7 @@ function docWarnings(){
  if(!soDraft.businessNumber&&!salesQuoteCurrentId())out.push(salesIsQuote(soDraft)?'Save the quote to give the document its number.':'Save the order to give the document its number.');
  if(docState.kind==='quote'&&salesQuoteCurrentId()&&!(docState.revs||[]).length)out.push('Tick at least one revision to print or email.');
  if(!soDraft.customerId)out.push('No customer selected.');
+ if(typeof cloudNumberPending==='function'&&cloudNumberPending('salesOrder',soDraft.id))out.push('Number not confirmed by the server yet. Prints as DRAFT.');
  if(salesIsQuote(soDraft)&&docState.kind==='workOrder')out.push('This is a quote. Convert it to an order before sending a work order to the shop.');
  if(docState.kind!=='workOrder'){const t=salesOrderCommercialTotals(soDraft);if(!t.complete)out.push(t.missing+(t.missing>1?' items need':' item needs')+' pricing — totals are not complete.');}
  return out.map(x=>'<span class="warn">'+esc(x)+'</span>').join('');

@@ -119,6 +119,15 @@ function docPage(){
   img(x,y,w,h,src){items.push({t:'img',x,y,w,h,src});}
  };
 }
+/* Номер документа ещё не подтвердил сервер (без связи, в очереди): на каждом
+   листе полоса DRAFT — бумага с номером, который может смениться, не уходит
+   к клиенту под видом настоящей (аудит 24.11.2026, С3). */
+function docDraftMark(pages,tbl,id){
+ if(typeof cloudNumberPending!=='function'||!cloudNumberPending(tbl,id))return pages;
+ pages.forEach(pg=>{pg.items.push({t:'rect',x:DOC_PAGE.left,y:8,w:DOC_PAGE.right-DOC_PAGE.left,h:20,fill:'#fdecea',stroke:'',lw:.6,r:3},
+  {t:'text',x:DOC_PAGE.w/2,y:22,s:'DRAFT - NUMBER NOT CONFIRMED',size:10,bold:true,color:DOC_COLOR.due,align:'center',ls:.8,pageLabel:false});});
+ return pages;
+}
 function docLabel(P,x,y,s,o){P.text(x,y,String(s).toUpperCase(),Object.assign({size:5.8,bold:true,color:DOC_COLOR.mut,ls:.6},o||{}));}
 
 function docHeader(P,m){

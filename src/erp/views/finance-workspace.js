@@ -124,7 +124,7 @@ function finClosePreview(){finPreview=null;render();}
 function finPeriodError(p){return p.from&&!finDateValid(p.from)||p.to&&!finDateValid(p.to)||p.from&&p.to&&p.from>p.to?'From must be on or before To.':'';}
 function finPreviewPages(){
  const p=finPreview;if(!p)return [];
- if(p.kind==='receipt')return finReceiptDoc(p.id);
+ if(p.kind==='receipt')return docDraftMark(finReceiptDoc(p.id),'receipt',p.id);
  if(p.kind==='statement'){
   if(finPeriodError(p))return [];
   const pages=finStatementDoc(p.id,p.from,p.to,undefined,finStatementDue(p),!!p.activity);if(!p.invoices)return pages;

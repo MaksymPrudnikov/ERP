@@ -93,26 +93,31 @@ function normalizeCustomer(c,i){
   createdAt:customerString(c.createdAt),updatedAt:customerString(c.updatedAt),archivedAt:status==='archived'?customerString(c.archivedAt):''
  };
 }
+/* Код у двух клиентов (два ПК выдали один номер до сервера, аудит
+   24.11.2026, В1): код остаётся у первого созданного, второй получает
+   «-2» — на всех ПК одинаково, код не пропадает молча. */
 function normalizeCustomers(){
  if(!Array.isArray(DB.customer))DB.customer=[];
  const ids=new Set(),codes=new Set();
  DB.customer=DB.customer.filter(x=>x&&typeof x==='object').map((x,i)=>{
   const c=normalizeCustomer(x,i);
   while(ids.has(c.id))c.id=customerUid('CUS');ids.add(c.id);
-  if(c.code){const key=c.code.toUpperCase();if(codes.has(key))c.code='';else codes.add(key);}
   return c;
  });
+ const order=DB.customer.slice().sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt))||String(a.id).localeCompare(String(b.id)));
+ order.forEach(c=>{if(!c.code)return;let key=c.code.toUpperCase();
+  if(codes.has(key)){const base=c.code;let n=2;while(codes.has((base+'-'+n).toUpperCase()))n++;c.code=base+'-'+n;key=c.code.toUpperCase();}
+  codes.add(key);});
 }
 function validateCustomersPayload(src){
  if(!src||!Object.prototype.hasOwnProperty.call(src,'customer'))return;
  if(!Array.isArray(src.customer))throw new Error('The "customer" field must be an array.');
- const ids=new Set(),codes=new Set();
+ const ids=new Set();
  src.customer.forEach((c,i)=>{
   if(!c||typeof c!=='object'||Array.isArray(c))throw new Error('Customer row '+(i+1)+' must be an object.');
   if(c.contacts!=null&&!Array.isArray(c.contacts))throw new Error('Customer '+(i+1)+': contacts must be an array.');
   if(c.addresses!=null&&!Array.isArray(c.addresses))throw new Error('Customer '+(i+1)+': addresses must be an array.');
   if(c.id){const id=customerString(c.id);if(ids.has(id))throw new Error('Customers contains duplicate id "'+id+'".');ids.add(id);}
-  if(c.code){const code=customerString(c.code).toUpperCase();if(codes.has(code))throw new Error('Customers contains duplicate code "'+c.code+'".');codes.add(code);}
  });
 }
 function nextCustomerCode(){

@@ -304,7 +304,7 @@ begin
       -- Замена в два шага: новый номер одной пары бывает старым у другой.
       if d is not null and jsonb_array_length(swap) > 0 then
         txt := case when jsonb_typeof(d) = 'string' then d #>> '{}' else d::text end;
-        keys := 'businessNumber|number|no|order|orderNumber|ps|doc|before|after' || case when c->>'tbl' = 'orderEvent' then '|note' else '' end;
+        keys := 'businessNumber|number|no|order|orderNumber|ps|doc|before|after' || case c->>'tbl' when 'orderEvent' then '|note' when 'customer' then '|code' else '' end;
         for i in 0 .. jsonb_array_length(swap) - 1 loop
           txt := regexp_replace(txt, '("(?:' || keys || ')"\s*:\s*|[\[,]\s*)"' || (swap->i->>0) || '"(?=\s*[,\]}])',
                                 '\1"' || chr(1) || i || chr(1) || '"', 'g');
@@ -568,6 +568,33 @@ end $$;
 revoke all on function public.erp_facts_full(public.erp_member) from public, anon, authenticated;
 revoke all on function public.erp_facts_get(jsonb, boolean), public.erp_facts_put(jsonb) from public, anon;
 grant execute on function public.erp_facts_get(jsonb, boolean), public.erp_facts_put(jsonb) to authenticated;
+
+-- День архива (аудит 24.11.2026, Н5): уход в архив делает один ПК. Его
+-- занимает тот, кто может писать все таблицы (архив переносит строки всех
+-- разделов); пачки он продлевает тем же вызовом. Другой ПК получает false и
+-- ждёт; ПК пропал на 30 минут — день берёт следующий.
+create table if not exists public.erp_archive_lock (
+  day text primary key,
+  device text not null,
+  at timestamptz not null default now()
+);
+alter table public.erp_archive_lock enable row level security;
+revoke all on public.erp_archive_lock from public, anon, authenticated;
+create or replace function public.erp_archive_take(day text, device text)
+returns boolean language plpgsql volatile security definer set search_path = public, pg_temp as $$
+declare me public.erp_member := public.erp_me(); got text;
+begin
+  if coalesce(day, '') !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' or coalesce(device, '') = '' then raise exception 'Bad archive day.'; end if;
+  if exists (select 1 from public.erp_table_rule r where not public.erp_can(me, r.write_section)) then return false; end if;
+  delete from public.erp_archive_lock l where l.day < to_char(now() - interval '7 days', 'YYYY-MM-DD');
+  insert into public.erp_archive_lock as l (day, device, at) values (erp_archive_take.day, erp_archive_take.device, now())
+    on conflict on constraint erp_archive_lock_pkey do update set device = excluded.device, at = now()
+    where l.device = excluded.device or l.at < now() - interval '30 minutes'
+    returning l.device into got;
+  return got is not null;
+end $$;
+revoke all on function public.erp_archive_take(text, text) from public, anon;
+grant execute on function public.erp_archive_take(text, text) to authenticated;
 
 -- Первый администратор — вход admin@glass-erp.test (тестовый проект). Для
 -- другого адреса поменяйте его здесь перед запуском.
