@@ -277,23 +277,37 @@ function shapeBorderFootprint(points,plan){
     if(Math.abs(c[1]-a[1])>=Math.abs(c[0]-a[0]))key=mx>=cx?'right':'left';
     else key=my>=cy?'top':'bottom';
     if(v>sides[key])sides[key]=v;
+    /* Конец скошенной кромки на стороне габарита отодвигает и эту сторону,
+       если кромка уходит за неё: у треугольника вершина — это верх, хотя обе
+       боковые кромки по направлению «левая» и «правая» (владелец, 25.11.2026:
+       «где сверху бордер?»). Прямую кромку это не касается — её конец лежит
+       вдоль стороны, а не выходит за неё. */
+    if(!shapeEdgeNeedsBorder(null,a,c))continue;
+    [[a,a[0]-c[0],a[1]-c[1]],[c,c[0]-a[0],c[1]-a[1]]].forEach(function(e){
+      var p=e[0],dx=e[1],dy=e[2],hit=function(k){if(v>sides[k])sides[k]=v;};
+      if(Math.abs(p[0]-b.minX)<1e-6&&dx<0)hit('left');
+      if(Math.abs(p[0]-b.maxX)<1e-6&&dx>0)hit('right');
+      if(Math.abs(p[1]-b.minY)<1e-6&&dy<0)hit('bottom');
+      if(Math.abs(p[1]-b.maxY)<1e-6&&dy>0)hit('top');
+    });
   }
-  /* A straight side spanning the complete bounding-box edge is already the
-     outer cut line. An angled edge meeting its corner must not add a second
-     safety strip outside that same straight side. */
-  var eps=1e-6,straight={left:false,right:false,top:false,bottom:false};
+  /* Прямая сторона во всю длину габарита — уже внешняя линия реза: скошенная
+     кромка, пришедшая в её угол, второй полосы за ней не добавляет. Но число,
+     введённое на САМУ эту сторону, остаётся (владелец, 25.11.2026: «я
+     самостоятельно ввожу» — 20 на основание треугольника пропадало). */
+  var eps=1e-6,straight={left:null,right:null,top:null,bottom:null},own=function(side,k){var t=(plan.segValues||[])[k]||0;straight[side]=Math.max(straight[side]||0,t);};
   for(i=0;i<n;i++){
     var from=points[i],to=points[(i+1)%n];
     if(Math.abs(from[0]-to[0])<eps&&Math.min(from[1],to[1])<=b.minY+eps&&Math.max(from[1],to[1])>=b.maxY-eps){
-      if(Math.abs(from[0]-b.minX)<eps)straight.left=true;
-      if(Math.abs(from[0]-b.maxX)<eps)straight.right=true;
+      if(Math.abs(from[0]-b.minX)<eps)own('left',i);
+      if(Math.abs(from[0]-b.maxX)<eps)own('right',i);
     }
     if(Math.abs(from[1]-to[1])<eps&&Math.min(from[0],to[0])<=b.minX+eps&&Math.max(from[0],to[0])>=b.maxX-eps){
-      if(Math.abs(from[1]-b.minY)<eps)straight.bottom=true;
-      if(Math.abs(from[1]-b.maxY)<eps)straight.top=true;
+      if(Math.abs(from[1]-b.minY)<eps)own('bottom',i);
+      if(Math.abs(from[1]-b.maxY)<eps)own('top',i);
     }
   }
-  Object.keys(straight).forEach(function(side){if(straight[side])sides[side]=0;});
+  Object.keys(straight).forEach(function(side){if(straight[side]!=null)sides[side]=straight[side];});
   /* pad — отступ по каждой стороне габарита. Бордер меряется по прямой, под
      90°, а не параллельно скосу: стол режет прямыми и зазор до соседней
      детали тоже прямой. Скошенная кромка отодвигает границу от САМОЙ ДАЛЬНЕЙ

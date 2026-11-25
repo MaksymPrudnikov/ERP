@@ -503,11 +503,35 @@ function shapeLiteSheetSvg(result,opts){
      заливки, знака стекла и подписей прямых углов — их нет и у листа
      большего стекла. Углы фигуры не прямые остаются. Metric detail — как был. */
   mo.inchSheet=units==='in';
-  var o='<rect width="'+F.vw+'" height="'+F.vh+'" fill="#fff"/>'+shapeAnnotationDefs()+(opts.sheet?'':shapeTitleBlock(result,'PRODUCTION DRAWING · '+(lite.label||''),F));
+  var o='<rect width="'+F.vw+'" height="'+F.vh+'" fill="#fff"/>'+shapeAnnotationDefs()+(opts.sheet?'':shapeTitleBlock(result,'PRODUCTION DRAWING'+(lite.label?' · '+lite.label:''),F));
   o+='<path class="shape-sheet-glass" d="'+path+'" fill="#fff" stroke="none"/>';
   o+=shapeMetricLayerSvg(result,F,null,metric,mo)+(mo.inchSheet?'':shapeGlassHatchSvg({path:path,points:disp,box:{left:Math.min.apply(null,xs),right:Math.max.apply(null,xs),top:Math.min.apply(null,ys),bottom:Math.max.apply(null,ys)}}));
+  if(lite.apex)o+=shapeApexOffsetSvg(F,pts,lite.edgeIds||[],units,mo);
   if(result.featureGeometry)o+=shapeProductionFeaturesSvg(result,F);
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+F.vw+' '+F.vh+'" aria-label="Production Drawing">'+o+'</svg>';
+}
+/* Отступ вершины у формы из DXF — как «Top Offset» обычного треугольника:
+   где стоит острие от левого края габарита. Только у вершины, которая одна
+   держит верх (или низ) и не стоит в углу габарита, и только на стыке двух
+   кромок файла — у дуги верхняя точка не вершина, и размер к ней ничего не
+   говорит цеху. */
+function shapeApexOffsetSvg(F,pts,ids,units,mo){
+  var n=pts.length,b=F.b,eps=1/64,out='',kp=(mo&&mo.keyPrefix)||'';
+  if(n<3)return '';
+  var fmt=function(v){return units==='mm'?shapeMetricFormat(v*SHAPE_MM_PER_INCH):shapeDrawingDim(v);};
+  var left=pts.reduce(function(a,p){return p[0]<a[0]?p:a;},pts[0]);
+  [['top',b.maxY,-1],['bottom',b.minY,1]].forEach(function(side){
+    var at=[];for(var i=0;i<n;i++)if(Math.abs(pts[i][1]-side[1])<eps)at.push(i);
+    if(at.length!==1)return;
+    var i0=at[0],p=pts[i0];
+    if(Math.abs(p[0]-b.minX)<eps||Math.abs(p[0]-b.maxX)<eps)return;
+    if(ids.length===n&&String(ids[i0])===String(ids[(i0-1+n)%n]))return;
+    var x1=F.X(b.minX),x2=F.X(p[0]),ay=F.Y(p[1]),y=ay+side[2]*34,ly=F.Y(left[1]);
+    out+='<line x1="'+x1+'" y1="'+ly+'" x2="'+x1+'" y2="'+(y+side[2]*6)+'" stroke="#98a2b3" stroke-width="1" stroke-dasharray="4 4"/>'+
+      '<line x1="'+x2+'" y1="'+(ay+side[2]*4)+'" x2="'+x2+'" y2="'+(y+side[2]*6)+'" stroke="#98a2b3" stroke-width="1"/>';
+    out+=shapeDimH(x1,x2,y,fmt(p[0]-b.minX),'#101828',mo,kp+'apex:'+side[0]);
+  });
+  return out;
 }
 /* Архитектурное обозначение стекла: три параллельных диагональных штриха
    short / long / short. Clip-path гарантирует, что знак не выйдет за контур. */
@@ -624,7 +648,9 @@ function shapeProductionFeaturesSvg(result,F){
   fg.holes.forEach(function(h,i){var x=F.X(h.center[0]),y=F.Y(h.center[1]),r=Math.max(3,h.diameter/2*F.sc),right=h.center[0]<(F.b.minX+F.b.maxX)/2,lx=x+(right?55:-55),anchor=right?'start':'end';out+='<circle class="shape-feature" cx="'+x+'" cy="'+y+'" r="'+r+'" fill="#fff" stroke="#101828" stroke-width="1.5"/><line x1="'+(x+(right?r:-r))+'" y1="'+(y-r)+'" x2="'+lx+'" y2="'+(y-28-i*4)+'" stroke="#667085"/><text x="'+(lx+(right?4:-4))+'" y="'+(y-30-i*4)+'" class="shape-feature-text" text-anchor="'+anchor+'" font-size="13" fill="#101828">Ø '+shapeXml(shapeDrawingDim(h.diameter))+' · X '+shapeXml(shapeDrawingDim(h.center[0]))+' · Y '+shapeXml(shapeDrawingDim(h.center[1]))+'</text>';});
   fg.cutouts.forEach(function(c,i){out+='<path class="shape-feature" d="'+shapeSvgPath(c.points,F.X,F.Y)+'" fill="#fff" stroke="#101828" stroke-width="1.5"/><text x="'+F.X(c.x+c.width/2)+'" y="'+(F.Y(c.y+c.height)-8-i*3)+'" class="shape-feature-text" text-anchor="middle" font-size="13" fill="#101828">CUTOUT '+shapeXml(shapeDrawingDim(c.width))+' × '+shapeXml(shapeDrawingDim(c.height))+'</text>';});
   fg.hardware.forEach(function(h,i){if(h.invalid)return;out+='<path class="shape-feature" d="'+shapeSvgPath(h.points,F.X,F.Y)+'" fill="#fff" stroke="#7f56d9" stroke-width="1.7"/><circle cx="'+F.X(h.center[0])+'" cy="'+F.Y(h.center[1])+'" r="'+Math.max(2,h.holeDia/2*F.sc)+'" fill="#fff" stroke="#7f56d9"/><text x="'+(F.X(h.center[0])+12)+'" y="'+(F.Y(h.center[1])-12-i*3)+'" class="shape-feature-text" font-size="13" fill="#6941c6">'+shapeXml(h.name)+' · '+shapeXml(h.edgeId)+'</text>';});
-  fg.stamps.forEach(function(s){var x=F.X(s.point[0]),y=F.Y(s.point[1]),spec=shapeStampDrawingSpec(s.source);out+='<g class="shape-temper-stamp" data-stamp-id="'+shapeXml(s.id)+'"><rect x="'+(x-spec.w/2)+'" y="'+(y-spec.h/2)+'" width="'+spec.w+'" height="'+spec.h+'" rx="2" fill="#fff" stroke="#101828" stroke-width="1.4"/><text x="'+x+'" y="'+(y+spec.font*.4)+'" text-anchor="middle" font-size="'+spec.font+'" font-weight="700" fill="#101828">'+shapeXml(s.text)+'</text></g>';});
+  /* Штамп — только надпись: рамки вокруг нет (владелец, 25.11.2026: «штампу
+     не нужна обводка»). Белая подложка без линии прячет контур под буквами. */
+  fg.stamps.forEach(function(s){var x=F.X(s.point[0]),y=F.Y(s.point[1]),spec=shapeStampDrawingSpec(s.source);out+='<g class="shape-temper-stamp" data-stamp-id="'+shapeXml(s.id)+'"><rect x="'+(x-spec.w/2)+'" y="'+(y-spec.h/2)+'" width="'+spec.w+'" height="'+spec.h+'" rx="2" fill="#fff" stroke="none"/><text x="'+x+'" y="'+(y+spec.font*.4)+'" text-anchor="middle" font-size="'+spec.font+'" font-weight="700" fill="#101828">'+shapeXml(s.text)+'</text></g>';});
   (fg.sandblasts||[]).forEach(function(s){var x=F.X(s.point[0]),y=F.Y(s.point[1]),spec=shapeSandblastDrawingSpec(s.source,F.W*F.sc);out+='<g class="shape-sandblast-mark" data-sandblast-id="'+shapeXml(s.id)+'"><rect x="'+(x-spec.w/2)+'" y="'+(y-spec.h/2)+'" width="'+spec.w+'" height="'+spec.h+'" rx="2" fill="#fff" stroke="#087e8b" stroke-width="1.4" stroke-dasharray="5 3"/><text x="'+x+'" y="'+(y-2)+'" text-anchor="middle" font-size="'+spec.font+'" font-weight="700" fill="#075e68"><tspan x="'+x+'">'+shapeXml(spec.lines[0])+'</tspan><tspan x="'+x+'" dy="'+(spec.font+2)+'">'+shapeXml(spec.lines[1])+'</tspan></text></g>';});return out;
 }
 /* The radius is a feature of the finished contour, not the length of its
@@ -667,8 +693,11 @@ function shapeSandblastDrawingSpec(f,glassPixelWidth){
   return {lines:lines,w:Math.round(w*10)/10,h:Math.round((font*2+10)*10)/10,font:Math.round(font*10)/10,scale:k};
 }
 function shapeTitleBlock(result,kind,F){
-  var d=result.definition,p=shapePresetInfo(d.type),rx=(F&&F.vw?F.vw:960)-24;
-  return '<g font-family="Arial,sans-serif"><text x="24" y="28" font-size="19" font-weight="700" fill="#101828">'+shapeXml(kind)+'</text><text x="24" y="50" font-size="12" fill="#475467">'+shapeXml(d.name||'(unnamed)')+' · '+shapeXml(p.code+' / '+p.label)+'</text><text x="'+rx+'" y="28" text-anchor="end" font-size="11" fill="#475467">Shape '+shapeXml(d.id)+' · Rev '+shapeXml(d.revision||0)+'</text><text x="'+rx+'" y="48" text-anchor="end" font-size="11" fill="#475467">Area '+(result.area/144).toFixed(2)+' ft²</text></g>';
+  /* У формы из файла пресета нет: тип в шапке — сам файл, а не
+     «RECT / Rectangle», с которого форма начиналась. */
+  var d=result.definition,p=shapePresetInfo(d.type),rx=(F&&F.vw?F.vw:960)-24,dxf=typeof shapeIsDxfSource==='function'&&shapeIsDxfSource(d);
+  var kindText=dxf?'DXF · '+String(d.source.fileName||''):p.code+' / '+p.label;
+  return '<g font-family="Arial,sans-serif"><text x="24" y="28" font-size="19" font-weight="700" fill="#101828">'+shapeXml(kind)+'</text><text x="24" y="50" font-size="12" fill="#475467">'+shapeXml(d.name||'(unnamed)')+' · '+shapeXml(kindText)+'</text><text x="'+rx+'" y="28" text-anchor="end" font-size="11" fill="#475467">Shape '+shapeXml(d.id)+' · Rev '+shapeXml(d.revision||0)+'</text><text x="'+rx+'" y="48" text-anchor="end" font-size="11" fill="#475467">Area '+(result.area/144).toFixed(2)+' ft²</text></g>';
 }
 /* Производственный чертёж. Контур берётся из слоя аннотаций: скошенные края
    показываются с усиленным уклоном, чтобы читались в цеху, но ВСЕ подписанные

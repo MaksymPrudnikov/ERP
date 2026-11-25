@@ -183,6 +183,36 @@ function shapeLayoutPointerUp(ev){
   if(!d.moved||ev.type==='pointercancel'){if(ev.type!=='pointercancel')shapeLayoutSelect(d.key);else refreshShapeEditor();return;}
   shapeLayoutAdoptLegacy();shapeLayoutSet(d.key,d.dx,d.dy);sDimEdit=null;sMetricDimEdit=null;sLayoutEdit={key:d.key};refreshShapeEditor();
 }
+/* Штамп двигается мышкой прямо на чертеже (владелец, 25.11.2026). Пока
+   тянем — двигается только картинка; при отпускании новое место пишется в
+   штамп с шагом 1/16″. Вне стекла штамп не кладётся — остаётся где был. */
+var sStampDrag=null;
+function shapeStampPointerDown(ev,svg){
+  if(!sDraft||ev.button>0||sManufacturingPlace)return;
+  var el=ev.target&&ev.target.closest&&ev.target.closest('.shape-temper-stamp[data-stamp-id]');if(!el)return;
+  var id=el.getAttribute('data-stamp-id'),f=(sDraft.features||[]).find(function(x){return x&&x.id===id&&x.type==='stamp';});if(!f)return;
+  var m=svg.getScreenCTM&&svg.getScreenCTM();if(!m)return;
+  var inv=m.inverse(),at=function(e){var p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(inv);};
+  sStampDrag={f:f,el:el,at:at,start:at(ev),dx:0,dy:0,moved:false};
+  try{el.setPointerCapture(ev.pointerId);}catch(e){}
+  el.addEventListener('pointermove',shapeStampPointerMove);el.addEventListener('pointerup',shapeStampPointerUp);el.addEventListener('pointercancel',shapeStampPointerUp);
+  ev.stopPropagation();ev.preventDefault();
+}
+function shapeStampPointerMove(ev){
+  var d=sStampDrag;if(!d)return;var p=d.at(ev);d.dx=p.x-d.start.x;d.dy=p.y-d.start.y;
+  if(!d.moved&&Math.hypot(d.dx,d.dy)<3)return;d.moved=true;
+  d.el.setAttribute('transform','translate('+d.dx.toFixed(1)+' '+d.dy.toFixed(1)+')');d.el.classList.add('dragging');
+}
+function shapeStampPointerUp(ev){
+  var d=sStampDrag;sStampDrag=null;if(!d)return;
+  d.el.removeEventListener('pointermove',shapeStampPointerMove);d.el.removeEventListener('pointerup',shapeStampPointerUp);d.el.removeEventListener('pointercancel',shapeStampPointerUp);
+  try{d.el.releasePointerCapture(ev.pointerId);}catch(e){}
+  if(!d.moved||ev.type==='pointercancel'){d.el.removeAttribute('transform');d.el.classList.remove('dragging');if(!d.moved)toggleShapeFeatureCard(d.f.id);return;}
+  var T=shapeIsDxfSource(sDraft)&&typeof shapeProdDxfTransform==='function'?shapeProdDxfTransform():shapeDrawnPreviewTransform(shapeDraftResult());
+  var x=shapeSnapManufacturing16(inch(d.f.x)+d.dx/T.sc),y=shapeSnapManufacturing16(inch(d.f.y)-d.dy/T.sc);
+  if(T&&T.sc>0&&isFinite(x)&&isFinite(y)&&fabPointInPoly([x,y],T.P)){d.f.x=shapeFrac16(x);d.f.y=shapeFrac16(y);}
+  render();
+}
 if(typeof document!=='undefined'&&document.addEventListener)document.addEventListener('keydown',function(ev){
   if(!sLayoutEdit||!sDraft)return;var t=ev.target;
   if(t&&(/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)||t.isContentEditable))return;
@@ -701,16 +731,26 @@ function shapeStampPosition(f,g){
   return {hRef:hRef,vRef:vRef,hDistance:hRef==='right'?right:left,vDistance:vRef==='top'?top:bottom,point:[x,y],
     hDatum:hRef==='right'?dat.right:dat.left,vDatum:vRef==='top'?dat.top:dat.bottom};
 }
-function shapeDefaultStampPoint(g){
+/* Штамп встаёт так, чтобы ВСЯ его надпись была на стекле, а не только
+   центр: в остром углу треугольника центр внутри, а надпись висела за
+   кромкой (владелец, 25.11.2026: «почему штамп поплыл»). Размер надписи — в
+   пикселях чертежа, поэтому переводим его в дюймы масштабом того же кадра. */
+function shapeDefaultStampPoint(g,f){
   if(!g||!g.b||!(g.P||[]).length)return [3,1];
   var b=g.b,w=Math.max(0,b.maxX-b.minX),h=Math.max(0,b.maxY-b.minY),dx=Math.min(2,w/2),dy=Math.min(2,h/2);
-  var candidates=[[b.maxX-dx,b.minY+dy],[b.maxX-dx,b.maxY-dy],[b.minX+dx,b.minY+dy],[b.minX+dx,b.maxY-dy],[(b.minX+b.maxX)/2,(b.minY+b.maxY)/2]];
-  for(var i=0;i<candidates.length;i++){var p=candidates[i].map(shapeSnapManufacturing16);if(fabPointInPoly(p,g.P))return p;}
-  /* A concave contour can have its bounding-box center in empty space. Search
-     from the preferred bottom-right corner inward before falling back. */
-  for(var gy=1;gy<16;gy++)for(var gx=15;gx>0;gx--){
-    var q=[shapeSnapManufacturing16(b.minX+w*gx/16),shapeSnapManufacturing16(b.minY+h*gy/16)];if(fabPointInPoly(q,g.P))return q;
+  var hw=0,hh=0;
+  if(f){var sc=shapeProductionDrawingFrame({points:g.P,definition:sDraft},{}).sc,spec=shapeStampDrawingSpec(f);if(sc>0){hw=spec.w/2/sc;hh=spec.h/2/sc;}}
+  /* Запас 1″ вокруг надписи: в остром углу её иначе накрывает подпись угла. */
+  var mw=hw?hw+1:0,mh=hh?hh+1:0;
+  var fits=function(p){return fabPointInPoly(p,g.P)&&[[-mw,-mh],[mw,-mh],[mw,mh],[-mw,mh]].every(function(d){return fabPointInPoly([p[0]+d[0],p[1]+d[1]],g.P);});};
+  var candidates=[[b.maxX-dx-hw,b.minY+dy+hh],[b.maxX-dx-hw,b.maxY-dy-hh],[b.minX+dx+hw,b.minY+dy+hh],[b.minX+dx+hw,b.maxY-dy-hh],[(b.minX+b.maxX)/2,(b.minY+b.maxY)/2]];
+  for(var i=0;i<4;i++){var p=candidates[i].map(shapeSnapManufacturing16);if(fits(p))return p;}
+  /* Углы габарита не подошли (треугольник, скос, вогнутый контур) — ищем от
+     нижнего правого угла внутрь, к центру только в самом конце. */
+  for(var gy=1;gy<32;gy++)for(var gx=31;gx>0;gx--){
+    var q=[shapeSnapManufacturing16(b.minX+w*gx/32),shapeSnapManufacturing16(b.minY+h*gy/32)];if(fits(q))return q;
   }
+  for(i=0;i<candidates.length;i++){p=candidates[i].map(shapeSnapManufacturing16);if(fabPointInPoly(p,g.P))return p;}
   return candidates[4].map(shapeSnapManufacturing16);
 }
 function shapeDefaultSandblastPoint(g){
@@ -890,7 +930,7 @@ function shapeDrawnPreviewTransform(result,extra){
 }
 function shapePlaceManufacturingFromEvent(ev,svg){
   if(!sManufacturingPlace)return;
-  var external=shapeIsDxfSource(sDraft),r=shapeDraftResult(),T=external?shapeDxfPreviewTransform(sDraft.source):shapeDrawnPreviewTransform(r);if(!T)return;
+  var external=shapeIsDxfSource(sDraft),r=shapeDraftResult(),T=external?(typeof shapeProdDxfTransform==='function'?shapeProdDxfTransform():shapeDxfPreviewTransform(sDraft.source)):shapeDrawnPreviewTransform(r);if(!T)return;
   if(ev.target&&ev.target.closest&&ev.target.closest('.frit-pattern-sample'))return;
   /* Invert the actual SVG transform: pattern samples extend its viewBox and
      the preview may also have letterboxing. Neither changes glass coordinates. */
@@ -1531,7 +1571,7 @@ function shapeDrawnProductionBody(svg,T,interactive){
   /* Бары — в камере юнита: на листе одного стекла их нет. */
   var extra=(T.lite?'':shapeMuntinBarsSvg(T))+marks+(dims?(marks?'':shapeDimArrowDefs())+dims:'');
   if(extra)svg=svg.replace('</svg>',extra+'</svg>');
-  if(interactive)svg=svg.replace('<svg ','<svg class="shape-drawn-production-interactive'+(sManufacturingPlace?' placing':'')+'" '+onAct('click',shapePlaceManufacturingFromEvent,EVENT,EL)+' ');
+  if(interactive)svg=svg.replace('<svg ','<svg class="shape-drawn-production-interactive'+(sManufacturingPlace?' placing':'')+'" '+onAct('click',shapePlaceManufacturingFromEvent,EVENT,EL)+' '+onAct('pointerdown',shapeStampPointerDown,EVENT,EL)+' ');
   return svg;
 }
 function shapePreviewMarkup(r){
@@ -1836,6 +1876,8 @@ function shapeSheetSvgBody(r,cutting,extra){
   if(!cutting&&extra&&extra.lite)return shapeDrawnProductionSvg(r,false,Object.assign({sheet:true},extra));
   if(!cutting&&extra&&extra.noStep&&!r.externalFile)return shapeDrawnProductionSvg(r,false,{sheet:true,noStep:true});
   if(r.externalFile){
+    /* Лист DXF — тот же чертёж, что на экране (shape-production-ui). */
+    if(!cutting&&typeof shapeProdDxfDrawingSvg==='function'){var drawn=shapeProdDxfDrawingSvg(false,true);if(drawn)return drawn;}
     /* Frit на печатном листе DXF — тот же образец и та же точка, что на экране. */
     var src=(r.definition&&r.definition.source)||sDraft.source,svg=shapeDxfPreviewSvg(src,!cutting,true);
     return cutting?svg:salesFritDecorateSvg(svg,sDraft,r,shapeDxfPreviewTransform(src));
@@ -2413,7 +2455,7 @@ function addShapeFeature(type){
     /* Все метки, кроме штампа, встают в центр стекла и расходятся, если центр
        уже занят. Штамп сохраняет своё историческое место у нижней кромки. */
     var g=shapeManufacturingGeometry(),centred=type!=='stamp';
-    var point=centred?shapeFreeMarkPoint(g,shapeDefaultSandblastPoint(g)):shapeDefaultStampPoint(g);
+    var point=centred?shapeFreeMarkPoint(g,shapeDefaultSandblastPoint(g)):shapeDefaultStampPoint(g,f);
     f.x=shapeFrac16(point[0]);f.y=shapeFrac16(point[1]);
     shapeDimEntry(f.id,'h').ref=centred&&g?(point[0]<=(g.b.minX+g.b.maxX)/2?'left':'right'):'right';
     shapeDimEntry(f.id,'v').ref=centred&&g?(point[1]<=(g.b.minY+g.b.maxY)/2?'bottom':'top'):'bottom';sFeatureExpandedId=f.id;
