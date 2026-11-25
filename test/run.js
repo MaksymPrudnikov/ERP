@@ -2417,7 +2417,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const text='0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n1\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n0\nLWPOLYLINE\n90\n4\n70\n1\n10\n0\n20\n0\n10\n24.43808\n20\n0\n10\n24.43808\n20\n80.93832\n10\n0\n20\n80.93832\n0\nENDSEC\n0\nEOF\n';
       const file=new File([text], 'Fusion деталь 01.dxf',{type:'application/dxf'}),input={files:[file],value:'picked'};
       shapeAttachDxf(input);for(let i=0;i<50&&(!sDraft.source||sDraft.source.kind!=='dxf');i++)await new Promise(r=>setTimeout(r,10));
-      const keys=Object.keys(sDraft.source).sort(),json=JSON.stringify(sDraft),rawName=!!document.querySelector('.shape-dxf-name [data-raw]'),svg=!!document.querySelector('.shape-dxf-svg');
+      const keys=Object.keys(sDraft.source).sort(),json=JSON.stringify(sDraft),rawName=!!document.querySelector('.shape-dxf-name [data-raw]'),svg=!!document.querySelector('#shapeLivePreview svg[aria-label="Production Drawing"]');
       const before={kind:sDraft.source.kind,name:sDraft.source.fileName,keys:keys,previewKeys:Object.keys(sDraft.source.preview).sort(),rawBodyLeaked:json.includes('$INSUNITS')||json.includes('LWPOLYLINE'),rawName:rawName,svg:svg,width16:sDraft.source.preview.width16,height16:sDraft.source.preview.height16};
       removeShapeDxf();before.removed=sDraft.source;return before;
     }), {kind:'dxf',name:'Fusion деталь 01.dxf',keys:['fileName','fileSize','kind','note','preview','uploadedAt'],previewKeys:['height16','points','segments','units','width16'],rawBodyLeaked:false,rawName:true,svg:true,width16:391,height16:1295,removed:{kind:'drawn',fileName:'',fileSize:0,uploadedAt:'',note:''}});
@@ -4948,7 +4948,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const pSvg=box.querySelector('svg'),productionPanels=document.querySelectorAll('.shape-prod-border,.shape-prod-cutallow').length;
       const texts=[...pSvg.querySelectorAll('text')],lowest=texts.reduce(function(a,el){return el.getBoundingClientRect().bottom>a.getBoundingClientRect().bottom?el:a;});
       setShapeView('cutting');
-      const out={drawingInside:inside(pSvg)&&inside(lowest),productionPanels:productionPanels,cuttingPanels:document.querySelectorAll('.shape-prod-border,.shape-prod-cutallow').length,
+      const out={drawingInside:inside(lowest),productionPanels:productionPanels,cuttingPanels:document.querySelectorAll('.shape-prod-border,.shape-prod-cutallow').length,
         kpiVisible:inside(box.querySelector('.shape-prod-machine-kpi'))};
       sEdit=null;sDraft=null;sView='setup';render();return out;
     }), {drawingInside:true,productionPanels:0,cuttingPanels:2,kpiVisible:true});

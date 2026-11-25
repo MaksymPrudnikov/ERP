@@ -281,14 +281,18 @@ function shapeBorderFootprint(points,plan){
        если кромка уходит за неё: у треугольника вершина — это верх, хотя обе
        боковые кромки по направлению «левая» и «правая» (владелец, 25.11.2026:
        «где сверху бордер?»). Прямую кромку это не касается — её конец лежит
-       вдоль стороны, а не выходит за неё. */
+       вдоль стороны, а не выходит за неё. Если у конца соседняя кромка прямая
+       и лежит на этой же стороне (скос 40 × 60: конец скоса на правой
+       стороне), прямой рез по стороне уже отсекает выход — бордера нет. */
     if(!shapeEdgeNeedsBorder(null,a,c))continue;
-    [[a,a[0]-c[0],a[1]-c[1]],[c,c[0]-a[0],c[1]-a[1]]].forEach(function(e){
-      var p=e[0],dx=e[1],dy=e[2],hit=function(k){if(v>sides[k])sides[k]=v;};
-      if(Math.abs(p[0]-b.minX)<1e-6&&dx<0)hit('left');
-      if(Math.abs(p[0]-b.maxX)<1e-6&&dx>0)hit('right');
-      if(Math.abs(p[1]-b.minY)<1e-6&&dy<0)hit('bottom');
-      if(Math.abs(p[1]-b.maxY)<1e-6&&dy>0)hit('top');
+    [[a,a[0]-c[0],a[1]-c[1],points[(i-1+n)%n]],[c,c[0]-a[0],c[1]-a[1],points[(i+2)%n]]].forEach(function(e){
+      var p=e[0],dx=e[1],dy=e[2],q=e[3],on=function(k,val){return Math.abs(p[k]-val)<1e-6;},
+          along=function(k,val){return Math.abs(q[k]-val)<1e-6;},
+          hit=function(side){if(v>sides[side])sides[side]=v;};
+      if(on(0,b.minX)&&dx<0&&!along(0,b.minX))hit('left');
+      if(on(0,b.maxX)&&dx>0&&!along(0,b.maxX))hit('right');
+      if(on(1,b.minY)&&dy<0&&!along(1,b.minY))hit('bottom');
+      if(on(1,b.maxY)&&dy>0&&!along(1,b.maxY))hit('top');
     });
   }
   /* Прямая сторона во всю длину габарита — уже внешняя линия реза: скошенная

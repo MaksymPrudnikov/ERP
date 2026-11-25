@@ -31,7 +31,7 @@ module.exports=async function({page,eq}){
   const txt=s=>{const d=document.createElement('div');d.innerHTML=s;return d.textContent;};
   const inch=txt(document.getElementById('shapeLivePreview').innerHTML),print=txt(shapeSheetSvgBody(shapeDraftResult(),false));
   setShapeMetricDetail(true);const mm=txt(document.getElementById('shapeLivePreview').innerHTML);setShapeMetricDetail(false);
-  return {sides:(inch.match(/93 1\/8/g)||[]).length,apex:inch.includes('39 7/16'),angle:inch.includes('50.06°'),file:inch.includes('DXF · U1 OF 3.dxf'),
+  return {sides:(inch.match(/93 1\/8/g)||[]).length,apex:inch.includes('39 7/16'),angle:inch.includes('50.06°'),file:inch.includes('Tri · DXF'),
    oldRed:!!document.querySelector('#shapeLivePreview .shape-dxf-dim-line'),print:print.includes('39 7/16')&&print.includes('93 1/8'),
    mm:mm.includes('2365.34')&&mm.includes('1000.92'),mmButton:!document.querySelector('.shape-metric-toggle').disabled};
  }),{sides:2,apex:true,angle:true,file:true,oldRed:false,print:true,mm:true,mmButton:true});

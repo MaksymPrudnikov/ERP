@@ -693,10 +693,10 @@ function shapeSandblastDrawingSpec(f,glassPixelWidth){
   return {lines:lines,w:Math.round(w*10)/10,h:Math.round((font*2+10)*10)/10,font:Math.round(font*10)/10,scale:k};
 }
 function shapeTitleBlock(result,kind,F){
-  /* У формы из файла пресета нет: тип в шапке — сам файл, а не
-     «RECT / Rectangle», с которого форма начиналась. */
+  /* У формы из файла пресета нет: в шапке «DXF», а не «RECT / Rectangle», с
+     которого форма начиналась. Имя файла — данные клиента, оно в панели слева. */
   var d=result.definition,p=shapePresetInfo(d.type),rx=(F&&F.vw?F.vw:960)-24,dxf=typeof shapeIsDxfSource==='function'&&shapeIsDxfSource(d);
-  var kindText=dxf?'DXF · '+String(d.source.fileName||''):p.code+' / '+p.label;
+  var kindText=dxf?'DXF':p.code+' / '+p.label;
   return '<g font-family="Arial,sans-serif"><text x="24" y="28" font-size="19" font-weight="700" fill="#101828">'+shapeXml(kind)+'</text><text x="24" y="50" font-size="12" fill="#475467">'+shapeXml(d.name||'(unnamed)')+' · '+shapeXml(kindText)+'</text><text x="'+rx+'" y="28" text-anchor="end" font-size="11" fill="#475467">Shape '+shapeXml(d.id)+' · Rev '+shapeXml(d.revision||0)+'</text><text x="'+rx+'" y="48" text-anchor="end" font-size="11" fill="#475467">Area '+(result.area/144).toFixed(2)+' ft²</text></g>';
 }
 /* Производственный чертёж. Контур берётся из слоя аннотаций: скошенные края
