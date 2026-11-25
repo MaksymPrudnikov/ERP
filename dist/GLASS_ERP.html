@@ -8,7 +8,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-3MUaxHKyzr7P6VQBXDw6aym61ktjc0WEga7tEzZoaDE=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-JyFoIykQKlevXml/ipvcezk2ftVs7/bkFKMsnjLBc+E=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GLASS ERP — Glazing System</title>
 <style>
@@ -4699,7 +4699,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='a3eb4fb76475';
+var ERP_BUILD='ec7bcd533634';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -8424,7 +8424,11 @@ function shapeLiteSheetSvg(result,opts){
   var metric=shapeMetricAnnotations(result,{points:pts,edgeIds:lite.edgeIds});
   var disp=pts.map(function(p){return [F.X(p[0]),F.Y(p[1])];}),path=disp.map(function(p,i){return (i?'L ':'M ')+p[0]+' '+p[1];}).join(' ')+' Z';
   var xs=disp.map(function(p){return p[0];}),ys=disp.map(function(p){return p[1];});
-  var mo=Object.assign({},opts.metric||{},{keyPrefix:units+':lite'+lite.index+':',layout:(opts.metric&&opts.metric.layout)||(result.definition&&result.definition.drawingLayout)||{},vw:F.vw,sheet:!!opts.sheet,units:units,points:pts,cleanParallelogram:true});
+  /* В дюймах редактор шлёт опции подписей в annotation, в мм — в metric: без
+     annotation подписи дюймового листа не тянулись мышкой и не открывали меню
+     (владелец, 25.11.2026: «мм можно тянуть, а инчи нельзя»). */
+  var src=opts.metric||opts.annotation||{};
+  var mo=Object.assign({},src,{keyPrefix:units+':lite'+lite.index+':',layout:src.layout||(result.definition&&result.definition.drawingLayout)||{},vw:F.vw,sheet:!!opts.sheet,units:units,points:pts,cleanParallelogram:true});
   /* В дюймах — оформление обычного дюймового чертежа (пункт 1 плана v1.16,
      листы 4/7/15 контрольного заказа): белое стекло с чёрным контуром, без
      заливки, знака стекла и подписей прямых углов — их нет и у листа
@@ -29208,7 +29212,7 @@ function shapeNudgeMetricLabel(key,delta){
 /* Список скрытых подписей — свой у каждого режима: в мм только ключи mm:…,
    в дюймах — без них. */
 function shapeMetricHiddenControlsHTML(result){
-  if(sView==='cutting'||result&&result.externalFile)return '';
+  if(sView==='cutting')return '';
   return shapeLayoutHiddenHTML(function(k){return (k.indexOf('mm:')===0)===!!sMetricDetail;});
 }
 function shapeMetricProductionOptions(result,interactive){
@@ -30815,7 +30819,10 @@ function refreshShapeEditor(){
   if(sDraft.type==='custom')shapeCustomApplyResolved();
   shapeMarkFields();shapeFitPreview();
   document.querySelectorAll('[data-shape-view]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-shape-view')===sView);});
-  var metricButton=document.querySelector('.shape-metric-toggle'),metricOff=sView==='cutting'||shapeIsDxfSource(sDraft);
+  /* У DXF мм есть с 25.11.2026 — кнопка гаснет только на вкладке реза. Раньше
+     здесь стоял запрет для DXF: после Cutting DXF кнопка мм оставалась
+     выключенной и на Production Drawing. */
+  var metricButton=document.querySelector('.shape-metric-toggle'),metricOff=sView==='cutting';
   if(metricButton){metricButton.disabled=metricOff;metricButton.classList.toggle('on',sMetricDetail&&!metricOff);metricButton.setAttribute('aria-pressed',sMetricDetail&&!metricOff?'true':'false');}
 
 }
@@ -32368,7 +32375,7 @@ shapeForm=function(){
   var cutoutCount=shapeCutoutItemCount()+(muntinOn?1:0);
   var workspaceTabs=`<div class='shape-workspace-tabs' role='tablist' aria-label='Shape workflow'><button type='button' role='tab' aria-selected='${sWorkspaceTab==='designer'}' class='${sWorkspaceTab==='designer'?'on':''}' ${onAct('click',setShapeWorkspaceTab,'designer')}><span>1</span><b>Shape Designer</b><small>Geometry · Lites · Edge processing</small></button><button type='button' role='tab' aria-selected='${sWorkspaceTab==='cutout'}' class='${sWorkspaceTab==='cutout'?'on':''}' ${onAct('click',setShapeWorkspaceTab,'cutout')}><span>2</span><b>Fabrication</b><small>Hole · Hardware · Muntin · Stamp · Sandblast · Cut shape</small>${cutoutCount?`<i>${cutoutCount}</i>`:''}</button></div>`;
   var tabs=external
-    ? `<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' ${onAct('click',setShapeView,'production')}>Production Drawing</button><button class='${sView==='cutting'?'on':''}' ${onAct('click',setShapeView,'cutting')}>Cutting DXF</button>${shapeMetricToggleButton(sView==='cutting')}${shapePrintButtonHTML()}</div>`
+    ? `<div class='shape-view-tabs'><button data-shape-view='production' class='${sView!=='cutting'?'on':''}' ${onAct('click',setShapeView,'production')}>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' ${onAct('click',setShapeView,'cutting')}>Cutting DXF</button>${shapeMetricToggleButton(sView==='cutting')}${shapePrintButtonHTML()}</div>`
     : `<div class='shape-view-tabs'><button data-shape-view='production' class='${sView!=='cutting'?'on':''}' ${onAct('click',setShapeView,'production')}>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' ${onAct('click',setShapeView,'cutting')}>Cutting Shape</button>${shapeMetricToggleButton(sView==='cutting')}${shapePrintButtonHTML()}</div>`;
   return `<div class='module-editor shape-workspace-editor' id='shapeEditorRoot'>${shapeLiteBanner()}<div class='shape-workspace-toolbar'><div class='shape-workspace-identity'><b>${typeof salesBridge!=='undefined'&&salesBridge&&salesBridge.recutId?'Recut drawing':sEdit==='new'?'New Production Shape':'Edit Production Shape'}</b><span data-raw>${esc(sDraft.name||shapePresetInfo(sDraft.type).label)}</span></div><span class='sp'></span><div class='shape-workspace-actions'><button ${onAct('click',cancelShapeEdit)}>Cancel</button><button class='pri' ${onAct('click',saveShape)}>Save revision</button></div></div><div class='err' id='e_shape'></div><div class='shape-editor-layout'><div class='shape-workspace-left'>${workspaceTabs}<div class='shape-controls'>${controls}</div></div><div class='shape-preview-side'>${tabs}<div id='shapeHiddenMetricControls'>${shapeMetricHiddenControlsHTML(r)}</div><div id='shapeLivePreview' class='shape-drawing-preview'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div></div>`;
 };
