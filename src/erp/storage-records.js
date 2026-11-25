@@ -127,7 +127,7 @@ function storageDiff(db,only){
     was.forEach((x,id)=>{if(id!=='*')out.push({tbl:k,id,del:true});});
     return;
    }
-   const seq=storageSeqs(ids,was),now=new Set(ids),seen={rows:v.slice(),ids,seq,at:null};storageSeen.set(k,seen);storageSeenIndexLater(seen);
+   const seq=storageSeqs(ids,was),now=new Set(ids);storageSeen.set(k,{rows:v.slice(),ids,seq,at:null});
    for(let i=0;i<v.length;i++){
     if(rows){const x=was.get(ids[i]);if(x&&x.s===seq[i]&&!rows.has(ids[i]))continue;}
     const t=JSON.stringify(v[i]),b=was.get(ids[i]);
@@ -147,9 +147,12 @@ function storageDiff(db,only){
    чтением базы целиком) — сравнение в простое (storageSweep) по нему видит,
    что база менялась посреди прохода. */
 let storageBaseRev=0;
-function storageBaseApply(changes){
+/* own — запись этой вкладки (touch): только она прогревает итоги Finance
+   заново (finTotalsForget). Чужая вкладка и сервер — нет: правка клиента на
+   одном ПК не пересчитывает цены года на всех (аудит 25.11.2026). */
+function storageBaseApply(changes,own){
  storageBaseRev++;
- if(typeof finTotalsForget==='function')finTotalsForget(changes);
+ if(typeof finTotalsForget==='function')finTotalsForget(changes,own);
  changes.forEach(c=>{
   let m=storageBase.get(c.tbl);
   if(c.coldClear||c.tbl==='_archive')return;
@@ -202,29 +205,39 @@ function storageJoin(records,parsed,seen){
    потому что порядок строк (storageSeen) знает только прошлое полное
    сравнение, а после F5 его ещё не было — его отложили в простой
    (storageSweepLater). Порядок строк тот же, что прочитан из базы: берём
-   его при старте. Таблица, чьи строки нормализация заменила, — без него,
-   как раньше. Пропущенное областью записи по-прежнему найдёт полное
-   сравнение в простое (storageSweep). */
+   его при старте. Таблица, чьи строки нормализация заменила или у строки
+   сменился ключ (нормализация на месте), — без него, как раньше: первая
+   запись сравнит её целиком и допишет строку под новым ключом (аудит
+   агентов 25.11.2026). Ключи большой таблицы (сканы — 290 тысяч, 0,1 с на
+   старте) сверяются в простое вместе с указателем (storageSeenIndexLater).
+   Пропущенное областью записи по-прежнему найдёт полное сравнение в простое
+   (storageSweep). */
+const STORAGE_SEEN_BIG=20000;
 function storageSeenSeed(seen){
  seen.forEach((s,tbl)=>{
-  const v=DB[tbl],base=storageBase.get(tbl);
+  const v=DB[tbl],base=storageBase.get(tbl),big=v&&v.length>=STORAGE_SEEN_BIG;
   if(!Array.isArray(v)||!base||base.size!==s.rows.length||v.length!==s.rows.length||storageVisit.has(tbl))return;
-  for(let i=0;i<v.length;i++)if(v[i]!==s.rows[i])return;
-  storageSeen.set(tbl,s);storageSeenIndexLater(s);
+  for(let i=0;i<v.length;i++)if(v[i]!==s.rows[i]||!big&&storageRowKey(tbl,v[i])!==s.ids[i])return;
+  storageSeen.set(tbl,s);if(big)storageSeenIndexLater(s,tbl);
  });
 }
 /* Указатель «ключ → место» (s.at) для storageDiffTail на 290 тысяч сканов —
-   0,3 с на слабом ПК одним куском: первый скан ждал бы его. Большая таблица
-   строит его в простое кусками по 20 тысяч; скан раньше конца — строит сам,
-   как раньше, и кусок в простое видит готовое. */
-function storageSeenIndexLater(s){
- if(s.ids.length<20000||typeof setTimeout!=='function')return;
+   0,3 с на слабом ПК одним куском: первый скан после F5 ждал бы его. Только
+   после старта (storageSeenSeed): большая таблица строит его в простое
+   кусками по 20 тысяч; скан раньше конца — строит сам, как раньше, и кусок в
+   простое видит готовое. После полного сравнения — как раньше, при первой
+   записи с областью: ПК без сканов его не держит. Тем же проходом — сверка
+   ключей (storageSeenSeed): строка со сменившимся ключом — порядок таблицы
+   забыт, первая запись сравнит её целиком. */
+function storageSeenIndexLater(s,tbl){
+ if(s.ids.length<STORAGE_SEEN_BIG||typeof setTimeout!=='function')return;
  const m=new Map();let i=0;
  const step=()=>{
   /* Готов (скан построил сам) или таблицу уже сравнили заново — не нужен.
      Пока s.at нет, s.ids не растёт: storageDiffTail сначала строит указатель. */
-  if(s.at||![...storageSeen.values()].includes(s))return;
-  const end=Math.min(i+20000,s.ids.length);for(;i<end;i++)m.set(s.ids[i],i);
+  if(s.at||storageSeen.get(tbl)!==s)return;
+  const end=Math.min(i+STORAGE_SEEN_BIG,s.ids.length);
+  for(;i<end;i++){if(storageRowKey(tbl,s.rows[i])!==s.ids[i]){storageSeen.delete(tbl);return;}m.set(s.ids[i],i);}
   if(i<s.ids.length)setTimeout(step,0);else s.at=m;
  };
  setTimeout(step,0);

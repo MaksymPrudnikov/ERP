@@ -278,9 +278,15 @@ async function archiveRead(owners,strict){
    складывают в том же порядке. Возвращает поставленное: tbl → Map id → текст
    записи (keep — для просмотра, который возвращает строки после пересборки
    таблицы; расчёту текст не нужен — меньше памяти). */
+/* Запись уже в работе (общая оплата двух заказов: один вернули в работу, а
+   сервер до отправки ещё отдаёт её из архива) — остаётся своя, она новее, как
+   в storageColdPut (C9). Копия с тем же ключом пряталась бы вместе со своей
+   (storageVisit — по ключу), и следующее полное сравнение удаляло бы живую
+   оплату из базы; archiveRowsDrop убирал бы обе (аудит агентов 25.11.2026). */
 function archiveRowsPut(recs,keep){
- const put=new Map(),byTbl=new Map();
- recs.forEach(r=>{const v=storageVisit.get(r.tbl);if(v&&v.has(r.id))return;let a=byTbl.get(r.tbl);if(!a)byTbl.set(r.tbl,a=[]);a.push(r);});
+ const put=new Map(),byTbl=new Map(),live=new Map();
+ const isLive=(tbl,id)=>{let s=live.get(tbl);if(!s){s=new Set((storageBase.get(tbl)||new Map()).keys());(Array.isArray(DB[tbl])?DB[tbl]:[]).forEach(row=>s.add(storageRowKey(tbl,row)));live.set(tbl,s);}return s.has(id);};
+ recs.forEach(r=>{const v=storageVisit.get(r.tbl);if(v&&v.has(r.id))return;if(isLive(r.tbl,r.id))return;let a=byTbl.get(r.tbl);if(!a)byTbl.set(r.tbl,a=[]);a.push(r);});
  byTbl.forEach((list,tbl)=>{
   if(!Array.isArray(DB[tbl]))DB[tbl]=[];
   const rows=DB[tbl],base=storageBase.get(tbl)||new Map(),out=[],t=new Map();let v=storageVisit.get(tbl),i=0;

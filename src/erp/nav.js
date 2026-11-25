@@ -77,7 +77,9 @@ function renderNav(){
 function navGo(k,then){
  if(!accessCan(k))return;
  let now=true;
- const go=()=>{tab=k;subtab=null;navMoreOpen=false;if(!then||!now){render();return;}const n=renderCount;then();if(renderCount===n)render();};
+ /* Вид упал с ошибкой — раздел всё равно рисуется (ошибка уходит дальше, в
+    полосу «Something went wrong»), иначе на экране остался бы прежний. */
+ const go=()=>{tab=k;subtab=null;navMoreOpen=false;if(!then||!now){render();return;}const n=renderCount;try{then();}finally{if(renderCount===n)render();}};
  if((window.NAV_GUARDS||[]).some(g=>g(k,go))){now=false;return;}
  go();
 }

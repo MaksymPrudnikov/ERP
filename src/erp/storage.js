@@ -346,7 +346,7 @@ function touch(){
   if(!changes.length){storageLastError=storageFailed?storageLastError:'';storageScopeMark();return true;}
   /* Сервер (erp/cloud-sync.js): набор встаёт в очередь отправки той же записью. */
   const out=typeof cloudOutbox==='function'?cloudOutbox(changes):null;
-  storageWrite(changes,out&&out.ops);if(out)out.done();storageBaseApply(changes);if(typeof archiveIndexApply==='function')archiveIndexApply(changes.filter(c=>c.tbl==='_archive').map(c=>[c.id,c.del?null:JSON.parse(c.data)]),changes.some(c=>c.coldClear));
+  storageWrite(changes,out&&out.ops);if(out)out.done();storageBaseApply(changes,true);if(typeof archiveIndexApply==='function')archiveIndexApply(changes.filter(c=>c.tbl==='_archive').map(c=>[c.id,c.del?null:JSON.parse(c.data)]),changes.some(c=>c.coldClear));
   storageLastSaved=new Date().toISOString();storageLastError='';storageWarningShown=false;dirty=true;storageInvalidate(changes.every(c=>c.tbl==='shapeDef'));storageScopeMark();return true;
  }catch(e){
   storageLastError=storageStale?storageReadOnlyText():'Not saved. Your operation is still open; retry or export your changes.';
@@ -610,7 +610,7 @@ function storageYield(){
  if(!storageWriter)return;
  const dropped=!!storageFailed&&storageFailedExported&&!storageStale;
  if(dropped){storageFailed=null;storageFailedExported=false;storageLastError='';}
- if(!storageStale)try{const parked=typeof salesDraftParked==='function'?salesDraftParked():null;if(parked){const changes=storageDiff(parked);storageWrite(changes);storageBaseApply(changes);}}catch(e){console.warn('Draft shapes were not parked:',e.message);}
+ if(!storageStale)try{const parked=typeof salesDraftParked==='function'?salesDraftParked():null;if(parked){const changes=storageDiff(parked);storageWrite(changes);storageBaseApply(changes,true);}}catch(e){console.warn('Draft shapes were not parked:',e.message);}
  storageWriter=false;
  const release=storageRelease;storageRelease=null;
  storageFlush().then(ok=>{
@@ -679,9 +679,12 @@ function storageDownload(name,parts,type){const a=document.createElement('a'),ur
    импорта. Пустая таблица — строкой «таблица пуста» (id `*`, data []): без
    неё файл новой установки без клиентов или заказов не возвращался Import'ом. */
 function storageHotRecords(){
- const keep=storageBase;let recs;
- storageBase=new Map();
- try{recs=storageDiff(DB);}finally{storageBase=keep;}
+ /* Сравнение с пустой базой запоминало бы порядок строк (storageSeen) с seq
+    от пустой базы — следующая запись с областью писала бы строку не на своё
+    место, после F5 строки менялись местами (аудит агентов 25.11.2026). */
+ const keep=storageBase,seen=storageSeen;let recs;
+ storageBase=new Map();storageSeen=new Map();
+ try{recs=storageDiff(DB);}finally{storageBase=keep;storageSeen=seen;}
  Object.keys(DB).forEach(k=>{if(Array.isArray(DB[k])&&!DB[k].length)recs.push({tbl:k,id:'*',seq:0,data:'[]'});});
  return recs;
 }
