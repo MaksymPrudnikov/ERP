@@ -18,6 +18,10 @@ Customers, Agents, Users and Data.
   sum in the footer, and the row count in the first column without a sum (Total as the first column keeps its sum). Numbers as numbers, money with two decimals,
   dates as Excel dates, the first row frozen with Excel filters. In Sales: rows ticked — only they go to the file. File
   name — the table and the date (`sales_2026-11-08.xlsx`).
+- **A long list** (Sales, Production, Shipping, Optimization queues) draws what is visible at once, up to 400 rows when
+  idle, the rest as you scroll, so a click does not wait for the whole year. Browser search (Ctrl+F) and printing the
+  page see only the drawn rows — find an order with the quick filter or the list search; Excel and the footer totals
+  always cover every row.
 - **Header** — the ▾ arrow left of the name: filter, condition and sort of the column; drag the edge of a header to
   change its width, drag the header to move the column. Widths and order are kept in this browser, per list.
   One rule in every table, as in Excel: drag an edge — only that column changes, the columns to its left stay put,

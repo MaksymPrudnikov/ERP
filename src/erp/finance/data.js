@@ -115,7 +115,8 @@ const FIN_TOTALS_NEUTRAL=new Set(['stationScan','stationScanSeq','productionRout
 let finTotalsKeep=new Map();
 /* Фигура строки (ownerLineId) — забыть её заказ; новая фигура — ничего (от
    неё не зависел ни один посчитанный заказ); фигура библиотеки — все. */
-function finTotalsForget(changes){
+/* own — своя запись (storageBaseApply): только она прогревает итоги заново. */
+function finTotalsForget(changes,own){
  if(!finTotalsKeep.size)return;
  let lines=null;
  for(const c of changes){
@@ -123,11 +124,11 @@ function finTotalsForget(changes){
   else if(c.tbl==='shapeDef'){
    const was=storageBase.get('shapeDef'),old=was&&was.get(c.id);if(!old)continue;
    const owners=[old.t,c.del?null:c.data].filter(Boolean).map(t=>{try{return JSON.parse(t).ownerLineId||'';}catch(e){return '';}});
-   if(owners.some(x=>!x)){finTotalsKeep=new Map();finTotalsWarm();return;}
+   if(owners.some(x=>!x)){finTotalsKeep=new Map();if(own)finTotalsWarm();return;}
    if(!lines){lines=new Map();finTotalsKeep.forEach((k,id)=>(k.order.lines||[]).forEach(l=>lines.set(l.id,id)));}
    owners.forEach(x=>{if(lines.has(x))finTotalsKeep.delete(lines.get(x));});
   }
-  else if(!FIN_TOTALS_NEUTRAL.has(c.tbl==='_meta'?c.id:c.tbl)&&c.tbl!=='_archive'){finTotalsKeep=new Map();finTotalsWarm();return;}
+  else if(!FIN_TOTALS_NEUTRAL.has(c.tbl==='_meta'?c.id:c.tbl)&&c.tbl!=='_archive'){finTotalsKeep=new Map();if(own)finTotalsWarm();return;}
  }
 }
 function finOrderTotals(order){
