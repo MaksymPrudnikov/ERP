@@ -21,10 +21,11 @@ module.exports=async function({page,eq}){
   const auto=pad();sDraft.safetyBorderEdges={seg1:'20',seg2:'20',seg3:'20'};const manual=pad();
   const preset=normalizeShapeDef(Object.assign(newShapeDef('triangle'),{w:'78 13/16',h:'84 3/8',thickness:'6'}));preset.params.topOffset='39 13/32';
   const fp=ShapeModule.compute(preset).cutting.footprint;
-  const rect=normalizeShapeDef(Object.assign(newShapeDef('rectangle'),{w:'48',h:'36',thickness:'6'}));rect.safetyBorderEdges={L:'2'};
-  const rp=ShapeModule.compute(rect).cutting.footprint.pad;
-  return {auto,manual,preset:[fp.pad.top,fp.pad.bottom],rect:[rp.left,rp.top,rp.bottom]};
- }),{auto:[1,1,1,0],manual:[20,20,20,20],preset:[1,0],rect:[2,0,0]});
+  const rect=normalizeShapeDef(Object.assign(newShapeDef('rectangle'),{w:'48',h:'36',thickness:'6'}));rect.safetyBorderEdges={A:'2'};
+  /* Прямоугольник: ручной бордер прямой стороны — только на свою сторону. */
+  const rp=ShapeModule.compute(rect).cutting.footprint;
+  return {auto,manual,preset:[fp.pad.top,fp.pad.bottom],rect:rp.sides.length+':'+Object.values(rp.pad).sort().join(',')};
+ }),{auto:[1,1,1,0],manual:[20,20,20,20],preset:[1,0],rect:'1:0,0,0,2'});
  eq('чертёж DXF: длины кромок, отступ вершины, углы; мм — мм и углы; печать — тот же чертёж',await t.p.evaluate(()=>{
   dxTri();setShapeMetricDetail(false);sView='production';render();
   const txt=s=>{const d=document.createElement('div');d.innerHTML=s;return d.textContent;};

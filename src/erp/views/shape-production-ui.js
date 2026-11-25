@@ -4,7 +4,8 @@
    изготовление → рез. Экран Shape остаётся отдельным от Sales / Service Set.
    IN : фигура в редакторе (view/sales/shape-ui), правила modules/shape/dxf-production
    OUT: shapeProdAllowanceField, shapeProdBorderField, shapeProdToggleOps — поля
-        припуска, бордера и операций в окне Shape
+        припуска, бордера и операций в окне Shape; shapeProdDxfDrawingSvg,
+        shapeProdDxfTransform — чертёж формы из DXF и его рамка (экран и печать)
    ===================================================================== */
 
 let shapeProdExceptionsOpen=false,shapeProdSelectedEdgeId=null;
