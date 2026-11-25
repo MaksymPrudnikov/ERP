@@ -4938,11 +4938,13 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     /* Production Drawing DXF — чертёж обычной формы (25.11.2026), у Cutting DXF
        своя рамка с бордером. Подписи под фигурой не режутся; панели Safety
        Border / Allowance живут только в Cutting. */
-    eq('вкладки DXF-чертежа: подписи под фигурой не режутся, панели только в Cutting', await t.p.evaluate(() => {
+    eq('вкладки DXF-чертежа: подписи под фигурой не режутся, панели только в Cutting', await t.p.evaluate(async () => {
       tab='configurators';subtab='shape';openShapeNew('rectangle');
       sDraft.source={kind:'dxf',fileName:'skew.dxf',fileSize:2400,uploadedAt:'2026-09-02T10:00:00.000Z',note:'',
         preview:{units:'in',points:[[0,0],[54,0],[59.125,22.4375],[22,22.4375],[13,18],[0,10]],width16:946,height16:359}};
       sDraft.w='59 1/8';sDraft.h='22 7/16';sDraft.thickness='6';sView='production';render();
+      /* Чертёж подгоняется под окно после отрисовки (shapeFitPreview, setTimeout 0). */
+      await new Promise(function(r){setTimeout(r,50);});
       const box=document.getElementById('shapeLivePreview'),bb=box.getBoundingClientRect();
       const inside=function(el){if(!el)return false;const r=el.getBoundingClientRect();return r.height>0&&r.bottom<=bb.bottom+1&&r.top>=bb.top-1;};
       const pSvg=box.querySelector('svg'),productionPanels=document.querySelectorAll('.shape-prod-border,.shape-prod-cutallow').length;
