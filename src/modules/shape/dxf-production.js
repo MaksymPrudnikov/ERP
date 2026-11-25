@@ -168,10 +168,11 @@ function shapeAllowanceDefaults(){
   });
   return rows;
 }
-/* Съём на сторону физически не бывает больше пары дюймов. Предел здесь не
-   формальность: «316» вместо «3/16» — валидное число для парсера, и такая
-   опечатка молча увела бы рез на 316 дюймов. */
-var SHAPE_ALLOWANCE_MAX_IN=2;
+/* Съём на сторону почти всегда меньше дюйма, но предел — 10″ (владелец,
+   25.11.2026: «пусть хоть доходит до 10»; раньше было 2″). Предел всё равно
+   нужен: «316» вместо «3/16» — валидное число для парсера, и такая опечатка
+   молча увела бы рез на 316 дюймов. */
+var SHAPE_ALLOWANCE_MAX_IN=10;
 function shapeNormalizeAllowanceRows(raw){
   var out=[];
   (Array.isArray(raw)?raw:[]).forEach(function(r){
@@ -400,7 +401,6 @@ function shapeDxfProductionResult(source){
   var sv=shapeValidateSource(def),preview=def.source.preview||shapeNormalizeDxfPreview(null);
   if(sv.errors.length)return {valid:false,sourceValid:false,reason:sv.errors[0],errors:sv.errors,warns:sv.warns,definition:def,fingerprint:fingerprint};
   var cutting=shapeDxfCuttingPlan(def),points=preview.points||[],width=preview.width16/16,height=preview.height16/16,area=Math.abs(fabSignedArea(points)),edges=shapeDxfPhysicalEdges(def),requirements=shapeDxfRequirements(def);
-  if(!cutting.valid)return {valid:false,sourceValid:true,reason:cutting.error,errors:cutting.errors||[cutting.error],warns:(sv.warns||[]).concat(cutting.warns||[]),definition:def,fingerprint:fingerprint,width:width,height:height,points:points,area:area,billableArea:width*height,perimeter:fabPolylineLength(points,true),edges:edges,segs:edges,requirements:requirements,cutting:cutting};
   var stamps=(def.features||[]).filter(function(f){return f.type==='stamp';}).map(function(f){return {id:f.id,type:'stamp',point:[inch(f.x),inch(f.y)],text:shapeStampText(f),source:f};});
   /* Тот же общий список меток по телу стекла, что и у геометрии конфигуратора
      (shapeFeatureGeometry): подпись зеркальной позиции рисуется из него. */
@@ -411,7 +411,10 @@ function shapeDxfProductionResult(source){
       side:f.type==='mirrorsealant'?'':(mirror?shapeMirrorSide(f):shapeSandblastSide(f)),
       text:shapeSurfaceMarkLabel(f).toUpperCase(),source:f};
   });
-  return {valid:true,sourceValid:true,reason:'',errors:[],warns:sv.warns||[],definition:def,fingerprint:fingerprint,width:width,height:height,points:points,area:area,grossArea:area,billableArea:width*height,perimeter:fabPolylineLength(points,true),edges:edges,segs:edges,vertices:[],geometry:{ok:true,points:points,edges:edges,vertices:[],bboxW:width,bboxH:height},featureGeometry:{holes:cutting.holes,cutouts:[],hardware:[],stamps:stamps,sandblasts:sandblasts,radii:[],all:stamps.concat(sandblasts)},requirements:requirements,cutting:cutting};
+  /* Метки по телу стекла нужны чертежу и тогда, когда рез заблокирован. */
+  var featureGeometry={holes:cutting.holes||[],cutouts:[],hardware:[],stamps:stamps,sandblasts:sandblasts,radii:[],all:stamps.concat(sandblasts)};
+  if(!cutting.valid)return {valid:false,sourceValid:true,reason:cutting.error,errors:cutting.errors||[cutting.error],warns:(sv.warns||[]).concat(cutting.warns||[]),definition:def,fingerprint:fingerprint,width:width,height:height,points:points,area:area,billableArea:width*height,perimeter:fabPolylineLength(points,true),edges:edges,segs:edges,requirements:requirements,cutting:cutting,featureGeometry:featureGeometry};
+  return {valid:true,sourceValid:true,reason:'',errors:[],warns:sv.warns||[],definition:def,fingerprint:fingerprint,width:width,height:height,points:points,area:area,grossArea:area,billableArea:width*height,perimeter:fabPolylineLength(points,true),edges:edges,segs:edges,vertices:[],geometry:{ok:true,points:points,edges:edges,vertices:[],bboxW:width,bboxH:height},featureGeometry:featureGeometry,requirements:requirements,cutting:cutting};
 }
 
 const __shapeDxfCompute=ShapeModule.compute;

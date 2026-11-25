@@ -428,9 +428,10 @@ svg.shape-mini.mirrored path{stroke:var(--warning);fill:color-mix(in srgb,var(--
 .shape-service-summary.has-free-stamp strong{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--success);font:800 12px ui-monospace,SFMono-Regular,Menlo,monospace}
 .shape-service-free-row{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-top:1px solid var(--line2);background:var(--surface-2);color:var(--success);font-size:9.5px}
 .shape-temper-stamp.external{cursor:pointer}
-.shape-temper-stamp.external rect{fill:var(--surface);stroke:var(--text-3);stroke-width:1.4}
+.shape-temper-stamp.external rect{fill:var(--surface);stroke:none}
 .shape-temper-stamp.external text{fill:var(--text);font:700 9px ui-monospace,SFMono-Regular,Menlo,monospace}
-.shape-temper-stamp.external.selected rect{stroke:var(--warning);stroke-width:2.4}
+.shape-temper-stamp.external.selected text{fill:var(--warning)}
+.shape-drawn-production-interactive .shape-temper-stamp{cursor:move;touch-action:none}.shape-temper-stamp.dragging{opacity:.75}
 .shape-sandblast-mark.external{cursor:pointer}.shape-sandblast-mark.external rect{fill:var(--surface);stroke:var(--accent);stroke-width:1.4;stroke-dasharray:5 3}.shape-sandblast-mark.external text{fill:var(--accent);font:700 9px ui-monospace,SFMono-Regular,Menlo,monospace}.shape-sandblast-mark.external.selected rect{stroke:var(--warning);stroke-width:2.4}
 .shape-stamp-dims.selected .shape-mi-prod-dims line:not(.shape-dim-hit){stroke:var(--violet)}
 @media(max-width:720px){.shape-stamp-card-body{grid-template-columns:1fr}}

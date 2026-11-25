@@ -4,7 +4,8 @@
    изготовление → рез. Экран Shape остаётся отдельным от Sales / Service Set.
    IN : фигура в редакторе (view/sales/shape-ui), правила modules/shape/dxf-production
    OUT: shapeProdAllowanceField, shapeProdBorderField, shapeProdToggleOps — поля
-        припуска, бордера и операций в окне Shape
+        припуска, бордера и операций в окне Shape; shapeProdDxfDrawingSvg,
+        shapeProdDxfTransform — чертёж формы из DXF и его рамка (экран и печать)
    ===================================================================== */
 
 let shapeProdExceptionsOpen=false,shapeProdSelectedEdgeId=null;
@@ -399,7 +400,7 @@ shapeManufacturingEdgePoint=function(item,g){
 const __shapeProdPlaceManufacturing=shapePlaceManufacturingFromEvent;
 shapePlaceManufacturingFromEvent=function(ev,svg){
   if(!sManufacturingPlace||!sDraft||!shapeIsDxfSource(sDraft)||sManufacturingPlace.type==='hole')return __shapeProdPlaceManufacturing(ev,svg);
-  var T=shapeDxfPreviewTransform(sDraft.source);if(!T)return;var rect=svg.getBoundingClientRect(),vx=(ev.clientX-rect.left)*T.vw/Math.max(1,rect.width),vy=(ev.clientY-rect.top)*T.vh/Math.max(1,rect.height),x=T.b.minX+(vx-T.x0)/T.sc,y=T.b.minY+(T.y0+T.dh-vy)/T.sc,snap=shapeProdNearestDxfEdge(x,y);if(!snap){alert('No valid DXF segment is available for this item.');return;}
+  var T=shapeProdDxfTransform();if(!T)return;var pt=svg.createSVGPoint(),M=svg.getScreenCTM();if(!M)return;pt.x=ev.clientX;pt.y=ev.clientY;pt=pt.matrixTransform(M.inverse());var vx=pt.x,vy=pt.y,x=T.b.minX+(vx-T.x0)/T.sc,y=T.b.minY+(T.y0+T.dh-vy)/T.sc,snap=shapeProdNearestDxfEdge(x,y);if(!snap){alert('No valid DXF segment is available for this item.');return;}
   if(sManufacturingPlace.moveId){var moving=shapeManufacturingItems().find(function(v){return v.id===sManufacturingPlace.moveId;});if(moving){moving.edgeId=snap.edgeId;delete moving.edge;moving.distance=snap.distance;}}
   else shapeManufacturingItems().push(shapeNormalizeManufacturingItem({id:shapeNewEntityId('mi-'),type:sManufacturingPlace.type,note:'',edgeId:snap.edgeId,distance:snap.distance}));
   sManufacturingSelected=null;sManufacturingPlace=null;render();
@@ -485,12 +486,10 @@ shapeMarksBodyHTML=function(){
   return body;
 };
 
-/* ---------- DXF Production / Cutting preview ----------
-   Обе вкладки чертежа берут ОДНО поле и один масштаб: рамка считается по
-   объединению готового контура, контура реза и safety border. Раньше каждая
-   вкладка строила поле под себя, и при переключении Production <-> Cutting
-   фигура прыгала и меняла размер. Габаритные размеры по-прежнему меряют
-   ГОТОВЫЙ контур: x0/y0/dw/dh описывают именно его, а не объединение. */
+/* ---------- DXF Cutting preview ----------
+   Рамка вкладки Cutting DXF — по объединению готового контура, контура реза
+   и safety border, чтобы бордер не обрезался. Production Drawing рисуется
+   ниже своим чертежом, как у обычной формы. */
 function shapeProdDxfFrame(){
   var T=shapeDxfPreviewTransform(sDraft&&sDraft.source);if(!T)return null;
   var all=T.P.slice(),plan=ShapeModule.dxfCuttingPlan(sDraft);
@@ -503,13 +502,59 @@ function shapeProdDxfFrame(){
   return {P:T.P,b:T.b,W:T.W,H:T.H,vw:vw,vh:vh,sc:sc,X:X,Y:Y,plan:plan,
     x0:X(T.b.minX),y0:Y(T.b.maxY),dw:T.W*sc,dh:T.H*sc};
 }
+/* Production Drawing формы из DXF — тот же чертёж, что у обычной формы
+   (владелец, 25.11.2026: «для DXF строило такой же чертёж, как для обычного,
+   и опция с мм работала»). Рисует его контурный слой листа стекла
+   (shapeLiteSheetSvg): длина каждой кромки файла, углы, габарит, отступ
+   вершины; в мм — мм и дюймы серым. Метки, штамп, фрит и клик для
+   установки — поверх, в той же рамке: раньше экран рисовал в одном
+   масштабе, а клик пересчитывался по другому, и метки «плыли». */
+function shapeProdDxfDrawExtra(){
+  if(!sDraft||!shapeIsDxfSource(sDraft))return null;
+  var pts=shapeNormalizeSource(sDraft.source).preview.points||[];if(pts.length<3)return null;
+  return {lite:{points:pts,edgeIds:ShapeModule.dxfPointEdgeIds(sDraft),units:sMetricDetail?'mm':'in',index:'dxf',label:'',apex:true}};
+}
+/* Чертёж нужен и тогда, когда рез заблокирован (например, кромка без
+   правила припуска): готовая форма от этого не меняется. */
+function shapeProdDxfDrawResult(){
+  var pr=ShapeModule.dxfProductionResult(sDraft);
+  if(!pr||!pr.sourceValid||!(pr.points||[]).length)return null;
+  return pr.valid?pr:Object.assign({},pr,{valid:true});
+}
+function shapeProdDxfTransform(){
+  var r=shapeProdDxfDrawResult(),x=shapeProdDxfDrawExtra();
+  return r&&x?shapeDrawnPreviewTransform(r,x):null;
+}
+/* Обработка кромки подписью внутри контура (снаружи стоит длина кромки) и,
+   на экране, клик по кромке — выбрать её в Edge processing. */
+function shapeProdDxfEdgesSvg(T,interactive){
+  var P=T.P,ccw=fabSignedArea(P)>=0,out='';
+  shapeProdDxfGroups().forEach(function(g){
+    var pts=g.points||[g.p1,g.p2],d=pts.map(function(p,i){return (i?'L':'M')+T.X(p[0]).toFixed(2)+' '+T.Y(p[1]).toFixed(2);}).join(' ');
+    if(interactive){
+      if(g.id===shapeProdSelectedEdgeId)out+=`<path class='shape-prod-edge-line selected' d='${d}'/>`;
+      out+=`<path class='shape-prod-edge-hit' d='${d}' ${onActStop('click',shapeProdSetDxfEdge,String(g.id??''))}><title>${esc(g.id.toUpperCase())}</title></path>`;
+    }
+    if(!g.ops.length)return;
+    var m=ShapeModule.dxfEdgePointAt(g,g.length/2),a=pts[0],b=pts[pts.length-1],dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1;
+    var nx=(ccw?-dy:dy)/L,ny=(ccw?dx:-dx)/L,k=18/T.sc,x=T.X(m[0]+nx*k),y=T.Y(m[1]+ny*k);
+    var ang=Math.atan2(T.Y(b[1])-T.Y(a[1]),T.X(b[0])-T.X(a[0]))*180/Math.PI;if(ang>90)ang-=180;if(ang<=-90)ang+=180;
+    out+=`<text class='shape-prod-edge-ops' x='${x.toFixed(1)}' y='${y.toFixed(1)}' text-anchor='middle' dominant-baseline='middle' font-size='11' font-weight='700' fill='#344054' stroke='#fff' stroke-width='4' paint-order='stroke fill' transform='rotate(${ang.toFixed(1)} ${x.toFixed(1)} ${y.toFixed(1)})'>${esc(g.ops.map(shapeOpText).join(' + '))}</text>`;
+  });
+  return out;
+}
+function shapeProdDxfDrawingSvg(interactive,sheet){
+  var r=shapeProdDxfDrawResult(),x=shapeProdDxfDrawExtra();if(!r||!x)return '';
+  if(sheet)x.sheet=true;
+  var svg=shapeDrawnProductionSvg(r,interactive,x),T=shapeDrawnPreviewTransform(r,x);if(!T)return svg;
+  var at=svg.lastIndexOf('</svg>');
+  return at<0?svg:svg.slice(0,at)+shapeProdDxfEdgesSvg(T,interactive)+svg.slice(at);
+}
 function shapeProdDxfProductionSvg(){
-  var result=ShapeModule.compute(sDraft),T=shapeProdDxfFrame();if(!T)return `<div class='module-invalid'>DXF preview unavailable</div>`;
-  var P=T.P,path=P.map(function(p,i){return (i?'L':'M')+T.X(p[0]).toFixed(2)+' '+T.Y(p[1]).toFixed(2);}).join(' ')+' Z',groups=shapeProdDxfGroups(),placing=sManufacturingPlace?' placing':'';
-  /* Кромка рисуется по своим точкам: дуга — дугой, а не хордой. */
-  var edges=groups.map(function(g){var selected=g.id===shapeProdSelectedEdgeId,processed=g.ops.length,m=ShapeModule.dxfEdgePointAt(g,g.length/2),d=(g.points||[g.p1,g.p2]).map(function(p,i){return (i?'L':'M')+T.X(p[0]).toFixed(2)+' '+T.Y(p[1]).toFixed(2);}).join(' ');return `<path class='shape-prod-edge-line ${selected?'selected ':''}${processed?'processed':''}' d='${d}'/><path class='shape-prod-edge-hit' d='${d}' ${onActStop('click',shapeProdSetDxfEdge,String(g.id??''))}/><text class='shape-prod-edge-label' x='${T.X(m[0])}' y='${T.Y(m[1])-7}' text-anchor='middle'>${esc(g.id.toUpperCase())}</text>`;}).join('');
-  var markers=shapeManufacturingMarkersSvg(sDraft.source,T)+shapeStampOverlaySvg(T),topY=Math.max(20,T.y0-24),leftX=Math.max(24,T.x0-26);
-  return salesFritDecorateSvg(`<div class='shape-prod-dxf-card'>${sManufacturingPlace?`<div class='shape-prod-place-note'><b>Placement mode:</b> click ${sManufacturingPlace.type==='hole'?'inside the finished contour':'near the required physical SEG'}.</div>`:''}<svg class='shape-dxf-svg shape-prod-dxf-svg${placing}' viewBox='0 0 ${T.vw} ${T.vh}' ${sManufacturingPlace?onAct('click',shapePlaceManufacturingFromEvent,EVENT,EL):''}><defs><marker id='shapeProdArrow' viewBox='0 0 8 8' refX='8' refY='4' markerWidth='5' markerHeight='5' orient='auto-start-reverse'><path d='M0,0 L8,4 L0,8 Z' fill='#d92d20'/></marker></defs><path d='${path}' fill='rgba(46,144,250,.04)' stroke='#667085' stroke-width='1.5'/>${markers}${edges}<line x1='${T.x0}' y1='${topY}' x2='${T.x0+T.dw}' y2='${topY}' class='shape-dxf-dim-line' marker-start='url(#shapeProdArrow)' marker-end='url(#shapeProdArrow)'/><line x1='${T.x0}' y1='${topY-5}' x2='${T.x0}' y2='${topY+5}' class='shape-dxf-dim-line'/><line x1='${T.x0+T.dw}' y1='${topY-5}' x2='${T.x0+T.dw}' y2='${topY+5}' class='shape-dxf-dim-line'/><text x='${T.x0+T.dw/2}' y='${topY-9}' class='shape-dxf-dim-text' text-anchor='middle'>${esc(shapeDrawingDim(T.W))}</text><line x1='${leftX}' y1='${T.y0}' x2='${leftX}' y2='${T.y0+T.dh}' class='shape-dxf-dim-line' marker-start='url(#shapeProdArrow)' marker-end='url(#shapeProdArrow)'/><line x1='${leftX-5}' y1='${T.y0}' x2='${leftX+5}' y2='${T.y0}' class='shape-dxf-dim-line'/><line x1='${leftX-5}' y1='${T.y0+T.dh}' x2='${leftX+5}' y2='${T.y0+T.dh}' class='shape-dxf-dim-line'/><text x='${leftX-10}' y='${T.y0+T.dh/2}' class='shape-dxf-dim-text' text-anchor='middle' transform='rotate(-90 ${leftX-10} ${T.y0+T.dh/2})'>${esc(shapeDrawingDim(T.H))}</text></svg><div class='shape-prod-dxf-help'><b>FINISHED contour</b><span>Edge processing derives Cutting. Manufacturing Items do not change the outer cutting contour.</span></div></div>`,sDraft,result,T);
+  var svg=shapeProdDxfDrawingSvg(true,false);if(!svg)return `<div class='module-invalid'>DXF preview unavailable</div>`;
+  /* Без своей карточки: окно подгоняет чертёж так же, как у обычной формы
+     (shapeFitPreview). */
+  return (sManufacturingPlace?`<div class='shape-prod-place-note'><b>Placement mode:</b> click ${sManufacturingPlace.type==='hole'?'inside the finished contour':'near the required physical SEG'}.</div>`:'')+svg;
 }
 function shapeProdDxfCuttingSvg(){
   var plan=ShapeModule.dxfCuttingPlan(sDraft);if(!plan.valid)return `<div class='shape-prod-cut-block'><b>CUTTING BLOCKED</b><span>${esc(plan.error||'Invalid cutting input.')}</span></div>`;
@@ -559,7 +604,7 @@ shapeForm=function(){
   var cutoutCount=shapeCutoutItemCount()+(muntinOn?1:0);
   var workspaceTabs=`<div class='shape-workspace-tabs' role='tablist' aria-label='Shape workflow'><button type='button' role='tab' aria-selected='${sWorkspaceTab==='designer'}' class='${sWorkspaceTab==='designer'?'on':''}' ${onAct('click',setShapeWorkspaceTab,'designer')}><span>1</span><b>Shape Designer</b><small>Geometry · Lites · Edge processing</small></button><button type='button' role='tab' aria-selected='${sWorkspaceTab==='cutout'}' class='${sWorkspaceTab==='cutout'?'on':''}' ${onAct('click',setShapeWorkspaceTab,'cutout')}><span>2</span><b>Fabrication</b><small>Hole · Hardware · Muntin · Stamp · Sandblast · Cut shape</small>${cutoutCount?`<i>${cutoutCount}</i>`:''}</button></div>`;
   var tabs=external
-    ? `<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' ${onAct('click',setShapeView,'production')}>Production Drawing</button><button class='${sView==='cutting'?'on':''}' ${onAct('click',setShapeView,'cutting')}>Cutting DXF</button>${shapeMetricToggleButton(true)}${shapePrintButtonHTML()}</div>`
+    ? `<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' ${onAct('click',setShapeView,'production')}>Production Drawing</button><button class='${sView==='cutting'?'on':''}' ${onAct('click',setShapeView,'cutting')}>Cutting DXF</button>${shapeMetricToggleButton(sView==='cutting')}${shapePrintButtonHTML()}</div>`
     : `<div class='shape-view-tabs'><button data-shape-view='production' class='${sView!=='cutting'?'on':''}' ${onAct('click',setShapeView,'production')}>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' ${onAct('click',setShapeView,'cutting')}>Cutting Shape</button>${shapeMetricToggleButton(sView==='cutting')}${shapePrintButtonHTML()}</div>`;
   return `<div class='module-editor shape-workspace-editor' id='shapeEditorRoot'>${shapeLiteBanner()}<div class='shape-workspace-toolbar'><div class='shape-workspace-identity'><b>${typeof salesBridge!=='undefined'&&salesBridge&&salesBridge.recutId?'Recut drawing':sEdit==='new'?'New Production Shape':'Edit Production Shape'}</b><span data-raw>${esc(sDraft.name||shapePresetInfo(sDraft.type).label)}</span></div><span class='sp'></span><div class='shape-workspace-actions'><button ${onAct('click',cancelShapeEdit)}>Cancel</button><button class='pri' ${onAct('click',saveShape)}>Save revision</button></div></div><div class='err' id='e_shape'></div><div class='shape-editor-layout'><div class='shape-workspace-left'>${workspaceTabs}<div class='shape-controls'>${controls}</div></div><div class='shape-preview-side'>${tabs}<div id='shapeHiddenMetricControls'>${shapeMetricHiddenControlsHTML(r)}</div><div id='shapeLivePreview' class='shape-drawing-preview'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div></div>`;
 };
