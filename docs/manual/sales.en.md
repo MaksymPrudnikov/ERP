@@ -85,13 +85,24 @@ sheet.
 - **Base** — empty = **AUTO** by thickness: 3–8 mm — 1″, 8–15 mm — 1 1/2″, from 15 mm — 3″. A number in Base is
   an **OVERRIDE** for all angled edges of the shape.
 - The field at each edge is that edge's own border, empty — as Base. A straight edge on the bounding edge gets none
-  (OFF). **Reset** returns everything to AUTO.
+  by itself (OFF), but a number typed into its field goes on that side. **Reset** returns everything to AUTO.
 - The border lies on a side of the bounding box (left, right, top, bottom) from the farthest point of the angled
-  edge, at 90°.
+  edge, at 90°. An end of an angled edge that reaches a side of the bounding box pushes that side too: a triangle's
+  apex gives a border on top (25 Nov 2026).
 - The same border gives the cutting rectangle for billing ("Shape area" above): an edit here changes both the
   layout and the billed shape area.
 - Next to it — **Cutting allowance** (CNC stock per side): the piece is larger than finished by the edge removal; it
-  is not part of the billed area.
+  is not part of the billed area. Up to 10″.
+
+## Shape from DXF: drawing and stamp
+
+- The **Production Drawing** of a DXF shape is the same drawing as for a regular shape: the length of every edge of
+  the file, angles, overall size and the apex offset from the left edge (a triangle's "39 7/16"). Edge processing is
+  labelled inside the contour; a click on an edge selects it in Edge processing. **Print / PDF** prints this drawing.
+- The **mm** button (next to the tabs) works for DXF too: sizes in mm, inches in grey, angles.
+- The **stamp** is text only, no frame. Drag it with the mouse right on the drawing (DXF and regular shapes); on
+  release the place is written to 1/16″, outside the glass the stamp is not dropped. A new stamp sits at the lower
+  right corner so that the whole text is on the glass.
 
 ## Surcharges window — order surcharges
 
