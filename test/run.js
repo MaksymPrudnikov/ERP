@@ -4936,8 +4936,9 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       h:.5,v:14,leaderStartsAtEdge:true,card:'1/2'});
 
     /* Production Drawing DXF — чертёж обычной формы (25.11.2026), у Cutting DXF
-       своя рамка с бордером. Подписи под фигурой не режутся; панели Safety
-       Border / Allowance живут только в Cutting. */
+       своя рамка с бордером. Подписи под фигурой не выходят за поле чертежа;
+       окно подгоняет его так же, как у обычной формы. Панели Safety Border /
+       Allowance живут только в Cutting. */
     eq('вкладки DXF-чертежа: подписи под фигурой не режутся, панели только в Cutting', await t.p.evaluate(async () => {
       tab='configurators';subtab='shape';openShapeNew('rectangle');
       sDraft.source={kind:'dxf',fileName:'skew.dxf',fileSize:2400,uploadedAt:'2026-09-02T10:00:00.000Z',note:'',
@@ -4950,7 +4951,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const pSvg=box.querySelector('svg'),productionPanels=document.querySelectorAll('.shape-prod-border,.shape-prod-cutallow').length;
       const texts=[...pSvg.querySelectorAll('text')].filter(function(el){return el.textContent.trim()&&el.getBoundingClientRect().height>0;}),lowest=texts.reduce(function(a,el){return el.getBoundingClientRect().bottom>a.getBoundingClientRect().bottom?el:a;});
       setShapeView('cutting');
-      const out={drawingInside:inside(lowest),productionPanels:productionPanels,cuttingPanels:document.querySelectorAll('.shape-prod-border,.shape-prod-cutallow').length,
+      const out={drawingInside:(function(){const r=lowest.getBoundingClientRect(),v=pSvg.getBoundingClientRect();return r.bottom<=v.bottom+1&&r.top>=v.top-1;})(),productionPanels:productionPanels,cuttingPanels:document.querySelectorAll('.shape-prod-border,.shape-prod-cutallow').length,
         kpiVisible:inside(box.querySelector('.shape-prod-machine-kpi'))};
       sEdit=null;sDraft=null;sView='setup';render();return out;
     }), {drawingInside:true,productionPanels:0,cuttingPanels:2,kpiVisible:true});
