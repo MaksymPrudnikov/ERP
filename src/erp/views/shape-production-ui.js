@@ -552,7 +552,9 @@ function shapeProdDxfDrawingSvg(interactive,sheet){
 }
 function shapeProdDxfProductionSvg(){
   var svg=shapeProdDxfDrawingSvg(true,false);if(!svg)return `<div class='module-invalid'>DXF preview unavailable</div>`;
-  return `<div class='shape-prod-dxf-card'>${sManufacturingPlace?`<div class='shape-prod-place-note'><b>Placement mode:</b> click ${sManufacturingPlace.type==='hole'?'inside the finished contour':'near the required physical SEG'}.</div>`:''}${svg}</div>`;
+  /* Без своей карточки: окно подгоняет чертёж так же, как у обычной формы
+     (shapeFitPreview). */
+  return (sManufacturingPlace?`<div class='shape-prod-place-note'><b>Placement mode:</b> click ${sManufacturingPlace.type==='hole'?'inside the finished contour':'near the required physical SEG'}.</div>`:'')+svg;
 }
 function shapeProdDxfCuttingSvg(){
   var plan=ShapeModule.dxfCuttingPlan(sDraft);if(!plan.valid)return `<div class='shape-prod-cut-block'><b>CUTTING BLOCKED</b><span>${esc(plan.error||'Invalid cutting input.')}</span></div>`;

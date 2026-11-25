@@ -4946,7 +4946,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const box=document.getElementById('shapeLivePreview'),bb=box.getBoundingClientRect();
       const inside=function(el){if(!el)return false;const r=el.getBoundingClientRect();return r.height>0&&r.bottom<=bb.bottom+1&&r.top>=bb.top-1;};
       const pSvg=box.querySelector('svg'),productionPanels=document.querySelectorAll('.shape-prod-border,.shape-prod-cutallow').length;
-      const texts=[...pSvg.querySelectorAll('text')],lowest=texts.reduce(function(a,el){return el.getBoundingClientRect().bottom>a.getBoundingClientRect().bottom?el:a;});
+      const texts=[...pSvg.querySelectorAll('text')].filter(function(el){return el.textContent.trim()&&el.getBoundingClientRect().height>0;}),lowest=texts.reduce(function(a,el){return el.getBoundingClientRect().bottom>a.getBoundingClientRect().bottom?el:a;});
       setShapeView('cutting');
       const out={drawingInside:inside(lowest),productionPanels:productionPanels,cuttingPanels:document.querySelectorAll('.shape-prod-border,.shape-prod-cutallow').length,
         kpiVisible:inside(box.querySelector('.shape-prod-machine-kpi'))};
