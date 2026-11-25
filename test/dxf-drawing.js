@@ -5,7 +5,9 @@
      в дюймах и в мм; печать — тот же чертёж;
    - Cutting allowance до 10″;
    - штамп без рамки, тянется мышкой, по умолчанию весь на стекле; клик
-     считается в той же рамке, что и чертёж («штамп поплыл»). */
+     считается в той же рамке, что и чертёж («штамп поплыл»);
+   - «мм можно тянуть, а инчи нельзя», «нажимаю мм, открываю Cutting DXF —
+     кнопка мм пропадает, даже когда вернулся в Production Drawing». */
 module.exports=async function({page,eq}){
  console.log('dxf-drawing');const t=await page();
  await t.p.evaluate(()=>{
@@ -55,4 +57,14 @@ module.exports=async function({page,eq}){
   const D=shapeDrawnPreviewTransform(shapeProdDxfDrawResult(),shapeProdDxfDrawExtra());
   return {inside,frame,moved,kept:f3.x===f2.x&&f3.y===f2.y,sameFrame:D.sc===T.sc&&D.x0===T.x0};
  }),{inside:true,frame:'none',moved:[-10,5],kept:true,sameFrame:true});
+
+ eq('подписи DXF тянутся и в дюймах, и в мм; кнопка мм возвращается после Cutting DXF',await t.p.evaluate(()=>{
+  dxTri();setShapeMetricDetail(false);sView='production';render();
+  const items=()=>document.querySelectorAll('#shapeLivePreview .shape-layout-item[data-layout-key]').length;
+  const btn=()=>{const b=document.querySelector('.shape-metric-toggle');return (b.disabled?'off':'on')+(b.classList.contains('on')?'+mm':'');};
+  const inch=items()>0;setShapeMetricDetail(true);const mm=items()>0;
+  setShapeView('cutting');const cut=btn();setShapeView('production');const back=btn();
+  const tabOn=document.querySelector('.shape-view-tabs [data-shape-view="production"]').classList.contains('on');
+  setShapeMetricDetail(false);return {inch,mm,cut,back,tabOn};
+ }),{inch:true,mm:true,cut:'off',back:'on+mm',tabOn:true});
 };

@@ -497,7 +497,11 @@ function shapeLiteSheetSvg(result,opts){
   var metric=shapeMetricAnnotations(result,{points:pts,edgeIds:lite.edgeIds});
   var disp=pts.map(function(p){return [F.X(p[0]),F.Y(p[1])];}),path=disp.map(function(p,i){return (i?'L ':'M ')+p[0]+' '+p[1];}).join(' ')+' Z';
   var xs=disp.map(function(p){return p[0];}),ys=disp.map(function(p){return p[1];});
-  var mo=Object.assign({},opts.metric||{},{keyPrefix:units+':lite'+lite.index+':',layout:(opts.metric&&opts.metric.layout)||(result.definition&&result.definition.drawingLayout)||{},vw:F.vw,sheet:!!opts.sheet,units:units,points:pts,cleanParallelogram:true});
+  /* В дюймах редактор шлёт опции подписей в annotation, в мм — в metric: без
+     annotation подписи дюймового листа не тянулись мышкой и не открывали меню
+     (владелец, 25.11.2026: «мм можно тянуть, а инчи нельзя»). */
+  var src=opts.metric||opts.annotation||{};
+  var mo=Object.assign({},src,{keyPrefix:units+':lite'+lite.index+':',layout:src.layout||(result.definition&&result.definition.drawingLayout)||{},vw:F.vw,sheet:!!opts.sheet,units:units,points:pts,cleanParallelogram:true});
   /* В дюймах — оформление обычного дюймового чертежа (пункт 1 плана v1.16,
      листы 4/7/15 контрольного заказа): белое стекло с чёрным контуром, без
      заливки, знака стекла и подписей прямых углов — их нет и у листа
