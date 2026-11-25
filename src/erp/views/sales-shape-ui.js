@@ -57,7 +57,7 @@ function shapeNudgeMetricLabel(key,delta){
 /* Список скрытых подписей — свой у каждого режима: в мм только ключи mm:…,
    в дюймах — без них. */
 function shapeMetricHiddenControlsHTML(result){
-  if(sView==='cutting'||result&&result.externalFile)return '';
+  if(sView==='cutting')return '';
   return shapeLayoutHiddenHTML(function(k){return (k.indexOf('mm:')===0)===!!sMetricDetail;});
 }
 function shapeMetricProductionOptions(result,interactive){
@@ -1664,7 +1664,10 @@ function refreshShapeEditor(){
   if(sDraft.type==='custom')shapeCustomApplyResolved();
   shapeMarkFields();shapeFitPreview();
   document.querySelectorAll('[data-shape-view]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-shape-view')===sView);});
-  var metricButton=document.querySelector('.shape-metric-toggle'),metricOff=sView==='cutting'||shapeIsDxfSource(sDraft);
+  /* У DXF мм есть с 25.11.2026 — кнопка гаснет только на вкладке реза. Раньше
+     здесь стоял запрет для DXF: после Cutting DXF кнопка мм оставалась
+     выключенной и на Production Drawing. */
+  var metricButton=document.querySelector('.shape-metric-toggle'),metricOff=sView==='cutting';
   if(metricButton){metricButton.disabled=metricOff;metricButton.classList.toggle('on',sMetricDetail&&!metricOff);metricButton.setAttribute('aria-pressed',sMetricDetail&&!metricOff?'true':'false');}
 
 }
