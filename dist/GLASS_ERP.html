@@ -8,7 +8,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-7vMIZJudLhcA4/3Ut6JyK8VDuFBghrptFkTav7MFSYY=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-CzAh+IvtfMxJwm7w2oi8N50Dy8fY7UZ7/GiY2LazmPE=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GLASS ERP — Glazing System</title>
 <style>
@@ -4698,7 +4698,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='b4f24719751c';
+var ERP_BUILD='09efdbd5d528';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -16463,7 +16463,8 @@ const FIN_TOTALS_NEUTRAL=new Set(['stationScan','stationScanSeq','productionRout
 let finTotalsKeep=new Map();
 /* Фигура строки (ownerLineId) — забыть её заказ; новая фигура — ничего (от
    неё не зависел ни один посчитанный заказ); фигура библиотеки — все. */
-function finTotalsForget(changes){
+/* own — своя запись (storageBaseApply): только она прогревает итоги заново. */
+function finTotalsForget(changes,own){
  if(!finTotalsKeep.size)return;
  let lines=null;
  for(const c of changes){
@@ -16471,11 +16472,11 @@ function finTotalsForget(changes){
   else if(c.tbl==='shapeDef'){
    const was=storageBase.get('shapeDef'),old=was&&was.get(c.id);if(!old)continue;
    const owners=[old.t,c.del?null:c.data].filter(Boolean).map(t=>{try{return JSON.parse(t).ownerLineId||'';}catch(e){return '';}});
-   if(owners.some(x=>!x)){finTotalsKeep=new Map();finTotalsWarm();return;}
+   if(owners.some(x=>!x)){finTotalsKeep=new Map();if(own)finTotalsWarm();return;}
    if(!lines){lines=new Map();finTotalsKeep.forEach((k,id)=>(k.order.lines||[]).forEach(l=>lines.set(l.id,id)));}
    owners.forEach(x=>{if(lines.has(x))finTotalsKeep.delete(lines.get(x));});
   }
-  else if(!FIN_TOTALS_NEUTRAL.has(c.tbl==='_meta'?c.id:c.tbl)&&c.tbl!=='_archive'){finTotalsKeep=new Map();finTotalsWarm();return;}
+  else if(!FIN_TOTALS_NEUTRAL.has(c.tbl==='_meta'?c.id:c.tbl)&&c.tbl!=='_archive'){finTotalsKeep=new Map();if(own)finTotalsWarm();return;}
  }
 }
 function finOrderTotals(order){
@@ -18377,7 +18378,9 @@ function renderNav(){
 function navGo(k,then){
  if(!accessCan(k))return;
  let now=true;
- const go=()=>{tab=k;subtab=null;navMoreOpen=false;if(!then||!now){render();return;}const n=renderCount;then();if(renderCount===n)render();};
+ /* Вид упал с ошибкой — раздел всё равно рисуется (ошибка уходит дальше, в
+    полосу «Something went wrong»), иначе на экране остался бы прежний. */
+ const go=()=>{tab=k;subtab=null;navMoreOpen=false;if(!then||!now){render();return;}const n=renderCount;try{then();}finally{if(renderCount===n)render();}};
  if((window.NAV_GUARDS||[]).some(g=>g(k,go))){now=false;return;}
  go();
 }
@@ -32882,17 +32885,20 @@ function viewOrderQueue(shipping){
  const th=c=>{const f=salesListLoadPrefs().filters[c.k],active=salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}" data-cw-key="${c.k}"><span class="sl-th"><span data-cw-label>${esc(c.label)}</span><button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" ${onAct('click',salesListOpenFilter,EVENT,String(c.k))}></button></span>${cwGrip()}</th>`;};
  /* Строки — как в Sales и Production (views/list-window): сразу видимое с
     запасом, остальное в простое и при прокрутке. All на годе — 601 заказ
-    в странице: 4 с на вкладку и 2,4 с на любой клик на слабом ПК (24.11.2026). */
+    в странице: 4 с на вкладку и 2,4 с на любой клик на слабом ПК (24.11.2026).
+    Таблица — своя у каждой вкладки (data-queue-table): ширины колонок
+    запоминаются по вкладке, а не одни на All, Verify и Done, и не по таблице
+    поиска PO, которая в Shipping стоит выше очереди (аудит 25.11.2026). */
  const body=listWindowBody(filtered,info=>{
   const o=info.o,chosen=optimizationSel.has(o.id);
   const cell=c=>c.k==='readyQty'?`<td>${shippingSummary(o).physicalReady} / ${shippingSummary(o).glass}</td>`:c.k==='batch'?`<td class="oq-batches">${salesOrderBatchNumbers(o).map(v=>`<span class="pill">${esc(v)}</span>`).join(' ')||'—'}</td>`:c.k==='newLines'?`<td class="n">${salesUnbatchedLines(o).length}</td>`:salesListCell(info,c);
   return `<tr data-queue-order="${esc(o.id)}" class="${o.onHold?'oq-hold':chosen?'oq-selected':''}" ${onAct('contextmenu',optimizationContext,EVENT,String(o.id??''))}><td class="sl-check"><input type="checkbox" data-queue-check aria-label="Select order ${esc(o.businessNumber)}" ${chosen?'checked':''} ${onAct('change',optimizationToggle,String(o.id??''),EL_CHECKED)}></td>${cols.map(cell).join('')}
    <td></td></tr>`;
- },cols.length+2);
+ },cols.length+2,{table:'.sl-table[data-queue-table="'+key+'"]'});
  return `<section class="optimization-queue ${shipping?'shipping-queue':''}">
   <div class="card sales-list-card oq-card sl-foot-pin"><div class="sales-toolbar">${shipping?`<button type="button" class="sl-quiet" data-queue-open-order ${n===1?'':'disabled'} ${onAct('click',optimizationOpenOrder,String(n===1?esc(selected[0].id):''))}>Open</button>`:''}${n?`<b class="oq-sel" data-queue-selection>${n} selected</b>${bar}`:`<b class="oq-sel" data-queue-selection hidden>0 selected</b>`}${shipping&&typeof shippingBarRight==='function'?'<span class="sales-toolbar-sp"></span>'+shippingBarRight():''}</div>
   ${shipping?shippingTabs():`<div class="sl-filter-row"><div class="sl-quick" role="tablist" aria-label="Order queues">${tabs}</div></div>`}
-   ${salesListFilterChips()}<div class="oq-table-wrap sales-table-wrap"><table class="sl-table${cwTableClass(cwId)}"${cwTableAttrs(cwId,keys)}>${cwColgroup(cwId,keys)}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-queue-all aria-label="Select all eligible orders" ${all?'checked':''} ${selectable.length?'':'disabled'} ${onAct('change',optimizationSelectAll,EL_CHECKED)}><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" ${onAct('click',salesListOpenColumns,EVENT)}>${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">No orders match this queue and its filters.</td></tr>`}</tbody>${rows.length?salesListFooter(filtered,cols):''}</table></div>
+   ${salesListFilterChips()}<div class="oq-table-wrap sales-table-wrap"><table class="sl-table${cwTableClass(cwId)}" data-queue-table="${esc(key)}"${cwTableAttrs(cwId,keys)}>${cwColgroup(cwId,keys)}<thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-queue-all aria-label="Select all eligible orders" ${all?'checked':''} ${selectable.length?'':'disabled'} ${onAct('change',optimizationSelectAll,EL_CHECKED)}><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" ${onAct('click',salesListOpenColumns,EVENT)}>${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">No orders match this queue and its filters.</td></tr>`}</tbody>${rows.length?salesListFooter(filtered,cols):''}</table></div>
    ${optimizationNotice?`<div class="oq-notice${optimizationNotice.error?' bad':''}" role="${optimizationNotice.error?'alert':'status'}"><b>${esc(optimizationNotice.title)}</b><span>${esc(optimizationNotice.detail)}</span><button type="button" class="sm" aria-label="Dismiss update" ${onAct('click',optimizationNoticeClose)}>×</button></div>`:''}
   </div>
   ${salesListMenuHTML(infos)}${salesHoldDialogHTML()}</section>`;
@@ -61668,9 +61674,15 @@ async function archiveRead(owners,strict){
    складывают в том же порядке. Возвращает поставленное: tbl → Map id → текст
    записи (keep — для просмотра, который возвращает строки после пересборки
    таблицы; расчёту текст не нужен — меньше памяти). */
+/* Запись уже в работе (общая оплата двух заказов: один вернули в работу, а
+   сервер до отправки ещё отдаёт её из архива) — остаётся своя, она новее, как
+   в storageColdPut (C9). Копия с тем же ключом пряталась бы вместе со своей
+   (storageVisit — по ключу), и следующее полное сравнение удаляло бы живую
+   оплату из базы; archiveRowsDrop убирал бы обе (аудит агентов 25.11.2026). */
 function archiveRowsPut(recs,keep){
- const put=new Map(),byTbl=new Map();
- recs.forEach(r=>{const v=storageVisit.get(r.tbl);if(v&&v.has(r.id))return;let a=byTbl.get(r.tbl);if(!a)byTbl.set(r.tbl,a=[]);a.push(r);});
+ const put=new Map(),byTbl=new Map(),live=new Map();
+ const isLive=(tbl,id)=>{let s=live.get(tbl);if(!s){s=new Set((storageBase.get(tbl)||new Map()).keys());(Array.isArray(DB[tbl])?DB[tbl]:[]).forEach(row=>s.add(storageRowKey(tbl,row)));live.set(tbl,s);}return s.has(id);};
+ recs.forEach(r=>{const v=storageVisit.get(r.tbl);if(v&&v.has(r.id))return;if(isLive(r.tbl,r.id))return;let a=byTbl.get(r.tbl);if(!a)byTbl.set(r.tbl,a=[]);a.push(r);});
  byTbl.forEach((list,tbl)=>{
   if(!Array.isArray(DB[tbl]))DB[tbl]=[];
   const rows=DB[tbl],base=storageBase.get(tbl)||new Map(),out=[],t=new Map();let v=storageVisit.get(tbl),i=0;
@@ -62405,7 +62417,7 @@ function storageDiff(db,only){
     was.forEach((x,id)=>{if(id!=='*')out.push({tbl:k,id,del:true});});
     return;
    }
-   const seq=storageSeqs(ids,was),now=new Set(ids),seen={rows:v.slice(),ids,seq,at:null};storageSeen.set(k,seen);storageSeenIndexLater(seen);
+   const seq=storageSeqs(ids,was),now=new Set(ids);storageSeen.set(k,{rows:v.slice(),ids,seq,at:null});
    for(let i=0;i<v.length;i++){
     if(rows){const x=was.get(ids[i]);if(x&&x.s===seq[i]&&!rows.has(ids[i]))continue;}
     const t=JSON.stringify(v[i]),b=was.get(ids[i]);
@@ -62425,9 +62437,12 @@ function storageDiff(db,only){
    чтением базы целиком) — сравнение в простое (storageSweep) по нему видит,
    что база менялась посреди прохода. */
 let storageBaseRev=0;
-function storageBaseApply(changes){
+/* own — запись этой вкладки (touch): только она прогревает итоги Finance
+   заново (finTotalsForget). Чужая вкладка и сервер — нет: правка клиента на
+   одном ПК не пересчитывает цены года на всех (аудит 25.11.2026). */
+function storageBaseApply(changes,own){
  storageBaseRev++;
- if(typeof finTotalsForget==='function')finTotalsForget(changes);
+ if(typeof finTotalsForget==='function')finTotalsForget(changes,own);
  changes.forEach(c=>{
   let m=storageBase.get(c.tbl);
   if(c.coldClear||c.tbl==='_archive')return;
@@ -62480,29 +62495,39 @@ function storageJoin(records,parsed,seen){
    потому что порядок строк (storageSeen) знает только прошлое полное
    сравнение, а после F5 его ещё не было — его отложили в простой
    (storageSweepLater). Порядок строк тот же, что прочитан из базы: берём
-   его при старте. Таблица, чьи строки нормализация заменила, — без него,
-   как раньше. Пропущенное областью записи по-прежнему найдёт полное
-   сравнение в простое (storageSweep). */
+   его при старте. Таблица, чьи строки нормализация заменила или у строки
+   сменился ключ (нормализация на месте), — без него, как раньше: первая
+   запись сравнит её целиком и допишет строку под новым ключом (аудит
+   агентов 25.11.2026). Ключи большой таблицы (сканы — 290 тысяч, 0,1 с на
+   старте) сверяются в простое вместе с указателем (storageSeenIndexLater).
+   Пропущенное областью записи по-прежнему найдёт полное сравнение в простое
+   (storageSweep). */
+const STORAGE_SEEN_BIG=20000;
 function storageSeenSeed(seen){
  seen.forEach((s,tbl)=>{
-  const v=DB[tbl],base=storageBase.get(tbl);
+  const v=DB[tbl],base=storageBase.get(tbl),big=v&&v.length>=STORAGE_SEEN_BIG;
   if(!Array.isArray(v)||!base||base.size!==s.rows.length||v.length!==s.rows.length||storageVisit.has(tbl))return;
-  for(let i=0;i<v.length;i++)if(v[i]!==s.rows[i])return;
-  storageSeen.set(tbl,s);storageSeenIndexLater(s);
+  for(let i=0;i<v.length;i++)if(v[i]!==s.rows[i]||!big&&storageRowKey(tbl,v[i])!==s.ids[i])return;
+  storageSeen.set(tbl,s);if(big)storageSeenIndexLater(s,tbl);
  });
 }
 /* Указатель «ключ → место» (s.at) для storageDiffTail на 290 тысяч сканов —
-   0,3 с на слабом ПК одним куском: первый скан ждал бы его. Большая таблица
-   строит его в простое кусками по 20 тысяч; скан раньше конца — строит сам,
-   как раньше, и кусок в простое видит готовое. */
-function storageSeenIndexLater(s){
- if(s.ids.length<20000||typeof setTimeout!=='function')return;
+   0,3 с на слабом ПК одним куском: первый скан после F5 ждал бы его. Только
+   после старта (storageSeenSeed): большая таблица строит его в простое
+   кусками по 20 тысяч; скан раньше конца — строит сам, как раньше, и кусок в
+   простое видит готовое. После полного сравнения — как раньше, при первой
+   записи с областью: ПК без сканов его не держит. Тем же проходом — сверка
+   ключей (storageSeenSeed): строка со сменившимся ключом — порядок таблицы
+   забыт, первая запись сравнит её целиком. */
+function storageSeenIndexLater(s,tbl){
+ if(s.ids.length<STORAGE_SEEN_BIG||typeof setTimeout!=='function')return;
  const m=new Map();let i=0;
  const step=()=>{
   /* Готов (скан построил сам) или таблицу уже сравнили заново — не нужен.
      Пока s.at нет, s.ids не растёт: storageDiffTail сначала строит указатель. */
-  if(s.at||![...storageSeen.values()].includes(s))return;
-  const end=Math.min(i+20000,s.ids.length);for(;i<end;i++)m.set(s.ids[i],i);
+  if(s.at||storageSeen.get(tbl)!==s)return;
+  const end=Math.min(i+STORAGE_SEEN_BIG,s.ids.length);
+  for(;i<end;i++){if(storageRowKey(tbl,s.rows[i])!==s.ids[i]){storageSeen.delete(tbl);return;}m.set(s.ids[i],i);}
   if(i<s.ids.length)setTimeout(step,0);else s.at=m;
  };
  setTimeout(step,0);
@@ -63056,7 +63081,7 @@ function touch(){
   if(!changes.length){storageLastError=storageFailed?storageLastError:'';storageScopeMark();return true;}
   /* Сервер (erp/cloud-sync.js): набор встаёт в очередь отправки той же записью. */
   const out=typeof cloudOutbox==='function'?cloudOutbox(changes):null;
-  storageWrite(changes,out&&out.ops);if(out)out.done();storageBaseApply(changes);if(typeof archiveIndexApply==='function')archiveIndexApply(changes.filter(c=>c.tbl==='_archive').map(c=>[c.id,c.del?null:JSON.parse(c.data)]),changes.some(c=>c.coldClear));
+  storageWrite(changes,out&&out.ops);if(out)out.done();storageBaseApply(changes,true);if(typeof archiveIndexApply==='function')archiveIndexApply(changes.filter(c=>c.tbl==='_archive').map(c=>[c.id,c.del?null:JSON.parse(c.data)]),changes.some(c=>c.coldClear));
   storageLastSaved=new Date().toISOString();storageLastError='';storageWarningShown=false;dirty=true;storageInvalidate(changes.every(c=>c.tbl==='shapeDef'));storageScopeMark();return true;
  }catch(e){
   storageLastError=storageStale?storageReadOnlyText():'Not saved. Your operation is still open; retry or export your changes.';
@@ -63320,7 +63345,7 @@ function storageYield(){
  if(!storageWriter)return;
  const dropped=!!storageFailed&&storageFailedExported&&!storageStale;
  if(dropped){storageFailed=null;storageFailedExported=false;storageLastError='';}
- if(!storageStale)try{const parked=typeof salesDraftParked==='function'?salesDraftParked():null;if(parked){const changes=storageDiff(parked);storageWrite(changes);storageBaseApply(changes);}}catch(e){console.warn('Draft shapes were not parked:',e.message);}
+ if(!storageStale)try{const parked=typeof salesDraftParked==='function'?salesDraftParked():null;if(parked){const changes=storageDiff(parked);storageWrite(changes);storageBaseApply(changes,true);}}catch(e){console.warn('Draft shapes were not parked:',e.message);}
  storageWriter=false;
  const release=storageRelease;storageRelease=null;
  storageFlush().then(ok=>{
@@ -63389,9 +63414,12 @@ function storageDownload(name,parts,type){const a=document.createElement('a'),ur
    импорта. Пустая таблица — строкой «таблица пуста» (id `*`, data []): без
    неё файл новой установки без клиентов или заказов не возвращался Import'ом. */
 function storageHotRecords(){
- const keep=storageBase;let recs;
- storageBase=new Map();
- try{recs=storageDiff(DB);}finally{storageBase=keep;}
+ /* Сравнение с пустой базой запоминало бы порядок строк (storageSeen) с seq
+    от пустой базы — следующая запись с областью писала бы строку не на своё
+    место, после F5 строки менялись местами (аудит агентов 25.11.2026). */
+ const keep=storageBase,seen=storageSeen;let recs;
+ storageBase=new Map();storageSeen=new Map();
+ try{recs=storageDiff(DB);}finally{storageBase=keep;storageSeen=seen;}
  Object.keys(DB).forEach(k=>{if(Array.isArray(DB[k])&&!DB[k].length)recs.push({tbl:k,id:'*',seq:0,data:'[]'});});
  return recs;
 }
