@@ -1366,8 +1366,8 @@ function salesGlazingChargeRows(line,areaFt2,order){
    const k='spandrel:'+id;if(!spandrel[k]){spandrel[k]={id:id,qty:0};seq.push(k);}spandrel[k].qty++;
    return;
   }
-  if(p.category==='laminated')targets.forEach(function(ply){
-   if(!ply||!ply.frit||!ply.frit.enabled)return;
+  if(p.category==='laminated')targets.forEach(function(t){
+   const ply=t[0];if(!ply||!ply.frit||!ply.frit.enabled)return;
    const id=ply.frit.productId||'',k='frit:'+id;
    if(!frit[k]){frit[k]={id:id,qty:0};seq.push(k);}frit[k].qty++;
   });
