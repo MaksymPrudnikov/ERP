@@ -202,16 +202,19 @@ function salesSheetMakeupHTML(makeup,shape,step,names,current){
        хендофу 9м это ДВА отдельных стекла со своими L-номерами. Показываем их
        раздельно, иначе цех не увидит, что именно склеивают. */
     if(p.category==='laminated'){
-      var lam=p.laminated||{},films=lam.interlayers||[];
-      var outer=salesRouteSurfaceTreatments(p,i,'outer'),inner=salesRouteSurfaceTreatments(p,i,'inner');
-      top[i]=row('<div class="mk-row'+cur(i)+'"><span>Lite '+(i+1)+'a: '+esc([salesSheetPlyText(lam.outer),salesSheetTreatmentCode(outer)].filter(Boolean).join(' '))+sizeOf(i)+'</span>'+
-        '<i class="mk-pane'+salesSheetTreatmentFaces(outer)+small(i)+'"><!--seal-top-'+i+'--></i>'+salesSheetFaceNums(surf[0],'')+'</div>');
-      films.forEach(function(f){
-        row('<div class="mk-row"><span>film: '+esc(salesSheetFilmText(f))+'</span>'+
-          '<i class="mk-film'+small(i)+'"></i><em></em></div>');
+      /* Склейка 2–4 стёкол: стекло, его плёнки, следующее… Номера граней пакета —
+         только у наружного и внутреннего, среднее закрыто плёнками. */
+      var lam=p.laminated||{},sides=salesLamSides(p),gaps=salesLamGaps(p);
+      sides.forEach(function(side,k){
+        var tr=salesRouteSurfaceTreatments(p,i,side),first=k===0,last=k===sides.length-1;
+        var html='<div class="mk-row'+cur(i)+'"><span>Lite '+(i+1)+salesLamLetter(p,side)+': '+esc([salesSheetPlyText(lam[side]),salesSheetTreatmentCode(tr)].filter(Boolean).join(' '))+(first?sizeOf(i):'')+'</span>'+
+          '<i class="mk-pane'+salesSheetTreatmentFaces(tr)+small(i)+'">'+(first?'<!--seal-top-'+i+'-->':'')+(last?'<!--seal-bottom-'+i+'-->':'')+'</i>'+(first?salesSheetFaceNums(surf[0],''):last?salesSheetFaceNums('',surf[1]):salesSheetFaceNums('',''))+'</div>';
+        var n=row(html);if(first)top[i]=n;if(last)bot[i]=n;
+        (gaps[k]||[]).forEach(function(f){
+          row('<div class="mk-row"><span>film: '+esc(salesSheetFilmText(f))+'</span>'+
+            '<i class="mk-film'+small(i)+'"></i><em></em></div>');
+        });
       });
-      bot[i]=row('<div class="mk-row'+cur(i)+'"><span>Lite '+(i+1)+'b: '+esc([salesSheetPlyText(lam.inner),salesSheetTreatmentCode(inner)].filter(Boolean).join(' '))+'</span>'+
-        '<i class="mk-pane'+salesSheetTreatmentFaces(inner)+small(i)+'"><!--seal-bottom-'+i+'--></i>'+salesSheetFaceNums('',surf[1])+'</div>');
       return;
     }
     top[i]=bot[i]=row('<div class="mk-row'+cur(i)+'"><span>Lite '+(i+1)+': '+esc(salesSheetPaneText(p,i))+sizeOf(i)+'</span>'+

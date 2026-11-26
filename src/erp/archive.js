@@ -192,7 +192,7 @@ function archiveRowOf(o,day,now){
  const wi=info.memo.weightInfo;if(wi&&!wi.complete&&row.weight!=null)row.weightPartial=salesWeightMissingText(wi)||'Partial';
  const q=salesIsQuote(o),b=info.memo.balanceInfo,glass=new Set();
  /* Стёкла каталога в Makeup: Master Data не даст удалить их, пока заказ в архиве. */
- (o.makeups||[]).forEach(m=>(m.panes||[]).forEach(p=>[p.glassProductId,p.laminated&&p.laminated.outer&&p.laminated.outer.glassProductId,p.laminated&&p.laminated.inner&&p.laminated.inner.glassProductId].forEach(id=>{if(id)glass.add(id);})));
+ (o.makeups||[]).forEach(m=>(m.panes||[]).forEach(p=>[p.glassProductId].concat(salesLamSides(p).map(k=>p.laminated[k]&&p.laminated[k].glassProductId)).forEach(id=>{if(id)glass.add(id);})));
  return {kind:q?'quote':'order',status:salesListStatus(o),customerId:o.customerId||'',currency:o.currency||'',number:o.businessNumber||'',createdAt:o.createdAt||'',groupId:q?salesQuoteGroupId(o):'',rep:!q||salesQuoteRepresentative(o).id===o.id,
   pay:b?{status:b.status,balance:b.balance}:null,glass:[...glass],day,archivedAt:now,row,
   /* Ветки Gmail заказа: панель в Gmail находит по ним и ушедший заказ (erp/mail-bridge). */

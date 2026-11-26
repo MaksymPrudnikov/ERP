@@ -54,7 +54,7 @@ function repRowTier(row){
    c — стекло позиции с его толщиной (repLineWork). */
 function repRowFits(row,c){
  const p=String(row.key||'').split(':');
- if(p[0]==='HEATSOAK')return c.paneId===p[1]&&(!c.ply||(p[2]==='1'?'inner':'outer')===c.ply);
+ if(p[0]==='HEATSOAK')return c.paneId===p[1]&&(!c.ply||(['outer','inner','m1','m2'][+p[2]]||'outer')===c.ply);
  if(p[0]==='EDGE'&&(p[1]==='lamiPolish'||p[1]==='cncLamiPolish'))return !!c.ply;
  const t=repRowTier(row);if(!t)return true;
  const hit=serviceRateTierFor(t.work,c.mm);

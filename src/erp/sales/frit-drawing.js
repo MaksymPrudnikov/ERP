@@ -15,9 +15,9 @@ function salesFritDrawingSpecs(shape){
  var only=typeof salesBridge!=='undefined'&&salesBridge&&salesBridge.liteIndex!=null?salesBridge.liteIndex:null;
  (mk&&mk.panes||[]).forEach(function(p,i){
   if(only!=null&&only!==i)return;
-  (p.category==='laminated'?['outer','inner']:['']).forEach(function(side){
+  (p.category==='laminated'?salesLamSides(p):['']).forEach(function(side){
    salesRouteSurfaceTreatments(p,i,side).filter(function(t){return t.kind==='frit';}).forEach(function(t){
-    out.push({id:'F'+(out.length+1),label:'Lite '+(i+1)+(side?(side==='outer'?'a':'b'):''),paneIndex:i,treatment:t,spec:t.spec});
+    out.push({id:'F'+(out.length+1),label:'Lite '+(i+1)+(side?salesLamLetter(p,side):''),paneIndex:i,treatment:t,spec:t.spec});
    });
   });
  });

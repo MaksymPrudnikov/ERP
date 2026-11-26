@@ -20,6 +20,20 @@ const SALES_VISION_TYPES=['lowe','reflective','frit','uncoated'];
 const SALES_LAMINATED_GLASS_TYPES=['lowe','reflective','uncoated'];
 const SALES_LAMINATED_FRIT_POSITIONS=['outside','in_film'];
 const SALES_MAX_INTERLAYERS=4;
+/* Склейка — от 2 до 4 стёкол (владелец, 26.11.2026: triple и quad, вариант A —
+   «+ Add ply»). Порядок: outer · interlayers · m1 · m1Films · m2 · m2Films ·
+   inner. Средние стёкла лежат под ключами m1/m2 рядом с outer/inner, поэтому
+   всё, что берёт стекло как laminated[side], работает и с ними. У склейки из
+   двух стёкол ключей m1/m2 нет вовсе — старые заказы и их отпечатки прежние. */
+const SALES_LAM_MIDDLE=['m1','m2'],SALES_LAM_MAX_PLIES=4;
+function salesLamSides(p){const L=p&&p.laminated;if(!L)return [];return ['outer'].concat(SALES_LAM_MIDDLE.filter(k=>L[k]),['inner']);}
+/* Плёнки по промежуткам: [после outer, после m1, после m2]. */
+function salesLamGaps(p){const L=p&&p.laminated;if(!L)return [];return [L.interlayers||[]].concat(SALES_LAM_MIDDLE.filter(k=>L[k]).map(k=>L[k+'Films']||[]));}
+function salesLamGapKey(gap){return gap?SALES_LAM_MIDDLE[gap-1]+'Films':'interlayers';}
+function salesLamFilms(p){return [].concat(...salesLamGaps(p));}
+/* Буква стекла в склейке: 1a, 1b, 1c, 1d — по порядку от наружного. */
+function salesLamLetter(p,side){const i=salesLamSides(p).indexOf(side);return i<0?'':'abcd'.charAt(i);}
+function salesLamPlyLabel(p,side){return side==='outer'?'OUTER PLY':side==='inner'?'INNER PLY':'MIDDLE PLY';}
 const SALES_PRIMARY_SEALANT_ID='SEAL-PIB';
 
 function salesUid(prefix){
@@ -164,7 +178,7 @@ function salesCoatingSurfaceOf(p,index,side){
  const spec=side?p&&p.laminated&&p.laminated[side]:p;
  if(!spec||(spec.visionType!=='lowe'&&spec.visionType!=='reflective'))return 0;
  if(!side)return spec.coatingSurface||0;
- return spec.coatingPosition==='in_film'?'film':salesPaneSurfaces(index)[side==='inner'?1:0];
+ return spec.coatingPosition==='in_film'||(side!=='outer'&&side!=='inner')?'film':salesPaneSurfaces(index)[side==='inner'?1:0];
 }
 function salesLaminatedPlyCandidates(ply){
  const fam=SALES_LAMINATED_GLASS_TYPES.includes(ply&&ply.visionType)?ply.visionType:'uncoated';
@@ -342,11 +356,10 @@ function salesPlyPrice(ply,order){
  return base;
 }
 function salesLaminatedPrice(p,order){
- const lam=(p&&p.laminated)||{};
- const a=salesPlyPrice(lam.outer,order),b=salesPlyPrice(lam.inner,order);
- if(a==null||b==null)return null;
- let total=a+b,known=true;
- (lam.interlayers||[]).forEach(function(x){
+ const plies=salesLamSides(p).map(k=>salesPlyPrice(p.laminated[k],order));
+ if(!plies.length||plies.some(x=>x==null))return null;
+ let total=plies.reduce((n,x)=>n+x,0),known=true;
+ salesLamFilms(p).forEach(function(x){
   const layers=salesInterlayerLayerCount(x.layers!=null?x.layers:2);
   const rate=x.priceOverride!=null?x.priceOverride:salesInterlayerSalePrice(x.productId,order);
   if(rate==null){known=false;return;}
@@ -487,8 +500,20 @@ function normalizeSalesPane(p,index){
   coatingSurface:category==='laminated'?null:normalizeSurface(p.coatingSurface,allowed),
   frit:normalizeFritSpec(frit,d.frit,allowed),
   spandrel:normalizeSalesSpandrelSpec(sp,d.spandrel,allowed),
-  laminated:{outer:normalizeSalesLaminatedPly(lam.outer,lam.outerGlassProductId,lam.outerHeatTreatmentId||p.heatTreatmentId,d.laminated.outer),interlayers:normalizeSalesInterlayers(lam,d.laminated),inner:normalizeSalesLaminatedPly(lam.inner,lam.innerGlassProductId,lam.innerHeatTreatmentId||p.heatTreatmentId,d.laminated.inner)}
+  laminated:normalizeSalesLaminated(lam,p,d)
  };
+}
+/* Средние стёкла — только подряд: m2 без m1 не бывает. Покрытие среднего стекла
+   лежит к плёнке — открытой грани у него нет. */
+function normalizeSalesLaminated(lam,p,d){
+ const out={outer:normalizeSalesLaminatedPly(lam.outer,lam.outerGlassProductId,lam.outerHeatTreatmentId||p.heatTreatmentId,d.laminated.outer),interlayers:normalizeSalesInterlayers(lam,d.laminated)};
+ for(const k of SALES_LAM_MIDDLE){
+  if(!lam[k]||typeof lam[k]!=='object')break;
+  out[k]=normalizeSalesLaminatedPly(lam[k],'','',d.laminated.outer);out[k].coatingPosition='in_film';
+  out[k+'Films']=normalizeSalesInterlayers({interlayers:lam[k+'Films']},d.laminated);
+ }
+ out.inner=normalizeSalesLaminatedPly(lam.inner,lam.innerGlassProductId,lam.innerHeatTreatmentId||p.heatTreatmentId,d.laminated.inner);
+ return out;
 }
 /* PIB — обязательный первичный герметик стеклопакета. Он остаётся в данных и
    спецификации, но не является выбором оператора в Cavity. Нормализация также
@@ -697,7 +722,7 @@ function salesMakeupById(order,id){return (order&&order.makeups||[]).find(m=>m.i
 function salesGlassProductHasReferences(id){
  if(!id)return false;
  const inMakeups=ms=>(Array.isArray(ms)?ms:[]).some(m=>(m&&m.panes||[]).some(p=>
-  p.glassProductId===id||(p.laminated&&((p.laminated.outer&&p.laminated.outer.glassProductId===id)||(p.laminated.inner&&p.laminated.inner.glassProductId===id)))));
+  p.glassProductId===id||(p.laminated&&salesLamSides(p).some(k=>p.laminated[k]&&p.laminated[k].glassProductId===id))));
  return (DB.salesOrder||[]).some(o=>inMakeups(o.makeups))||
   (typeof soDraft!=='undefined'&&!!soDraft&&inMakeups(soDraft.makeups))||
   /* Заказ в архиве (erp/archive) — тоже ссылка: на его просмотре стекло было бы «?». */
@@ -717,17 +742,19 @@ function salesShapeHasReferences(id){return (DB.salesOrder||[]).some(o=>o.lines.
    нет, и у ламината тоже). */
 function salesLaminatedThicknessMm(p){
  const lam=p&&p.laminated||{},mm=g=>{const q=typeof glassEffectiveThicknessMm==='function'?glassEffectiveThicknessMm(g):null;return q&&q.mm>0?q.mm:null;};
- const a=mm(glassProductById(lam.outer&&lam.outer.glassProductId)),b=mm(glassProductById(lam.inner&&lam.inner.glassProductId)),films=lam.interlayers||[];
- return a!=null&&b!=null&&films.length&&films.every(x=>+x.thicknessMm>0)?a+b+films.reduce((n,x)=>n+(+x.thicknessMm),0):null;
+ const glass=salesLamSides(p).map(k=>mm(glassProductById(lam[k]&&lam[k].glassProductId))),films=salesLamFilms(p);
+ return glass.length&&glass.every(x=>x!=null)&&salesLamGaps(p).every(g=>g.length)&&films.every(x=>+x.thicknessMm>0)?glass.reduce((n,x)=>n+x,0)+films.reduce((n,x)=>n+(+x.thicknessMm),0):null;
 }
 function salesLaminatedText(p,how,heat){
  /* В имени — номинал (6 + 6 + 0.76 = 12.76), как стекло и называют;
     фактическая толщина (salesLaminatedThicknessMm) — для толщины пакета. */
  const lam=p&&p.laminated||{},num=v=>String(+(+v).toFixed(2)),nom=spec=>{const g=glassProductById(spec&&spec.glassProductId);return g&&+g.thicknessMm>0?+g.thicknessMm:null;};
- const a=nom(lam.outer),b=nom(lam.inner),fl=lam.interlayers||[],mm=a!=null&&b!=null&&fl.length&&fl.every(x=>+x.thicknessMm>0)?a+b+fl.reduce((n,x)=>n+(+x.thicknessMm),0):null;
+ const sides=salesLamSides(p),noms=sides.map(k=>nom(lam[k])),fl=salesLamFilms(p);
+ const mm=noms.length&&noms.every(x=>x!=null)&&salesLamGaps(p).every(g=>g.length)&&fl.every(x=>+x.thicknessMm>0)?noms.reduce((n,x)=>n+x,0)+fl.reduce((n,x)=>n+(+x.thicknessMm),0):null;
  const glass=spec=>{const g=glassProductById(spec&&spec.glassProductId),n=!g?'?':how==='name'?g.name||g.code:how==='code'?g.code||g.name:glassShortName(g)||g.name;return n+(heat&&typeof docHeatCode==='function'?docHeatCode(spec):'');};
- const films=(lam.interlayers||[]).map(f=>{const x=mdById('interlayerProduct',f.productId);return (+f.thicknessMm>0?num(f.thicknessMm)+' ':'')+(x?(how==='name'?x.name||x.code:x.code||x.name):'Interlayer');});
- return 'LAM'+(mm!=null?' '+num(mm):'')+' ('+[glass(lam.outer)].concat(films,[glass(lam.inner)]).join(' + ')+')';
+ const film=f=>{const x=mdById('interlayerProduct',f.productId);return (+f.thicknessMm>0?num(f.thicknessMm)+' ':'')+(x?(how==='name'?x.name||x.code:x.code||x.name):'Interlayer');};
+ const gaps=salesLamGaps(p),parts=[];sides.forEach((k,i)=>{parts.push(glass(lam[k]));if(gaps[i])gaps[i].forEach(f=>parts.push(film(f)));});
+ return 'LAM'+(mm!=null?' '+num(mm):'')+' ('+parts.join(' + ')+')';
 }
 function salesGlassCodeForPane(p,how){
  if(p.category==='laminated')return salesLaminatedText(p,how,false);
@@ -755,7 +782,7 @@ function salesTemperCompatibilityWarnings(order){
  const out=[];
  (order&&order.makeups||[]).forEach(m=>(m.panes||[]).forEach((p,index)=>{
   const rows=p.category==='laminated'
-   ?[['OUTER PLY',p.laminated&&p.laminated.outer],['INNER PLY',p.laminated&&p.laminated.inner]]
+   ?salesLamSides(p).map(k=>[salesLamPlyLabel(p,k)+(k[0]==='m'?' '+salesLamLetter(p,k):''),p.laminated[k]])
    :[['',p]];
   rows.forEach(row=>{
    const spec=row[1]||{},g=glassProductById(spec.glassProductId),ht=mdById('heatTreatment',spec.heatTreatmentId),fired=spec.heatTreatmentId==='HT-HS'||spec.heatTreatmentId==='HT-FT';

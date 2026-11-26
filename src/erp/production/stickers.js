@@ -319,7 +319,10 @@ function stkUnitData(o,l,unit,from){
   if(i){const cav=m.cavities[i-1]||{},sp=mdById('spacerVariant',cav.spacerVariantId),gas=mdById('gasProduct',cav.gasProductId),seal=[cav.primarySealantId,cav.secondarySealantId].map(id=>mdById('sealantProduct',id)).filter(Boolean);
    rows.push({kind:'space',label:'Space',spacer:sp?sp.name:'',gas:gas&&gas.code!=='AIR'?gas.name:'',sealant:seal.map(x=>x.code||x.name).join(' / ')});}
   if(p.category==='laminated'){const L=p.laminated||{};
-   rows.push({kind:'lam',label:'Lite '+(i+1),outer:stkGlassInfo(p,i,'outer'),inner:stkGlassInfo(p,i,'inner'),films:(L.interlayers||[]).map(f=>{const prod=mdById('interlayerProduct',f.productId);return {name:prod?prod.name:'Interlayer',mm:+f.thicknessMm||null,layers:+f.layers||1};})});}
+   const film=f=>{const prod=mdById('interlayerProduct',f.productId);return {name:prod?prod.name:'Interlayer',mm:+f.thicknessMm||null,layers:+f.layers||1};};
+   /* Средние стёкла (m1, m2) — каждое со своими плёнками за ним. */
+   rows.push({kind:'lam',label:'Lite '+(i+1),outer:stkGlassInfo(p,i,'outer'),inner:stkGlassInfo(p,i,'inner'),films:(L.interlayers||[]).map(film),
+    middle:SALES_LAM_MIDDLE.filter(k=>L[k]).map(k=>({glass:stkGlassInfo(p,i,k),films:(L[k+'Films']||[]).map(film)}))});}
   else rows.push({kind:'glass',label:'Lite '+(i+1),glass:stkGlassInfo(p,i,'')});
  });
  const mm=m?salesMakeupThicknessMm(m,o):null,type=m&&m.unitType==='triple'?'Triple IGU':m&&m.unitType==='double'?'IGU':lam?'Laminated glass':'Single lite',muntin=salesLineMuntin(l);

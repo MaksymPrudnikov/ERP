@@ -126,10 +126,12 @@ function salesCavityPriceBadge(c){
 }
 function salesPaneProductSummary(p,index){
  if(p.category==='laminated'){
-  const lam=p.laminated||{},outer=lam.outer||{},inner=lam.inner||{},a=glassProductById(outer.glassProductId),b=glassProductById(inner.glassProductId);
+  const lam=p.laminated||{};
   const part=(g,ply,side)=>{const ht=mdById('heatTreatment',ply&&ply.heatTreatmentId),bits=[g&&(glassShortName(g)||g.name)];if(ht&&ht.code!=='AN')bits.push(ht.code+(ply.heatSoak&&ht.code==='FT'?' + HST':''));if(ply&&ply.frit&&ply.frit.enabled)bits.push('FRIT '+(ply.frit.position==='in_film'?'into film':'#'+salesLaminatedFritOutsideSurface(index,side)));const cs=salesCoatingSurfaceOf(p,index,side);if(cs)bits.push(salesVisionTypeLabel(ply.visionType)+' '+(cs==='film'?'into film':'#'+cs));return bits.filter(Boolean).join(' · ');};
-  const films=(lam.interlayers||[]).map(x=>{const il=mdById('interlayerProduct',x.productId),th=Number.isFinite(+x.thicknessMm)&&+x.thicknessMm>0?' '+(+x.thicknessMm)+' mm':'';return il?(il.code||il.name)+th:'';});
-  return [part(a,outer,'outer')].concat(films,part(b,inner,'inner')).filter(Boolean).join(' + ')||'Laminated';
+  const film=x=>{const il=mdById('interlayerProduct',x.productId),th=Number.isFinite(+x.thicknessMm)&&+x.thicknessMm>0?' '+(+x.thicknessMm)+' mm':'';return il?(il.code||il.name)+th:'';};
+  const gaps=salesLamGaps(p),parts=[];
+  salesLamSides(p).forEach((k,i)=>{const ply=lam[k]||{};parts.push(part(glassProductById(ply.glassProductId),ply,k));(gaps[i]||[]).forEach(x=>parts.push(film(x)));});
+  return parts.filter(Boolean).join(' + ')||'Laminated';
  }
  const g=glassProductById(p.glassProductId),ht=mdById('heatTreatment',p.heatTreatmentId),bits=[g?(glassShortName(g)||g.name):'Glass'];
  if(p.category==='spandrel'){const col=spandrelColourText(p.spandrel.color,p.spandrel.colorNote);bits.push('Spandrel'+(col?' '+col:''));if(p.spandrel.surface)bits.push('#'+p.spandrel.surface);}
@@ -267,23 +269,26 @@ function salesSpandrelCustomColourField(p,index){
    толщина, тип, стекло, термообработка, цена. У ламината таких плит две, и цена
    у каждой своя — внутренний лист может быть дороже внешнего. Итог позиции
    складывается из обеих плит и плёнки. */
+/* Цена плиты — своя функция на каждую плиту (onAct берёт функцию, не строку). */
+const SALES_LAM_PRICE_FN={outer:salesLamPlyOuterSetPrice,m1:salesLamPlyM1SetPrice,m2:salesLamPlyM2SetPrice,inner:salesLamPlyInnerSetPrice};
 function salesLaminatedPlyFields(p,index,side,label){
- const ply=p.laminated[side],isFrit=!!(ply.frit&&ply.frit.enabled),coated=!isFrit&&(ply.visionType==='lowe'||ply.visionType==='reflective'),coatings=coated?salesGlassCoatings(ply):[];
+ const ply=p.laminated[side],middle=side!=='outer'&&side!=='inner',isFrit=!!(ply.frit&&ply.frit.enabled),coated=!isFrit&&(ply.visionType==='lowe'||ply.visionType==='reflective'),coatings=coated?salesGlassCoatings(ply):[];
  const coating=coated?(salesCurrentCoating(ply)||coatings[0]||''):'',rows=coated?salesGlassVariants(ply,coating):salesLaminatedPlyCandidates(ply);
  const glassSelect=coated?salesGlassVariantOptions(rows,ply.glassProductId):salesGlassProductOptions(rows,ply.glassProductId);
  const typeSelect=`<select ${onAct('change',salesPaneSetLamPlyType,index,String(side),EL_VALUE)}>${
-  [['uncoated','Uncoated'],['lowe','Low-E'],['reflective','Reflective'],['frit','Frit']]
+  /* Среднее стекло закрыто плёнками с двух сторон: фрит и грань #N ему не к чему. */
+  [['uncoated','Uncoated'],['lowe','Low-E'],['reflective','Reflective']].concat(middle?[]:[['frit','Frit']])
    .map(x=>salesOption(x[0],x[1],isFrit?'frit':ply.visionType,true)).join('')}</select>`;
- return `<div class="mu-lam-ply" data-lam-ply="${side}"><div class="mu-lam-ply-title"><b>${label}</b><span>${esc(rows.length)} matches</span></div>
+ return `<div class="mu-lam-ply" data-lam-ply="${side}"><div class="mu-lam-ply-title"><b>${label} · ${index+1}${salesLamLetter(p,side)}</b><span>${esc(rows.length)} matches</span>${middle?`<button type="button" class="mu-lam-film-del" data-lam-ply-del title="Remove ply" ${onAct('click',salesPaneRemoveLamPly,index,String(side))}>×</button>`:''}</div>
   <div class="mu-field-grid mu-field-grid-6">
    <div><label>Manufacturer</label><select ${onAct('change',salesPaneSetLamPly,index,String(side),'manufacturer',EL_VALUE)}>${salesManufacturers().map(x=>salesOption(x,x,ply.manufacturer,true)).join('')}</select></div>
    <div><label>Thickness</label><select ${onAct('change',salesPaneSetLamPly,index,String(side),'thicknessMm',EL_VALUE)}>${salesThicknessesFor(ply).map(x=>salesOption(String(x),x+' mm',String(ply.thicknessMm),true)).join('')}</select></div>
    <div><label>Type</label>${typeSelect}</div>
    <div class="mu-lam-glass"><label>${coated?'On Glass':'Glass'}</label><select ${onAct('change',salesPaneSetLamPlyProduct,index,String(side),EL_VALUE)}>${glassSelect}</select>${salesGlassMetaFor(ply.glassProductId)}</div>
    <div><label>Heat Treatment</label><select ${onAct('change',salesPaneSetLamPlyHeat,index,String(side),EL_VALUE)}>${salesHeatOptions(ply)}</select></div>
-   <div><label>Price · sq ft</label>${salesPriceCell(side==='outer'?salesLamPlyOuterSetPrice:salesLamPlyInnerSetPrice,index,salesPlyCatalogPrice(ply),ply.priceOverride,salesGlassPriceFrom(ply))}</div>
+   <div><label>Price · sq ft</label>${salesPriceCell(SALES_LAM_PRICE_FN[side],index,salesPlyCatalogPrice(ply),ply.priceOverride,salesGlassPriceFrom(ply))}</div>
   </div>
-  ${coated?`<div class="mu-coating-grid mu-second-row"><div><label>Selected Coating</label><select ${onAct('change',salesPaneSetLamPlyCoating,index,String(side),EL_VALUE)}>${coatings.map(c=>salesOption(c,c+(salesGlassCoatingHasStock(ply,c)?'':' · '+glassLabel('stock','preorder')),coating,true)).join('')}</select></div>${salesLamCoatingSurfaceSelector(ply,index,side)}</div>`:''}
+  ${coated?`<div class="mu-coating-grid mu-second-row"><div><label>Selected Coating</label><select ${onAct('change',salesPaneSetLamPlyCoating,index,String(side),EL_VALUE)}>${coatings.map(c=>salesOption(c,c+(salesGlassCoatingHasStock(ply,c)?'':' · '+glassLabel('stock','preorder')),coating,true)).join('')}</select></div>${middle?'':salesLamCoatingSurfaceSelector(ply,index,side)}</div>`:''}
   ${salesLaminatedFritFields(p,index,side)}</div>`;
 }
 /* Поверхность покрытия на плите: открытая грань (#N пакета) или к плёнке.
@@ -315,20 +320,29 @@ function salesInterlayerPriceCell(index,slot,layer){
   +(has?`<button type="button" class="mu-price-reset" title="Reset to catalog ${cat==null?'—':(+cat).toFixed(2)}" ${onAct('click',salesPaneSetLamInterlayerPrice,index,slot,'')}>↺</button>`:'')
   +`</div>`;
 }
-function salesLaminatedInterlayers(p,index){
- const rows=p.laminated.interlayers||[],canAdd=rows.length<SALES_MAX_INTERLAYERS;
- return `<div class="mu-lam-films"><div class="mu-lam-films-head"><div><b>INTERLAYER STACK</b><span>Mix film types · thicknesses from the film card</span></div><button type="button" ${canAdd?'':'disabled'} ${onAct('click',salesPaneAddLamInterlayer,index)}>+ Add Film</button></div>${rows.map((layer,slot)=>{
+/* Промежуток gap: 0 — после outer, 1 — после m1, 2 — после m2. Номер плёнки
+   первого промежутка — число, как было; остальных — «G.S». */
+function salesLaminatedInterlayers(p,index,gap){
+ gap=gap||0;const rows=salesLamFilmRows(p,gap)||[],canAdd=rows.length<SALES_MAX_INTERLAYERS,sides=salesLamSides(p),id=s=>gap?gap+'.'+s:s;
+ const head=sides.length>2?`INTERLAYER ${gap+1} · ${index+1}${salesLamLetter(p,sides[gap])} / ${index+1}${salesLamLetter(p,sides[gap+1])}`:'INTERLAYER STACK';
+ return `<div class="mu-lam-films"><div class="mu-lam-films-head"><div><b>${head}</b><span>Mix film types · thicknesses from the film card</span></div><button type="button" ${canAdd?'':'disabled'} ${onAct('click',salesPaneAddLamInterlayer,index,gap)}>+ Add Film</button></div>${rows.map((layer,slot)=>{
   const selected=String(salesInterlayerLayerCount(layer.layers)),prod=mdById('interlayerProduct',layer.productId);
   /* Толщины — из карточки плёнки; толщина заказа, которой там нет, остаётся в списке. */
   const plies=[...new Set((prod&&prod.thicknessesMm||[]).map(mm=>salesInterlayerLayersFromThickness(mm,layer.productId)).concat([+selected]))].sort((a,b)=>a-b);
   const layerOptions=plies.map(n=>{const mm=salesInterlayerThicknessForLayers(n,layer.productId);return salesOption(String(n),n+' '+(n===1?'layer':'layers')+' · '+mm.toFixed(2)+' mm',selected,true);}).join('');
   const family=interlayerFamilyOf(layer.productId);
-  return `<div class="mu-lam-film"><span class="mu-lam-film-num">${slot+1}</span><div><label>Film</label><select ${onAct('change',salesPaneSetLamInterlayerFamily,index,slot,EL_VALUE)}>${salesInterlayerFamilyOptions(family)}</select></div><div><label>Type</label><select ${onAct('change',salesPaneSetLamInterlayer,index,slot,EL_VALUE)}>${salesInterlayerTypeOptions(family,layer.productId)}</select></div><div><label>Layers / actual thickness</label><select ${onAct('change',salesPaneSetLamInterlayerLayers,index,slot,EL_VALUE)}>${layerOptions}</select></div><div><label>Price / layer</label>${salesInterlayerPriceCell(index,slot,layer)}</div><button type="button" class="mu-lam-film-del" ${rows.length>1?'':'disabled'} ${onAct('click',salesPaneRemoveLamInterlayer,index,slot)} title="Remove film">×</button></div>`;
+  return `<div class="mu-lam-film"><span class="mu-lam-film-num">${slot+1}</span><div><label>Film</label><select ${onAct('change',salesPaneSetLamInterlayerFamily,index,id(slot),EL_VALUE)}>${salesInterlayerFamilyOptions(family)}</select></div><div><label>Type</label><select ${onAct('change',salesPaneSetLamInterlayer,index,id(slot),EL_VALUE)}>${salesInterlayerTypeOptions(family,layer.productId)}</select></div><div><label>Layers / actual thickness</label><select ${onAct('change',salesPaneSetLamInterlayerLayers,index,id(slot),EL_VALUE)}>${layerOptions}</select></div><div><label>Price / layer</label>${salesInterlayerPriceCell(index,id(slot),layer)}</div><button type="button" class="mu-lam-film-del" ${rows.length>1?'':'disabled'} ${onAct('click',salesPaneRemoveLamInterlayer,index,id(slot))} title="Remove film">×</button></div>`;
  }).join('')}</div>`;
 }
 /* У ламината кромка ОДНА на всю склейку — плёнка её не делит, поэтому выбор
    стоит один на лайт, а не по плёнкам. */
-function salesLaminatedFields(p,index){return `<div class="mu-lam-stack">${salesLaminatedPlyFields(p,index,'outer','OUTER PLY')}${salesLaminatedInterlayers(p,index)}${salesLaminatedPlyFields(p,index,'inner','INNER PLY')}</div>`;}
+/* Склейка 2–4 стёкол (вариант A владельца, 26.11.2026): стекло, плёнки за ним,
+   следующее стекло…; «+ Add ply» добавляет среднее перед inner, × убирает его. */
+function salesLaminatedFields(p,index){
+ const sides=salesLamSides(p);
+ return `<div class="mu-lam-stack">${sides.map((k,i)=>salesLaminatedPlyFields(p,index,k,salesLamPlyLabel(p,k))+(i<sides.length-1?salesLaminatedInterlayers(p,index,i):'')).join('')}`
+  +`<div class="mu-lam-add"><button type="button" class="sm" data-lam-ply-add ${sides.length>=SALES_LAM_MAX_PLIES?'disabled':''} ${onAct('click',salesPaneAddLamPly,index)}>+ Add ply</button><span class="hint">2–4 plies</span></div></div>`;
+}
 function salesLiteSection(p,index,total){const side=index===0?'OUTSIDE':index===total-1?'INSIDE':'MIDDLE',surfaces=salesPaneSurfaces(index),key='lite-'+index,isOpen=soExpandAll||soOpenSectionKey===key;return `<details class="mu-section mu-lite" data-mu-section="${key}" ${isOpen?'open':''} ${onAct('toggle',salesAccordionToggle,EL,String(key))}><summary><span class="mu-chevron">›</span><b>LITE ${index+1} · ${side}</b><span class="mu-surface-tags">#${surfaces[0]} &nbsp; #${surfaces[1]}</span><span class="mu-summary">${esc(salesPaneProductSummary(p,index))}</span>${salesPanePriceBadge(p)}</summary><div class="mu-section-body"><div class="mu-lite-top">${salesLiteCategoryTabs(p,index)}</div>${p.category==='vision'?salesVisionFieldsSafe(p,index):p.category==='spandrel'?salesSpandrelFields(p,index):salesLaminatedFields(p,index)}</div></details>`;}
 function salesCavitySection(c,index){
  const key='cavity-'+index,isOpen=soExpandAll||soOpenSectionKey===key,sp=salesCavitySpacer(c),size=sp?sp.size:'',widths=salesSpacerWidths(sp&&sp.system);
