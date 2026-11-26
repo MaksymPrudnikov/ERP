@@ -708,6 +708,11 @@ const SALES_EXCEL_HEADER_WORDS={
 };
 let soExcelOpen=false,soExcelRows=[],soExcelMakeupId='',soExcelSetId='',soExcelNote='';
 let soExcelShowMu=false,soExcelShowSet=false,soExcelBlock=null,soExcelMapOpen=false;
+/* Единицы Width / Height во вставке. Клиент присылает здание в мм — окно
+   переводит в дюймы до 1/16″ той же формулой, что владелец держал в Excel:
+   =ROUND(mm/25.4*16,0) (владелец, 26.11.2026). Выбор живёт, пока открыт
+   заказ: здание вставляют в несколько заходов. */
+let soExcelMm=false;
 
 function salesExcelSets(){return (soDraft&&soDraft.serviceSets)||[];}
 function salesExcelSetById(id){return salesExcelSets().find(function(s){return s.id===id;})||null;}
@@ -724,7 +729,7 @@ function salesExcelEnsureRows(){
 }
 function salesExcelReset(){
  soExcelOpen=false;soExcelRows=[];soExcelMakeupId='';soExcelSetId='';soExcelNote='';
- soExcelShowMu=false;soExcelShowSet=false;soExcelBlock=null;soExcelMapOpen=false;
+ soExcelShowMu=false;soExcelShowSet=false;soExcelBlock=null;soExcelMapOpen=false;soExcelMm=false;
  salesExcelEnsureRows();
 }
 /* Состояние окна живёт в модуле, а не в классе на DOM: render() перерисовывает
@@ -737,6 +742,14 @@ function salesExcelOpen(){
 function salesExcelClose(){soExcelOpen=false;soExcelNote='';render();}
 function salesExcelSetMakeup(id){soExcelMakeupId=(soDraft&&salesMakeupById(soDraft,id))?id:'';salesExcelRenderGrid();}
 function salesExcelSetSet(id){soExcelSetId=salesExcelSetById(id)?id:'';salesExcelRenderGrid();}
+function salesExcelSetUnit(unit){soExcelMm=unit==='mm';render();}
+/* Миллиметры → шестнадцатые дюйма: целое или дробное число (точка или запятая),
+   пробелы-разделители тысяч допускаются. */
+function salesExcelMmTo16(v){
+ const t=String(v||'').replace(/\s/g,'').replace(',','.');
+ if(!/^\d+(\.\d+)?$/.test(t))return null;
+ const n=Math.round(+t/25.4*16);return n>0?n:null;
+}
 function salesExcelToggleMu(){soExcelShowMu=!soExcelShowMu;if(!soExcelShowMu)soExcelRows.forEach(function(r){r.mu='';});render();}
 function salesExcelToggleSet(){soExcelShowSet=!soExcelShowSet;if(!soExcelShowSet)soExcelRows.forEach(function(r){r.set='';});render();}
 function salesExcelClearGrid(){soExcelRows=[];soExcelBlock=null;soExcelMapOpen=false;soExcelNote='';salesExcelEnsureRows();render();}
@@ -916,8 +929,8 @@ function salesExcelValidateRow(row){
  [['width','Width'],['height','Height']].forEach(function(pair){
   const f=pair[0],label=pair[1],v=salesString(row[f]);
   if(!v){out.err[f]=label+' is empty';return;}
-  const n=salesDimTo16(v);
-  if(n)out[f+'16']=n;else out.err[f]=label+' is not a size';
+  const n=soExcelMm?salesExcelMmTo16(v):salesDimTo16(v);
+  if(n){out[f+'16']=n;if(soExcelMm)out[f+'Mm']=v;}else out.err[f]=label+(soExcelMm?' is not mm':' is not a size');
  });
  SALES_EXCEL_ROW_FIELDS.forEach(function(f){if(out.err[f])out.errors.push(out.err[f]);});
  out.ok=!out.errors.length;
@@ -936,8 +949,8 @@ function salesExcelColumns(){
  if(soExcelShowMu)cols.push({f:'mu',label:'MU',ph:'A',list:'salesExcelMuCodes',cls:'code'});
  if(soExcelShowSet&&salesExcelSets().length)cols.push({f:'set',label:'Set',ph:'S1',list:'salesExcelSetCodes',cls:'code'});
  cols.push({f:'qty',label:'Qty',ph:'2',cls:'qty'});
- cols.push({f:'width',label:'Width',ph:'30',cls:'dim'});
- cols.push({f:'height',label:'Height',ph:'80 1/2',cls:'dim'});
+ cols.push({f:'width',label:soExcelMm?'Width, mm':'Width',ph:soExcelMm?'762':'30',cls:'dim'});
+ cols.push({f:'height',label:soExcelMm?'Height, mm':'Height',ph:soExcelMm?'2045':'80 1/2',cls:'dim'});
  cols.push({f:'mark',label:'Mark',ph:'A1',cls:'mark'});
  return cols;
 }
@@ -946,7 +959,8 @@ function salesExcelFieldOrder(){return salesExcelColumns().map(function(c){retur
 function salesExcelRowStatusHtml(v){
  if(v.blank)return '';
  if(!v.ok)return `<span class="excel-err">${esc(v.errors.join(' · '))}</span>`;
- return `<span class="excel-ok">${esc(v.qty+' × '+salesDimFrom16(v.width16)+'″ × '+salesDimFrom16(v.height16)+'″')}</span>`+(v.qtyAssumed?'<em class="excel-assumed">qty 1</em>':'');
+ return `<span class="excel-ok">${esc(v.qty+' × '+salesDimFrom16(v.width16)+'″ × '+salesDimFrom16(v.height16)+'″')}</span>`+(v.qtyAssumed?'<em class="excel-assumed">qty 1</em>':'')
+  +(soExcelMm?`<em class="excel-assumed">${esc('mm '+v.widthMm+' → '+salesDimFrom16(v.width16)+' · '+v.heightMm+' → '+salesDimFrom16(v.height16))}</em>`:'');
 }
 function salesExcelRowHtml(i){
  const row=soExcelRows[i];if(!row)return '';

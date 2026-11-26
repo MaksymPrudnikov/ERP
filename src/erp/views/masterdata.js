@@ -1492,7 +1492,11 @@ function mdCatForm(){
 /* Строки поставки плёнки и измерений склада: добавить / убрать без перерисовки. */
 function mdRowRemove(el){el.closest('tr').remove();}
 function mdFilmSupplyAdd(el){el.previousElementSibling.querySelector('tbody').insertAdjacentHTML('beforeend',mdFilmSupplyRow().replace('>','><td class="sl-check"></td>'));}
-function mdStockMeasureAdd(){document.querySelector('[data-md-measures] tbody').insertAdjacentHTML('beforeend',mdStockMeasureRow());}
+/* Таблица замеров нарисована движком Sales: первая ячейка строки — галочка.
+   Строка, вставленная руками, получает её тоже, иначе всё съезжает на колонку
+   влево (владелец, 26.11.2026: «таблица кривая и ездит»). */
+function mdStockMeasureAdd(){document.querySelector('[data-md-measures] tbody').insertAdjacentHTML('beforeend',mdStockMeasureLiveRow());}
+function mdStockMeasureLiveRow(m){return mdStockMeasureRow(m).replace('>','><td class="sl-check"></td>');}
 function mdFilmSupplyRow(x){x=x||{};const v=k=>x[k]==null?'':esc(x[k]);
  return `<tr data-md-film-supply><td><input data-k="supplier" value="${v('supplier')}"></td><td><input data-k="widthIn" type="number" min="0" step="any" value="${v('widthIn')}"></td><td><input data-k="thicknessMm" type="number" min="0" step="any" value="${v('thicknessMm')}"></td><td${accessCost()?'':' hidden'}><input data-k="price" type="number" min="0" step="any" value="${v('price')}"></td><td${accessCost()?'':' hidden'}><input data-k="per" value="${v('per')}" placeholder="roll"></td><td><button type="button" class="sm dl" ${onAct('click',mdRowRemove,EL)}>×</button></td></tr>`;}
 function mdFilmFields(r){
@@ -1526,7 +1530,7 @@ function mdStockKindPick(btn){
  box.querySelectorAll('[data-md-kind]').forEach(b=>b.classList.toggle('on',b===btn));
  /* Пустые измерения — заготовка вида (у двери Width, Height, Thickness). */
  const body=document.querySelector('[data-md-measures] tbody'),preset=STOCK_MEASURE_PRESET[inp.value.trim().toLowerCase()];
- if(body&&preset&&![...body.querySelectorAll('[data-k]')].some(i=>i.value.trim()))body.innerHTML=preset.map(([name,unit])=>mdStockMeasureRow({name,unit})).join('');
+ if(body&&preset&&![...body.querySelectorAll('[data-k]')].some(i=>i.value.trim()))body.innerHTML=preset.map(([name,unit])=>mdStockMeasureLiveRow({name,unit})).join('');
 }
 const MD_STOCK_UNITS=['in','mm','ft','m','L','gal','kg','lb'];
 function mdStockMeasureRow(m){m=m||{};

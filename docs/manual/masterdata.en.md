@@ -73,6 +73,11 @@ Tables work as in Sales ([lists.en.md](lists.en.md)); fields in settings rows ar
 - **Stock items** — doors, kits, supplies: **Kind** (door, kit, consumable and your own), tabs General · Measurements ·
   Stock · Prices. Measurements are rows “what · value · unit”; a new door gets Width, Height, Thickness by itself; **Name
   from measurements** fills the name when pressed. The code is typed by hand.
+  - Measurements describe the item: they show in Inventory → Stock items (the Measurements column) and in the Data
+    list; they do not change the price or the stock. Example: a 30 × 80″ · 10 mm door — Kind Door, Width 30 in, Height
+    80 in, Thickness 10 mm, Name from measurements → "Door 30 × 80″ · 10 mm".
+  - **Another value — another stock item**: a 32 × 80″ door is a separate item with its own stock, not a second
+    measurement row of the first one.
 
 ### Works and Heat treatment
 

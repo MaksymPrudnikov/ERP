@@ -9,7 +9,7 @@ module.exports=async function({page,eq}){
    return s&&salesFritOnGlass([s.x,s.y],P)?[+s.x.toFixed(4),+s.y.toFixed(4)]:null;};
   window.fsSetup=(corner,shapeFn)=>{
    soDraft=newSalesOrderDraft();soDraft.businessNumber='SO';const m=soDraft.makeups[0];m.unitType='single';m.panes=[salesDefaultPane(0)];
-   const p=m.panes[0];p.visionType='frit';Object.assign(p.frit,{pattern:'2 x 4 diamond',marginFrom:corner,marginW16:32,marginH16:32});
+   const p=m.panes[0];p.visionType='frit';Object.assign(p.frit,{pattern:'4 x 4 diamond',marginFrom:corner,marginW16:32,marginH16:32});
    const l=soDraft.lines[0];l.makeupId=m.id;l.width16=850;l.height16=2206;salesOrderConfigureShape(0);shapeFn(sDraft);sView='production';render();
   };
   window.fsOut=()=>{const d=document.querySelector('#shapeEditorRoot .frit-first-dot');
