@@ -335,6 +335,8 @@ function shapeNormalizeLiteSpecs(raw){
   return out;
 }
 var SHAPE_STEP_SEALS=['flat','edge','buttered'];
+function shapeNormalizeCleanEdges(v){var out=[];(Array.isArray(v)?v:[]).forEach(function(id){id=String(id==null?'':id).trim();if(id&&out.indexOf(id)<0)out.push(id);});return out;}
+function shapeEdgeIsClean(def,ids){var c=def&&def.edgeClean;return !!(c&&c.length&&ids.some(function(id){return c.indexOf(id)>=0;}));}
 function shapeLiteSpec(def,liteIndex){var l=(def&&def.lites)||{};return l[String(liteIndex)]||{inset:{},edgeOps:{},mirror:false};}
 function shapeLiteMirrored(def,liteIndex){return !!shapeLiteSpec(def,liteIndex).mirror;}
 function shapeLiteInsetFor(def,liteIndex,edgeId){
@@ -419,6 +421,10 @@ function normalizeShapeDef(s){
      по умолчанию и не хранится, поэтому старые формы не меняются. На рез не
      влияет — в отпечаток не входит. */
   if(SHAPE_STEP_SEALS.indexOf(s.stepSeal)>0)out.stepSeal=s.stepSeal;
+  /* Clean cut — кромка без обработки (владелец, 26.11.2026): на ней не встаёт
+     базовая кромка стекла (арис до 8 mm, полировка от 10 mm). Список id кромок;
+     пустой не хранится — старые формы не меняются. */
+  var clean=shapeNormalizeCleanEdges(s.edgeClean);if(clean.length)out.edgeClean=clean;
   if(source.kind==='dxf'&&source.preview.width16>0&&source.preview.height16>0){out.w=frac64(source.preview.width16/16);out.h=frac64(source.preview.height16/16);}
   else if(type==='circle'&&s.h==null)out.h=out.w;
   if(type==='parallelogram'){

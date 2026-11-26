@@ -28,13 +28,14 @@ function shapeProdHasGeometryBoundData(){
 }
 function shapeProdClearGeometryBoundData(){
   if(!sDraft)return;
-  sDraft.edgeOps={};sDraft.manufacturingItems=[];sDraft.features=[];
+  sDraft.edgeOps={};delete sDraft.edgeClean;sDraft.manufacturingItems=[];sDraft.features=[];
   sManufacturingPlace=null;sManufacturingSelected=null;
   shapeProdSelectedEdgeId=null;shapeProdExceptionsOpen=false;
 }
 function shapeProdStripStaleSegments(){
   if(!sDraft||shapeIsDxfSource(sDraft)||!sDraft.edgeOps)return;
   Object.keys(sDraft.edgeOps).forEach(function(id){if(/^seg\d+$/i.test(id))delete sDraft.edgeOps[id];});
+  if(sDraft.edgeClean){sDraft.edgeClean=sDraft.edgeClean.filter(function(id){return !/^seg\d+$/i.test(id);});if(!sDraft.edgeClean.length)delete sDraft.edgeClean;}
   (sDraft.manufacturingItems||[]).forEach(function(item){if(item&&item.edgeId&&/^seg\d+$/i.test(item.edgeId))delete item.edgeId;});
 }
 
@@ -315,15 +316,37 @@ function shapeProdClearLiteFinishes(){
     Object.keys(spec.edgeOps).forEach(function(id){delete spec.edgeOps[id];});
   });
 }
-function shapeProdApplyConfiguredAR(type){
-  if(!sDraft.edgeOps)sDraft.edgeOps={};shapeGroups().forEach(function(g){var list=shapeTogglePrimaryFinish(sDraft.edgeOps[g.id]||[],type,true);if(list.length)sDraft.edgeOps[g.id]=list;else delete sDraft.edgeOps[g.id];});shapeProdClearLiteFinishes();render();
+/* Clean cut — кромка без обработки (владелец, 26.11.2026: «нажимаю Clear — и
+   остаётся арис»). Метка в sDraft.edgeClean; выбор обработки на кромке её
+   снимает, иначе кромка была бы и «чистой», и с арисом. */
+function shapeSetEdgeClean(ids,on){
+  var list=(sDraft.edgeClean||[]).filter(function(id){return ids.indexOf(id)<0;});
+  if(on)list=list.concat(ids);
+  if(list.length)sDraft.edgeClean=list;else delete sDraft.edgeClean;
 }
+/* Жёлтая строка в панели кромки: стекло строки калёное, а у формы есть кромки
+   Clean cut. Сохранить можно — это только предупреждение. */
+function shapeCleanCutNote(ids){
+  var order=salesSheetOrder();if(!order||!salesBridge||salesBridge.kind!=='shape')return '';
+  var line=(order.lines||[]).find(function(l){return l.id===salesBridge.lineId;}),m=line&&salesMakeupById(order,line.makeupId);if(!m)return '';
+  var fired=(m.panes||[]).some(function(p){var specs=p.category==='laminated'?['outer','m1','m2','inner'].map(function(k){return p.laminated&&p.laminated[k];}).filter(Boolean):[p];return specs.some(function(x){return x.heatTreatmentId==='HT-FT'||x.heatTreatmentId==='HT-HS';});});
+  var n=ids.filter(function(id){return (sDraft.edgeClean||[]).indexOf(id)>=0&&!shapeEdgeOps(sDraft,id).some(function(op){return SHAPE_PRIMARY_FINISHES.indexOf(op.type)>=0;});}).length;
+  return fired&&n?`<div class='ss-line-warning warn' data-clean-cut-note><b>Heat-treated</b> · ${n} ${n===1?'edge':'edges'} without edgework</div>`:'';
+}
+function shapeEdgesAllClean(ids){return !!ids.length&&ids.every(function(id){return (sDraft.edgeClean||[]).indexOf(id)>=0;});}
+function shapeProdApplyConfiguredAR(type){
+  if(!sDraft.edgeOps)sDraft.edgeOps={};shapeGroups().forEach(function(g){var list=shapeTogglePrimaryFinish(sDraft.edgeOps[g.id]||[],type,true);if(list.length)sDraft.edgeOps[g.id]=list;else delete sDraft.edgeOps[g.id];});
+  shapeSetEdgeClean(shapeGroups().map(function(g){return g.id;}),false);shapeProdClearLiteFinishes();render();
+}
+/* AR · Clean cut (было Clear AR): основная обработка снимается со всех кромок,
+   и кромки помечаются чистым резом — базовая кромка стекла на них не встаёт. */
 function shapeProdClearConfiguredAR(){
-  shapeGroups().forEach(function(g){var list=(sDraft.edgeOps[g.id]||[]).filter(function(op){return SHAPE_PRIMARY_FINISHES.indexOf(op.type)<0;});if(list.length)sDraft.edgeOps[g.id]=list;else delete sDraft.edgeOps[g.id];});shapeProdClearLiteFinishes();render();
+  shapeGroups().forEach(function(g){var list=(sDraft.edgeOps[g.id]||[]).filter(function(op){return SHAPE_PRIMARY_FINISHES.indexOf(op.type)<0;});if(list.length)sDraft.edgeOps[g.id]=list;else delete sDraft.edgeOps[g.id];});
+  shapeSetEdgeClean(shapeGroups().map(function(g){return g.id;}),true);shapeProdClearLiteFinishes();render();
 }
 function shapeProdConfiguredArBar(){
   var groups=shapeGroups();if(!groups.length)return'';
-  return `<div class='shape-prod-ar'><div class='shape-prod-ar-head'><b>AR · ALL AROUND</b><span>Primary finish · ${groups.length} physical edges</span></div><div class='shape-prod-ar-actions'><button class='${shapeProdConfiguredUniform('Rough Arris')?'on':''}' ${onAct('click',shapeProdApplyConfiguredAR,'Rough Arris')}>AR · Arris</button><button class='${shapeProdConfiguredUniform('Flat Polish')?'on':''}' ${onAct('click',shapeProdApplyConfiguredAR,'Flat Polish')}>AR · Polish</button><button class='${shapeProdConfiguredUniform('CNC Shape Polish')?'on':''}' ${onAct('click',shapeProdApplyConfiguredAR,'CNC Shape Polish')}>AR · CNC</button><button ${onAct('click',shapeProdClearConfiguredAR)}>Clear AR</button></div></div>`;
+  return `<div class='shape-prod-ar'><div class='shape-prod-ar-head'><b>AR · ALL AROUND</b><span>Primary finish · ${groups.length} physical edges</span></div><div class='shape-prod-ar-actions'><button class='${shapeProdConfiguredUniform('Rough Arris')?'on':''}' ${onAct('click',shapeProdApplyConfiguredAR,'Rough Arris')}>AR · Arris</button><button class='${shapeProdConfiguredUniform('Flat Polish')?'on':''}' ${onAct('click',shapeProdApplyConfiguredAR,'Flat Polish')}>AR · Polish</button><button class='${shapeProdConfiguredUniform('CNC Shape Polish')?'on':''}' ${onAct('click',shapeProdApplyConfiguredAR,'CNC Shape Polish')}>AR · CNC</button><button data-ar-clean class='${shapeEdgesAllClean(groups.map(function(g){return g.id;}))?'on':''}' ${onAct('click',shapeProdClearConfiguredAR)}>AR · Clean cut</button></div>${shapeCleanCutNote(groups.map(function(g){return g.id;}))}</div>`;
 }
 const __shapeProdEdgeworkEditor=shapeEdgeworkEditor;
 shapeEdgeworkEditor=function(){
@@ -347,7 +370,7 @@ function shapeProdSelectedDxfGroup(){
 }
 function shapeProdSetDxfEdge(id){shapeProdSelectedEdgeId=id;render();}
 function shapeProdToggleDxfOp(edgeId,type,on){
-  if(!sDraft.edgeOps)sDraft.edgeOps={};var list=shapeProdToggleOps(sDraft.edgeOps[edgeId]||[],type,on);
+  if(!sDraft.edgeOps)sDraft.edgeOps={};var list=shapeProdToggleOps(sDraft.edgeOps[edgeId]||[],type,on);if(on)shapeSetEdgeClean([edgeId],false);
   if(list.length)sDraft.edgeOps[edgeId]=list;else delete sDraft.edgeOps[edgeId];render();
 }
 function shapeProdSetDxfOpParam(edgeId,type,key,value){
@@ -365,10 +388,12 @@ function shapeProdDxfUniform(type){
   var groups=shapeProdDxfGroups();return !!groups.length&&groups.every(function(g){return shapeEdgeHasFinish(g.ops,type);});
 }
 function shapeProdApplyDxfAR(type){
-  if(!sDraft.edgeOps)sDraft.edgeOps={};ShapeModule.dxfEdges(sDraft).forEach(function(edge){var list=shapeTogglePrimaryFinish(sDraft.edgeOps[edge.id]||[],type,true);if(list.length)sDraft.edgeOps[edge.id]=list;else delete sDraft.edgeOps[edge.id];});shapeProdExceptionsOpen=false;render();
+  if(!sDraft.edgeOps)sDraft.edgeOps={};ShapeModule.dxfEdges(sDraft).forEach(function(edge){var list=shapeTogglePrimaryFinish(sDraft.edgeOps[edge.id]||[],type,true);if(list.length)sDraft.edgeOps[edge.id]=list;else delete sDraft.edgeOps[edge.id];});
+  shapeSetEdgeClean(ShapeModule.dxfEdges(sDraft).map(function(e){return e.id;}),false);shapeProdExceptionsOpen=false;render();
 }
 function shapeProdClearDxfAR(){
-  ShapeModule.dxfEdges(sDraft).forEach(function(edge){var list=(sDraft.edgeOps[edge.id]||[]).filter(function(op){return SHAPE_PRIMARY_FINISHES.indexOf(op.type)<0;});if(list.length)sDraft.edgeOps[edge.id]=list;else delete sDraft.edgeOps[edge.id];});shapeProdExceptionsOpen=false;render();
+  ShapeModule.dxfEdges(sDraft).forEach(function(edge){var list=(sDraft.edgeOps[edge.id]||[]).filter(function(op){return SHAPE_PRIMARY_FINISHES.indexOf(op.type)<0;});if(list.length)sDraft.edgeOps[edge.id]=list;else delete sDraft.edgeOps[edge.id];});
+  shapeSetEdgeClean(ShapeModule.dxfEdges(sDraft).map(function(e){return e.id;}),true);shapeProdExceptionsOpen=false;render();
 }
 function shapeProdDxfParams(edge){
   var m=edge.ops.find(function(op){return op.type==='Mitering';}),b=edge.ops.find(function(op){return op.type==='Beveling';});if(!m&&!b)return'';
@@ -379,7 +404,7 @@ function shapeProdDxfEdgeProcessing(){
   return `<div class='shape-subsection shape-accordion shape-prod-edge'>
     <button type='button' class='shape-accordion-head' ${onAct('click',shapeProdEdgeworkToggle)}><span><b>Edge processing</b><small>Shape-owned processing · finished DXF → derived cutting allowance</small></span><span class='shape-accordion-state'>${count?count+' operations':'no processing'}<i>${sEdgeworkOpen?'−':'+'}</i></span></button>
     ${sEdgeworkOpen?`<div class='shape-accordion-body'><div class='shape-prod-thickness'><label>Shape thickness<select ${onAct('change',shapeProdThickness,EL_VALUE)}>${[3,4,5,6,8,10,12,15,19].map(function(n){return `<option value='${n}' ${th===n?'selected':''}>${n} mm</option>`;}).join('')}</select></label><small>Standalone Shape cutting only. Sales Makeup supplies runtime thickness later.</small></div>
-      <div class='shape-prod-ar'><div class='shape-prod-ar-head'><b>AR · ALL AROUND</b><span>${groups.length} physical segments</span></div><div class='shape-prod-ar-actions'><button class='${shapeProdDxfUniform('Rough Arris')?'on':''}' ${onAct('click',shapeProdApplyDxfAR,'Rough Arris')}>AR · Arris</button><button class='${shapeProdDxfUniform('Flat Polish')?'on':''}' ${onAct('click',shapeProdApplyDxfAR,'Flat Polish')}>AR · Polish</button><button class='${shapeProdDxfUniform('CNC Shape Polish')?'on':''}' ${onAct('click',shapeProdApplyDxfAR,'CNC Shape Polish')}>AR · CNC</button><button ${onAct('click',shapeProdClearDxfAR)}>Clear AR</button></div></div>
+      <div class='shape-prod-ar'><div class='shape-prod-ar-head'><b>AR · ALL AROUND</b><span>${groups.length} physical segments</span></div><div class='shape-prod-ar-actions'><button class='${shapeProdDxfUniform('Rough Arris')?'on':''}' ${onAct('click',shapeProdApplyDxfAR,'Rough Arris')}>AR · Arris</button><button class='${shapeProdDxfUniform('Flat Polish')?'on':''}' ${onAct('click',shapeProdApplyDxfAR,'Flat Polish')}>AR · Polish</button><button class='${shapeProdDxfUniform('CNC Shape Polish')?'on':''}' ${onAct('click',shapeProdApplyDxfAR,'CNC Shape Polish')}>AR · CNC</button><button data-ar-clean class='${shapeEdgesAllClean(groups.map(function(g){return g.id;}))?'on':''}' ${onAct('click',shapeProdClearDxfAR)}>AR · Clean cut</button></div>${shapeCleanCutNote(groups.map(function(g){return g.id;}))}</div>
       ${selected?`<div class='shape-prod-selected'><span>Selected</span><b>${esc(selected.id.toUpperCase())} · ${esc(dimIn16(selected.length))}</b><span>${selected.allowance==null?'BLOCKED':selected.allowance?'+'+esc(dimIn16(selected.allowance)):'0″'}</span></div>`:''}
       <div class='shape-prod-exceptions'><button type='button' ${onAct('click',shapeProdExceptionsToggle)}><span><b>Per-edge exceptions</b> · open only when a physical edge differs</span><i>${shapeProdExceptionsOpen?'−':'+'}</i></button>${shapeProdExceptionsOpen?`<div class='shape-prod-seg-head'><span>Edge</span><span>Processing</span><span>Allowance</span></div>${groups.map(function(edge){return `<div class='shape-prod-seg-row ${edge.id===shapeProdSelectedEdgeId?'on':''}' ${onAct('click',shapeProdSetDxfEdge,String(edge.id??''))}><div><b>${esc(edge.id.toUpperCase())}</b><small>${esc(dimIn16(edge.length))}</small></div><div class='shape-prod-opset'>${SHAPE_EDGE_OPS.map(function(type){var on=edge.ops.some(function(op){return op.type===type;});return `<label class='${on?'on':''}' ${onAct('click',actStop,EVENT)}><input type='checkbox' ${on?'checked':''} ${onAct('change',shapeProdToggleDxfOp,String(edge.id??''),String(type??''),EL_CHECKED)}><span>${esc(shapeEdgeOpShort(type))}</span></label>`;}).join('')}${shapeProdDxfParams(edge)}</div><div class='shape-prod-allow ${edge.allowance==null?'bad':''}'><b>${edge.allowance==null?'BLOCKED':edge.allowance?'+'+esc(dimIn16(edge.allowance)):'0″'}</b><small>${esc(edge.allowanceError||edge.ops.map(function(op){return op.type;}).join(' + ')||'No processing')}</small></div></div>`;}).join('')}`:''}</div>
     </div>`:''}

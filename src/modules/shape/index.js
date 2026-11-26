@@ -31,6 +31,7 @@ function shapeFingerprint(def){
      заказов устаревшими. То же правило, что у manufacturingItems выше. */
   if(def.edgeAllowances&&Object.keys(def.edgeAllowances).length)payload.edgeAllowances=def.edgeAllowances;
   if(def.muntin&&def.muntin.enabled)payload.muntin=def.muntin;
+  if(def.edgeClean&&def.edgeClean.length)payload.edgeClean=def.edgeClean;
   var src=JSON.stringify(payload),h=2166136261;
   for(var i=0;i<src.length;i++){h^=src.charCodeAt(i);h=Math.imul(h,16777619);}return 'shp-'+(h>>>0).toString(16).padStart(8,'0');
 }

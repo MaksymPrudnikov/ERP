@@ -340,6 +340,8 @@ function salesOrderSaveCommand(opts){
    :'Lines without width or height: '+noDim.join(', ')+'. Enter the sizes or remove these lines.');
  const temperWarnings=salesTemperCompatibilityWarnings(soDraft);
  if(temperWarnings.length&&!ask('Glass / heat-treatment warning:\n\n- '+temperWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
+ const cleanWarnings=salesCleanCutWarnings(soDraft);
+ if(cleanWarnings.length&&!ask('Edgework warning:\n\n- '+cleanWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
  /* Габарит станции — тот же приём, что у закалки: предупредить и дать сохранить.
     Решение владельца 13 сентября 2026: запрет на засеянных 144 × 100″ стоял бы
     на пути законных заказов. */
@@ -1482,8 +1484,8 @@ function salesChargeUnitAmount(row,rate){return rate==null?null:Math.max(row.bas
    уменьшилось. Второго описания ключей всех видов работ нет. Форма строки
    своя — правится она; общая с другой строкой или из библиотеки — строке
    делается своя копия, остальные строки не меняются. */
-/* Кромка приходит из настроек кромки строки (Service Set, окно Edgework), а не
-   из точек чертежа, — её здесь не убирают. */
+/* Кромка приходит из обработки кромок формы (окно Edgework) или базовой кромки
+   стекла — её убирает salesRemoveEdgeCharge ниже. */
 function salesShapeChargeRemovable(key){return /^(MI|FEATURE):/.test(String(key||''));}
 /* Где искать элементы работы — по виду ключа: метки (отверстия, фурнитура) —
    в метках, нотч — в углах фигуры, остальное с чертежа — в его элементах. */
@@ -1508,6 +1510,11 @@ function salesRemoveShapeCharge(lineId,key){
   const now=basis();if(now<left-1e-9){left=now;n++;}else undo();
  });
  if(!n)return false;
+ salesWriteLineShape(line,s,draft,key);return true;
+}
+/* Правленая копия формы — в форму строки: своя форма правится на месте, общая с
+   другими строками или заказами — копируется в новую форму этой строки. */
+function salesWriteLineShape(line,s,draft,key){
  const others=(DB.salesOrder||[]).some(o=>o.id!==soDraft.id&&(o.lines||[]).some(l=>l.shapeRef&&l.shapeRef.id===s.id))||soDraft.lines.some(l=>l!==line&&l.shapeRef&&l.shapeRef.id===s.id);
  draft.revision=Math.max(0,Math.floor(+s.revision||0))+1;
  if(s.ownerLineId===line.id&&!others){const i=DB.shapeDef.findIndex(x=>x.id===s.id);DB.shapeDef[i]=normalizeShapeDef(draft);}
@@ -1515,7 +1522,50 @@ function salesRemoveShapeCharge(lineId,key){
   draft.name=(soDraft.businessNumber||'SO')+' · '+(line.mark||('Line '+(soDraft.lines.indexOf(line)+1)));DB.shapeDef.push(normalizeShapeDef(draft));}
  line.shapeRef=normalizeShapeRef({id:draft.id,revision:draft.revision});
  if(line.chargePricing)delete line.chargePricing[key];
- touch();render();return true;
+ touch();render();
+}
+/* × у кромки в окне Services (владелец, 26.11.2026: «такие сервисы нельзя
+   удалить — почему?»; × = работы нет совсем). С каждой кромки, где стоит эта
+   работа, она снимается; арис и полировка (основная обработка) снятые —
+   Clean cut: базовая кромка стекла на кромку не встаёт, строки в счёте нет,
+   станции кромки стекло не видят. Митра и фацет просто снимаются. */
+/* Калёное (HS / FT) с Clean cut: кромку перед печью обрабатывают обязательно —
+   предупредить, но сохранить (владелец, 26.11.2026). Снимок кромки считается
+   только у строк, где Clean cut есть. */
+function salesCleanCutWarnings(order){
+ const out=[];
+ (order&&order.lines||[]).forEach((line,li)=>{
+  const s=salesShapeByRef(line.shapeRef);if(!s||!(s.edgeClean||[]).length)return;
+  const m=salesMakeupById(order,line.makeupId);if(!m)return;
+  const snap=salesEffectiveProductionSnapshot(line,s,order);
+  (snap.lites||[]).forEach(lv=>{
+   const p=(m.panes||[])[lv.index],specs=p&&p.category==='laminated'?['outer','m1','m2','inner'].map(k=>p.laminated&&p.laminated[k]).filter(Boolean):[p];
+   if(!specs.some(x=>x&&(x.heatTreatmentId==='HT-FT'||x.heatTreatmentId==='HT-HS')))return;
+   const n=(lv.groups||[]).filter(g=>g.source==='Clean cut').length;
+   if(n)out.push('Line '+(li+1)+' · '+(lv.label||'Lite '+(lv.index+1))+': heat-treated glass, '+n+(n===1?' edge':' edges')+' without edgework (Clean cut).');
+  });
+ });
+ return out;
+}
+function salesEdgeChargeRemovable(key){return /^EDGE:/.test(String(key||''));}
+function salesRemoveEdgeCharge(lineId,key){
+ const line=(soDraft&&soDraft.lines||[]).find(l=>l.id===lineId);
+ if(!line||!salesEdgeChargeRemovable(key)||salesLockedLineGuard(line))return false;
+ const s=salesShapeByRef(line.shapeRef)||salesEnsureLineShape(line);if(!s)return false;
+ const snap=salesEffectiveProductionSnapshot(line,s,soDraft);if(!snap.valid)return false;
+ const ctx=salesPricingFor({},soDraft),hit=op=>{const m=salesEdgeChargeMetaForServiceSet(op,ctx);return !!m&&String(key).indexOf('EDGE:'+m.id+':')===0;};
+ const found=[];
+ (snap.lites&&snap.lites.length?snap.lites:[{groups:snap.groups}]).forEach(lv=>{if(lv.ownShape)return;(lv.groups||[]).forEach(g=>(g.ops||[]).forEach(op=>{if(hit(op)&&!found.some(f=>f.id===g.id&&f.type===op.type))found.push({id:g.id,type:op.type});}));});
+ if(!found.length)return false;
+ const draft=JSON.parse(JSON.stringify(s)),clean=(draft.edgeClean||[]).slice();
+ const drop=(store,ids,type)=>{if(!store)return;ids.forEach(id=>{if(!store[id])return;store[id]=store[id].filter(op=>op&&op.type!==type);if(!store[id].length)delete store[id];});};
+ found.forEach(f=>{
+  const g=(snap.groups||[]).find(x=>x.id===f.id),ids=[f.id].concat(g&&g.parentEdges||[]);
+  drop(draft.edgeOps,ids,f.type);Object.keys(draft.lites||{}).forEach(k=>drop(draft.lites[k]&&draft.lites[k].edgeOps,ids,f.type));
+  if(SHAPE_PRIMARY_FINISHES.indexOf(f.type)>=0&&clean.indexOf(f.id)<0)clean.push(f.id);
+ });
+ if(clean.length)draft.edgeClean=clean;
+ salesWriteLineShape(line,s,draft,key);return true;
 }
 function salesChargeGroupKey(row){
  const p=String(row&&row.key||'').split(':');if(p[0]==='MI'){if(p[1]==='hole')return 'MI:hole:'+(p[2]||'unpriced');return 'MI:'+(p[1]||'');}
