@@ -74,6 +74,11 @@
 - **Stock items** — двери, комплекты, расходка: **Kind** (door, kit, consumable и свои), вкладки General ·
   Measurements · Stock · Prices. Measurements — строки «что · значение · единица»; у новой двери сами появляются Width,
   Height, Thickness; **Name from measurements** подставляет имя по нажатию. Код вписывают руками.
+  - Замеры — описание позиции: их видно в Inventory → Stock items (колонка Measurements) и в списке Data; на цену и
+    остаток они не влияют. Пример: дверь 30 × 80″ · 10 mm — Kind Door, Width 30 in, Height 80 in, Thickness 10 mm,
+    Name from measurements → «Door 30 × 80″ · 10 mm».
+  - **Another value — another stock item**: дверь 32 × 80″ — уже другая позиция со своим остатком, а не вторая строка
+    замеров у первой.
 
 ### Works и Heat treatment
 

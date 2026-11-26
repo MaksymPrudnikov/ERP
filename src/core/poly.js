@@ -11,10 +11,27 @@ function fabSegCross(p1,p2,p3,p4){
   var e=1e-9,d1=cr(p3,p4,p1),d2=cr(p3,p4,p2),d3=cr(p1,p2,p3),d4=cr(p1,p2,p4);
   return ((d1>e&&d2<-e)||(d1<-e&&d2>e))&&((d3>e&&d4<-e)||(d3<-e&&d4>e));
 }
+/* Перебор всех пар отрезков — n² сравнений. У DXF с дугами сотни точек, и одну
+   и ту же неизменную фигуру проверяли 3–4 раза на каждую перерисовку окна:
+   кнопки Edgework отвечали с паузой (владелец, 26.11.2026: «подлагивает»).
+   Поэтому: пары, чьи габариты не пересекаются, отсекаются сразу, а ответ для
+   уже проверенного контура (те же точки) берётся из памяти. Ответ тот же. */
+var FAB_SELF_X_MEMO=new Map();
 function fabPolySelfIntersects(P){
   var n=P.length;if(n<4)return false;
+  if(n<32)return fabPolySelfIntersectsScan(P);
+  var key=P.map(function(q){return q[0]+','+q[1];}).join(';');
+  if(FAB_SELF_X_MEMO.has(key))return FAB_SELF_X_MEMO.get(key);
+  var hit=fabPolySelfIntersectsScan(P);
+  if(FAB_SELF_X_MEMO.size>=64)FAB_SELF_X_MEMO.clear();
+  FAB_SELF_X_MEMO.set(key,hit);return hit;
+}
+function fabPolySelfIntersectsScan(P){
+  var n=P.length,box=[];
+  for(var k=0;k<n;k++){var a=P[k],b=P[(k+1)%n];box.push([Math.min(a[0],b[0]),Math.max(a[0],b[0]),Math.min(a[1],b[1]),Math.max(a[1],b[1])]);}
   for(var i=0;i<n;i++)for(var j=i+2;j<n;j++){
     if(i===0&&j===n-1)continue;
+    var u=box[i],v=box[j];if(u[1]<v[0]||v[1]<u[0]||u[3]<v[2]||v[3]<u[2])continue;
     if(fabSegCross(P[i],P[(i+1)%n],P[j],P[(j+1)%n]))return true;
   }
   return false;

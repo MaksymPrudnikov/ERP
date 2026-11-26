@@ -76,12 +76,14 @@ function salesSheetPlyText(ply){
   var g=glassProductById(ply.glassProductId),ht=String(ply.heatTreatmentId||'').replace(/^HT-/,'').toUpperCase();
   return salesSheetGlassCode(g)+(ht&&ht!=='AN'?' '+ht:'')+(ply.heatSoak&&ht==='FT'?' + HST':'');
 }
-/* Плёнка межслойная: сколько слоёв, какой толщины и чего именно. */
+/* Плёнка межслойная: общая толщина прослойки и что это. Число слоёв на
+   чертеже не пишем: «4 × 1.52 mm» читалось как четыре раза по 1.52, а 1.52 —
+   уже вся прослойка (владелец, 26.11.2026: «оставить только мм»). */
 function salesSheetFilmText(film){
   if(!film)return '';
   var pr=(typeof mdById==='function')?mdById('interlayerProduct',film.productId):null;
-  var layers=+film.layers||1,mm=+film.thicknessMm;
-  return (layers>1?layers+' × ':'')+(isFinite(mm)&&mm>0?mm+' mm ':'')+((pr&&(pr.code||pr.name))||'');
+  var mm=+film.thicknessMm;
+  return (isFinite(mm)&&mm>0?mm+' mm ':'')+((pr&&(pr.code||pr.name))||'');
 }
 /* Каждая пометка принадлежит своей физической грани; обе грани могут быть
    заняты. Текст и маршрут читают один и тот же контракт Makeup. */

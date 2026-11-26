@@ -253,6 +253,7 @@
 .excel-defaults select{min-width:190px;padding:5px 7px;font-size:11px;text-transform:none;letter-spacing:0;color:var(--text)}
 .excel-defaults-hint{flex:1;min-width:150px;padding-bottom:5px;font-size:9.5px;color:var(--mut)}
 .excel-col-toggles{display:flex;gap:5px;padding-bottom:2px}
+.excel-defaults .excel-unit button{padding:5px 12px;font-size:11px;text-transform:none;letter-spacing:0}
 .excel-col-toggles button{padding:4px 8px;font-size:9px}
 .excel-col-toggles button.on{background:var(--blue2);border-color:var(--accent-line);color:var(--accent)}
 .excel-note{margin-bottom:7px;padding:7px 9px;border:1px solid var(--warning-line);border-radius:8px;background:var(--amber2);color:var(--warning);font-size:10px}
@@ -694,6 +695,12 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 /* Подложка под подписью на линии — белая и без обводки: иначе печать дала бы
    ей чёрную рамку. */
 .print-shape-sheet .sheet-field svg .shape-ann-bg{stroke:none!important;fill:var(--surface)!important}
+/* Штамп — только надпись (владелец, 25.11.2026: «штампу не нужна обводка»).
+   Общее правило выше обводило его белую подложку рамкой, а серую обводку
+   группы наследовали буквы — текст расплывался (владелец, 26.11.2026:
+   «обводка ужасная… и сам текст какой-то странный»). */
+.print-shape-sheet .sheet-field svg :is(.shape-temper-stamp,.shape-temper-stamp rect){stroke:none!important}
+.print-shape-sheet .sheet-field svg .shape-temper-stamp rect{fill:var(--surface)!important}
 /* Фон листа обводки не имеет и получать её не должен: иначе вокруг чертежа
    появляется лишняя рамка. Фон — прямоугольник без x/y; бары раскладки — тоже
    прямоугольники в корне чертежа, и когда salesSheetFitDrawing убирает фон,

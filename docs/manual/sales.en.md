@@ -55,7 +55,10 @@ line: lites joined by " / " with the cavity (spacer and gas) between them.
   interlayer + glass. Example: `LAM 12.76 (6CLEAR + 0.76 EVA-CL + 6CLEAR)`; in an IGU the same text stands in place
   of the lite: `6E180ESC / 17/32 Black Warm Edge ARG / LAM 12.76 (6CLEAR + 0.76 EVA-CL + 6CLEAR)`.
   - Thickness is nominal: 6 + 6 + 0.76 = 12.76 (how the glass is called), not measured.
-  - Interlayer — the thickness of all its layers (2 × 0.38 = 0.76) and its code; the customer sees its name.
+  - Interlayer — the thickness of all its layers (2 × 0.38 = 0.76) and its code; the customer sees its name. The
+    drawing says the same: `film: 1.52 mm EVA-UC` — the total, without the layer count.
+- **Frit** — patterns 2 x 2 square, 4 x 4 square, 2 x 2 diamond (a 2″ × 2″ diamond: 2″ along a row, rows 1″ apart
+  and shifted), 4 x 4 diamond (a 4″ × 4″ diamond) and Custom by the silk screen sheet.
 - The makeup code in the strip (A, MU-2…) always stays on one line; a long description ends with an ellipsis.
 
 ## Shape area — by the cutting rectangle
@@ -94,13 +97,21 @@ sheet.
 - Next to it — **Cutting allowance** (CNC stock per side): the piece is larger than finished by the edge removal; it
   is not part of the billed area. Up to 10″.
 
+## Pasting rows from Excel (Paste Excel Rows)
+
+- Columns — Qty | Width | Height | Mark: select a block in Excel, click a cell of the window and paste.
+- **Units in | mm** in the window header. In **mm** Width and Height are millimetres: the window converts them to
+  inches to 1/16″ with the same formula as in Excel, `=ROUND(mm/25.4*16,0)`. The Result column shows what came
+  out: "mm 762 → 30 · 2045 → 80 1/2". A fraction like "30 1/2" in mm is a row error. The choice holds while the
+  order is open; a new order starts in inches again.
+
 ## Shape from DXF: drawing and stamp
 
 - The **Production Drawing** of a DXF shape is the same drawing as for a regular shape: the length of every edge of
   the file, angles, overall size and the apex offset from the left edge (a triangle's "39 7/16"). Edge processing is
   labelled inside the contour; a click on an edge selects it in Edge processing. **Print / PDF** prints this drawing.
 - The **mm** button (next to the tabs) works for DXF too: sizes in mm, inches in grey, angles.
-- The **stamp** is text only, no frame. Drag it with the mouse right on the drawing (DXF and regular shapes); on
+- The **stamp** is text only, no frame, on screen and on paper. Drag it with the mouse right on the drawing (DXF and regular shapes); on
   release the place is written to 1/16″, outside the glass the stamp is not dropped. A new stamp sits at the lower
   right corner so that the whole text is on the glass.
 

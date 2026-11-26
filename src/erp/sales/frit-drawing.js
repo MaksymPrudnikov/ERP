@@ -2,10 +2,13 @@
    silkscreen (хендофф 9л); здесь ничего не меняет Shape и геометрию реза.
    IN : SVG чертежа строки, стекло с frit (erp/masterdata/glass)
    OUT: salesFritDecorateSvg — чертёж с пометками frit для печати (erp/sales/print-*) */
+/* Ромб (stag): в ряду точки через dx, ряды через dy, каждый второй ряд сдвинут
+   на dx/2 — ромб dx в ширину и 2·dy в высоту. */
 const SALES_FRIT_PATTERNS={
  '2 x 2 square':{dx:2,dy:2,stag:false},
  '4 x 4 square':{dx:4,dy:4,stag:false},
- '2 x 4 diamond':{dx:4,dy:2,stag:true}
+ '2 x 2 diamond':{dx:2,dy:1,stag:true},
+ '4 x 4 diamond':{dx:4,dy:2,stag:true}
 };
 function salesFritDrawingSpecs(shape){
  var line=salesSheetLineOf(shape),order=salesSheetOrder(),mk=line&&order?salesMakeupById(order,line.makeupId):null,out=[];

@@ -712,9 +712,14 @@ function spandrelCanonicalProductId(id){const m=spandrelProductMigration(id);ret
    'Gray', 'Bronze', 'Full coverage', 'Lines' — цех такого не делает, а новый
    лист получал их по умолчанию. Узоров ровно три плюс отсылка к бумажному
    листу спецификации; цвета два. Позиции прайса CERM FRIT - FULL / PATTERN /
-   GRADIENT подтверждены пользователем как мёртвые. */
+   GRADIENT подтверждены пользователем как мёртвые.
+   26.11.2026 владелец: «2 x 4 diamond» — это ромб 4″ × 4″, имя «4 x 4 diamond»;
+   добавлен «2 x 2 diamond» — тот же ромб вдвое меньше. Старое имя в
+   сохранённых заказах читается как новое (FRIT_PATTERN_RENAMED). */
 const FRIT_COLORS=['White','Acid Etched'];
-const FRIT_PATTERNS=['2 x 2 square','4 x 4 square','2 x 4 diamond','Custom — see silk screen sheet'];
+const FRIT_PATTERNS=['2 x 2 square','4 x 4 square','2 x 2 diamond','4 x 4 diamond','Custom — see silk screen sheet'];
+const FRIT_PATTERN_RENAMED={'2 x 4 diamond':'4 x 4 diamond'};
+function fritPatternOf(v){const s=String(v==null?'':v).trim();return FRIT_PATTERN_RENAMED[s]||s;}
 /* Узор кладётся ОТ конкретного угла детали, и этот угол маркируется в цеху:
    иначе трафарет ляжет зеркально. Это производственный параметр, а не
    оформление. На рабочих листах стоит Top right. */

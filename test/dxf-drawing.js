@@ -57,6 +57,16 @@ module.exports=async function({page,eq}){
   const D=shapeDrawnPreviewTransform(shapeProdDxfDrawResult(),shapeProdDxfDrawExtra());
   return {inside,frame,moved,kept:f3.x===f2.x&&f3.y===f2.y,sameFrame:D.sc===T.sc&&D.x0===T.x0};
  }),{inside:true,frame:'none',moved:[-10,5],kept:true,sameFrame:true});
+ /* Владелец, 26.11.2026: на печатном листе DXF штамп получал «ужасную»
+    обводку — общее правило листа обводило всё, кроме текста. */
+ eq('штамп на печатном листе без рамки, подложка белая, буквы без обводки',await t.p.evaluate(()=>{
+  dxTri();addShapeFeature('stamp');sView='production';render();
+  const svg=document.querySelector('#shapeLivePreview .shape-temper-stamp[data-stamp-id]').ownerSVGElement.cloneNode(true);
+  const sheet=document.createElement('div');sheet.className='print-shape-sheet dw-w-line';sheet.style.setProperty('--dw-line-w','3px');
+  sheet.innerHTML='<div class="sheet-field"></div>';sheet.firstChild.appendChild(svg);document.body.appendChild(sheet);
+  const cs=getComputedStyle(svg.querySelector('.shape-temper-stamp rect')),tx=getComputedStyle(svg.querySelector('.shape-temper-stamp text'));
+  const out=[cs.stroke,cs.fill!=='none',tx.stroke];sheet.remove();return out;
+ }),['none',true,'none']);
 
  eq('подписи DXF тянутся и в дюймах, и в мм; кнопка мм возвращается после Cutting DXF',await t.p.evaluate(()=>{
   dxTri();setShapeMetricDetail(false);sView='production';render();

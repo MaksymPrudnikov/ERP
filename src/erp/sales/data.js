@@ -143,7 +143,7 @@ function salesFirstGlassPick(family,manufacturer,thickness){
 function salesDefaultLaminatedFrit(){const fd=orderSetupFrit();return {enabled:false,position:'outside',productId:'FRIT-CERAMIC',color:FRIT_COLORS[0],pattern:FRIT_PATTERNS[0],dotMm:fd.dotMm,marginFrom:fd.marginFrom,marginW16:fd.margin16,marginH16:fd.margin16,marking:''};}
 function normalizeSalesLaminatedFrit(raw,d){
  raw=raw&&typeof raw==='object'?raw:{};d=d||salesDefaultLaminatedFrit();
- const position=SALES_LAMINATED_FRIT_POSITIONS.includes(raw.position)?raw.position:d.position,color=salesString(raw.color),pattern=salesString(raw.pattern),corner=salesString(raw.marginFrom);
+ const position=SALES_LAMINATED_FRIT_POSITIONS.includes(raw.position)?raw.position:d.position,color=salesString(raw.color),pattern=fritPatternOf(raw.pattern),corner=salesString(raw.marginFrom);
  return {enabled:raw.enabled===true||raw.active===true||raw.fritEnabled===true,position,productId:salesString(raw.productId)||d.productId,color:FRIT_COLORS.includes(color)?color:d.color,pattern:FRIT_PATTERNS.includes(pattern)?pattern:d.pattern,dotMm:salesFritDotMm(raw.dotMm,d.dotMm),marginFrom:FRIT_MARGIN_CORNERS.includes(corner)?corner:d.marginFrom,marginW16:salesStoredMargin16(raw.marginW16,d.marginW16),marginH16:salesStoredMargin16(raw.marginH16,d.marginH16),marking:salesString(raw.marking)};
 }
 function salesRecommendedHeat(g){return glassNeedsFurnace(g)?'HT-FT':glassBannedFromFurnace(g)?'HT-AN':null;}
@@ -439,7 +439,7 @@ function normalizeSurface(v,allowed){const n=+v;return Number.isInteger(n)&&allo
    в спецификации силкскрина его нет вообще. */
 function normalizeFritSpec(f,d,allowed){
  f=f&&typeof f==='object'?f:{};
- const color=salesString(f.color),pattern=salesString(f.pattern),corner=salesString(f.marginFrom);
+ const color=salesString(f.color),pattern=fritPatternOf(f.pattern),corner=salesString(f.marginFrom);
  return {
   productId:salesString(f.productId)||d.productId,
   color:FRIT_COLORS.includes(color)?color:d.color,
