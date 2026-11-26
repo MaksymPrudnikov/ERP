@@ -137,6 +137,10 @@ function salesShapePhysicalEdges(shape){
   }catch(e){return [];}
 }
 
+function salesShapeEdgeClean(shape,edge){
+  if(!shape||String(shape.id||'').indexOf('IMPLICIT-RECT-')===0)return false;
+  return shapeEdgeIsClean(shape,[edge.id].concat(Array.isArray(edge.parentEdges)?edge.parentEdges:[]));
+}
 function salesShapeOpsForPhysicalEdge(shape,edge){
   if(!shape||String(shape.id||'').indexOf('IMPLICIT-RECT-')===0)return [];
   var all=[],ids=[edge.id].concat(Array.isArray(edge.parentEdges)?edge.parentEdges:[]),seen=Object.create(null);
@@ -201,10 +205,14 @@ function salesEffectiveProductionSnapshot(line,shape,order){
   var lites=salesLineLites(line,order),baseOps=salesLineBaseEdgeworkOps(line,order),physical=salesShapePhysicalEdges(shape),mappingPending=false,groups=[];
   for(var i=0;i<physical.length;i++){
     var edge=physical[i],shapeOps=salesShapeOpsForPhysicalEdge(shape,edge),side=salesSideForPhysicalEdge(line,edge),setOps=[],ops=shapeOps,source='Shape';
-    if(!ops.length&&baseOps.length){ops=baseOps;source='Glass';}
+    /* Clean cut (владелец, 26.11.2026): кромка без обработки — базовая кромка
+       стекла на неё не встаёт, строки в счёте и станции кромки нет. */
+    var clean=!shapeOps.length&&salesShapeEdgeClean(shape,edge);
+    if(clean)source='Clean cut';
+    else if(!ops.length&&baseOps.length){ops=baseOps;source='Glass';}
     var v=ShapeModule.validateEdgeOperations(ops,edge.id);
     if(!v.ok)return {valid:false,reason:v.reason,groups:groups,shape:shape,set:set,operationConflict:true,mappingPending:mappingPending};
-    groups.push({id:edge.id,length:+edge.length||0,side:side,source:source,p1:edge.p1,p2:edge.p2,parentEdges:edge.parentEdges||[],shapeOps:salesServiceOps(shapeOps),setOps:salesServiceOps(setOps),ops:salesServiceOps(ops),allowance:null});
+    groups.push({id:edge.id,length:+edge.length||0,side:side,source:source,clean:clean,p1:edge.p1,p2:edge.p2,parentEdges:edge.parentEdges||[],shapeOps:salesServiceOps(shapeOps),setOps:salesServiceOps(setOps),ops:salesServiceOps(ops),allowance:null});
   }
   /* Пакет 10 + 6 — это два разных стекла: у каждого своя базовая кромка, свой
      припуск и свой размер реза. Поэтому кроме общей геометрии снимок несёт
@@ -219,7 +227,8 @@ function salesEffectiveProductionSnapshot(line,shape,order){
       return Object.assign({},lite,{shape:ownShape,ownShape:true,groups:ownEdges.map(function(edge){
         var ops=salesShapeOpsForPhysicalEdge(ownShape,edge);
         var src='Shape · lite';
-        if(!ops.length&&lite.baseOps.length){ops=lite.baseOps;src='Glass';}
+        if(!ops.length&&salesShapeEdgeClean(ownShape,edge))src='Clean cut';
+        else if(!ops.length&&lite.baseOps.length){ops=lite.baseOps;src='Glass';}
         return {id:edge.id,length:+edge.length||0,side:salesSideForPhysicalEdge(line,edge),ops:salesServiceOps(ops),source:src,allowance:null,p1:edge.p1,p2:edge.p2};
       })});
     }
@@ -227,8 +236,8 @@ function salesEffectiveProductionSnapshot(line,shape,order){
       /* Порядок источников на кромке лайта: своя обработка лайта на форме →
          общая обработка формы → базовая кромка стекла этого лайта. */
       var own=salesServiceOps((shapeLiteSpec(shape,lite.index).edgeOps||{})[g.id]||[]);
-      var liteOps=own.length?own:(g.shapeOps.length?g.shapeOps:lite.baseOps);
-      var src=own.length?'Shape · lite':(g.shapeOps.length?'Shape':'Glass');
+      var liteOps=own.length?own:(g.shapeOps.length?g.shapeOps:g.clean?[]:lite.baseOps);
+      var src=own.length?'Shape · lite':(g.shapeOps.length?'Shape':g.clean?'Clean cut':'Glass');
       return {id:g.id,length:g.length,side:g.side,ops:salesServiceOps(liteOps),source:src,allowance:null};
     })});
   });

@@ -115,6 +115,17 @@ sheet.
   release the place is written to 1/16″, outside the glass the stamp is not dropped. A new stamp sits at the lower
   right corner so that the whole text is on the glass.
 
+## Clean cut — glass without edge processing
+
+- An edge without processing gets the glass base edge: up to 8 mm Rough Arris, from 10 mm Flat Polish. A clean cut
+  is its own mark, **Clean cut**, stronger than the base edge.
+- In Edgework the **AR · Clean cut** button (was Clear AR) takes the primary finish off every edge and sets Clean
+  cut; each edge reads "clean cut". **AR · Arris / Polish / CNC** or an edge's finish tick removes Clean cut. A new
+  shape is as before, with the base edge.
+- The same — × on arris or polish in the line Services window (below).
+- Heat-treated glass (HS, Tempered) with Clean cut: the edge is processed before the furnace, so a yellow
+  "Heat-treated · N edges without edgework" line in Edgework and a question on Save — **saving is allowed**.
+
 ## Surcharges window — order surcharges
 
 The Surcharges button above the lines. Surcharges are Data → Works items with a rule (percent or minimum area).
@@ -154,7 +165,10 @@ Each row has two light icons on the right (owner, 8 Nov 2026, variant E2):
   drawing of **this line** (all its elements, e.g. all 4 holes of that size). If the drawing is shared with other
   lines or comes from the library, the line gets its own copy; other lines do not change. For work added by hand —
   just remove it.
-- Edgework and makeup work have no ×: edges change in Edgework, frit and spandrel in the makeup.
+- × on edgework (Rough Arris, Flat Polish, Mitering…) means **no work at all**: it is taken off the line's edges;
+  removed arris or polish becomes **Clean cut** (no edge processing, no charge row, the edge station does not see the
+  glass, nothing on the drawing and sticker). Mitre and bevel are simply removed. Makeup work has no ×: frit and
+  spandrel are in the makeup.
 - Red only on hover over ×. A line already in production (glass scanned) cannot be edited.
 
 ## Where the product is now — Production window
