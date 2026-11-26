@@ -491,7 +491,28 @@ function salesFritMarginChange(i,key,el){
  p.frit[key]=n;el.value=salesMarginFrom16(n);el.classList.remove('bad');
 }
 function salesPaneSetSpandrel(i,k,v){const p=salesCurrentMakeup().panes[i];if(k==='surface')p.spandrel.surface=normalizeSurface(v,salesPaneSurfaces(i));else p.spandrel[k]=v;render();}
-function salesPaneLamPly(i,side){const p=salesCurrentMakeup().panes[i];return p&&p.laminated&&(side==='outer'||side==='inner')?p.laminated[side]:null;}
+function salesPaneLamPly(i,side){const p=salesCurrentMakeup().panes[i];return p&&p.laminated&&salesLamSides(p).includes(side)?p.laminated[side]:null;}
+/* Среднее стекло — копия наружного (то же стекло и закалка), покрытие к плёнке,
+   без фрита и ручной цены; плёнка за ним — как первая плёнка склейки. Новое
+   встаёт перед inner: 1a · 1b · 1c (· 1d). */
+function salesPaneAddLamPly(i){
+ const p=salesCurrentMakeup().panes[i],L=p&&p.laminated;if(!L||salesLamSides(p).length>=SALES_LAM_MAX_PLIES)return;
+ const k=SALES_LAM_MIDDLE.find(x=>!L[x]);if(!k)return;
+ const ply=JSON.parse(JSON.stringify(L.outer));ply.priceOverride=null;ply.coatingPosition='in_film';ply.frit=Object.assign(salesDefaultLaminatedFrit(),{enabled:false});
+ L[k]=ply;L[k+'Films']=[normalizeSalesInterlayer(Object.assign({},(L.interlayers||[])[0]||{},{priceOverride:null}),INTERLAYER_DEFAULT_ID)];
+ render();
+}
+/* Убрать среднее: следующее за ним среднее занимает его место вместе со своей плёнкой. */
+function salesPaneRemoveLamPly(i,side){
+ const p=salesCurrentMakeup().panes[i],L=p&&p.laminated,at=SALES_LAM_MIDDLE.indexOf(side);if(!L||at<0||!L[side])return;
+ for(let j=at;j<SALES_LAM_MIDDLE.length;j++){const k=SALES_LAM_MIDDLE[j],n=SALES_LAM_MIDDLE[j+1];
+  if(n&&L[n]){L[k]=L[n];L[k+'Films']=L[n+'Films'];}else{delete L[k];delete L[k+'Films'];break;}}
+ render();
+}
+/* Плёнка по номеру: число — первый промежуток (после outer), «G.S» — промежуток G, плёнка S. */
+function salesLamFilmSlot(slot){const t=String(slot),k=t.indexOf('.');return k<0?{gap:0,slot:+t}:{gap:+t.slice(0,k),slot:+t.slice(k+1)};}
+function salesLamFilmRows(p,gap){const L=p&&p.laminated;return L?L[salesLamGapKey(+gap||0)]||null:null;}
+function salesLamFilmAt(i,slot){const p=salesCurrentMakeup().panes[i],r=salesLamFilmSlot(slot),rows=salesLamFilmRows(p,r.gap);return rows?rows[r.slot]||null:null;}
 function salesPaneEnsureLamPly(ply){const rows=salesLaminatedPlyCandidates(ply);if(!rows.some(g=>g.id===ply.glassProductId)){ply.glassProductId=(rows[0]||{}).id||'';salesApplyRecommendedHeat(ply,glassProductById(ply.glassProductId));}}
 function salesPaneSetLamPly(i,side,key,v){
  const ply=salesPaneLamPly(i,side);if(!ply)return;
@@ -518,6 +539,8 @@ function salesPaneSetLamPlyProduct(i,side,v){const ply=salesPaneLamPly(i,side),g
 /* Пустое поле снимает ручную цену плиты и возвращает каталожную. */
 function salesLamPlyOuterSetPrice(i,v){salesSetLamPlyPrice(i,"outer",v);}
 function salesLamPlyInnerSetPrice(i,v){salesSetLamPlyPrice(i,"inner",v);}
+function salesLamPlyM1SetPrice(i,v){salesSetLamPlyPrice(i,"m1",v);}
+function salesLamPlyM2SetPrice(i,v){salesSetLamPlyPrice(i,"m2",v);}
 function salesSetLamPlyPrice(i,side,v){
  const p=salesCurrentMakeup().panes[i],ply=p&&p.laminated&&p.laminated[side];
  if(!ply)return;
@@ -533,20 +556,20 @@ function salesLamFritMarginChange(i,side,key,el){const f=salesPaneEnsureLamFrit(
 /* Сменили семейство — берём первую плёнку внутри него: EVA Frosted White не
    существует в SGP, и держать «выбранным» несуществующее нельзя. */
 function salesPaneSetLamInterlayerFamily(i,slot,family){
- const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];
+ const layer=salesLamFilmAt(i,slot);
  if(!layer)return;
  const first=activeSimple('interlayerProduct').filter(x=>interlayerFamilyOf(x.id)===family)[0];
  if(first)layer.productId=first.id;
  render();
 }
 function salesPaneSetLamInterlayerPrice(i,slot,v){
- const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];
+ const layer=salesLamFilmAt(i,slot);
  if(!layer)return;
  layer.priceOverride=salesNonNegOrNull(v);
  render();
 }
-function salesPaneSetLamInterlayer(i,slot,v){const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];if(!layer)return;layer.productId=v;salesInterlayerFit(layer);render();}
-function salesPaneSetLamInterlayerLayers(i,slot,v){const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];if(!layer)return;layer.layers=salesInterlayerLayerCount(v);layer.thicknessMm=salesInterlayerThicknessForLayers(layer.layers,layer.productId);render();}
+function salesPaneSetLamInterlayer(i,slot,v){const layer=salesLamFilmAt(i,slot);if(!layer)return;layer.productId=v;salesInterlayerFit(layer);render();}
+function salesPaneSetLamInterlayerLayers(i,slot,v){const layer=salesLamFilmAt(i,slot);if(!layer)return;layer.layers=salesInterlayerLayerCount(v);layer.thicknessMm=salesInterlayerThicknessForLayers(layer.layers,layer.productId);render();}
 /* Другая плёнка: толщина остаётся, если она есть у новой; иначе — первая
    разрешённая толщина её карточки. */
 function salesInterlayerFit(layer){
@@ -554,8 +577,8 @@ function salesInterlayerFit(layer){
  const mm=!list.length||list.includes(t)?t:list[0];
  layer.layers=salesInterlayerLayersFromThickness(mm,layer.productId);layer.thicknessMm=mm;
 }
-function salesPaneAddLamInterlayer(i){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length>=SALES_MAX_INTERLAYERS)return;rows.push(normalizeSalesInterlayer({},INTERLAYER_DEFAULT_ID));render();}
-function salesPaneRemoveLamInterlayer(i,slot){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length<=1)return;rows.splice(slot,1);render();}
+function salesPaneAddLamInterlayer(i,gap){const rows=salesLamFilmRows(salesCurrentMakeup().panes[i],gap);if(!rows||rows.length>=SALES_MAX_INTERLAYERS)return;rows.push(normalizeSalesInterlayer({},INTERLAYER_DEFAULT_ID));render();}
+function salesPaneRemoveLamInterlayer(i,slot){const r=salesLamFilmSlot(slot),rows=salesLamFilmRows(salesCurrentMakeup().panes[i],r.gap);if(!rows||rows.length<=1)return;rows.splice(r.slot,1);render();}
 function salesCavitySet(i,k,v){const c=salesCurrentMakeup().cavities[i];if(c)c[k]=v;render();}
 /* Ставка за деление: заводская из прайса; занижают её обычным переопределением
    строки или заказа, как у любой услуги. */
@@ -1330,10 +1353,12 @@ function salesGlazingChargeRows(line,areaFt2,order){
  if(!m)return rows;
  const frit=Object.create(null),spandrel=Object.create(null),seq=[];
  (m.panes||[]).forEach(function(p,i){
-  const targets=p.category==='laminated'?[p.laminated.outer,p.laminated.inner]:[p];
-  targets.forEach(function(ply,j){
+  /* Ключ плиты: outer 0, inner 1 (как до средних стёкол), m1 2, m2 3. */
+  const targets=p.category==='laminated'?salesLamSides(p).map(k=>[p.laminated[k],k]):[[p,'']];
+  targets.forEach(function(t){
+   const ply=t[0],j=t[1]==='inner'?1:t[1]==='m1'?2:t[1]==='m2'?3:0;
    if(!ply||!ply.heatSoak||ply.heatTreatmentId!=='HT-FT')return;
-   const mm=salesPlyThicknessMm(ply),label='Lite '+(i+1)+(p.category==='laminated'?(j?'b':'a'):'');
+   const mm=salesPlyThicknessMm(ply),label='Lite '+(i+1)+(p.category==='laminated'?salesLamLetter(p,t[1]):'');
    rows.push(salesChargeRow('HEATSOAK:'+p.id+':'+j+':'+mm,'Heat Soak · '+label+' · '+mm+' mm',area,'ft²',salesCatalogRate('heat_soak',salesPricingFor({},order)),'Makeup'));
   });
   if(p.category==='spandrel'){
@@ -1827,7 +1852,7 @@ function salesPlyThicknessMm(ply){
  const g=glassProductById(ply&&ply.glassProductId),v=+(g&&g.thicknessMm!=null?g.thicknessMm:ply&&ply.thicknessMm);
  return Number.isFinite(v)&&v>0?v:NaN;
 }
-/* Физические стёкла лайта: у ламината их ДВА, у всего остального одно.
+/* Физические стёкла лайта: у ламината их 2–4, у всего остального одно.
    Правило владельца: «каждое стекло при резке изначально отдельная панель», —
    поэтому припуск на рез и банд прайса берутся по этому списку, а НЕ по
    суммарной толщине склейки. Сумма остаётся у пакета: вес, печать, спейсеры. */
@@ -1835,8 +1860,8 @@ function salesPanePlies(pane){
  if(!pane)return [];
  if(pane.category==='laminated'){
   const lam=pane.laminated||{};
-  return [lam.outer,lam.inner].map(function(ply,i){
-   return {index:i,role:i?'inner':'outer',mm:salesPlyThicknessMm(ply),glassProductId:ply&&ply.glassProductId};
+  return salesLamSides(pane).map(function(side,i){
+   const ply=lam[side];return {index:i,role:side,mm:salesPlyThicknessMm(ply),glassProductId:ply&&ply.glassProductId};
   });
  }
  return [{index:0,role:'single',mm:salesPlyThicknessMm({glassProductId:pane.glassProductId,thicknessMm:pane.thicknessMm}),glassProductId:pane.glassProductId}];
@@ -1844,7 +1869,7 @@ function salesPanePlies(pane){
 function salesPaneGlassThicknessMm(pane){
  if(!pane)return NaN;
  if(pane.category==='laminated'){
-  const lam=pane.laminated||{},films=lam.interlayers||[];
+  const films=salesLamFilms(pane);
   let total=0,known=true;
   salesPanePlies(pane).forEach(function(ply){
    if(Number.isFinite(ply.mm)&&ply.mm>0)total+=ply.mm;else known=false;

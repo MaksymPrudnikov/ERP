@@ -290,8 +290,8 @@ function salesLineMaterials(m,areas,order){
   if(p.category==='laminated'){
    if(p.priceOverride!=null)return add(label+' · laminated',p.priceOverride,'','',null,'sqft',{pane:i});
    const lam=p.laminated||{};
-   [lam.outer,lam.inner].forEach((ply,j)=>{const g=ply&&glassProductById(ply.glassProductId);add(label+(j?'b':'a')+(g?' · '+glassShortName(g):''),salesPlyPrice(ply,order),'glassProduct',g,glassKg(ply,g),null,{pane:i,ply:j?'inner':'outer'});});
-   (lam.interlayers||[]).forEach(f=>{
+   salesLamSides(p).forEach(side=>{const ply=lam[side],g=ply&&glassProductById(ply.glassProductId);add(label+salesLamLetter(p,side)+(g?' · '+glassShortName(g):''),salesPlyPrice(ply,order),'glassProduct',g,glassKg(ply,g),null,{pane:i,ply:side});});
+   salesLamFilms(p).forEach(f=>{
     const prod=mdById('interlayerProduct',f.productId),layers=salesInterlayerLayerCount(f.layers!=null?f.layers:2);
     const price=f.priceOverride!=null?f.priceOverride:salesInterlayerSalePrice(f.productId,order);
     const rules=salesItemSaleRules('interlayerProduct',prod,undefined,order),byWeight=rules.unit==='kg'||rules.unit==='lb';
@@ -329,7 +329,7 @@ function salesItemSizeProblems(line,order){
  const check=x=>{if(!x)return;const name=x.code||x.name||x.id,W=a.width,H=a.height;
   if(x.maxWidthIn!=null&&W>x.maxWidthIn||x.maxHeightIn!=null&&H>x.maxHeightIn)out.push(name+': over max '+(x.maxWidthIn==null?'—':x.maxWidthIn)+' × '+(x.maxHeightIn==null?'—':x.maxHeightIn)+'″');
   if(x.minWidthIn!=null&&W<x.minWidthIn||x.minHeightIn!=null&&H<x.minHeightIn)out.push(name+': under min '+(x.minWidthIn==null?'—':x.minWidthIn)+' × '+(x.minHeightIn==null?'—':x.minHeightIn)+'″');};
- (m.panes||[]).forEach(p=>{if(p.category==='laminated'){const l=p.laminated||{};[l.outer,l.inner].forEach(x=>check(x&&glassProductById(x.glassProductId)));(l.interlayers||[]).forEach(f=>check(mdById('interlayerProduct',f.productId)));}else check(glassProductById(p.glassProductId));});
+ (m.panes||[]).forEach(p=>{if(p.category==='laminated'){const l=p.laminated||{};salesLamSides(p).forEach(k=>check(l[k]&&glassProductById(l[k].glassProductId)));salesLamFilms(p).forEach(f=>check(mdById('interlayerProduct',f.productId)));}else check(glassProductById(p.glassProductId));});
  (m.cavities||[]).forEach(c=>check(mdById('spacerVariant',c.spacerVariantId)));
  return [...new Set(out)];
 }
@@ -448,8 +448,8 @@ function salesLineWeightLive(line,order,productionPlan){
   const g=geometry(i),label='Lite '+(i+1),from=rows.length;
   if(p.category==='laminated'){
    const lam=p.laminated||{};
-   [lam.outer,lam.inner].forEach((ply,j)=>{if(ply){glass(ply,label+(j?'b':'a'),g);surface(ply,label+(j?'b':'a'),g);}});
-   (lam.interlayers||[]).forEach(f=>{
+   salesLamSides(p).forEach(side=>{const ply=lam[side];if(ply){glass(ply,label+salesLamLetter(p,side),g);surface(ply,label+salesLamLetter(p,side),g);}});
+   salesLamFilms(p).forEach(f=>{
     const prod=mdById('interlayerProduct',f.productId);
     norm('film:'+f.productId,label+' · '+(prod?prod.name:'Interlayer'),g.area==null?null:g.area*GLASS_M2_PER_FT2*(f.thicknessMm/1000),'kg/m³','Density × actual interlayer volume',salesWeightGap('film:'+f.productId,(prod?prod.name:'Interlayer')+' density',SALES_WEIGHT_WHERE.film+(prod?' → '+prod.name:''),'interlayer',prod?{t:'interlayerProduct',id:prod.id}:null));
    });

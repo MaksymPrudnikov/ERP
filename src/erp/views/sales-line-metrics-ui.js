@@ -291,7 +291,7 @@ function salesMinAreaMakeups(){const used=new Set((soDraft&&soDraft.lines||[]).m
 function salesMinAreaPartList(m){
  const out=new Map(),add=(table,item,kind,where)=>{if(!item)return;const k=table+':'+item.id;if(!out.has(k))out.set(k,{key:k,table,item,kind,where:[]});out.get(k).where.push(where);};
  (m.panes||[]).forEach((p,i)=>{
-  if(p.category==='laminated'){const l=p.laminated||{};add('glassProduct',glassProductById(l.outer&&l.outer.glassProductId),'Glass','Lite '+(i+1)+'a');(l.interlayers||[]).forEach(f=>add('interlayerProduct',mdById('interlayerProduct',f.productId),'Interlayer','Lite '+(i+1)));add('glassProduct',glassProductById(l.inner&&l.inner.glassProductId),'Glass','Lite '+(i+1)+'b');}
+  if(p.category==='laminated'){const l=p.laminated||{},gaps=salesLamGaps(p);salesLamSides(p).forEach((k,j)=>{add('glassProduct',glassProductById(l[k]&&l[k].glassProductId),'Glass','Lite '+(i+1)+salesLamLetter(p,k));(gaps[j]||[]).forEach(f=>add('interlayerProduct',mdById('interlayerProduct',f.productId),'Interlayer','Lite '+(i+1)));});}
   else add('glassProduct',glassProductById(p.glassProductId),'Glass','Lite '+(i+1));
  });
  (m.cavities||[]).forEach((c,i)=>add('spacerVariant',mdById('spacerVariant',c.spacerVariantId),'Spacer','Cavity '+(i+1)));
@@ -340,7 +340,7 @@ function salesOrderMinParts(m){
  (m.panes||[]).forEach((p,i)=>{
   if(p.category==='spandrel')add('spandrelProduct',p.spandrel&&p.spandrel.productId,'Spandrel','Lite '+(i+1));
   if(p.category==='vision'&&p.visionType==='frit')add('fritProduct',p.frit&&p.frit.productId,'Frit','Lite '+(i+1));
-  if(p.category==='laminated')[p.laminated&&p.laminated.outer,p.laminated&&p.laminated.inner].forEach((ply,j)=>{if(ply&&ply.frit&&ply.frit.enabled)add('fritProduct',ply.frit.productId,'Frit','Lite '+(i+1)+(j?'b':'a'));});
+  if(p.category==='laminated')salesLamSides(p).forEach(k=>{const ply=p.laminated[k];if(ply&&ply.frit&&ply.frit.enabled)add('fritProduct',ply.frit.productId,'Frit','Lite '+(i+1)+salesLamLetter(p,k));});
  });
  /* Работы Works за ft², которые есть в строках этого макапа. */
  const seen=new Set();

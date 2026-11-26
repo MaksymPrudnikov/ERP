@@ -101,7 +101,7 @@ function repSoldLine(o,l,cad,put){
    add({category:'Interlayer',type:x&&x.family||'Interlayer',product:x?x.name:'Interlayer',unitName,qty:sq?lam*layers:qty,amount:money(r.amount),lamFt2:lam,filmFt2:lam*layers});return;}
   const ply=pane&&r.ply?(pane.laminated||{})[r.ply]:pane,g=r.itemId&&glassProductById(r.itemId);
   /* Ламинат одной ценой руками: обе плиты — одной строкой. */
-  const plies=pane&&pane.category==='laminated'&&!r.ply?2:1;
+  const plies=pane&&pane.category==='laminated'&&!r.ply?salesLamSides(pane).length:1;
   add({category:'Glass',type:g?salesVisionTypeLabel(g.coatingFamily):pane&&pane.category==='laminated'?'Laminated':'Glass',product:g?g.code:pane&&pane.category==='laminated'?'Laminated · price by hand':'Glass',
    unitName,qty,amount:money(r.amount),mm:g&&g.thicknessMm||ply&&+ply.thicknessMm||null,heat:heatOf(ply),maker:g&&g.manufacturer||'',glassFt2:bill*live*plies});
  });

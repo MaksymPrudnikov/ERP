@@ -20,7 +20,7 @@ function stkFmtKg(w){return w?(w.exact?'':'≈ ')+w.kg.toFixed(1)+' kg':'';}
 function stkGlassText(g,det){
  const parts=[det.code&&g.code?g.code:g.name];
  if(det.thickness&&g.mm)parts.push(g.mm+' mm');
- if(det.ply&&g.ply)parts.push(g.ply==='outer'?'outer ply':'inner ply');
+ if(det.ply&&g.ply)parts.push(g.ply==='outer'?'outer ply':g.ply==='inner'?'inner ply':'middle ply');
  if(det.heat&&g.heat)parts.push(g.heat);
  if(det.heatSoak&&g.heatSoak)parts.push('HST');
  if(det.surface&&g.surface)parts.push(g.surface);
@@ -32,8 +32,8 @@ function stkMakeupRowText(r,det){
  if(r.kind==='space')return [det.spacer&&r.spacer,det.gas&&r.gas,det.sealant&&r.sealant].filter(Boolean).join(' · ');
  if(!det.glass)return '';
  if(r.kind==='glass')return glass(r.glass);
- const films=r.films.map(f=>f.name+(det.film&&f.mm?' '+(+f.mm.toFixed(2))+' mm':'')+(det.film&&f.layers>1?' ('+f.layers+' layers)':''));
- return [glass(r.outer)].concat(films,[glass(r.inner)]).join(' + ');
+ const films=list=>list.map(f=>f.name+(det.film&&f.mm?' '+(+f.mm.toFixed(2))+' mm':'')+(det.film&&f.layers>1?' ('+f.layers+' layers)':''));
+ return [glass(r.outer)].concat(films(r.films),...(r.middle||[]).map(m=>[glass(m.glass)].concat(films(m.films))),[glass(r.inner)]).join(' + ');
 }
 /* Подгонка текста меряет ширину шрифтом бланков, но сам текст не меняет:
    SVG печатает любой символ (≈, ″, ×), а бланк PDF заменил бы его «?». */

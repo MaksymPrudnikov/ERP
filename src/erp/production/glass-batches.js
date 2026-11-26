@@ -53,10 +53,10 @@ function glassIdMarkSave(){
 function glassBatchComponents(o,l){
  const m=salesMakeupById(o,l.makeupId);
  if(!m||!(m.panes||[]).length)return [{key:[o.id,l.id,'legacy','lite'].join('|'),orderId:o.id,lineId:l.id,paneId:'',index:0,ply:'',glassId:'',glass:'Unknown glass',lite:'—',pane:null,spec:{},missing:true}];
- return m.panes.flatMap((p,index)=>(p.category==='laminated'?['outer','inner']:['']).map(ply=>{
+ return m.panes.flatMap((p,index)=>(p.category==='laminated'?salesLamSides(p):['']).map(ply=>{
   const spec=(ply?p.laminated&&p.laminated[ply]:p)||{},g=glassProductById(spec.glassProductId);
   return {key:[o.id,l.id,p.id,ply||'lite'].join('|'),orderId:o.id,lineId:l.id,paneId:p.id,index,ply,
-   glassId:spec.glassProductId||'',glass:g?g.code:'Unknown glass',lite:String(index+1)+(ply==='outer'?'a':ply==='inner'?'b':''),pane:p,spec};
+   glassId:spec.glassProductId||'',glass:g?g.code:'Unknown glass',lite:String(index+1)+(ply?salesLamLetter(p,ply):''),pane:p,spec};
  }));
 }
 /* Стекло без галочки «We cut it» (COG, покупное) не режем: его нет в

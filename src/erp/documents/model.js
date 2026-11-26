@@ -82,10 +82,10 @@ function docMakeupFullLines(m,opts){
   const lam=p.category==='laminated',g=lam?null:glassProductById(p.glassProductId);
   const how=opts&&opts.glassNames;let s='Lite '+(i+1)+': '+docPaneName(p)+(g&&g.code&&how!=='name'?' ('+(how==='short'?glassShortName(g):g.code)+')':'');
   const heat=docHeatName(lam?(p.laminated||{}).outer:p);if(heat)s+=' · '+heat;
-  if(lam)['outer','inner'].forEach(side=>{const cs=salesCoatingSurfaceOf(p,i,side);if(cs)s+=' · coating '+(cs==='film'?'into film':'#'+cs);});
+  if(lam)salesLamSides(p).forEach(side=>{const cs=salesCoatingSurfaceOf(p,i,side);if(cs)s+=' · coating '+(cs==='film'?'into film':'#'+cs);});
   else if(p.coatingSurface)s+=' · coating #'+p.coatingSurface;
   if(lam){
-   const films=((p.laminated||{}).interlayers||[]).map(f=>{const x=mdById('interlayerProduct',f.productId);return (x?x.name:'Interlayer')+(f.thicknessMm?' '+f.thicknessMm+' mm':'');});
+   const films=salesLamFilms(p).map(f=>{const x=mdById('interlayerProduct',f.productId);return (x?x.name:'Interlayer')+(f.thicknessMm?' '+f.thicknessMm+' mm':'');});
    if(films.length)s+=' · '+films.join(' + ');
   }
   if(p.category==='spandrel'){const x=mdById('spandrelProduct',p.spandrel&&p.spandrel.productId);s+=' · spandrel'+(x?' '+x.name:'');}
