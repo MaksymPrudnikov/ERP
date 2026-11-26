@@ -306,7 +306,7 @@ function salesPrintRoute(line,order,shape,result){
       var liteShape=v.shape||shape,liteResult=liteShape===shape?result:ShapeModule.compute(liteShape);
       var cut=(plan.lites||[]).find(function(c){return c.index===v.index;});
       liteResult=Object.assign({},liteResult,{cutting:cut?{valid:true,width:cut.cutW,height:cut.cutH}:null});
-      (lam?['outer','inner']:['']).forEach(function(side){
+      (lam?salesLamSides(pane):['']).forEach(function(side){
         var glass=lam?(pane.laminated||{})[side]:pane,ht=salesRouteHeatOf(glass);
         var treatments=salesRouteSurfaceTreatments(pane,i,side);
         var st=salesRouteLiteStations(liteShape,liteResult,v.groups,ht,treatments,glass&&glass.heatSoak);
@@ -316,7 +316,7 @@ function salesPrintRoute(line,order,shape,result){
            порядке станций: «если только CNC — только это» (владелец,
            14.10.2026). Своей кромки по умолчанию у него нет (orders.js). */
         if(g&&g.cut===false){var cutCode=salesRouteStationOf('cutting','CUT');st.list=st.list.filter(function(s){return s.code!==cutCode;});}
-        var row={label:(v.label||('Lite '+(i+1)))+(side?(side==='outer'?'a':'b'):''),
+        var row={label:(v.label||('Lite '+(i+1)))+(side?salesLamLetter(pane,side):''),
           glass:(g?(glassShortName(g)||g.name):'')+' · '+ht+(glass&&glass.heatSoak&&ht==='FT'?' + HST':''),stations:st.list,afterMerge:st.after,unassigned:st.unassigned,
           /* Размер реза этого стекла — для проверки габарита станций; лист его не печатает. */
           cut:cut?{width:cut.cutW,height:cut.cutH}:null};

@@ -147,7 +147,7 @@ salesAssignSelected=function(makeupId){
 };
 function salesBulkApply(){return salesAssignSelected(soBulkMakeupId);}
 function salesMakeupGlassText(m){
-  return (m.panes||[]).map(function(p){var n=function(id){var g=glassProductById(id);return g?glassShortName(g):'?';};return p.category==='laminated'?n(p.laminated&&p.laminated.outer&&p.laminated.outer.glassProductId)+'+'+n(p.laminated&&p.laminated.inner&&p.laminated.inner.glassProductId):n(p.glassProductId);}).join(' / ');
+  return (m.panes||[]).map(function(p){var n=function(id){var g=glassProductById(id);return g?glassShortName(g):'?';};return p.category==='laminated'?salesLamSides(p).map(function(k){return n(p.laminated[k]&&p.laminated[k].glassProductId);}).join('+'):n(p.glassProductId);}).join(' / ');
 }
 function salesMakeupBarHTML(){
   if(!soDraft||!soDraft.lines.length||salesOrderReadOnly(soDraft))return '';

@@ -55,11 +55,23 @@ line: lites joined by " / " with the cavity (spacer and gas) between them.
   interlayer + glass. Example: `LAM 12.76 (6CLEAR + 0.76 EVA-CL + 6CLEAR)`; in an IGU the same text stands in place
   of the lite: `6E180ESC / 17/32 Black Warm Edge ARG / LAM 12.76 (6CLEAR + 0.76 EVA-CL + 6CLEAR)`.
   - Thickness is nominal: 6 + 6 + 0.76 = 12.76 (how the glass is called), not measured.
+  - A 3–4 glass laminate reads the same way, in order: `LAM 25.14 (6CLEAR + 0.38 EVA-CL + 6CLEAR + … + 6CLEAR)`.
   - Interlayer — the thickness of all its layers (2 × 0.38 = 0.76) and its code; the customer sees its name. The
     drawing says the same: `film: 1.52 mm EVA-UC` — the total, without the layer count.
 - **Frit** — patterns 2 x 2 square, 4 x 4 square, 2 x 2 diamond (a 2″ × 2″ diamond: 2″ along a row, rows 1″ apart
   and shifted), 4 x 4 diamond (a 4″ × 4″ diamond) and Custom by the silk screen sheet.
 - The makeup code in the strip (A, MU-2…) always stays on one line; a long description ends with an ellipsis.
+
+## Laminated from 3–4 glasses
+
+- A **Laminated** lite is Outer ply, interlayers, Inner ply. **+ Add ply** under the stack adds a middle glass
+  (Middle ply) before the inner one: triple — 1a · 1b · 1c, quad — 1a · 1b · 1c · 1d. Four is the limit — the
+  button turns grey.
+- A new middle glass copies the outer one (glass, heat treatment); its coating faces the interlayer; a middle glass
+  has no frit. After every glass there is its own interlayer gap ("INTERLAYER 2 · 1b / 1c") with its own
+  **+ Add Film**.
+- **×** on a middle glass removes it with its interlayers; the next middle glass takes its place.
+- The lite price is the sum of all glasses and interlayers; cutting, route, drawing and sticker go glass by glass.
 
 ## Shape area — by the cutting rectangle
 

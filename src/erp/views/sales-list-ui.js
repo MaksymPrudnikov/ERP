@@ -480,7 +480,7 @@ function salesListTokens(info,k){
  if(k!=='glass')return [salesListText(info,k)];
  const used=new Set((info.o.lines||[]).map(l=>l.makeupId)),codes=[];
  (info.o.makeups||[]).filter(m=>used.has(m.id)).forEach(m=>(m.panes||[]).forEach(p=>{
-  const panes=p.category==='laminated'?[p.laminated&&p.laminated.outer,p.laminated&&p.laminated.inner]:[p];
+  const panes=p.category==='laminated'?salesLamSides(p).map(k=>p.laminated[k]):[p];
   panes.forEach(x=>{const g=glassProductById(x&&x.glassProductId);if(g)codes.push(glassShortName(g));});
  }));
  return codes.length?[...new Set(codes)]:['(empty)'];
