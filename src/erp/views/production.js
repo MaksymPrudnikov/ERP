@@ -107,15 +107,15 @@ function viewSfStations(edit,framed){
  const plain=h=>String(h||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
  const works=s=>stationOperations(s.code).map(o=>o.name||o.id);
  /* Таблица вида Sales (владелец 07.11.2026): фильтр, сортировка, ширина, порядок. */
- const table=slTable(edit?'mdStations':'prodStations',{list:DB.station,id:s=>s.code,empty:'empty',noun:l=>l.length+' station'+(l.length===1?'':'s'),fill:'works',acts:edit?120:90,
+ const table=slTable(edit?'mdStations':'prodStations',{list:DB.station,id:s=>s.code,empty:'empty',noun:l=>l.length+' station'+(l.length===1?'':'s'),fill:'works',acts:edit?165:90,
   columns:()=>[
-   {k:'step',label:'Step',type:'number',v:s=>s.seq,cell:(s,v,info)=>`<span style="white-space:nowrap">${edit?`<input class="sf-step" type="number" min="1" step="1" value="${s.seq}" data-sf-step="${esc(s.code)}" ${onAct('change',sfStationSetStep,info.i,EL_VALUE)}>`:`<b class="mono">${s.seq}</b>`}${steps.get(s.seq)>1?' <span class="pill info" title="Same step as another station">parallel</span>':''}</span>`},
+   {k:'step',label:'Step',type:'number',w:160,minW:edit?150:110,v:s=>s.seq,cell:(s,v,info)=>`<span style="white-space:nowrap">${edit?`<input class="sf-step" type="number" min="1" step="1" value="${s.seq}" data-sf-step="${esc(s.code)}" ${onAct('change',sfStationSetStep,info.i,EL_VALUE)}>`:`<b class="mono">${s.seq}</b>`}${steps.get(s.seq)>1?' <span class="pill info" title="Same step as another station">parallel</span>':''}</span>`},
    {k:'code',label:'Code',type:'text',v:s=>s.code,cell:s=>`<b class="mono">${raw(s.code)}</b>`},
    {k:'name',label:'Name',type:'text',v:s=>plain(sfLabel(s)),cell:s=>sfLabel(s)},
    {k:'machines',label:'Machines',type:'text',v:s=>(s.machines||[]).join(' · '),cell:s=>(s.machines||[]).length?`<span class="mono">${esc(s.machines.join(' · '))}</span>`:'<span class="mut">—</span>'},
    {k:'route',label:'In route',type:'list',v:s=>s.always?'always':'when required',cell:s=>`<span class="pill ${s.always?'ok':'info'}">${s.always?'always':'when required'}</span>`},
-   {k:'size',label:'Size, W × L',type:'text',v:s=>plain(sfDimText(s)),cell:s=>`<span class="mono">${sfDimText(s)}</span>`},
-   {k:'putsOn',label:'Puts on',type:'list',v:s=>plain(sfPutsOnCell(s,false)),cell:s=>sfPutsOnCell(s,edit)},
+   {k:'size',label:'Size, W × L',type:'text',w:210,minW:205,v:s=>plain(sfDimText(s)),cell:s=>`<span class="mono">${sfDimText(s)}</span>`},
+   {k:'putsOn',label:'Puts on',type:'list',w:170,minW:edit?160:110,v:s=>plain(sfPutsOnCell(s,false)),cell:s=>sfPutsOnCell(s,edit)},
    {k:'sheet',label:'Dolly / skid sheet',type:'text',v:s=>typeof carrierSheetCell==='function'?plain(carrierSheetCell(s,false)):'',cell:s=>`<span style="white-space:nowrap">${typeof carrierSheetCell==='function'?carrierSheetCell(s,edit):''}</span>`},
    {k:'works',label:'Works',type:'text',tokens:true,v:s=>works(s).join(' · '),cell:s=>{const w=works(s);return w.length?w.slice(0,6).map(n=>`<span class="pill info" data-raw>${esc(n)}</span>`).join(' ')+(w.length>6?` <span class="mut">+${w.length-6}</span>`:''):'<span class="mut">none</span>';}},
    {k:'note',label:'Note',type:'text',v:s=>s.note||'',cell:s=>`<span class="mut">${raw(s.note||'')}</span>`}],
@@ -136,7 +136,7 @@ function sfPutsOnCell(s,edit){
  if(sfPutsOnOwn(s.code))return '<span class="mut">'+(sfPutsOn(s)==='skid'?'Skid · always':'own rules')+'</span>';
  const v=sfPutsOn(s);
  if(!edit)return v==='none'?'<span class="mut">—</span>':esc(SF_PUTS_ON.find(([k])=>k===v)[1]);
- return `<select data-sf-puts-on="${esc(s.code)}" style="min-width:96px" ${onAct('change',sfPutsOnPick,String(s.code??''),EL_VALUE)}>${SF_PUTS_ON.map(([k,l])=>`<option value="${k}"${k===v?' selected':''}>${l}</option>`).join('')}</select>`;
+ return `<select data-sf-puts-on="${esc(s.code)}" style="min-width:130px" ${onAct('change',sfPutsOnPick,String(s.code??''),EL_VALUE)}>${SF_PUTS_ON.map(([k,l])=>`<option value="${k}"${k===v?' selected':''}>${l}</option>`).join('')}</select>`;
 }
 function sfPutsOnPick(code,v){sfSetPutsOn(code,v);render();}
 function sfStationSetStep(i,v){

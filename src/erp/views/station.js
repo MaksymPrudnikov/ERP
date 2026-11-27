@@ -825,7 +825,7 @@ function stationCarrierScan(code){
     IGU получают на долли, а отдают на скидах. На станции готовности так
     было и раньше: стекло со скида не снимают. */
  if(here.length){
-  const t=carrierType(c.code),mine=!!t&&t.kind.toLowerCase()===stationPutsOnHere();
+  const t=carrierType(c.code),mine=!!t&&sfPutsTakes(stationPutsOnHere(),t.kind);
   const took=mine?(stationSetPutOn(c.code),stationLooseTake(c.code)):0;
   stationIncoming=c.code;stationLast={check:{kind:'carrierIn',code:c.code,count:here.length,took,back},rec:null,data:null,place:null,at:now};stationBeep('info');return 'in';
  }
@@ -882,7 +882,7 @@ function stationLoadedCard(){
    скид, SHIP — без тары (грузит скиды). Какие сканы ждут тару — в сессии станции, как «кладу на»:
    переживают перезагрузку и уходят со сменой. */
 function stationPutsOnHere(){return typeof sfPutsOn==='function'?sfPutsOn(stationRow()):'none';}
-function stationTareWord(){return stationPutsOnHere()==='skid'?'skid':'dolly';}
+function stationTareWord(){const p=stationPutsOnHere();return p==='skid'?'skid':p==='both'?'dolly or skid':'dolly';}
 function stationLooseIds(){const s=stationSession();return s&&Array.isArray(s.loose)?s.loose:[];}
 function stationLooseSave(ids){const m=stationSessions(),s=m[stationCode];if(!s||typeof s!=='object')return;s.loose=ids;stationSessionsSave(m);}
 /* Сканы, всё ещё ждущие тару: не отменены, последние у своего стекла, тары нет. */
@@ -953,7 +953,7 @@ function stationWarnKeepBtn(code){return '<button type="button" class="b sm" dat
    что кладут здесь (на SHIPR — скид). */
 function stationWarnTare(code){
  const L=stationLast,w=L&&(L.wrong||L.foreign),t=typeof carrierType==='function'?carrierType(code):null;
- return !!w&&!!t&&t.kind.toLowerCase()===stationPutsOnHere();
+ return !!w&&!!t&&sfPutsTakes(stationPutsOnHere(),t.kind);
 }
 /* Стёкла предупреждённого скана: юнит — все его лайты одним действием. */
 function stationWarnPieces(L){

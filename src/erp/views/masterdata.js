@@ -140,7 +140,7 @@ function mdStationTreeHTML(){
 function viewMdSetup(){
  const s=orderSetup(),cur='CAD';
  const on=k=>`<input type="checkbox" data-setup="${k}" ${s[k]?'checked':''} ${onAct('change',orderSetupSet,String(k),EL_CHECKED)}>`;
- const num=(k,unit)=>`<input type="number" min="0" step="0.01" data-setup="${k}" value="${s[k]}" ${onAct('change',orderSetupSet,String(k),EL_VALUE)}> <span class="mut">${unit}</span>`;
+ const num=(k,unit)=>`<span class="md-num"><input type="number" min="0" step="0.01" data-setup="${k}" value="${s[k]}" ${onAct('change',orderSetupSet,String(k),EL_VALUE)}><span class="mut">${unit}</span></span>`;
  const inBase=(k,label)=>`<label class="md-setup-base">${on(k)} ${label}</label>`;
  /* Таблицы вида Sales (владелец 07.11.2026): фильтр, сортировка, ширина, порядок. */
  const charges=[['Energy surcharge (ES)','energyOn',num('energyRate','%'),'<span class="mut">—</span>',s.energyRate+' %','—'],
@@ -148,10 +148,10 @@ function viewMdSetup(){
   ['Card fee','cardOn','<span class="mut">by card below</span>',inBase('cardOnEnergy','ES')+inBase('cardOnHst','HST')+inBase('cardOnDelivery','Delivery'),'by card',[s.cardOnEnergy&&'ES',s.cardOnHst&&'HST',s.cardOnDelivery&&'Delivery'].filter(Boolean).join(', ')],
   ['Delivery','deliveryOn',num('deliveryAmount',cur),'<span class="mut">—</span>',s.deliveryAmount+' '+cur,'—'],
   ['Skid deposit','skidDepositOn',num('skidDepositAmount',cur),'<span class="mut">Not in any base</span>',s.skidDepositAmount+' '+cur,'Not in any base']];
- const chargeTable=slTable('mdSetupCharges',{list:charges,id:x=>x[1],cls:'ncr-table',fill:'charge',noun:l=>l.length+' charges',
-  columns:()=>[{k:'charge',label:'Charge',type:'text',v:x=>x[0],cell:x=>`<b>${x[0]}</b>`},{k:'on',label:'On',type:'list',v:x=>s[x[1]]?'Yes':'No',cell:x=>on(x[1])},{k:'value',label:'Value',type:'text',v:x=>x[4],cell:x=>x[2]},{k:'base',label:'Base besides Subtotal',type:'text',v:x=>x[5],cell:x=>x[3]}]});
- const cardTable=slTable('mdSetupCards',{list:s.cardNetworks,id:n=>n.id,cls:'ncr-table',acts:50,empty:'No cards',noun:l=>l.length+' card'+(l.length===1?'':'s'),
-  columns:()=>[{k:'name',label:'Name on order',type:'text',v:n=>n.name,cell:(n,v,i)=>`<input type="text" maxlength="60" value="${esc(n.name)}" ${onAct('change',orderSetupCardSet,i.i,'name',EL_VALUE)}>`},{k:'rate',label:'Rate',type:'number',v:n=>n.rate,cell:(n,v,i)=>`<input type="number" min="0" step="0.01" value="${n.rate}" ${onAct('change',orderSetupCardSet,i.i,'rate',EL_VALUE)}> <span class="mut">%</span>`}],
+ const chargeTable=slTable('mdSetupCharges',{list:charges,id:x=>x[1],cls:'ncr-table',fill:'base',noun:l=>l.length+' charges',
+  columns:()=>[{k:'charge',label:'Charge',type:'text',w:230,v:x=>x[0],cell:x=>`<b>${x[0]}</b>`},{k:'on',label:'On',type:'list',w:70,v:x=>s[x[1]]?'Yes':'No',cell:x=>on(x[1])},{k:'value',label:'Value',type:'text',w:190,v:x=>x[4],cell:x=>x[2]},{k:'base',label:'Base besides Subtotal',type:'text',w:320,v:x=>x[5],cell:x=>x[3]}]});
+ const cardTable=slTable('mdSetupCards',{list:s.cardNetworks,id:n=>n.id,cls:'ncr-table',fill:'rate',acts:50,empty:'No cards',noun:l=>l.length+' card'+(l.length===1?'':'s'),
+  columns:()=>[{k:'name',label:'Name on order',type:'text',w:260,v:n=>n.name,cell:(n,v,i)=>`<input type="text" maxlength="60" value="${esc(n.name)}" ${onAct('change',orderSetupCardSet,i.i,'name',EL_VALUE)}>`},{k:'rate',label:'Rate',type:'number',w:170,v:n=>n.rate,cell:(n,v,i)=>`<span class="md-num"><input type="number" min="0" step="0.01" value="${n.rate}" ${onAct('change',orderSetupCardSet,i.i,'rate',EL_VALUE)}><span class="mut">%</span></span>`}],
   row:i=>({attrs:` data-setup-card="${esc(i.x.id)}"`,last:`<button type="button" class="sm dl" aria-label="Remove" title="Remove" ${onAct('click',orderSetupCardRemove,i.i)}>×</button>`})});
  return `<div class="md-setup" data-md-setup>
   <h3>Order charges</h3><p class="mut">Defaults for new orders.</p>
@@ -1429,6 +1429,7 @@ function mdCatForm(){
     <div><label>Round quantity up to</label><input id="md_catRoundTo" type="number" step="any" min="0" value="${v(r.roundTo)}" placeholder="no rounding"><div class="hint">In the work's unit</div></div>
     <div><label>Min charge, CAD</label><input id="md_catMinCharge" type="number" step="0.01" min="0" value="${v(r.minCharge)}" placeholder="no minimum"><div class="hint">Per unit</div></div>
     ${r.unit==='ft²'?`<div><label>Min area, ft²</label><input id="md_catMinArea" type="number" step="any" min="0" value="${v(r.minAreaFt2)}" placeholder="real area"><div class="hint">Order can change</div></div>`:''}
+    ${r.id==='miter'?`<div><label>Angle from, °</label><input id="md_catAngleMin" type="number" step="0.1" min="0" value="${v(r.angleMin)}" placeholder="any"><div class="hint">Outside asks at Save</div></div><div><label>Angle to, °</label><input id="md_catAngleMax" type="number" step="0.1" min="0" value="${v(r.angleMax)}" placeholder="any"></div>`:''}
    </div>`}
    ${isNew||r.rule?'':mdPriceListsHTML('service:'+r.id)}`;
   return mdCardHTML({form:'work',crumb:['Works',r.rule?'Surcharges':'Works'],title:isNew?'New work':raw(r.name||r.id),
@@ -1588,14 +1589,17 @@ function mdWorkDraftRead(keep){
   useTiers=[{id:'flat',from:null,to:null,price:r.rule?(p0===undefined?first.price:p0):null}];
   unit=kind==='percent'?'%':'ft²';
  }else if(r.rule)useTiers=[{id:'flat',from:null,to:null,price:null}];
- const roundTo=num('md_catRoundTo'),minCharge=num('md_catMinCharge'),minArea=num('md_catMinArea');
+ const roundTo=num('md_catRoundTo'),minCharge=num('md_catMinCharge'),minArea=num('md_catMinArea'),angleMin=num('md_catAngleMin'),angleMax=num('md_catAngleMax');
  const next=Object.assign({},r,{name:mdVal('md_catName'),unit:unit,station:mdVal('md_catStation'),tiers:useTiers,rule,
   roundTo:rule?null:roundTo===undefined?r.roundTo:roundTo,minCharge:rule?null:minCharge===undefined?r.minCharge:minCharge,
   minAreaFt2:rule?null:minArea===undefined?(r.minAreaFt2==null?null:r.minAreaFt2):minArea,
   appliesBy:appliesBy,family:appliesBy?(document.getElementById('md_catFamily')?mdVal('md_catFamily'):r.family||'hole'):'',
   appliesFrom:appliesBy?(from===undefined?r.appliesFrom:from):null,appliesTo:appliesBy?(to===undefined?r.appliesTo:to):null,
   note:mdVal('md_catNote'),active:mdVal('md_catActive')!=='0'});
- if(useTiers.some(t=>bad(t.from)||bad(t.to)||bad(t.price))||[next.appliesFrom,next.appliesTo,next.roundTo,next.minCharge,next.minAreaFt2].some(bad)||rule&&[rule.areaOver,rule.areaUnder].some(bad))next.bad='Numbers must be 0 or more, or empty';
+ /* Пределы угла митры (27.11.2026): пустое поле — без предела. */
+ if(angleMin!==undefined){if(angleMin==null)delete next.angleMin;else next.angleMin=angleMin;}
+ if(angleMax!==undefined){if(angleMax==null)delete next.angleMax;else next.angleMax=angleMax;}
+ if(useTiers.some(t=>bad(t.from)||bad(t.to)||bad(t.price))||[next.appliesFrom,next.appliesTo,next.roundTo,next.minCharge,next.minAreaFt2,next.angleMin,next.angleMax].some(bad)||rule&&[rule.areaOver,rule.areaUnder].some(bad))next.bad='Numbers must be 0 or more, or empty';
  if(keep){mdCatDraft=Object.assign({},next);delete mdCatDraft.bad;}
  return next;
 }

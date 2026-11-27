@@ -60,7 +60,9 @@ function cwGrip(){return '<span class="cw-grip" data-cw-grip aria-hidden="true">
    тянули, ужимаются поровну от лишнего, но не уже своего заголовка; длинный
    текст — многоточие. Потянутые руками держат свою ширину. Не влезает и
    так — таблица как была, с прокруткой. Только таблицы, что попросили
-   (adapter.fit: таблицы slTable). */
+   (adapter.fit: таблицы slTable). Своя нижняя граница колонки (adapter.floor,
+   minW колонки slTable) — для ячеек, которые нельзя резать «…»: поле с
+   пометкой, две строки размера станции (владелец 27.11.2026, Stations). */
 function cwFit(table){
  const id=table.dataset.cwTable,a=id&&CW_TABLES[id];if(!a||!a.fit)return;
  let wrap=table.parentElement;while(wrap&&wrap!==document.body&&!/auto|scroll|hidden/.test(getComputedStyle(wrap).overflowX))wrap=wrap.parentElement;
@@ -70,7 +72,7 @@ function cwFit(table){
  const min=c=>{const th=table.querySelector('thead th[data-cw-key="'+c.dataset.cwCol+'"]'),l=th&&th.querySelector('[data-cw-label]');let t=0;if(l){const r=document.createRange();r.selectNodeContents(l);t=r.getBoundingClientRect().width;}return Math.max(CW_MIN+20,Math.ceil(t)+44);};
  /* Влезает только целиком — иначе как было, с прокруткой (каталог стекла:
     12 колонок, владелец 27.11.2026: «оставить прокрутку»). */
- const room=cols.map(c=>{const w=parseFloat(c.style.width)||0;return {c,w,m:Math.min(w,min(c))};}),spare=room.reduce((s,r)=>s+r.w-r.m,0);if(spare<over)return;
+ const floor=a.floor||{},room=cols.map(c=>{const w=parseFloat(c.style.width)||0;return {c,w,m:Math.min(w,Math.max(min(c),floor[c.dataset.cwCol]||0))};}),spare=room.reduce((s,r)=>s+r.w-r.m,0);if(spare<over)return;
  const f=over/spare;let cut=0;
  room.forEach(r=>{const d=Math.min(r.w-r.m,Math.ceil((r.w-r.m)*f));if(d>0){r.c.style.width=(r.w-d)+'px';cut+=d;}});
  if(cut)table.style.width='max(100%,'+(table.offsetWidth-cut)+'px)';

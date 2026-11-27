@@ -23,7 +23,7 @@ module.exports=async function({page,eq}){
  eq('× у митры снимает только митру, арис остаётся; × у полировки толстого стекла — Clean cut',await run(()=>{
   const l=ccLine('HT-AN'),s=salesShapeByRef(l.shapeRef),g=salesShapePhysicalEdges(s)[0];
   s.edgeOps={[g.id]:[shapeNormalizeOp({type:'Rough Arris'}),shapeNormalizeOp({type:'Mitering',angle:45,side:'back'})]};
-  const key=salesLineChargeRows(l).find(r=>/^EDGE:miter45/.test(r.key)).key;salesRemoveEdgeCharge(l.id,key);
+  const key=salesLineChargeRows(l).find(r=>/^EDGE:miter:/.test(r.key)).key;salesRemoveEdgeCharge(l.id,key);
   const mit=[ccEdge(l),(salesShapeByRef(l.shapeRef).edgeClean||[]).length];
   const p=soDraft.makeups[0].panes[0],g10=activeGlassProducts().find(x=>+x.thicknessMm===10&&x.coatingFamily==='uncoated');
   if(g10){p.glassProductId=g10.id;p.thicknessMm=10;}

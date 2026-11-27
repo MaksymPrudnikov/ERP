@@ -28,7 +28,7 @@ const REP_SOLD_KIND={EDGE:'Edgework',MI:'Fabrication',GLAZE:'Coating & paint',HE
 const REP_SOLD_UNIT={in:'in',inch:'in','ft²':'ft²',sqft:'ft²',pc:'pcs',pcs:'pcs',each:'pcs'};
 /* Строка начислений: категория, работа Works, вид и продукт. Вид — семья
    работы (Hole) или сама работа (Hinge, Clamp, Notch by CNC); продукт —
-   строка как в заказе (Hole 1/2″–1″, Mitering 45°). */
+   строка как в заказе (Hole 1/2″–1″, Mitering). */
 function repSoldCharge(row){
  const p=String(row.key||'').split(':'),f=p[0]==='FEATURE'?p[1]||'':'';
  const category=p[0]==='FEATURE'?(/^sandblast-/.test(f)?'Sandblasting':/^mirror-/.test(f)?'Mirror':'Fabrication'):REP_SOLD_KIND[p[0]]||'Other services';

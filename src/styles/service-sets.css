@@ -78,3 +78,5 @@
 .line-locked-pill{display:none;margin-left:5px;padding:1px 6px;border-radius:999px;background:var(--warning-soft);color:var(--warning);border:1px solid var(--warning-line);font-size:10px;font-weight:700;vertical-align:middle}
 tr[data-picked] .line-locked-pill{display:inline-block}
 table.cw-fixed tr[data-picked] td>select:has(+.line-locked-pill){width:calc(100% - 62px)!important}
+/* Угол митры — число до десятой (27.11.2026). */
+.miter-angle{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}.miter-angle input{width:76px}

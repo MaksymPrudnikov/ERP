@@ -245,7 +245,7 @@ function shapeValidateComputed(def,geo,fg){
         if(!manual)thicknessNeeded=true;
         if(!manual&&th>0&&shapeOperationAllowance(op.type,th)<=0)errors.push(op.type+' on edge '+id+': no cutting allowance is configured for '+th+' mm glass.');
       }
-      if(op.type==='Mitering'&&[22.5,45].indexOf(+op.angle)<0)errors.push('Mitering on edge '+id+': angle must be 22.5° or 45°.');
+      if(op.type==='Mitering'&&shapeMiterAngle(op.angle)==null)errors.push('Mitering on edge '+id+': angle must be above 0° and below 90°.');
       if(op.type==='Beveling'&&!(inch(op.width)>0))errors.push('Beveling on edge '+id+': width must be greater than zero.');
     });
     var conflict=shapeFinishConflict(ops,id);if(conflict)errors.push(conflict);
