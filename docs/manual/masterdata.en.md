@@ -105,10 +105,15 @@ Screen hint: “Personal beats group; else base price.” The price order in an 
 personal list → the customer's group list → the base price (Glass, Works…); 0 is a price too, the search stops at it
 (owner, 22 Oct 2026).
 
-- **Customer groups** — a special price group (the Group field on the customer card), its prices, its customers.
-- **Item groups** — groups of items, to price a whole group at once.
-- **Set for customers** — bulk edit with a fixed price (not a percent).
-- **Excel** — price lists to and from a file.
+The screen works like Catalog (owner, 27 Nov 2026, variant A): a tree on the left, the open item full width on the
+right; the top line reads “group · customers · prices”.
+
+- **Customer groups** — a special price group (the Group field on the customer card): the tree shows its name and the
+  number of customers; a click opens it on the right — name, Delete group, customers (× removes, + Add customer), the
+  price table. **+ Customer group** adds one.
+- **Item groups** — groups of items, to price a whole group at once; the tree shows the item count, **+ Item group**.
+- **Tools → Set for customers** — bulk edit with a fixed price (not a percent).
+- **Tools → Excel** — price lists to and from a file.
 - A customer's personal list is on their card, Prices tab ([customers.en.md](customers.en.md)).
 
 ## Production

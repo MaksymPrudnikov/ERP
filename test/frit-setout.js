@@ -41,7 +41,7 @@ module.exports=async function({page,eq}){
   fsSetup('Top right',s=>{s.source={kind:'dxf',fileName:'frit.dxf',fileSize:900,uploadedAt:'2026-10-16T12:00:00.000Z',note:'',preview:{units:'in',points:[[0,0],[40,0],[40,20],[10,30],[0,30]],width16:640,height16:480}};s.w='40';s.h='30';});
   const screen=document.querySelector('#shapeLivePreview .frit-first-dot'),r=shapeDraftResult(),doc=new DOMParser().parseFromString(shapeSheetSvg(r,false),'image/svg+xml'),paper=doc.querySelector('.frit-first-dot');
   const out={screen:screen&&[+screen.getAttribute('data-x'),+(+screen.getAttribute('data-y')).toFixed(4)],paper:paper&&[+paper.getAttribute('data-x'),+(+paper.getAttribute('data-y')).toFixed(4)],
-   sample:!!doc.querySelector('.frit-pattern-sample'),widened:doc.documentElement.getAttribute('viewBox')!=='0 0 760 390',cutting:shapeSheetSvg(r,true).indexOf('frit')>=0};
+   sample:!!doc.querySelector('.frit-pattern-sample'),widened:doc.documentElement.getAttribute('viewBox')!=='0 0 760 390'||doc.documentElement.getAttribute('data-frit-inside')==='true',cutting:shapeSheetSvg(r,true).indexOf('frit')>=0};
   sEdit=null;sDraft=null;salesBridge=null;render();return out;
  }),{screen:[38,18.6667],paper:[38,18.6667],sample:true,widened:true,cutting:false});
  eq('frit setout has no browser errors',t.errs,[]);

@@ -204,7 +204,7 @@ function docFormBlockLabel(b){
  if(b.type==='text'){const t=String(b.text||'').replace(/\{[\w.]+(\|[^}]*)?\}/g,'…').replace(/\s+/g,' ').trim();return t.length>34?t.slice(0,33)+'…':t||'Text';}
  if(b.type==='field'){const f=formWithCompany(DOC_FORM_FIELDS).find(x=>x.k===b.field)||formMyFields().find(x=>x.k===b.field);return (b.prefix||'')+(f?f.label:b.field);}
  if(b.type==='section')return DOC_SECTIONS[b.k]||'Section';
- return {line:'Line',box:'Frame',image:'Picture',barcode:'Barcode'}[b.type]||'Block';
+ return {line:'Line',box:'Frame',image:'Picture',barcode:'Barcode',qr:'QR code'}[b.type]||'Block';
 }
 /* Конструктор: последние заказы (у Quote — квоты) для живого листа. */
 function docFormSamples(kind){

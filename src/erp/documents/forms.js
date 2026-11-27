@@ -9,7 +9,7 @@
    Части листа: every — верх каждой страницы, first — верх первой, table —
    таблица (её рисует код бланка через formFlow), totals — итоги, bottom —
    низ каждой страницы.
-   Блок: type text | field | image | line | box | barcode; place left |
+   Блок: type text | field | image | line | box | barcode | qr; place left |
    center | right | free (free — свой x); y — от верха части; w, h — размер.
    У текста y — линия букв первой строки, строки идут через lh, блок
    занимает строки × lh. Текст и поле растут и сжимаются по числу строк, и
@@ -139,7 +139,7 @@ function formLayout(tpl,part,ctx){
   if(b.after||b.before)text(x);
  });
  /* sa — интервал после блока (у текста — только у непустого). */
- bs.forEach(x=>{x.e=x.lines?(x.lines.length?x.lines.length*formLh(x.b)+(x.b.sa||0):0):x.hide?0:(x.sec?x.sec.h:x.b.h||0)+(x.b.sa||0);});
+ bs.forEach(x=>{x.e=x.lines?(x.lines.length?x.lines.length*formLh(x.b)+(x.b.sa||0):0):x.hide?0:(x.sec?x.sec.h:x.b.type==='qr'?x.b.w||72:x.b.h||0)+(x.b.sa||0);});
  /* pin — место закреплено: блок не ходит за блоками выше (шапка справа). */
  const done=[];
  bs.slice().sort((p,q)=>p.yt-q.yt||p.i-q.i).forEach(x=>{x.off=x.b.pin?0:formShift(done,x.yt);x.top=x.yt+x.off;done.push(x);});
@@ -171,6 +171,16 @@ function formDrawBlock(P,tpl,x,ctx,top,late){
   const m=b.module||1.44,bw=(barcode128Width(v)-2*BARCODE128_QUIET)*m,align=b.align||'left';
   const sx=align==='right'?bx+w-bw:align==='center'?bx+(w-bw)/2:bx;
   P.items.push(...barcode128Items(v,sx-BARCODE128_QUIET*m,top,h,m));
+  /* Рамка в конструкторе — по самим полосам, а не по w (27.11.2026). */
+  x.bar={x:sx,w:bw};
+ }
+ /* QR (erp/production/qr): квадрат w × w, модуль — w / число модулей;
+    тихая зона — за краем блока, как у штрихкода. */
+ else if(b.type==='qr'){
+  const v=String(ctx.field(b.field)||''),m=v&&qrMatrix(v);if(!m)return;
+  const s=w>0?w:72,k=s/m.length;
+  qrRuns(m).forEach(r=>P.items.push({t:'rect',x:bx+r.x*k,y:top+r.y*k,w:r.w*k,h:k,fill:'#000000'}));
+  x.bar={x:bx,w:s,h:s};
  }
 }
 /* Место блока на листе для конструктора: у текста y — линия букв, рамка
@@ -178,6 +188,7 @@ function formDrawBlock(P,tpl,x,ctx,top,late){
    было выбрать мышью. */
 function formRect(tpl,x,top,lines){
  const b=x.b,text=formIsText(b),w=x.aw!=null?x.aw:b.w||0,bx=x.ax!=null?(x.al==='right'?x.ax-w:x.ax):formBlockX(tpl,b);
+ if(x.bar)return {x:x.bar.x,y:top,w:x.bar.w,h:x.bar.h||b.h||0};
  return {x:bx,y:text?top-(b.size||9):top,w,h:text?Math.max(lines==null?x.e:lines*formLh(b),formLh(b)):x.sec?x.sec.h:b.h||0};
 }
 /* Часть целиком на одном листе (верх и низ страницы); блоки рисуются в
@@ -287,7 +298,7 @@ function formCleanColumn(c){
    добавил новую), берутся по умолчанию; колонки таблицы — сохранённые,
    если они есть. Поля страницы и направляющие (guides — только для
    конструктора, не печатаются) — из сохранённого, в разумных пределах. */
-const FORM_BLOCK_TYPES=['text','field','image','line','box','barcode','section'];
+const FORM_BLOCK_TYPES=['text','field','image','line','box','barcode','qr','section'];
 const FORM_PLACES=['left','center','right','free'];
 function formCleanBlock(b){
  if(!b||typeof b!=='object'||!FORM_BLOCK_TYPES.includes(b.type))return null;

@@ -95,9 +95,10 @@ function viewMasterData(){
  const sec=MD_SECTIONS.find(s=>s.tabs.includes(mdTab))||MD_SECTIONS[0];
  const pills=`<div class="sl-filter-row"><div class="sl-quick" role="tablist" data-md-sections>${MD_SECTIONS.map(s=>`<button type="button" role="tab" class="sl-quick-pill${s.tabs.includes(mdTab)?' on':''}" data-md-section="${s.k}" ${onAct('click',mdSetTab,String(s.tabs[0]))}>${s.label}</button>`).join('')}</div></div>`;
  const subs=sec.k!=='catalog'&&sec.tabs.length>1?`<div class="sl-filter-row md-mat-subs" data-md-subtabs><div class="sl-quick">${sec.tabs.map(k=>`<button type="button" class="sl-quick-pill${mdTab===k?' on':''}" ${onAct('click',mdSetTab,String(k))}>${esc(MD_TABS.find(t=>t.k===k).label)}</button>`).join('')}</div></div>`:'';
- /* Каталог — своя раскладка (viewMdCatalog); остальные разделы — карточка с таблетками. */
- return `${sec.k==='catalog'?viewMdCatalog(pills):`<div class="card md-card">${pills}${subs}
-   ${({prices:viewMdPrices,stations:viewMdStations,setup:viewMdSetup,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,forms:viewMdForms,emails:viewMdMailTemplates,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,stockreasons:viewMdStockReasons,overview:viewMdOverview})[mdTab]()}
+ /* Каталог и Prices — своя раскладка с деревом слева (viewMdCatalog, viewMdPrices);
+    остальные разделы — карточка с таблетками. */
+ return `${sec.k==='catalog'?viewMdCatalog(pills):sec.k==='prices'?viewMdPrices(pills):`<div class="card md-card">${pills}${subs}
+   ${({stations:viewMdStations,setup:viewMdSetup,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,forms:viewMdForms,emails:viewMdMailTemplates,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,stockreasons:viewMdStockReasons,overview:viewMdOverview})[mdTab]()}
   </div>`}
   ${mdTab==='materials'&&mdMatCategory==='glass'&&(mdMatView==='glassProduct'||accessCost())?mdImportCard():''}`;
 }

@@ -83,6 +83,7 @@ function salesListSplitNav(){
      ещё раз. Подрядные строки производства (pb-sub) пустые нарочно. */
 const SL_FRZ_MAX=12;
 function salesListTableFit(table){
+ if(typeof cwFit==='function')cwFit(table);
  const head=table.tHead&&table.tHead.rows[0];if(!head)return;
  const ths=[...head.cells],lead=ths.findIndex(th=>th.dataset.col);if(lead<0)return;
  const frozen=salesListLoadPrefs().frozen||[];let n=0;

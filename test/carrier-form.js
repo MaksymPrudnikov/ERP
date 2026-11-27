@@ -53,6 +53,6 @@ module.exports=async function({page,eq}){
   [...document.querySelectorAll('[data-cl-size] button')].find(b=>b.textContent.startsWith('3 × 4')).click();
   const three=[document.querySelector('[data-forms-page]').dataset.w,document.querySelector('[data-forms-page]').dataset.h],small=document.querySelectorAll('[data-forms-stage] svg [data-forms-hit^="small|"]').length;
   return {four,hits,three,small,part:formsUi.part,add:[...document.querySelectorAll('[data-forms-add]')].map(b=>b.textContent)};
- }),{four:['288','432'],hits:4,three:['288','216'],small:4,part:'small',add:['+ Text','+ Field','+ Picture','+ Barcode']});
+ }),{four:['288','432'],hits:4,three:['288','216'],small:4,part:'small',add:['+ Text','+ Field','+ Picture','+ Barcode','+ QR code']});
  eq('Dolly / Skid sheet browser errors',t.errs,[]);await t.c.close();
 };

@@ -190,7 +190,9 @@
    04.11.2026): ряд кнопок, заголовки таблицы; строки — по середине. */
 .card.sales-list-card>.sales-toolbar{min-height:37px;margin-bottom:8px}
 .sales-list-card table.sl-table>thead>tr{height:47px}
-.sales-list-card table.sl-table>tbody>tr>td{vertical-align:middle}
+table.sl-table>tbody>tr>td{vertical-align:middle}
+/* Выбранная строка таблицы-списка (группа прайса справа открыта) — видна (27.11.2026). */
+table.sl-table>tbody>tr.sel>td{background:var(--accent-soft)}
 /* Строки и текст списков — как в Sales на всех экранах (владелец, 05.11.2026: «размеры
    строчек и текста разные»): строка не ниже 52 px, текст ячейки 13.5 px. Подстроки
    производства (pb-sub) и распорка дорисовки — свои. */

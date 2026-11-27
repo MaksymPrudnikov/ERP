@@ -97,7 +97,10 @@ function salesSheetTreatmentCode(treatments){
     if(t.kind==='coating')return t.where;
     var table=t.kind==='frit'?'fritProduct':'spandrelProduct';
     var product=(typeof mdById==='function')?mdById(table,t.spec&&t.spec.productId):null;
+    /* Код уже начинается с вида (FRIT-CER) — вид второй раз не пишем
+       (владелец 27.11.2026: «фрит 2 раза»). */
     var kind=t.kind==='frit'?'FRIT':'SPDL',code=product&&(product.code||product.name);
+    if(code&&String(code).toUpperCase().indexOf(kind)===0)kind='';
     return [kind,code,t.spec&&t.spec.color,t.where].filter(Boolean).join(' ');
   }).join(' ');
 }
