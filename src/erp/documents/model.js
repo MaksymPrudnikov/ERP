@@ -438,9 +438,13 @@ function docBuildModel(kind,order,opts){
    }else{if(freeRow)rows.push(freeRow);rows.push({label:'Subtotal',value:money(t.subtotal),strong:!!freeRow,sep:!!freeRow});}
    if(c.energy.enabled)rows.push({label:'Energy surcharge '+c.energy.rate+'%',value:money(t.energy)});
    if(c.hst.enabled)rows.push({label:'HST '+c.hst.rate+'%',value:money(t.hst)});
+   /* Свои сборы Setup (27.11.2026) — строкой там же, где их начисляют. */
+   const own=k=>(t.extra||[]).filter(x=>x.enabled&&x.kind===k).forEach(x=>rows.push({label:x.name+(k==='percent'?' '+x.rate+'%':''),value:money(x.amount)}));
+   own('percent');
    if(c.card.enabled)rows.push({label:'Card fee '+c.card.rate+'%',value:money(t.card)});
    if(c.delivery.enabled)rows.push({label:'Delivery',value:money(t.delivery)});
    if(c.skidDeposit.enabled)rows.push({label:'Skid deposit',value:money(t.skidDeposit)});
+   own('fixed');
    grand={label:'Total '+order.currency,value:money(t.grand)};
   }
   /* Оплаты заказа (экран Finance): уже внесённое уменьшает депозит к оплате,

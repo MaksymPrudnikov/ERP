@@ -78,6 +78,8 @@ function repSoldOrder(o,shipped,rows){
  (o.adjustments||[]).forEach(a=>put({category:'Adjustments',type:'Adjustment',product:a.label||'Adjustment',amount:a.amount}));
  const t=finOrderTotals(o);
  [['energy','Energy surcharge'],['delivery','Delivery'],['card','Card fee'],['skidDeposit','Skid deposit']].forEach(([k,label])=>{if(t[k])put({category:'Order charges',type:label,product:label,amount:t[k]});});
+ /* Свои сборы Setup (27.11.2026) — тоже Order charges. */
+ (t.extra||[]).forEach(x=>{if(x.amount)put({category:'Order charges',type:x.name,product:x.name,amount:x.amount});});
 }
 /* Позиция: стекло и плёнка по лайтам, обвязка, работы, надбавки; деньги —
    на все живые юниты позиции. */

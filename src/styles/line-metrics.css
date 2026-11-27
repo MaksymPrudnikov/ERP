@@ -46,3 +46,9 @@
 .metric-cut{display:block;font-size:10px;font-weight:400;color:var(--text-2);white-space:nowrap}
 /* Минимум площади заказа по макапам (17.11.2026) — над надбавками. */
 .metric-order-min+.metric-surcharge-foot{margin:6px 0 16px}
+/* Сбор заказа: ставка или сумма и код этого заказа (коды сборов, 27.11.2026). */
+.metric-order-charge-editor .metric-order-charge-row{grid-template-columns:minmax(150px,.8fr) minmax(220px,1.4fr) minmax(190px,1fr)}
+.metric-charge-body{display:flex;flex-wrap:wrap;align-items:center;gap:10px}.metric-charge-body>label{display:flex;align-items:center;gap:6px}
+.metric-charge-code-wrap{display:flex;align-items:center;gap:6px;justify-self:end}.metric-order-charge-row select.metric-charge-code{min-width:150px}
+.metric-order-bases{display:block;margin-top:6px;color:var(--text-3);font-size:12px;text-align:right}
+@media(max-width:600px){.metric-order-charge-editor .metric-order-charge-row{grid-template-columns:1fr}.metric-charge-code-wrap{justify-self:start}}

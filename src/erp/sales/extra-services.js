@@ -84,10 +84,28 @@ function salesExtraTargetLines(target){
   var picked=lines.filter(function(l){return soSelectedLines&&soSelectedLines.has(l.id);});
   return (picked.length?picked:lines).map(function(l){return l.id;});
 }
-function salesExtraFormOpen(target){soExtraForm={target:target,lines:salesExtraTargetLines(target),rateId:'',name:'',unit:'pc',qty:'',rate:'',error:''};render();}
+/* Код сборов разового сервиса (вариант A, 27.11.2026): код заказа, Custom…
+   (галочки только для этого сервиса) или, у работы Master Data, — «как у
+   работы». Свой сервис по умолчанию — Default code Setup «New one-off service». */
+function salesExtraCodes(){return normalizeSalesOrderCharges(soDraft&&soDraft.orderCharges);}
+function salesExtraDefaultCode(){var c=salesExtraCodes(),id=orderSetup().extraCode;return c.codes.some(function(k){return k.id===id;})?id:c.items.code||(c.codes[0]||{}).id||'';}
+function salesExtraFormOpen(target){soExtraForm={target:target,lines:salesExtraTargetLines(target),rateId:'',name:'',unit:'pc',qty:'',rate:'',code:salesExtraDefaultCode(),on:[],error:''};render();}
+/* Набор формы: Custom — свои галочки; код — его набор; пусто — как у работы. */
+function salesExtraFormOn(f){
+  var c=salesExtraCodes();if(f.code==='custom')return f.on.slice();
+  var hit=c.codes.find(function(k){return k.id===f.code;});if(hit)return hit.on.slice();
+  var w=f.rateId&&salesServiceRateRow(f.rateId),own=w&&w.chargeCode?orderSetupCodeOn(w.chargeCode):null;return own||c.items.on.slice();
+}
+function salesExtraFormToggle(k,on){var f=soExtraForm;if(!f)return;f.on=on?f.on.concat([k]):f.on.filter(function(x){return x!==k;});render();}
 function salesExtraFormClose(){soExtraForm=null;render();}
 function salesExtraFormUnit(u){salesExtraFormSet('unit',u);render();}
-function salesExtraFormSet(k,v){if(!soExtraForm)return;soExtraForm[k]=v;if(k==='rateId'){var r=salesServiceRateRow(v);if(r)soExtraForm.unit=r.unit||'pc';render();}}
+function salesExtraFormSet(k,v){
+  var f=soExtraForm;if(!f)return;
+  if(k==='code'&&v==='custom')f.on=salesExtraFormOn(f);
+  f[k]=v;
+  if(k==='rateId'){var r=salesServiceRateRow(v);if(r)f.unit=r.unit||'pc';f.code=v?'':salesExtraDefaultCode();render();}
+  if(k==='code')render();
+}
 /* Добавляет сервис во все строки формы, кроме тех, где такой уже есть.
    Возвращает число строк, куда добавлен. */
 function salesExtraAdd(){
@@ -98,7 +116,8 @@ function salesExtraAdd(){
   if(err){f.error=err;render();return 0;}
   var lines=(soDraft.lines||[]).filter(function(l){return f.lines.indexOf(l.id)>=0;}),n=0;
   lines.forEach(function(line){
-    var x=normalizeSalesExtraService({rateId:f.rateId,name:custom?name:'',unit:custom?f.unit:'',qty:qty});
+    var on=f.code?salesExtraFormOn(f):null;
+    var x=normalizeSalesExtraService({rateId:f.rateId,name:custom?name:'',unit:custom?f.unit:'',qty:qty,on:on,code:f.code==='custom'?'':f.code});
     /* Уже есть такой же в строке — второй раз не добавляем. */
     if((line.extraServices||[]).some(function(e){return salesExtraServiceGroup(e)===salesExtraServiceGroup(x);}))return;
     (line.extraServices||(line.extraServices=[])).push(x);n++;
@@ -132,9 +151,24 @@ function salesExtraFormHTML(){
     (f.rateId?'':`<label><span>Name</span><input data-extra-name value="${esc(f.name)}" maxlength="80" ${onAct('input',salesExtraFormSet,'name',EL_VALUE)}></label><span class="sales-extra-units"><span>Charged per</span><span>${SALES_EXTRA_UNITS.map(function(u){return `<button type="button" class="sm${f.unit===u?' on':''}" data-extra-unit="${u}" ${onAct('click',salesExtraFormUnit,String(u))}>${u}</button>`;}).join('')}</span></span>`)+
     `<label><span>Qty / unit</span><input data-extra-qty type="number" min="0" step="any" value="${esc(f.qty)}" placeholder="${unit==='ft²'?'area':unit==='in'?'perimeter':'1'}" ${onAct('input',salesExtraFormSet,'qty',EL_VALUE)}></label>`+
     `<label><span>Rate / ${esc(unit)}</span><input data-extra-rate type="number" min="0" step="0.01" value="${esc(f.rate)}" placeholder="${r?'catalog':'required'}" ${onAct('input',salesExtraFormSet,'rate',EL_VALUE)}></label>`+
+    salesExtraCodeHTML(f)+
     `<button class="sm pri" data-extra-add ${onAct('click',salesExtraAdd)}>Add${many?' to '+f.lines.length+' lines':''}</button><button class="sm" ${onAct('click',salesExtraFormClose)}>Cancel</button>`+
     (f.error?`<b class="sales-extra-error">${esc(f.error)}</b>`:'')+
     (salesExtraAutoDup(f)?`<b class="sales-extra-error" data-extra-dup>Already charged automatically</b>`:'')+`</div>`;
+}
+/* Поле Charge code формы и метки: что на сервис начисляется (зачёркнутое —
+   нет); Custom… — галочки по каждому процентному сбору заказа. */
+function salesExtraCodeHTML(f){
+  var c=salesExtraCodes(),on=salesExtraFormOn(f),pct=orderChargePctIds(c.extra),w=f.rateId&&salesServiceRateRow(f.rateId);
+  var opts=(f.rateId?`<option value="" ${f.code?'':'selected'}>As the work${w&&w.chargeCode?'':' · default'}</option>`:'')+c.codes.map(function(k){return `<option value="${esc(k.id)}" ${f.code===k.id?'selected':''}>${esc(k.name)}</option>`;}).join('')+`<option value="custom" ${f.code==='custom'?'selected':''}>Custom…</option>`;
+  var chips=pct.map(function(k){var n=esc(orderChargeLabel(k,c.extra));return f.code==='custom'?`<label class="sales-extra-on-chk"><input type="checkbox" data-extra-on="${esc(k)}" ${on.indexOf(k)>=0?'checked':''} ${onAct('change',salesExtraFormToggle,String(k),EL_CHECKED)}> ${n}</label>`:`<span class="sales-extra-chip${on.indexOf(k)>=0?'':' off'}">${n}</span>`;}).join('');
+  return `<label><span>Charge code</span><select data-extra-code ${onAct('change',salesExtraFormSet,'code',EL_VALUE)}>${opts}</select></label><span class="sales-extra-on" data-extra-on-list>${chips}</span>`;
+}
+/* Код уже добавленного сервиса — меткой в строке окна сервисов. */
+function salesExtraChargeTag(line,key){
+  var id=salesExtraIdOfKey(key),x=id&&(line.extraServices||[]).find(function(e){return e.id===id;});if(!x||!Array.isArray(x.on))return '';
+  var c=salesExtraCodes(),hit=c.codes.find(function(k){return k.id===x.code;}),text=orderChargeSetText(x.on,c.extra);
+  return `<span class="sales-extra-code" data-extra-code-tag title="${esc(text)}">${esc(hit?hit.name:'Custom')}</span>`;
 }
 /* Кнопка «+ Add service» или открытая форма — внизу окна сервисов. */
 function salesExtraBarHTML(target){
