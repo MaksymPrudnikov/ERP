@@ -11,12 +11,19 @@ On top — the forms (pills), on the right **Preview** (a real packing slip to s
 changes".
 
 - On the left **Add** — a new block: **Text** (any words), **Field** (data of the form), **Picture** (JPEG or PNG),
-  **Line**, **Frame**, **Barcode**. The block goes to the bottom of the chosen part of the sheet; the part grows.
+  **Line**, **Frame**, **Barcode**, **QR code**. The block goes to the bottom of the chosen part of the sheet; the
+  part grows.
+- **QR code** (27 Nov 2026: “replace the bar with a QR where needed”) — a square, one number **Size, mm** (1″ by
+  default); the field is the one this form's barcode uses (the number), change it with **Field**. The dolly / skid
+  label has it too. Only 2D scanners (camera) and phones read QR — test your scanners on one sheet before you drop a
+  barcode.
 - Below — **Parts of the sheet**: top of every page, top of the first page, the table, totals, the skid sheet, bottom
   of the page. Click a part — new blocks go there; click a block — its settings.
 - In the middle — the live sheet with a thin ruler (inches) and the page margins dashed. Click a block to select it;
-  drag to move (Left, Center, Right — up and down only, **Free** — anywhere); the right handle sets the width, the
-  bottom one the height of a frame or line. Blocks under a growing one (address, skids list) move down by themselves.
+  drag to move (Left, Center, Right — up and down only, **Free** — anywhere); the side handle sets the width, the
+  bottom one the height of a frame or line. The handle follows the mouse: on **Right** it is on the left (the right
+  edge stays on the page margin), on **Center** the block grows both ways; on a barcode the bars stretch with the
+  frame. The selected block sits above its neighbours. Blocks under a growing one (address, skids list) move down by themselves.
 - On the right — the block settings: field or text, **Place on sheet** (Left, Center, Right, Free), X, Y, width and
   height in mm, **Font** (Helvetica, Times, Courier), size, line spacing, **B**, **I** (italic), alignment, colour,
   wrap lines; a line or frame has colour, width and

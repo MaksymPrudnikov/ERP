@@ -25,8 +25,9 @@ Customers, Agents, Users and Data.
 - **Header** — the ▾ arrow left of the name: filter, condition and sort of the column; drag the edge of a header to
   change its width, drag the header to move the column. Widths and order are kept in this browser, per list.
   One rule in every table, as in Excel: drag an edge — only that column changes, the columns to its left stay put,
-  those to its right shift as a whole; no column shrinks by itself. A table wider than the screen scrolls sideways,
-  a narrower one leaves empty space at the end. Until widths are touched, the long column (Customer, Glass, Name…)
+  those to its right shift as a whole; no column shrinks by itself. A table wider than the screen: the columns nobody
+  widened by hand shrink (not below their header) when the whole table then fits (27 Nov 2026); if not, it scrolls
+  sideways; a narrower one leaves empty space at the end. Until widths are touched, the long column (Customer, Glass, Name…)
   takes the rest of the screen.
 - **Alignment** — one rule in every table, set by the column type: text and dates (Customer, PO, Status, Due,
   Makeup…) on the left, numbers and money (Units, Area ft², Ready, Total, Balance, Qty, days…) on the right, as in

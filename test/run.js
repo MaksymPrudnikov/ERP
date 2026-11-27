@@ -5527,18 +5527,18 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return {points,zero:[zero.valid,zero.x,zero.y],outside:invalid.valid};
     }), {points:[[true,39,28],[true,1,28],[true,39,2],[true,1,2]],zero:[true,40,30],outside:false});
 
-    eq('Frit pattern samples preserve spacing and Custom never draws a guessed pattern', await t.p.evaluate(() => {
+    eq('Frit pattern samples preserve spacing, dots are bold and filled (owner 27.11: «точка — более чётко»), Custom never draws a guessed pattern', await t.p.evaluate(() => {
       const p=salesDefaultPane(0);p.visionType='frit';p.frit.surface=2;
       const rows=['2 x 2 square','4 x 4 square','2 x 2 diamond','4 x 4 diamond','Custom — see silk screen sheet'].map(pattern=>{
         p.frit.pattern=pattern;const t=salesRouteSurfaceTreatments(p,0)[0],record={id:'F1',label:'Lite 1',treatment:t,spec:t.spec};
         const el=document.createElement('div');el.innerHTML='<svg>'+salesFritSampleSvg(record,0,0,'').svg+'</svg>';
-        const dots=[...el.querySelectorAll('circle')];return {count:dots.length,white:dots.every(c=>c.getAttribute('fill')==='#fff'),
-          outline:dots.every(c=>c.getAttribute('stroke')==='#111'&&+c.getAttribute('stroke-width')<1),custom:el.textContent.includes('See silk screen sheet')};
+        const dots=[...el.querySelectorAll('circle')];return {count:dots.length,white:dots.every(c=>c.getAttribute('fill')==='#9aa3aa'),
+          outline:dots.every(c=>c.getAttribute('stroke')==='#111'&&+c.getAttribute('stroke-width')>=1),custom:el.textContent.includes('See silk screen sheet')};
       });return rows;
     }), [{count:25,white:true,outline:true,custom:false},{count:9,white:true,outline:true,custom:false},
       {count:41,white:true,outline:true,custom:false},{count:13,white:true,outline:true,custom:false},{count:0,white:true,outline:true,custom:true}]);
 
-    eq('Frit sample is outside the drawing and annotations leave geometry and exports intact', await t.p.evaluate(() => {
+    eq('Frit sample sits in the middle of the glass (owner 27.11) and annotations leave geometry and exports intact', await t.p.evaluate(() => {
       tab='sales';salesOrderNew();salesSetUnitType('single');
       soDraft.lines[0].width16=640;soDraft.lines[0].height16=640;
       const m=soDraft.makeups[0];m.panes[0].visionType='frit';m.panes[0].frit.surface=2;
@@ -5547,7 +5547,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const T=shapeDrawnPreviewTransform(r,{sheet:true}),svg=shapeDrawnProductionSvg(r,false,{sheet:true});
       const el=document.createElement('div');el.innerHTML=svg;
       const sample=el.querySelector('.frit-pattern-sample'),x=+sample.getAttribute('transform').match(/translate\(([^ ]+)/)[1];
-      const out={outside:x>T.vw,samples:el.querySelectorAll('.frit-pattern-sample').length,dots:el.querySelectorAll('.frit-first-dot').length,
+      const out={inside:el.querySelector('svg').getAttribute('data-frit-inside')==='true'&&x>T.X(T.b.minX)&&x<T.X(T.b.maxX),samples:el.querySelectorAll('.frit-pattern-sample').length,dots:el.querySelectorAll('.frit-first-dot').length,
         markers:[...el.querySelectorAll('.frit-first-dot')].map(x=>[+x.dataset.x,+x.dataset.y]),
         noDouble:salesFritDecorateSvg(svg,sDraft,r,T)===svg,
         geometry:shapeDraftResult().fingerprint===fp&&JSON.stringify(ShapeModule.machinePayload(shapeDraftResult()))===payload&&ShapeModule.genericDxf(shapeDraftResult())===dxf,
@@ -5563,7 +5563,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       shapePlaceManufacturingFromEvent({clientX:screen.x,clientY:screen.y,target:live},live);
       const item=sDraft.manufacturingItems[sDraft.manufacturingItems.length-1];out.placement=[item.x,item.y];
       cancelShapeEdit();return out;
-    }), {outside:true,samples:1,dots:1,markers:[[39,39]],noDouble:true,geometry:true,cutting:true,sampleIgnored:true,placement:[20,20]});
+    }), {inside:true,samples:1,dots:1,markers:[[39,39]],noDouble:true,geometry:true,cutting:true,sampleIgnored:true,placement:[20,20]});
 
     /* Пакет — один лист, но путь у каждого стекла свой: хендоф 9м, каждое стекло
        отдельный объект, сборка пакета — точка слияния. */

@@ -59,7 +59,9 @@ line: lites joined by " / " with the cavity (spacer and gas) between them.
   - Interlayer — the thickness of all its layers (2 × 0.38 = 0.76) and its code; the customer sees its name. The
     drawing says the same: `film: 1.52 mm EVA-UC` — the total, without the layer count.
 - **Frit** — patterns 2 x 2 square, 4 x 4 square, 2 x 2 diamond (a 2″ × 2″ diamond: 2″ along a row, rows 1″ apart
-  and shifted), 4 x 4 diamond (a 4″ × 4″ diamond) and Custom by the silk screen sheet.
+  and shifted), 4 x 4 diamond (a 4″ × 4″ diamond) and Custom by the silk screen sheet. On the drawing the pattern
+  sample sits in the middle of the glass (on the right if it does not fit), W / H to the first dot are large; the
+  frit code is not repeated: `FRIT-CER White #1` (27 Nov).
 - The makeup code in the strip (A, MU-2…) always stays on one line; a long description ends with an ellipsis.
 
 ## Laminated from 3–4 glasses
