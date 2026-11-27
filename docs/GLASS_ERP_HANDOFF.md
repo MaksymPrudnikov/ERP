@@ -1,6 +1,6 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 5.350 · 27 ноября 2026 — Prices деревом, QR code в формах, образец frit в центре стекла.
+Версия 5.351 · 27 ноября 2026 — тара Dolly + Skid, одна митра с любым углом, ровные таблицы Setup и Stations.
 
 ## Как читать
 
@@ -61,10 +61,8 @@
   `EL_CHECKED`, `elData('x')`); `event.stopPropagation();f()` → `onActStop`; `if(event.target===this)f()` →
   `onActSelf`; в строке через `'+'` — `'<b '+onAct('click',f)+'>'`. Аргументы — данные, `esc` для них не нужен.
   Несколько шагов, условие, присваивание — маленькая функция рядом со своим экраном (`salesDraftSet`,
-  `salesListDrop`). Код строкой (`${go}`) не передают — передают функцию и аргументы. Переведены: PR 1 — Sales,
-  фигуры, списки, общее; PR 2 — Optimization, Production, станции; PR 3 — Master Data, формы, Customers, прайсы;
-  PR 4 — Finance, Agents, Purchasing, Inventory, Shipping; PR 5 — Reports, Users, вход, Overview: встроенных
-  обработчиков не осталось (было 2095). Имя действия, которое берёт функцию чужого раздела, —
+  `salesListDrop`). Код строкой (`${go}`) не передают — передают функцию и аргументы. Встроенных обработчиков не
+  осталось (14.11). Имя действия, которое берёт функцию чужого раздела, —
   тоже вызов снаружи: оно должно быть в `FIN_API` / `STOCK_API` / `SHIP_API` (`test/sections-api.js`).
 - **Новый `onclick` в любом модуле или `src/shell.html` — красный `test/docs.js`** (`inlineProblems`,
   `tools/csp-handlers.js`): в странице он молча не сработал бы. Ветка, начатая раньше, переводит свои обработчики
@@ -144,6 +142,9 @@
   кромок стекла, образец паттерна — в середине стекла (27.11). Чертёж DXF — как у обычной, с мм (25.11). Clean cut — `edgeClean` (26.11). Петля, клема на краю
   выреза — `cutoutId`, от угла выреза (27.11).
 - **Paste Excel Rows** в mm → 1/16″ по `=ROUND(mm/25.4*16,0)`; frit «2 x 2 diamond», «4 x 4 diamond» (26.11).
+- **Митра** (27.11) — одна работа `miter` за одни деньги при любом угле: угол числом до десятой (> 0°, < 90°,
+  `shapeMiterAngle`), в счёте одна строка Mitering; пределы цеха — карточка работы (`angleMin`/`angleMax`, 10°–45°),
+  за ними — вопрос при Save (`salesMiterWarnings`). Две прежние работы сводит `serviceRateMiterMerge`.
 - **Ламинат** 2–4 стекла (26.11): m1/m2, `m1Films`/`m2Films` (`salesLamSides`). Плиты на 1/4″ больше, CNC сразу в
   чистовой (29.09); «LAM 12.76 (6CLEAR + 0.76 EVA-CL + 6CLEAR)» (08.11). Финиши — две группы, в группе одна (29.09).
 - **Вес** всегда: неизвестное — «Partial» у нас, «≈» на бумаге; ничего — «—» (06.11). Строка Total под Order Lines.
@@ -290,9 +291,8 @@ Gmail открывает письмо в ящике, где его привяз�
   остатки — пустые листья); план `DB.cutPlan` с отпечатком, цифры `cutPlanCounted`; What if и Cut preview — в памяти.
 - Батчи `glass-batches.js` (`glassBatchComponents`, Glass ID `G-` при сохранении заказа, `DB.glassPieceSeq`);
   листы журнала `sheetUsageRows`, бой `DB.sheetBreak`; размеры листов цеха — Inventory → Sheet sizes.
-- Кнопки, поля и перетаскивание экранов Optimization (очередь, батчи, раскрой, стикеры, Stock, Sheets) — действия
-  `onAct` (`core/actions.js`, PR 2 задания CSP, 14.11): в `views/cut-layout-ui.js` менялись только обработчики,
-  логика раскроя — нет. Cancel order и Delete без Finance серые с подсказкой, в меню правой кнопки их нет.
+- Экраны Optimization — на действиях `onAct`; Cancel order и Delete без Finance серые с подсказкой, в меню правой
+  кнопки их нет.
 - Сторожа: `test/cut-layout.js`, `cut-batch`, `cut-offset`, `optimization`, `optimization-fixture`, `glass-batches`,
   `stickers`, `sticker-free-layout`, `sheet-usage`, `sales-cut-estimate`; `tools/cut-bench.js` (данные только у
   владельца).
@@ -319,7 +319,7 @@ A3, C) — `docs/ЗАДАЧА_КАРТА_ЦЕХА.md`.
   полоса и звук, скан пишется, исправить сканом тары или «✓ Keep» (07.10); Hold — SET ASIDE.
 - **Тара** DL, DA, SL, SA: «сначала скан тары, потом то, что на ней»; скан без тары засчитан, следующая тара забирает
   («WHICH DOLLY?»); **стекло без тары ничего не блокирует** (07.10, 30.10). Puts on: базово Dolly, IGU «—», SHIPR —
-  Skid. Новую тару регистрирует рабочий, номер даёт система и не повторяет; Empty — два нажатия и Undo; Count не
+  Skid; Dolly + Skid — своя тара обоих видов (`sfPutsTakes`, 27.11). Новую тару регистрирует рабочий, номер даёт система и не повторяет; Empty — два нажатия и Undo; Count не
   двигает стекло (30.10). Окно долли/скида — №1 всегда сверху (03.11).
 - **IGU**: любой лайт позиции с любым, тип и размер — по Makeup; стикер юнита печатается сам при закрытии сборки;
   после IGU юнит едет одним сканом U-; человек на сушке сканирует юнит и скид — это Shipping ready (07.10).
@@ -338,7 +338,7 @@ A3, C) — `docs/ЗАДАЧА_КАРТА_ЦЕХА.md`.
   `shopfloor/carriers.js`, пересчёт `carrier-count.js`, Skip `skip.js`, Unbatch `production-unbatch.js`;
   `stationBulk` и номера блоками `cloudNumbersReserve`; чужая запись с сервера — станция перерисовывается сразу.
 - Экраны станций, Production (Stations, Terminals, Dollies & Skids, окно тары, пересчёт), Skip, Unbatch, Skids,
-  формы Drawing и Dolly / Skid sheet — на действиях `onAct` (PR 2 задания CSP, 14.11); Enter в поле «куда»
+  формы Drawing и Dolly / Skid sheet — на действиях `onAct`; Enter в поле «куда»
   (`stationDollyMoveKey`, `carrierWinMoveKey`, …) — маленькие функции рядом с экраном.
 - **Floor**: `production/floor.js` — `DB.floorItem` `{id, kind: hall·machine·wall·object·zone, station, machine,
   label, x, y, w, l, h}` в метрах; пусто на старте, план заводит `Start from sketch`; Save — одна команда `floorWrite`
@@ -421,7 +421,7 @@ Ready по скану, packing slip (PS), погрузка на SHIP, части
 - `shipping/commands.js` (`shippingOpen`, `shippingLoadPlan`, `shippingMarkShipped`, `shippingWithChecks`,
   `shippingCashFirst`), погрузка `loading.js`, рейсы `delivery.js`, скиды `skids.js`, км `trip-km.js`; Ready по
   остатку `shippingHasReady`. Юнит в две PS — сверка в `CLOUD_CHECK`.
-- Экраны Shipping, план доставки и поиск заказа — на действиях `onAct` (PR 4 задания CSP, 14.11): поля черновика PS —
+- Экраны Shipping, план доставки и поиск заказа — на действиях `onAct`: поля черновика PS —
   `shippingDraftSet` / `shippingShipToSet`, кнопки окна PS берут функцию и аргументы (`[shippingUndo, id, 'cancel']`),
   команды рейса — `deliveryRunMove` / `deliveryRunAssign` / `deliveryRunDriver` / `deliveryRunTime` (имя с
   `delivery`, как прежний `onclick="deliveryRun(…)"`: кнопку записи база узнаёт по имени).
@@ -472,7 +472,7 @@ Ready по скану, packing slip (PS), погрузка на SHIP, части
 - `finance/ledger.js`: `finBillingDate`, `finPaymentDue`, `finAllocate` / `finUnallocate`, журнал
   `finJournalEntries`, `finExportPending`; итоги заказа `finOrderTotals` хранит `finTotalsKeep`; архивный заказ
   сначала возвращается в работу (`finBringBack`). Номера возврата RF- — с сервера.
-- Экраны Finance — на действиях `onAct` (PR 4 задания CSP, 14.11): поля прихода — `finDraftSet`, окна действия по
+- Экраны Finance — на действиях `onAct`: поля прихода — `finDraftSet`, окна действия по
   заказу — `finActionSet`; действия строки списка (`r.acts`) — `[label, [функция, …аргументы], атрибуты]`, меню
   правой кнопки зовёт их через `finListMenuRun`; плитки сводки — так же функцией и аргументами.
 - Сторожа: `test/finance*.js`, `fin-journal`, `invoice`, `money`, `order-totals`.
@@ -493,7 +493,7 @@ Ready по скану, packing slip (PS), погрузка на SHIP, части
   галочкой Commissions («продажникам их знать не надо», 27.10).
 
 **Как устроено**: `comOrders`, `comDue`, `comPayoutPlan`, `comRate` (`pct` с `from`); права — галочка `commissions`;
-таблицы — в `FIN_OWN`; экран — на действиях `onAct` (`comDraftSet`, `comCustomerSet`, PR 4 задания CSP, 14.11).
+таблицы — в `FIN_OWN`; экран — на действиях `onAct` (`comDraftSet`, `comCustomerSet`).
 Сторож `test/commissions.js`. **Открыто**: выплата на настоящем сервере не проверялась.
 
 ## Purchasing
@@ -521,7 +521,7 @@ Ready по скану, packing slip (PS), погрузка на SHIP, части
 
 **Как устроено**: `purchasing/suppliers.js` (`purPersist` → `storageCommand`), `orders.js`, `receiving.js` (приёмка
 двигает склад — см. Inventory), `invoices.js`, `documents.js` (бланк на конструкторе форм); номера PO-, GR-, DR-,
-PI-, PP- с сервера. Факты — `CLOUD_FACT`. Экраны — на действиях `onAct` (PR 4 задания CSP, 14.11): поля пишут в
+PI-, PP- с сервера. Факты — `CLOUD_FACT`. Экраны — на действиях `onAct`: поля пишут в
 черновик `purSupplierSet` / `purOrderSet` / `purOrderLineSet` / `purFulfilSet` / `purFulfilLineSet` / `purMoneySet`;
 выбор поставщика и валюты берут функцию (`purCurrencyControl(d, id, set)`); `purArg` больше нет. Сторожа: `test/purchasing*.js`, `purchase-orders`, `supply-points`.
 
@@ -555,7 +555,7 @@ PI-, PP- с сервера. Факты — `CLOUD_FACT`. Экраны — на �
 
 **Как устроено**: `inventory/sheets.js` (`invSheetRows`), `offcuts.js`, `consumables.js` (`consRows`, упаковки
 `packs`), `stock-items.js`, `stock-reasons.js`; пересчёт сверяется в `CLOUD_CHECK` по карточке. Экраны — на действиях
-`onAct` (PR 4 задания CSP, 14.11): окно + / − / Count — `invMoveSet`, строка Stock items — `invStockSet` / `invStockKey`,
+`onAct`: окно + / − / Count — `invMoveSet`, строка Stock items — `invStockSet` / `invStockKey`,
 причина разницы — `invWhySet(store, …)`, плитки — функцией и аргументами; `invArg` больше нет. Сторожа:
 `test/inventory*.js`, `consumables`, `stock-items`, `sim-inventory`.
 
@@ -577,7 +577,7 @@ PI-, PP- с сервера. Факты — `CLOUD_FACT`. Экраны — на �
 
 **Как устроено**: `normalizeCustomers`, `customerHasReferences` (видит архив); прайсы `priceFilePlan`,
 `priceFileApply`. Поля карточки пишут в черновик через `custSet` / `custSetRow` (контакты, адреса) /
-`custSetLegacy`, массовая цена — `plBulkSet` (действия `onAct`, PR 3 задания CSP, 14.11). Сторожа: `test/customers.js`, `customer-search`, `price-lists`, `order-contact`.
+`custSetLegacy`, массовая цена — `plBulkSet` (действия `onAct`). Сторожа: `test/customers.js`, `customer-search`, `price-lists`, `order-contact`.
 
 ## Reports
 
@@ -660,7 +660,7 @@ masterdata.*` и `forms.*`.
 `drawing-form.js`, `carrier-form.js`; каталог-засев `glass-catalog.js` из `templates/GLASS_PRODUCTS.csv`
 (`python3 tools/catalog-to-js.py`). Сторожа: `test/md-*.js`, `glass-short-name`, `glass-no-cut`, `units`,
 `forms*`, `documents`, `order-forms`, `drawing-*`. Экраны Master Data, редактор форм, окно документов, причины NCR
-и склада — на действиях `onAct` (PR 3 задания CSP, 14.11); строки поставки плёнки и измерений склада добавляются и
+и склада — на действиях `onAct`; строки поставки плёнки и измерений склада добавляются и
 убираются без перерисовки (`mdFilmSupplyAdd`, `mdStockMeasureAdd`, `mdRowRemove`).
 
 **Открыто**: цвета и узоры frit в коде (`FRIT_COLORS`); Cost & margin скрыт только на экране, сервер поля не режет;
@@ -709,7 +709,7 @@ masterdata.*` и `forms.*`.
   отказ всей команды; команды цеха пишут таблицы разных разделов (Save и Verify заказа — `glassPiece`, отмена заказа переносит
   оплаты `receipt` через `finReleaseOrder`), поэтому новое
   закрытие — только с проверкой команд, которые эту таблицу пишут.
-- Экраны Users и вход — на действиях `onAct` (PR 5 задания CSP, 14.11): поля карточки — `uDraftSet`, номер и PIN —
+- Экраны Users и вход — на действиях `onAct`: поля карточки — `uDraftSet`, номер и PIN —
   `uDraftDigits`; Remove — `delUserSel`, Save access — `cloudRulesDraftSave` (имена `del…` / `…Save`, чтобы кнопки
   оставались серыми без записи, `storageLockButtons`).
 - Права сузили — строки закрытых таблиц уходят с ПК; Sign out — и `/auth/v1/logout` (24.11).
@@ -730,7 +730,7 @@ masterdata.*` и `forms.*`.
 - «Что сейчас», **без денег** («я бы не сильно сверкал деньгами», 09.10); блоки по галочкам; все станции — только
   здесь; To batch — всё стекло без батча (20.10). Факты работы — только за день, без архива (22.10).
 - Числа: Ready — `shippingHasReady`, Recut — `recutRowsOf`, цех — `prodQueueAll`. Сторожа: `test/screen-fixes.js`,
-  `station-polish`. Плитки — `dashTile(…, [функция, аргумент], …)` (действия `onAct`, PR 5 задания CSP, 14.11).
+  `station-polish`. Плитки — `dashTile(…, [функция, аргумент], …)` (действия `onAct`).
   **Открыто**: Overview на годе ×4 — 2,6 с при пороге 1 с.
 
 ## Хранение и архив
@@ -768,7 +768,7 @@ masterdata.*` и `forms.*`.
   не трогать — меняется шапка.
 - Быстрый фильтр — в ячейке заголовка, ▾ слева; Starts with по умолчанию (07.11). Excel — первый пункт ⚙ (08.11).
 - Ширина колонок как Excel: тянешь край — меняется только эта колонка (08.11). Шире окна — нетянутые
-  ужимаются, если влезет целиком (27.11). Freeze — значок в ряду Sort;
+  ужимаются, если влезет целиком, не уже заголовка и `minW` колонки (27.11). Freeze — значок в ряду Sort;
   прочерк — серый «–» (05.11). Show at bottom: Sum / Average / Count / Min / Max (02.11).
 - Каждое правило таблиц — в руководство `docs/manual/lists.*`.
 
