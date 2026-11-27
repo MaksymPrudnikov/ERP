@@ -161,6 +161,7 @@
   "src/erp/sales/unit-cancel.js",
   "src/erp/production/glass-batches.js",
   "src/erp/production/barcode.js",
+  "src/erp/production/qr.js",
   "src/erp/production/stickers.js",
   "src/erp/production/sticker-layout.js",
   "src/erp/production/cut-layout.js",

@@ -112,7 +112,7 @@ function formsCarrierColors(c){formsEdit(t=>{t.style=Object.assign({},carrierFor
 /* ===================== Наклейка долли / скида 4 × 6 ==================== */
 /* Форма carrierLabel (Data → Forms → Dolly / Skid label; владелец
    06.11.2026: «управление стикерами долли и скида — добавь»). Наклейка —
-   SVG 4 × 6″ стоя, 288 × 432 pt; блок: text, field, barcode, image; y у
+   SVG 4 × 6″ стоя, 288 × 432 pt; блок: text, field, barcode, qr, image; y у
    текста — линия букв, у штрихкода и картинки — верх. По умолчанию —
    прежняя наклейка: тип тары, крупный номер, штрихкод Code 128 номера,
    номер мелко. */
@@ -156,6 +156,10 @@ function carrierLabelSVGOf(tpl,code,edit){
   if(b.type==='barcode'){const v=String(ctx.field(b.field||'code')||'');if(!v)return '';const mod=b.module||2.4,h=b.h||110,bars=barcode128Items(v,0,0,h,mod),bw=barcode128Width(v)*mod;
    const x0=b.place==='free'?b.x||0:b.place==='left'?CL_MARGIN:b.place==='right'?CL_W-CL_MARGIN-bw:(CL_W-bw)/2;
    return `<g transform="translate(${x0.toFixed(1)} ${b.y||0})"${hit(b)}>${bars.map(r=>`<rect x="${r.x.toFixed(2)}" y="0" width="${r.w.toFixed(2)}" height="${h}" fill="${/^#[0-9a-f]{3,6}$/i.test(b.color||'')?b.color:'#000'}"/>`).join('')}</g>`;}
+  /* QR (erp/production/qr) — квадрат w, белая подложка под тихую зону. */
+  if(b.type==='qr'){const v=String(ctx.field(b.field||'code')||''),m=v&&qrMatrix(v);if(!m)return '';const s=b.w||72,k=s/m.length,q=4*k;
+   const x0=b.place==='free'?b.x||0:b.place==='left'?CL_MARGIN:b.place==='right'?CL_W-CL_MARGIN-s:(CL_W-s)/2;
+   return `<g transform="translate(${x0.toFixed(1)} ${b.y||0})"${hit(b)}><rect x="${-q}" y="${-q}" width="${s+2*q}" height="${s+2*q}" fill="#fff"/><path d="${qrRuns(m).map(r=>`M${(r.x*k).toFixed(2)} ${(r.y*k).toFixed(2)}h${(r.w*k).toFixed(2)}v${k.toFixed(2)}h${(-r.w*k).toFixed(2)}z`).join('')}" fill="#000"/></g>`;}
   if(b.type==='image'){const src=b.src||(b.field?ctx.field(b.field):'');if(!/^data:image\/jpeg;base64,/.test(src||''))return '';const h=b.h||40,w=b.w||h*3,p=at(b);
    return `<image href="${esc(src)}" x="${(p.a==='middle'?p.x-w/2:p.a==='end'?CL_W-CL_MARGIN-w:p.x).toFixed(1)}" y="${b.y||0}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet"${hit(b)}/>`;}
   const v=drawBlockText(b,ctx),p=at(b);if(!v&&!edit)return '';

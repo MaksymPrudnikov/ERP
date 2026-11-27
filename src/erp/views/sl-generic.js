@@ -63,7 +63,7 @@ function slTable(scope,o){
   const defs=Object.assign({},...cols0.filter(c=>c.w).map(c=>({[c.k]:c.w})),o.widths||{});
   salesListCwTable(cols.map(c=>c.k),[o.lead||44],o.acts||20,defs);
   /* Колонка, что забирает остаток ширины (как Customer в Sales): своя или первая текстовая. */
-  const reg=CW_TABLES[scope];if(reg){reg.fill=o.fill||(cols0.find(c=>c.type==='text')||cols0[0]||{}).k||'';reg.trail=o.acts||20;reg.lead=[o.lead||44];}
+  const reg=CW_TABLES[scope];if(reg){reg.fill=o.fill||(cols0.find(c=>c.type==='text')||cols0[0]||{}).k||'';reg.trail=o.acts||20;reg.lead=[o.lead||44];reg.fit=true;}
   /* limit — сколько строк рисовать (длинный список стёкол раскроя рисуется
      частями); found(rows) — все строки после фильтра и сортировки. */
   const all=salesListRows(infos),rows=o.limit!=null?all.slice(0,o.limit):all;if(o.found)o.found(all);

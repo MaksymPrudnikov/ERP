@@ -5,7 +5,8 @@
    карточке клиента — его личный прайс. Правка прайса пишется сразу, как в
    Works: журнал Master Data видит каждую цену «было → стало».
    IN : DB.priceList, DB.itemGroup, DB.customer
-   OUT: viewMdPrices, customerPricesTab, salesPriceListStrip; правка — DB.priceList, DB.itemGroup
+   OUT: viewMdPrices(pills) — Data → Prices видом Catalog, customerPricesTab, salesPriceListStrip;
+        правка — DB.priceList, DB.itemGroup
    ===================================================================== */
 let plView='groups',plGroupId='',plItemGroupId='',plAddKind='',plBulk=null,plFile=null;
 
@@ -53,31 +54,38 @@ function plSetPrice(listId,rowId,band,v){
 function plRemoveRow(listId,rowId){plCommand(()=>{const l=plList(listId);if(l)l.rows=l.rows.filter(r=>r.id!==rowId);});}
 
 /* --- Data → Prices ------------------------------------------------------ */
-function viewMdPrices(){
- const views=[['groups','Customer groups'],['items','Item groups'],['bulk','Set for customers'],['file','Excel']];
- const subs=`<div class="md-mat-subs" data-pl-subs>${views.map(([k,label])=>`<button class="sm ${k===plView?'on':''}" ${onAct('click',plViewSet,String(k))}>${label}</button>`).join('')}</div>`;
- return subs+(plView==='items'?plItemGroupsView():plView==='bulk'?plBulkView():plView==='file'?plFileView():plGroupsView());
+/* Вид как Catalog (владелец 27.11.2026, вариант A): слева дерево — группы
+   клиентов, группы айтемов, инструменты; справа открытое на всю ширину.
+   pills — разделы Data (viewMasterData). */
+function viewMdPrices(pills){
+ const groups=priceListGroups(),items=DB.itemGroup||[];
+ if(plView==='groups'&&!groups.some(g=>g.id===plGroupId))plGroupId=groups[0]?groups[0].id:'';
+ if(plView==='items'&&!items.some(g=>g.id===plItemGroupId))plItemGroupId=items[0]?items[0].id:'';
+ const node=(on,label,n,attr,fn,...args)=>`<button type="button" class="${on?'on':''}" ${attr} ${onAct('click',fn,...args)}>${esc(label)}${n!=null?` <span class="mut">${n}</span>`:''}</button>`;
+ const tree=`<nav class="card md-tree" aria-label="Prices" data-pl-tree>
+  <div class="md-tree-group">Customer groups</div>${groups.map(g=>node(plView==='groups'&&g.id===plGroupId,g.name||'Unnamed group',plGroupCustomers(g.id).length,`data-pl-group="${esc(g.id)}"`,plGroupPick,String(g.id??''))).join('')}
+  <button type="button" class="mut" data-pl-new-group ${onAct('click',plNewGroup)}>+ Customer group</button>
+  <div class="md-tree-group">Item groups</div>${items.map(g=>node(plView==='items'&&g.id===plItemGroupId,g.name||'Unnamed',g.members.length,`data-pl-item-group="${esc(g.id)}"`,plItemGroupPick,String(g.id??''))).join('')}
+  <button type="button" class="mut" data-pl-new-item-group ${onAct('click',plNewItemGroup)}>+ Item group</button>
+  <div class="md-tree-group">Tools</div>${node(plView==='bulk','Set for customers',null,'data-pl-tool="bulk"',plViewSet,'bulk')}${node(plView==='file','Excel',null,'data-pl-tool="file"',plViewSet,'file')}
+ </nav>`;
+ const g=plView==='groups'&&priceListById(plGroupId),ig=plView==='items'&&itemGroupById(plItemGroupId);
+ const title=g?`${g.name||'Unnamed group'} · ${plGroupCustomers(g.id).length} customers · ${g.rows.length} prices`:ig?`${ig.name||'Unnamed'} · ${ig.members.length} items`:plView==='bulk'?'Set for customers':plView==='file'?'Excel':'Customer groups';
+ const body=plView==='items'?plItemGroupsView():plView==='bulk'?plBulkView():plView==='file'?plFileView():plGroupsView();
+ return `<div class="md-shell" data-md-prices>${tree}<div class="card sales-list-card md-catalog-main"><div class="sales-toolbar md-bar"><span class="mut" data-pl-title>${esc(title)}</span><span class="sales-toolbar-sp"></span></div>${pills}<div class="md-catalog-body">${body}</div></div></div>`;
 }
 function plGroupCustomers(id){return (DB.customer||[]).filter(c=>c.priceGroupId===id&&c.status!=='archived');}
 function plViewSet(k){plView=k;render();}
-function plGroupPick(id){plGroupId=id;render();}
-function plItemGroupPick(id){plItemGroupId=id;render();}
+function plGroupPick(id){plView='groups';plGroupId=id;render();}
+function plItemGroupPick(id){plView='items';plItemGroupId=id;render();}
 function plUpdatePricesAsk(){if(confirm("Update prices from today's price lists? Prices typed by hand stay.")){salesUpdatePrices();render();}}
 function plFileCancel(){plFile=null;render();}
 function plFileScopeSet(v){plFileScope=v;}
 function plCsvChoose(){document.getElementById('plCsv').click();}
+/* Открытая группа клиентов; список групп — в дереве слева. */
 function plGroupsView(){
- const groups=priceListGroups();if(plGroupId&&!groups.some(g=>g.id===plGroupId))plGroupId='';
  const g=priceListById(plGroupId);
- const list=slTable('plGroups',{list:groups,id:x=>x.id,empty:'No groups yet.',noun:l=>l.length+' group'+(l.length===1?'':'s'),fill:'name',
-  columns:()=>[{k:'name',label:'Group',type:'text',v:x=>x.name||'Unnamed group',cell:x=>`<b>${esc(x.name||'Unnamed group')}</b>`},{k:'customers',label:'Customers',type:'number',sum:true,v:x=>plGroupCustomers(x.id).length},{k:'prices',label:'Prices',type:'number',sum:true,v:x=>x.rows.length}],
-  row:i=>({attrs:` data-pl-group class="${i.x.id===plGroupId?'sel':''}" style="cursor:pointer" ${onAct('click',plGroupPick,String(i.x.id??''))}`})});
- return `<div class="sub">Personal beats group; else base price.</div>
-  <div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap">
-   <div style="flex:0 0 340px">${list}
-    <button class="pri" style="margin-top:8px" ${onAct('click',plNewGroup)}>+ Customer group</button></div>
-   <div style="flex:1 1 480px;min-width:0">${g?plGroupEditor(g):groups.length?'<div class="mut">Pick a group.</div>':'<div class="mut">Add a group, then give it prices.</div>'}</div>
-  </div>`;
+ return `<div class="sub">Personal beats group; else base price.</div>${g?plGroupEditor(g):'<div class="mut">Add a group, then give it prices.</div>'}`;
 }
 function plGroupEditor(g){
  const members=plGroupCustomers(g.id),others=(DB.customer||[]).filter(c=>c.status!=='archived'&&c.priceGroupId!==g.id);
@@ -89,7 +97,7 @@ function plGroupEditor(g){
 }
 function plNewGroup(){
  const name=prompt('Customer group name');if(name==null||!name.trim())return;
- const id=salesUid('PL');plCommand(()=>{DB.priceList.push({id,kind:'group',name:name.trim(),customerId:'',rows:[]});});plGroupId=id;render();
+ const id=salesUid('PL');plCommand(()=>{DB.priceList.push({id,kind:'group',name:name.trim(),customerId:'',rows:[]});});plView='groups';plGroupId=id;render();
 }
 function plRenameGroup(id,name){plCommand(()=>{const g=plList(id);if(g)g.name=String(name||'').trim();});}
 function plDeleteGroup(id){
@@ -103,27 +111,19 @@ function plSetCustomerGroup(customerId,groupId){
  plCommand(()=>{const c=(DB.customer||[]).find(x=>x.id===customerId);if(c){c.priceGroupId=groupId||'';c.group='';c.updatedAt=plNow();}});
 }
 
+/* Открытая группа айтемов; список — в дереве слева. */
 function plItemGroupsView(){
- const groups=DB.itemGroup||[];if(plItemGroupId&&!groups.some(g=>g.id===plItemGroupId))plItemGroupId='';
  const g=itemGroupById(plItemGroupId),targets=salesPriceTargets();
- const list=slTable('plItemGroups',{list:groups,id:x=>x.id,empty:'No item groups yet.',noun:l=>l.length+' item group'+(l.length===1?'':'s'),fill:'name',
-  columns:()=>[{k:'name',label:'Item group',type:'text',v:x=>x.name||'Unnamed',cell:x=>`<b>${esc(x.name||'Unnamed')}</b>`},{k:'items',label:'Items',type:'number',sum:true,v:x=>x.members.length}],
-  row:i=>({attrs:` data-pl-item-group class="${i.x.id===plItemGroupId?'sel':''}" style="cursor:pointer" ${onAct('click',plItemGroupPick,String(i.x.id??''))}`})});
  const editor=g?`<div class="row" style="gap:8px;margin-bottom:10px"><input aria-label="Item group name" value="${esc(g.name)}" ${onAct('change',plItemGroupName,String(g.id??''),EL_VALUE)} style="max-width:260px"><button class="sm dl" ${onAct('click',plItemGroupDelete,String(g.id??''))}>Delete group</button></div>
    ${slTable('plItemMembers',{list:g.members,id:k=>k,empty:'No items yet.',noun:l=>l.length+' item'+(l.length===1?'':'s'),fill:'item',acts:50,
     columns:()=>[{k:'item',label:'Item',type:'text',v:k=>salesPriceTargetLabel(k,targets)}],
     row:i=>({attrs:' data-pl-member',last:`<button class="sm dl" title="Remove" ${onAct('click',plItemGroupDrop,String(g.id??''),String(i.x??''))}>×</button>`})})}
-   <select aria-label="Add item" style="max-width:360px;margin-top:8px" ${onAct('change',plItemGroupAdd,String(g.id??''),EL_VALUE)}>${plTargetOptions(targets.filter(t=>!g.members.includes(t.key)),false,'')}</select>`:'<div class="mut">Pick a group.</div>';
- return `<div class="sub">Item group = one price line for many items, e.g. "Edge work". Inside a price list, an item's own price beats its group; an item in two groups takes the group priced last.</div>
-  <div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap">
-   <div style="flex:0 0 340px">${list}
-    <button class="pri" style="margin-top:8px" ${onAct('click',plNewItemGroup)}>+ Item group</button></div>
-   <div style="flex:1 1 480px;min-width:0">${editor}</div>
-  </div>`;
+   <select aria-label="Add item" style="max-width:360px;margin-top:8px" ${onAct('change',plItemGroupAdd,String(g.id??''),EL_VALUE)}>${plTargetOptions(targets.filter(t=>!g.members.includes(t.key)),false,'')}</select>`:'<div class="mut">Add an item group, then put items in it.</div>';
+ return `<div class="sub">Item group = one price line for many items, e.g. "Edge work". Inside a price list, an item's own price beats its group; an item in two groups takes the group priced last.</div>${editor}`;
 }
 function plNewItemGroup(){
  const name=prompt('Item group name');if(name==null||!name.trim())return;
- const id=salesUid('IG');plCommand(()=>{DB.itemGroup.push({id,name:name.trim(),members:[]});});plItemGroupId=id;render();
+ const id=salesUid('IG');plCommand(()=>{DB.itemGroup.push({id,name:name.trim(),members:[]});});plView='items';plItemGroupId=id;render();
 }
 function plItemGroupSet(id,fn){plCommand(()=>{const g=itemGroupById(id);if(g)fn(g);});}
 function plItemGroupName(id,v){plItemGroupSet(id,x=>{x.name=String(v).trim();});}
@@ -160,7 +160,7 @@ function plBulkView(){
    <button class="sm" ${onAct('click',plBulkTick,customers.map(c=>c.id))}>Tick shown</button><button class="sm" ${onAct('click',plBulkClear)}>Clear</button></div>
   ${(()=>{const now=c=>{const r=b.target?(priceListOfCustomer(c.id)||{rows:[]}).rows.find(x=>x.target===b.target):null;return r?plRowText(r):'';};
    return slTable('plBulk',{list:customers,id:c=>c.id,empty:'No customers.',noun:l=>l.length+' customer'+(l.length===1?'':'s'),fill:'customer',
-    columns:()=>[{k:'customer',label:'Customer',type:'text',v:c=>c.displayName||c.legalName},{k:'code',label:'Account',type:'text',def:false,v:c=>c.code},{k:'group',label:'Group',type:'list',v:c=>customerGroupName(c)},{k:'now',label:'Now',type:'text',v:now,cell:c=>`<span class="mono">${esc(now(c)||'—')}</span>`}],
+    columns:()=>[{k:'customer',label:'Customer',type:'text',v:c=>c.displayName||c.legalName},{k:'code',label:'Account',type:'text',def:false,v:c=>c.code},{k:'group',label:'Group',type:'list',w:220,v:c=>customerGroupName(c)},{k:'now',label:'Now',type:'text',v:now,cell:c=>`<span class="mono">${esc(now(c)||'—')}</span>`}],
     row:i=>({attrs:' data-pl-bulk-row',first:`<td class="sl-check"><input type="checkbox" ${b.ids.includes(i.x.id)?'checked':''} ${onAct('change',plBulkPick,String(i.x.id??''),EL_CHECKED)}></td>`})});})()}`;
 }
 function plBulkApply(){

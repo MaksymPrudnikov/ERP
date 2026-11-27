@@ -3,7 +3,7 @@
    Ширина и порядок колонок прямо в заголовке — один механизм для списка
    Sales и Order Lines (пункт 11 плана v1.16).
    IN : адаптер таблицы (cwRegister): ключи колонок и её настройки в браузере
-   OUT: cwColgroup, cwGrip, cwTableAttrs, cwTableClass — ширины и перенос колонок
+   OUT: cwColgroup, cwGrip, cwTableAttrs, cwTableClass, cwFit — ширины, перенос колонок, «влезть в окно»
    Владелец, 30.10.2026: вид —
    вариант 1 («черта как в Excel»: тонкая черта между заголовками, при
    наведении и перетаскивании зелёная, через таблицу — линия); «чтобы колонки
@@ -55,6 +55,26 @@ function cwTableAttrs(id,keys){
 function cwTableClass(id){return CW_TABLES[id]&&(cwFixed(id)||CW_TABLES[id].fill)?' cw-fixed':'';}
 function cwColgroup(id,keys){return cwColgroupFor(id,keys,cwWidths(id));}
 function cwGrip(){return '<span class="cw-grip" data-cw-grip aria-hidden="true"></span>';}
+/* Таблица шире своего окна (Data: каталог стекла, станции, спейсеры;
+   владелец 27.11.2026: «таблица ездит») — колонки, которые руками не
+   тянули, ужимаются поровну от лишнего, но не уже своего заголовка; длинный
+   текст — многоточие. Потянутые руками держат свою ширину. Не влезает и
+   так — таблица как была, с прокруткой. Только таблицы, что попросили
+   (adapter.fit: таблицы slTable). */
+function cwFit(table){
+ const id=table.dataset.cwTable,a=id&&CW_TABLES[id];if(!a||!a.fit)return;
+ let wrap=table.parentElement;while(wrap&&wrap!==document.body&&!/auto|scroll|hidden/.test(getComputedStyle(wrap).overflowX))wrap=wrap.parentElement;
+ if(!wrap||wrap===document.body)return;const over=table.offsetWidth-wrap.clientWidth;if(over<=1)return;
+ const saved=cwWidths(id),cols=[...table.querySelectorAll('colgroup>col[data-cw-col]')].filter(c=>!saved[c.dataset.cwCol]&&c.style.width);
+ /* Ширина текста заголовка — по самому тексту (Range), а не по ячейке. */
+ const min=c=>{const th=table.querySelector('thead th[data-cw-key="'+c.dataset.cwCol+'"]'),l=th&&th.querySelector('[data-cw-label]');let t=0;if(l){const r=document.createRange();r.selectNodeContents(l);t=r.getBoundingClientRect().width;}return Math.max(CW_MIN+20,Math.ceil(t)+44);};
+ /* Влезает только целиком — иначе как было, с прокруткой (каталог стекла:
+    12 колонок, владелец 27.11.2026: «оставить прокрутку»). */
+ const room=cols.map(c=>{const w=parseFloat(c.style.width)||0;return {c,w,m:Math.min(w,min(c))};}),spare=room.reduce((s,r)=>s+r.w-r.m,0);if(spare<over)return;
+ const f=over/spare;let cut=0;
+ room.forEach(r=>{const d=Math.min(r.w-r.m,Math.ceil((r.w-r.m)*f));if(d>0){r.c.style.width=(r.w-d)+'px';cut+=d;}});
+ if(cut)table.style.width='max(100%,'+(table.offsetWidth-cut)+'px)';
+}
 
 /* ------------------------------ Жесты ---------------------------------- */
 let cwDrag=null;

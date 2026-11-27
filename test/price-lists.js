@@ -116,7 +116,7 @@ module.exports=async function({page,eq,ok}){
   plfReset();const c=oqCustomer({legalName:'Screen Co',group:'Spil text'}),k=plfKey(),g=plfGroup('Dealers',[{target:k,price:8}]);touch();
   tab='masterdata';mdTab='prices';plView='groups';plGroupId=g.id;render();
   const groups=document.querySelectorAll('[data-pl-group]').length,rows=document.querySelectorAll('[data-pl-list] [data-pl-row]').length;
-  plView='items';render();const items=!!document.querySelector('[data-pl-subs]');plView='bulk';render();const bulk=document.querySelectorAll('[data-pl-bulk-row]').length;
+  plView='items';render();const items=!!document.querySelector('[data-pl-tree] [data-pl-new-item-group]');plView='bulk';render();const bulk=document.querySelectorAll('[data-pl-bulk-row]').length;
   tab='customers';customerEdit(c.id);render();const sel=document.querySelector('[data-customer-group]'),old=sel.options[0].textContent;
   cTab='prices';render();const newBtn=!!document.querySelector('[data-pl-personal-new]');cEdit=null;cDraft=null;
   c.priceGroupId=g.id;plfDraft(c);salesOrderSave();const id=soDraft.id;salesDraftDrop(true);salesOrderEdit(id);tab='sales';render();

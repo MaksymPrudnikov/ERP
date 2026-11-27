@@ -60,7 +60,7 @@ function formsDefs(){
   samples:()=>carrierFormSamples(),doc:id=>id,context:()=>carrierFormContext(),columns:{},html:(tpl,id,view)=>carrierFormSheetHTML(tpl,id,view),after:()=>drawFormOverlaps(),
   panel:(part,tpl)=>part==='head'||part==='foot'?'':carrierFormPanelHTML(part,tpl)},
   /* Наклейка тары 4 × 6 (erp/documents/carrier-form): живой лист — наклейка. */
-  {k:'carrierLabel',label:'Dolly / Skid label',def:carrierLabelDefault,fields:()=>carrierLabelFields(),add:['text','field','image','barcode'],sheetClass:tpl=>'fm-lsheet'+(carrierLabelSize(tpl)==='3x4'?' cl-small':''),
+  {k:'carrierLabel',label:'Dolly / Skid label',def:carrierLabelDefault,fields:()=>carrierLabelFields(),add:['text','field','image','barcode','qr'],sheetClass:tpl=>'fm-lsheet'+(carrierLabelSize(tpl)==='3x4'?' cl-small':''),
   parts:{label:['Label 4 × 6','portrait'],small:['Label 3 × 4','landscape']},samples:()=>carrierLabelSamples(),doc:id=>id,context:id=>carrierLabelCtx(id&&id!=='sample'?id:'SA-10'),columns:{},
   html:(tpl,id,view)=>carrierLabelSheetHTML(tpl,id,view),after:()=>drawFormOverlaps(),pageOf:tpl=>carrierLabelPage(tpl),panel:(part,tpl)=>carrierLabelPanelHTML(part,tpl)}])
  /* Свои формы — в конце строки форм; данные и печать — бланка base. */
@@ -149,10 +149,10 @@ function formsBlockLabel(b){
  if(b.type==='section')return DOC_SECTIONS[b.k]||'Section';
  if(b.type==='text'){const t=String(b.text||'').replace(/\s+/g,' ').trim();return t.length>34?t.slice(0,33)+'…':t||'Text';}
  if(b.type==='field'){const f=formsFieldDef(b.field);return (b.prefix?b.prefix.replace(/\s*$/,' '):'')+(f?f.label:b.field);}
- if(b.type==='barcode'){const f=formsFieldDef(b.field);return b.field==='barcode'?'Barcode':'Barcode · '+(f?f.label:b.field);}
+ if(b.type==='barcode'||b.type==='qr'){const f=formsFieldDef(b.field),t=b.type==='qr'?'QR code':'Barcode';return b.field==='barcode'?t:t+' · '+(f?f.label:b.field);}
  return {line:'Line',box:'Frame',image:'Picture'}[b.type]||b.type;
 }
-function formsTypeLabel(b){return {text:'Text',field:'Field',line:'Line',box:'Frame',image:'Picture',barcode:'Barcode',section:'Section'}[b.type]||'Block';}
+function formsTypeLabel(b){return {text:'Text',field:'Field',line:'Line',box:'Frame',image:'Picture',barcode:'Barcode',qr:'QR code',section:'Section'}[b.type]||'Block';}
 /* Новый блок встаёт под части и раздвигает её — ничего не налезает. */
 function formsAddBlock(make){
  const s=formsState();let part=s.sel?s.sel.part:s.part||'every';
@@ -172,9 +172,13 @@ function formsAdd(type){
   text:()=>({type:'text',text:'Text',place:'left',w:240,h:14,size:9,lh:14,wrap:true}),
   line:()=>({type:'line',place:'left',w:540,h:0,lw:.6,color:C.line}),
   box:()=>({type:'box',place:'left',w:200,h:40,lw:.6,color:C.line,r:3}),
-  barcode:()=>({type:'barcode',field:'barcode',place:'left',w:200,h:30})}[type];
+  barcode:()=>({type:'barcode',field:'barcode',place:'left',w:200,h:30}),
+  /* QR — квадрат 1″; поле то же, что у штрихкода этой формы (номер), иначе
+     Barcode (владелец 27.11.2026: «заменить бар на QR»). */
+  qr:()=>({type:'qr',field:formsCodeField(),place:'left',w:72,h:72})}[type];
  if(make)formsAddBlock(make);
 }
+function formsCodeField(){const ps=formsDraft().tpl.parts,bar=Object.values(ps).flatMap(p=>p.blocks||[]).find(b=>b.type==='barcode');return bar&&bar.field||'barcode';}
 /* Картинка — в JPEG (PDF вставляет JPEG как есть), не шире 800 точек. */
 function formsPicture(input){
  const file=input.files&&input.files[0];input.value='';if(!file)return;
@@ -423,20 +427,23 @@ function formsSheetsHTML(){
    if(String(r.id).startsWith('col:')){const k=r.id.slice(4),on=s.cols&&s.cols.part===r.part&&s.cols.k===k;
     return `<div class="fm-hit fm-colhit${on?' sel':''}" data-forms-hit="${esc(r.part)}|${esc(r.id)}" title="Column" style="left:${pc(r.x,W)};top:${pc(r.y,H)};width:${pc(Math.max(r.w,4),W)};height:${pc(r.h,H)}" ${onAct('pointerdown',formsColumnsDown,EVENT,String(r.part??''),String(k??''))}></div>`;}
    const sel=s.sel&&s.sel.part===r.part&&s.sel.id===r.id,b=formsFind(tpl,r);if(!b)return '';
-   const handles=sel&&b.type!=='section'?'<span class="fm-rs e" data-forms-resize="e"></span>'+(formIsText(b)?'':'<span class="fm-rs s" data-forms-resize="s"></span>'):'';
+   /* Ручка ширины — с той стороны, что ходит: у Right правый край стоит на поле листа, ручка слева. */
+   const side=b.place==='right'?'w':'e',handles=sel&&b.type!=='section'?`<span class="fm-rs ${side}" data-forms-resize="${side}"></span>`+(formIsText(b)||b.type==='qr'?'':'<span class="fm-rs s" data-forms-resize="s"></span>'):'';
    return `<div class="fm-hit${sel?' sel':''}" data-forms-hit="${esc(r.part)}|${esc(r.id)}" title="${esc(formsBlockLabel(b))}" style="left:${pc(r.x,W)};top:${pc(r.y,H)};width:${pc(Math.max(r.w,4),W)};height:${pc(Math.max(r.h,4),H)}" ${onAct('pointerdown',formsPointerStart,EVENT,String(r.part??''),String(r.id??''))}>${handles}</div>`;}).join('');
   return `<div class="fm-sheet" data-forms-page="${i}" data-w="${W}" data-h="${H}">${docPageSVG(pg).replace('width="612" height="792"','width="100%" height="100%"')}${i?'':formsRuler(false,W)+formsRuler(true,H)+formsRulerMarks(tpl)}<div class="fm-margin" style="left:${pc(m.left,W)};right:${pc(m.right,W)}"></div>${formsGuidesHTML(tpl)}${hits}</div>`;
  }).join('');
 }
 function formsStageRefresh(){const st=document.querySelector('[data-forms-stage]');if(st)st.innerHTML=formsSheetsHTML();}
 /* Тянуть блок мышью: Left / Center / Right ходят только вверх-вниз, Free —
-   куда угодно; уголок справа — ширина, снизу — высота рамки и линии. */
+   куда угодно; уголок сбоку — ширина (у Right — слева), снизу — высота рамки
+   и линии. */
 function formsPointerStart(e,part,id){
  if(e.button!==0||formsPointer)return;
  const sheet=e.currentTarget.closest('[data-forms-page]'),stage=e.currentTarget.closest('[data-forms-stage]'),d=formsDraft(),b=formsFind(d.tpl,{part,id});if(!sheet||!b)return;
  e.preventDefault();e.stopPropagation();const s=formsState();s.sel={part,id};s.part=part;
  const handle=e.target.closest('[data-forms-resize]'),r=sheet.getBoundingClientRect();
- formsPointer={part,id,pid:e.pointerId,stage,before:formsClone(d.tpl),b0:formsClone(b),x0:formBlockX(d.tpl,b),handle:handle?handle.dataset.formsResize:'move',x:e.clientX,y:e.clientY,k:(+sheet.dataset.w||d.tpl.page.w)/r.width,moved:false};
+ const k=(+sheet.dataset.w||d.tpl.page.w)/r.width;
+ formsPointer={part,id,pid:e.pointerId,stage,before:formsClone(d.tpl),b0:formsClone(b),x0:formBlockX(d.tpl,b),handle:handle?handle.dataset.formsResize:'move',x:e.clientX,y:e.clientY,k,bw0:e.currentTarget.getBoundingClientRect().width*k,moved:false};
  try{stage.setPointerCapture(e.pointerId);}catch(x){}
  stage.onpointermove=formsPointerMove;stage.onpointerup=ev=>formsPointerEnd(ev,false);stage.onpointercancel=ev=>formsPointerEnd(ev,true);
  formsStageRefresh();
@@ -445,7 +452,13 @@ function formsPointerMove(e){
  const p=formsPointer;if(!p||e.pointerId!==p.pid)return;e.preventDefault();
  const b=formsFind(formsDraft().tpl,p),dx=(e.clientX-p.x)*p.k,dy=(e.clientY-p.y)*p.k,r=v=>Math.round(v*2)/2;if(!b)return;
  if(Math.abs(e.clientX-p.x)+Math.abs(e.clientY-p.y)>2)p.moved=true;if(!p.moved)return;
- if(p.handle==='e')b.w=Math.max(8,r((p.b0.w||0)+dx));
+ /* Ручка идёт за мышью: у Right тянут левую (w), у Center блок растёт в обе
+    стороны; у штрихкода вместе с рамкой растягиваются полосы (module). */
+ if(p.handle==='e'||p.handle==='w'){const d=p.handle==='w'?-dx:dx,grow=b.place==='center'?2*d:d;
+  if(b.type==='barcode'&&p.bw0>0){const nw=Math.max(8,p.bw0+grow);b.module=Math.round((p.b0.module||1.44)*nw/p.bw0*1000)/1000;b.w=r(nw);}
+  else b.w=Math.max(8,r((p.b0.w||0)+grow));
+  /* QR — квадрат: высота за шириной. */
+  if(b.type==='qr')b.h=b.w;}
  else if(p.handle==='s')b.h=Math.max(0,r((p.b0.h||0)+dy));
  else{const t=formsDraft().tpl;b.y=r(p.b0.y+dy);
   if(b.place==='free'){const nx=r(p.x0+dx),gx=formsGuides(t,'x'),sl=formsSnap(nx,gx),sr=formsSnap(nx+(b.w||0),gx)-(b.w||0);b.x=sl!==nx?sl:sr;}}
@@ -471,14 +484,14 @@ function formsSettingsHTML(tpl){
  const s=formsState();if(s.cols)return formsColsHTML(tpl);const b=formsFind(tpl,s.sel);
  const panel=!b&&formsDef(s.form).panel&&formsDef(s.form).panel(s.part,tpl);if(panel)return panel;
  if(!b){const lab=formsPartLabel(s.part);return `<div class="fm-h">Part · ${esc(lab[0])}</div><p class="fm-note">Click a block on the sheet or in the list. Add puts a new block here.</p>`;}
- const mm=v=>v==null?'':Math.round(v*FORMS_PT_MM*10)/10,f=b.type==='field'||b.type==='barcode'?formsFieldDef(b.field):null,text=formIsText(b);
+ const mm=v=>v==null?'':Math.round(v*FORMS_PT_MM*10)/10,f=b.type==='field'||b.type==='barcode'||b.type==='qr'?formsFieldDef(b.field):null,text=formIsText(b);
  /* Лист чертежа: строка текста в колонке — без ширины, интервала, переноса. */
  const hl=!!formsDef(s.form).html;
  const seg=(cur,list,fn)=>`<div class="fm-seg">${list.map(([k,l])=>`<button type="button" class="${cur===k?'on':''}" ${onAct('click',fn,String(k))}>${l}</button>`).join('')}</div>`;
  const num=(k,label,v,isMm)=>`<label><span>${label}</span><input class="fm-in" data-forms-num="${k}" inputmode="decimal" value="${esc(String(v))}" ${onAct('change',formsNum,String(k),EL_VALUE,!!isMm)}></label>`;
  let what='';
  if(b.type==='text')what=`<label class="wide"><span>Text</span><textarea class="fm-in" data-forms-text rows="3" ${onAct('change',formsSet,'text',EL_VALUE)}>${esc(b.text||'')}</textarea></label><p class="fm-note">Fields in text: {number}, {page} of {pages}</p>`;
- else if(f||b.type==='field'||b.type==='barcode')what=`<label class="wide"><span>Field</span><button type="button" class="fm-in fm-field-btn" data-forms-change ${onAct('click',formsOpenField,'change')}>${esc(f?f.label:b.field)} ▾</button></label>${b.prefix?`<p class="fm-note">Before: “${esc(b.prefix)}”</p>`:''}`;
+ else if(f||b.type==='field'||b.type==='barcode'||b.type==='qr')what=`<label class="wide"><span>Field</span><button type="button" class="fm-in fm-field-btn" data-forms-change ${onAct('click',formsOpenField,'change')}>${esc(f?f.label:b.field)} ▾</button></label>${b.prefix?`<p class="fm-note">Before: “${esc(b.prefix)}”</p>`:''}`;
  else if(b.type==='image')what=`<button type="button" class="fm-wide-btn" ${onAct('click',formsPictureChoose)}>Replace picture</button>`;
  const look=text?`<div class="fm-h">Text</div><div class="fm-row">${num('size','Size, pt',b.size||9)}${hl?'':num('lh','Line spacing, pt',formLh(b))}</div>
    <label><span>Font</span><select class="fm-in" data-forms-font ${onAct('change',formsSet,'font',EL_VALUE)}>${[['','Helvetica'],['times','Times'],['courier','Courier']].map(([k,l])=>`<option value="${k}" ${(b.font||'')===k?'selected':''}>${l}</option>`).join('')}</select></label>
@@ -491,12 +504,12 @@ function formsSettingsHTML(tpl){
  return `<div class="fm-h fm-sel-h"><span>Selected · ${esc(formsTypeLabel(b))}</span><button type="button" class="fm-del" data-forms-delete ${onAct('click',formsDelete)}>Delete</button></div>${what}
   ${sec?`<p class="fm-note">Drawn by the program.${formsDef(s.form).custom?' What it shows — ✎ Customize.':''}</p><div class="fm-h">Place on sheet</div><div class="fm-row">${num('y','Y, mm',mm(b.y),true)}</div>`
   :`<div class="fm-h">Place on sheet</div>${seg(b.place||'left',[['left','Left'],['center','Center'],['right','Right'],['free','Free']],formsPlace)}
-  <div class="fm-row">${b.place==='free'?num('x','X, mm',mm(b.x),true):''}${num('y','Y, mm',mm(b.y),true)}${hl?'':num('w','Width, mm',mm(b.w),true)}${text?'':num('h','Height, mm',mm(b.h),true)}</div>`}${hl?drawLayerHTML(b):''}${look}${showIf}${sec?'':`<button type="button" class="fm-wide-btn" data-forms-addto ${onAct('click',formsAddToOpen)}>Add to other forms…</button>`}`;
+  <div class="fm-row">${b.place==='free'?num('x','X, mm',mm(b.x),true):''}${num('y','Y, mm',mm(b.y),true)}${hl&&b.type!=='qr'?'':num('w',b.type==='qr'?'Size, mm':'Width, mm',mm(b.w),true)}${text||b.type==='qr'?'':num('h','Height, mm',mm(b.h),true)}</div>`}${hl?drawLayerHTML(b):''}${look}${showIf}${sec?'':`<button type="button" class="fm-wide-btn" data-forms-addto ${onAct('click',formsAddToOpen)}>Add to other forms…</button>`}`;
 }
 function viewMdForms(){
  const s=formsState(),def=formsDef(s.form),d=formsDraft(),tpl=d.tpl,dirty=formsDirty(),samples=def.samples();
  const ctx=def.context(def.doc(s.sample));
- const add=[['text','Text'],['field','Field'],['image','Picture'],['line','Line'],['box','Frame'],['barcode','Barcode']].filter(([k])=>!def.add||def.add.includes(k));
+ const add=[['text','Text'],['field','Field'],['image','Picture'],['line','Line'],['box','Frame'],['barcode','Barcode'],['qr','QR code']].filter(([k])=>!def.add||def.add.includes(k));
  return `<div class="fm" data-forms>
   <div class="fm-bar"><div class="fm-forms">${formsDefs().map(x=>`<button type="button" class="sl-quick-pill${x.k===s.form?' on':''}" ${onAct('click',formsSetForm,String(x.k))}>${esc(x.label)}</button>`).join('')}</div><span class="fm-sp"></span>
    <label class="fm-preview"><span>Preview</span><select data-forms-sample ${onAct('change',formsSetSample,EL_VALUE)}>${samples.length?samples.map(x=>`<option value="${esc(x.id)}" ${x.id===s.sample?'selected':''}>${esc(x.label)}</option>`).join(''):'<option value="sample">Sample</option>'}</select></label>
