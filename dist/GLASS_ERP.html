@@ -8,7 +8,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-Od6mURs911f75El4Ic9+sfFe1x/3W7WUsWihrpAJ/uI=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-8neA7u4PC1RlBt1ovZNkIKnbtPrK2o5wmAJgXwF0L7U=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GLASS ERP — Glazing System</title>
 <style>
@@ -559,7 +559,7 @@ body.signin-mode main#app{padding:0}
 .stock-picker-row:hover{background:var(--surface-2)}.stock-picker-row td{padding:8px}
 .md-mat-cats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}.md-mat-cats button{padding:6px 11px;font-size:11px}.md-mat-cats button.on{background:var(--blue2);border-color:var(--accent-line);color:var(--accent);font-weight:700}.md-mat-cats button .mut{margin-left:5px;font:9.5px ui-monospace,monospace}
 .md-st-tree{margin-bottom:14px}.md-st-tree ol,.md-st-tree ul{list-style:none;margin:0;padding:0}.md-st-step{display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--line2)}.md-st-step:last-child{border-bottom:0}.md-st-step>ul{flex:1;display:flex;flex-direction:column;gap:6px}.md-st-seq{flex:none;width:24px;height:24px;border-radius:7px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:11px}.md-st-node{padding-left:10px;border-left:2px solid var(--line)}.md-st-kids{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
-.md-setup input[type=number],.md-setup td input[type=text]{width:120px;display:inline-block}.md-setup [data-setup-cards] td input[type=text]{width:220px}.md-setup .md-setup-base{display:inline-flex;align-items:center;gap:4px;margin-right:12px;white-space:nowrap}.md-setup h3{margin-top:18px}.md-setup .grid{max-width:640px}
+.md-setup input[type=number],.md-setup td input[type=text]{width:120px;display:inline-block}.md-setup [data-setup-cards] td input[type=text]{width:230px}.md-setup .md-setup-base{display:inline-flex;align-items:center;gap:4px;margin-right:12px;white-space:nowrap}.md-setup h3{margin-top:18px}.md-setup .grid{max-width:640px}
 .md-mat-subs{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:9px;padding-bottom:8px;border-bottom:1px solid var(--line2)}.md-mat-subs button{padding:4px 9px;font-size:10px}.md-mat-subs button.on{background:var(--blue);border-color:var(--blue);color:var(--on-solid)}
 .stock-picker-filters{display:flex;flex-wrap:wrap;gap:5px;padding:0 12px 10px}.stock-picker-filters button{padding:4px 9px;font-size:9.5px}.stock-picker-filters button.on{background:var(--blue2);border-color:var(--accent-line);color:var(--accent);font-weight:700}
 .sales-notes{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px}.sales-notes textarea{font-size:11px;padding:6px 8px;border-radius:6px}.sales-modal-back{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:80;align-items:center;justify-content:center;padding:18px}.sales-modal-back.show{display:flex}.sales-modal{width:min(720px,96vw);background:var(--surface);border:1px solid var(--line-strong);border-radius:12px;padding:12px;box-shadow:0 18px 60px rgba(16,24,40,.19)}.sales-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}.sales-modal-head h3{margin:0;font-size:14px}.sales-modal-head span{font-size:10px;color:var(--mut)}.sales-modal textarea{font:12px ui-monospace,SFMono-Regular,Menlo,monospace}.sales-modal-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:8px}
@@ -1353,13 +1353,14 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
    без пустот между ними (владелец, 26.10.2026: «без укорочения»). */
 .md-trucks table{width:100%;table-layout:fixed}.md-trucks td input[type=text],.md-trucks td input:not([type]){width:100%;max-width:none!important}
 .md-trucks th:first-child{width:36%}.md-trucks .md-trucks-on{width:90px;text-align:center}
-/* Data → Setup: на всю ширину, колонки по долям — значение и «база» не
-   разбегаются по краям. */
-.md-setup .ncr-table{width:100%;table-layout:fixed}
-.md-setup .ncr-table:not([data-setup-cards]) th:nth-child(1){width:30%}.md-setup .ncr-table:not([data-setup-cards]) th:nth-child(2){width:8%}.md-setup .ncr-table:not([data-setup-cards]) th:nth-child(3){width:27%}
-.md-setup [data-setup-cards] th:nth-child(1){width:45%}.md-setup [data-setup-cards] th:nth-child(3){width:70px}
-.md-setup [data-setup-cards] td input[type=text]{width:100%}
-.md-trucks td{vertical-align:middle}.md-setup .ncr-table:not([data-setup-cards]) th:nth-child(4){text-align:left}
+/* Data → Setup: таблицы на движке Sales (07.11) — ширины колонок у самих
+   колонок (viewMdSetup). Прежние доли по номеру колонки (26.10) после
+   движка попадали в шестерёнку: пустая полоса слева, поле на пол-экрана и
+   «…» вместо % и CAD (владелец 27.11.2026: «что-то кривое с интерфейсом»).
+   Поле и его единица — одной строкой. */
+.md-setup .md-num{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}.md-setup .md-num input{width:90px}
+.md-setup td input[type=checkbox]{vertical-align:middle;margin:0}
+.md-trucks td{vertical-align:middle}
 
 /* Stock item: вид и измерения (пункт 4). */
 .md-stock-kind{margin:0 0 14px}.md-stock-kind-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.md-stock-kind-row input{width:160px}
@@ -1484,6 +1485,8 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .line-locked-pill{display:none;margin-left:5px;padding:1px 6px;border-radius:999px;background:var(--warning-soft);color:var(--warning);border:1px solid var(--warning-line);font-size:10px;font-weight:700;vertical-align:middle}
 tr[data-picked] .line-locked-pill{display:inline-block}
 table.cw-fixed tr[data-picked] td>select:has(+.line-locked-pill){width:calc(100% - 62px)!important}
+/* Угол митры — число до десятой (27.11.2026). */
+.miter-angle{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}.miter-angle input{width:76px}
 
 /* ---- src/styles/line-metrics.css ---- */
 .sales-lines-table th,.sales-lines-table td{text-align:center;vertical-align:middle}.sales-lines-table input,.sales-lines-table select{text-align:center}.sales-lines-table th.line-metric,.sales-lines-table td.line-metric{min-width:103px;text-align:center;vertical-align:middle}
@@ -4711,7 +4714,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='c9d24416f653';
+var ERP_BUILD='c5ec95bdb805';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -5854,13 +5857,18 @@ function shapeTextValue(v,d){return String(v==null?(d==null?'':d):v);}
    новый создавался на каждой нормализации и выбрасывался: Finance на базе
    3 мес. тратил на это треть экрана (задание «База», П2). */
 function shapeIdValue(v,prefix){return v==null?shapeNewEntityId(prefix):String(v);}
+/* Угол митры — любое число больше 0° и меньше 90°, до десятой градуса
+   (владелец 27.11.2026: «от 10 до 45… вдруг можно выше 45», «до десятой —
+   23.1»). Пределы цеха (10°–45°) — в карточке работы Mitering, это вопрос
+   при Save, а не правило фигуры. Не число — null. */
+function shapeMiterAngle(v){var n=Math.round(+v*10)/10;return v!==''&&v!=null&&isFinite(n)&&n>0&&n<90?n:null;}
 function shapeNormalizeOp(op){
   op=shapePlainObject(op);var type=SHAPE_EDGE_OPS.indexOf(op.type)>=0?op.type:null;if(!type)return null;
   var out={id:shapeIdValue(op.id,'eo-'),type:type};
   /* Сторона обработки — производственный параметр, а не оформление:
      Front Mitre оставляет длинной ЛИЦЕВУЮ грань и подрезает тыльную,
      Back Mitre — наоборот. От неё зависит вид сверху и тип машинной линии. */
-  if(type==='Mitering'){out.angle=[22.5,45].indexOf(+op.angle)>=0?+op.angle:45;out.side=op.side==='front'?'front':'back';}
+  if(type==='Mitering'){out.angle=shapeMiterAngle(op.angle)||45;out.side=op.side==='front'?'front':'back';}
   if(type==='Beveling'){out.width=shapeTextValue(op.width,'1');out.side=op.side==='back'?'back':'front';}
   return out;
 }
@@ -6878,7 +6886,7 @@ function shapeValidateComputed(def,geo,fg){
         if(!manual)thicknessNeeded=true;
         if(!manual&&th>0&&shapeOperationAllowance(op.type,th)<=0)errors.push(op.type+' on edge '+id+': no cutting allowance is configured for '+th+' mm glass.');
       }
-      if(op.type==='Mitering'&&[22.5,45].indexOf(+op.angle)<0)errors.push('Mitering on edge '+id+': angle must be 22.5° or 45°.');
+      if(op.type==='Mitering'&&shapeMiterAngle(op.angle)==null)errors.push('Mitering on edge '+id+': angle must be above 0° and below 90°.');
       if(op.type==='Beveling'&&!(inch(op.width)>0))errors.push('Beveling on edge '+id+': width must be greater than zero.');
     });
     var conflict=shapeFinishConflict(ops,id);if(conflict)errors.push(conflict);
@@ -8973,7 +8981,7 @@ function shapeValidateEdgeOperations(ops,edgeId){
     var op=list[i];
     if(seen[op.type])return {ok:false,reason:'Edge '+edgeId+': duplicate '+op.type+' operation.'};
     seen[op.type]=true;
-    if(op.type==='Mitering'&&[22.5,45].indexOf(+op.angle)<0)return {ok:false,reason:'Edge '+edgeId+': Mitering angle must be 22.5° or 45°.'};
+    if(op.type==='Mitering'&&shapeMiterAngle(op.angle)==null)return {ok:false,reason:'Edge '+edgeId+': Mitering angle must be above 0° and below 90°.'};
     if(op.type==='Beveling'&&!(inch(op.width)>0))return {ok:false,reason:'Edge '+edgeId+': Bevel width must be greater than zero.'};
   }
   var conflict=shapeFinishConflict(list,edgeId);if(conflict)return {ok:false,reason:conflict};
@@ -10444,8 +10452,9 @@ const DATA_FIXES=[
  /* Номер 4 · 29 сентября 2026. EDGE разделена по станкам цеха (владелец:
     «полировки 3, аррисинга 2», бевелинг, майтер, CNC Shape Polish — на CNC).
     Работа переезжает, только если стоит на EDGE, — свою станцию владелец мог
-    уже выбрать. Станции, причины брака и сканы — sfSplitEdgeFix. */
- ...['roughArris','flatPolish','cncShapePolish','miter225','miter45','lamiPolish','cncLamiPolish','bevel:3-8','bevel:9-15','bevel:16-19','bevel']
+    уже выбрать. Станции, причины брака и сканы — sfSplitEdgeFix. `miter` —
+    одна митра вместо двух с 27.11.2026 (serviceRateMiterMerge). */
+ ...['roughArris','flatPolish','cncShapePolish','miter225','miter45','miter','lamiPolish','cncLamiPolish','bevel:3-8','bevel:9-15','bevel:16-19','bevel']
   .map(id=>[4,'serviceRate',id,{station:'EDGE'},['station']]),
  /* Номер 5 · 29 сентября 2026. Припуск CNC Shape Polish по плите ламината —
     1/4″, как у одинарного стекла (владелец). Только если стоит заводское
@@ -10803,7 +10812,7 @@ DEFAULT.station=[
  {seq:2, code:'ARRIS', name:'Arrising',                  nameEn:'Arrising',       always:false, note:'2 machines · rough arris'},
  {seq:2, code:'POLISH',name:'Polishing',                 nameEn:'Polishing',      always:false, note:'3 machines · flat polish · lami polish'},
  {seq:2, code:'BEVEL', name:'Beveling',                  nameEn:'Beveling',       always:false, note:'bevel'},
- {seq:2, code:'MITER', name:'Mitering',                  nameEn:'Mitering',       always:false, note:'miter 22.5° · 45°'},
+ {seq:2, code:'MITER', name:'Mitering',                  nameEn:'Mitering',       always:false, note:'miter 10°–45°'},
  {seq:2, code:'CNC',  name:'CNC',                    nameEn:'CNC',            always:false, note:'CNC shape polish · CNC lami polish · CNC notch · internal cutouts · radii · holes over 1 3/4"'},
  {seq:3, code:'DRILL',name:'Сверловка',              nameEn:'Drilling',       always:false, note:'hinges · clamps · patches · holes up to 1 3/4\" · hand notch. The shop has no larger drills'},
  {seq:5, code:'CERP', name:'Ceramic paint',              nameEn:'Ceramic paint',  always:false, note:'works: ceramic frit (3 patterns) · digital ceramic print'},
@@ -10932,8 +10941,13 @@ function sfSplitEdgeFix(){
    лайты»; до этого IGU отдавал на скидах). У SHIPR и SHIP опции нет: SHIPR всегда на скидах («шипинг реди уже на скидах»;
    проход 7.10.2026: без скида 104 стекла остались без тары, и SHIP было
    нечего грузить), SHIP грузит скиды в машину. Станция с тарой спрашивает
-   её, если не отсканировали (views/station, «Which dolly?»). */
-const SF_PUTS_ON=[['dolly','Dolly'],['skid','Skid'],['none','—']];
+   её, если не отсканировали (views/station, «Which dolly?»).
+   Dolly + Skid (владелец 27.11.2026: «а вдруг мне нужно и так и так»):
+   своя тара обоих видов — приехавший скид так же «кладу обратно на него»,
+   как долли; слова станции — «dolly or skid». */
+const SF_PUTS_ON=[['dolly','Dolly'],['skid','Skid'],['both','Dolly + Skid'],['none','—']];
+/* Своя ли станции тара этого вида (carrierType().kind — Dolly / Skid). */
+function sfPutsTakes(puts,kind){const k=String(kind||'').toLowerCase();return k==='dolly'||k==='skid'?puts===k||puts==='both':false;}
 function sfPutsOnOwn(code){const sh=typeof shippingStations==='function'?shippingStations():null;return !!sh&&!!code&&(code===sh.ready||code===sh.ship);}
 function sfPutsOn(s){
  if(!s)return 'none';
@@ -12746,6 +12760,10 @@ function normalizeServiceRate(r){
   /* Свой минимум площади работы за ft² (владелец 17.11.2026): пусто — по
      настоящей площади, от стекла не зависит. */
   minAreaFt2:num(r.minAreaFt2),
+  /* Пределы угла (митра, владелец 27.11.2026: «можем делать от 10 до 45») —
+     только у работы, где они заданы: строки остальных работ прежние. За
+     пределом заказ спрашивает при Save, не запрещает. */
+  ...(num(r.angleMin)!=null?{angleMin:num(r.angleMin)}:{}),...(num(r.angleMax)!=null?{angleMax:num(r.angleMax)}:{}),
   rule:normalizeServiceRule(r.rule),
   minutesPerUnit:num(r.minutesPerUnit),setupMinutes:num(r.setupMinutes),
   note:mdString(r.note),active:r.active!==false
@@ -12864,6 +12882,8 @@ function salesWorkForValue(family,value){
 /* Порог ручного сверла 1 3/4″ — граница строк 1-1/16″–1-3/4″ (DRILL) и
    1-13/16″–2″ (CNC): станцию отверстия даёт строка его диапазона (этап 4,
    часть 3 плана Master Data), в коде порога больше нет. */
+/* Заводские пределы угла митры, градусы (владелец 27.11.2026). */
+const SERVICE_ANGLE_SEED={miter:{angleMin:10,angleMax:45}};
 const SERVICE_HOLE_SEED={'hole:0.5-1':[null,1],'hole:1-2':[1.0625,1.75],'hole:1.75-2':[1.8125,2],'hole:2-3':[2.0625,3],'hole:3-4':[3.0625,4],'hole:4+':[4.0625,null]};
 const SERVICE_RATE_SEED=[
  /* Четвёртое поле — СТАНЦИЯ. С 11 сентября 2026 работа несёт и станцию, и цену
@@ -12888,11 +12908,10 @@ const SERVICE_RATE_SEED=[
  ['roughArris',       'Rough Arris',           'in',  'ARRIS',  [.01,.02,.03]],
  ['flatPolish',       'Flat Polish',           'in',  'POLISH',  [.07,.10,.13]],
  ['cncShapePolish',   'CNC Shape Polish',      'in',  'CNC',  [.28,.38,.48]],
- ['miter225',         'Mitering 22.5°',        'in',  'MITER',  [.28,.38,.45]],
- /* Митры 45° в прайсе нет; владелец 10 сентября: «столько же, сколько и 22,5».
-    Отдельной строкой, а не ссылкой: когда цены разойдутся, правится одно
-    число, а ключи сохранённых заказов не поедут. */
- ['miter45',          'Mitering 45°',          'in',  'MITER',  [.28,.38,.45]],
+ /* Митра — одна работа на любой угол (владелец 27.11.2026); пределы угла
+    цеха — angleMin / angleMax (SERVICE_ANGLE_SEED). До 27.11 было две работы,
+    miter225 и miter45 с одной ценой, — serviceRateMiterMerge. */
+ ['miter',            'Mitering',              'in',  'MITER',  [.28,.38,.45]],
  ['radiusCorner',     'Radius Corner',         'pc',  'CNC',   [10,12,15]],
  ['notchHand',        'Notch by hand',         'pc',  'DRILL', [10,15,20]],
  ['notchCnc',         'Notch by CNC',          'pc',  'CNC',   [15,20,25]],
@@ -12901,7 +12920,8 @@ const SERVICE_RATE_SEED=[
  ['sandblastPattern', 'Pattern Sandblasting',  'ft²', 'SAND',  [6,6,6]]
 ].map(x=>normalizeServiceRate(Object.assign({id:x[0],name:x[1],unit:x[2],station:x[3],
   tiers:[{id:'6',to:7,price:x[4][0]},{id:'8-10',from:8,to:11,price:x[4][1]},{id:'12-19',from:12,to:19,price:x[4][2]}],active:x[5]!==false},
-  SERVICE_HOLE_SEED[x[0]]?{family:'hole',appliesBy:'diameter',appliesFrom:SERVICE_HOLE_SEED[x[0]][0],appliesTo:SERVICE_HOLE_SEED[x[0]][1]}:{})))
+  SERVICE_HOLE_SEED[x[0]]?{family:'hole',appliesBy:'diameter',appliesFrom:SERVICE_HOLE_SEED[x[0]][0],appliesTo:SERVICE_HOLE_SEED[x[0]][1]}:{},
+  SERVICE_ANGLE_SEED[x[0]]||{})))
 /* Ставки, у которых цена одна на любую толщину. Разводить три одинаковые
    цифры значило бы придумать различие, которого у цеха нет; а появятся банды —
    владелец переключит вид строки на экране, кода это не потребует. */
@@ -12957,11 +12977,24 @@ SERVICE_RATE_SEED.push(
  normalizeServiceRate({id:'triple',name:'Triple unit',unit:'%',station:'',tiers:[{id:'flat',price:50}],rule:{kind:'percent',unitTypes:['triple'],priority:1}}),
  normalizeServiceRate({id:'largeUnit',name:'Large unit',unit:'%',station:'',tiers:[{id:'flat',price:50}],rule:{kind:'percent',areaOver:60,priority:2}}));
 DEFAULT.serviceRate=SERVICE_RATE_SEED;
+/* Две митры (22.5° и 45°, одна цена) — одна работа `miter` (владелец
+   27.11.2026). Цены, станция и включённость берутся у 45°, нет её — у 22.5°;
+   имя «Mitering 45°» становится «Mitering», своё имя владельца остаётся.
+   Пределы угла — заводские 10°–45°. */
+function serviceRateMiterMerge(){
+ const old=DB.serviceRate.filter(r=>r&&(r.id==='miter45'||r.id==='miter225'));if(!old.length)return;
+ if(!DB.serviceRate.some(r=>r&&r.id==='miter')){
+  const from=old.find(r=>r.id==='miter45')||old[0],name=/^Mitering (22\.5|45)°$/.test(from.name||'')?'Mitering':from.name;
+  DB.serviceRate.splice(DB.serviceRate.indexOf(from),0,Object.assign(JSON.parse(JSON.stringify(from)),{id:'miter',name},SERVICE_ANGLE_SEED.miter));
+ }
+ DB.serviceRate=DB.serviceRate.filter(r=>old.indexOf(r)<0);
+}
 /* Перенос сохранённого прайса на этап 4: три строки фацета с диапазоном
    толщины становятся одной работой `bevel` с таблицей (цены владельца
    переезжают), у отверстий диапазон диаметра встаёт из заводского. */
 function serviceRateStage4Migrate(){
  if(!Array.isArray(DB.serviceRate))return;
+ serviceRateMiterMerge();
  const old=DB.serviceRate.filter(r=>r&&/^bevel:/.test(r.id)&&r.appliesBy==='thickness');
  if(old.length){
   if(!DB.serviceRate.some(r=>r&&r.id==='bevel'))DB.serviceRate.push(Object.assign({},old[0],{id:'bevel',name:'Beveling',family:'',appliesBy:'',appliesFrom:null,appliesTo:null,kind:undefined,flat:undefined,
@@ -20865,6 +20898,9 @@ function salesOrderSaveCommand(opts){
  if(temperWarnings.length&&!ask('Glass / heat-treatment warning:\n\n- '+temperWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
  const cleanWarnings=salesCleanCutWarnings(soDraft);
  if(cleanWarnings.length&&!ask('Edgework warning:\n\n- '+cleanWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
+ /* Митра вне пределов карточки работы Mitering — спросить, сохранить можно. */
+ const miterWarnings=salesMiterWarnings(soDraft);
+ if(miterWarnings.length&&!ask('Miter angle warning:\n\n- '+miterWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
  /* Габарит станции — тот же приём, что у закалки: предупредить и дать сохранить.
     Решение владельца 13 сентября 2026: запрет на засеянных 144 × 100″ стоял бы
     на пути законных заказов. */
@@ -21974,7 +22010,7 @@ function salesLineChargeRowsRaw(line){
  const s=salesShapeByRef(line&&line.shapeRef);if(!s)return rows.filter(x=>x.basis>0);const r=ShapeModule.compute(s),ctx=salesPricingThickness(line),items=Array.isArray(s.manufacturingItems)?s.manufacturingItems:[];
  salesManufacturingChargeRows(items,ctx).forEach(function(row){rows.push(row);});
  salesSurfaceMarkChargeRows(s.features,ctx,r&&r.valid?r.area/144:0,r&&r.valid?salesShapePerimeterIn(r):0).forEach(function(row){rows.push(row);});
- if(r&&r.valid){(r.edges||[]).forEach(function(g){(shapeEdgeOps(s,g.id)||[]).forEach(function(op){let id='',label=op.type,rate=null;if(op.type==='Rough Arris'){id='roughArris';rate=salesCatalogRate(id,ctx);}else if(op.type==='Flat Polish'){id='flatPolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='Mitering'){id='miter'+String(op.angle||45).replace('.','_');label='Mitering '+(op.angle||45)+'°';rate=+op.angle===22.5?salesCatalogRate('miter225',ctx):null;}else if(op.type==='Beveling'){id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');rate=null;}else return;const key='EDGE:'+id+':'+salesRateBandKey(SALES_ROUTE_EDGE_OP[op.type]||id,ctx),found=rows.find(x=>x.key===key);if(found)found.basis+=g.length;else rows.push(salesChargeRow(key,label,g.length,'in',rate,'Edge Processing'));});});
+ if(r&&r.valid){(r.edges||[]).forEach(function(g){(shapeEdgeOps(s,g.id)||[]).forEach(function(op){let id='',label=op.type,rate=null;if(op.type==='Rough Arris'){id='roughArris';rate=salesCatalogRate(id,ctx);}else if(op.type==='Flat Polish'){id='flatPolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='Mitering'){id='miter';label='Mitering';rate=salesCatalogRate('miter',ctx);}else if(op.type==='Beveling'){id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');rate=null;}else return;const key='EDGE:'+id+':'+salesRateBandKey(SALES_ROUTE_EDGE_OP[op.type]||id,ctx),found=rows.find(x=>x.key===key);if(found)found.basis+=g.length;else rows.push(salesChargeRow(key,label,g.length,'in',rate,'Edge Processing'));});});
   const radiusCount=(s.features||[]).filter(f=>f.type==='radius'&&inch(f.radius)>0).length;if(radiusCount)rows.push(salesChargeRow('FEATURE:radius:'+salesRateBandKey('radiusCorner',ctx),'Radius Corner',radiusCount,'pc',salesCatalogRate('radiusCorner',ctx),'Shape feature'));
   const cutoutCount=(s.features||[]).filter(f=>f.type==='cutout').length;if(cutoutCount)rows.push(salesChargeRow('FEATURE:cutout:'+salesRateBandKey('cutout',ctx),'Cutout',cutoutCount,'pc',null,'Shape feature'));
   /* Нотч — работа, а не геометрия: контур раскроя от него не меняется, но угол
@@ -23034,6 +23070,30 @@ function salesEdgeOpThicknessTargets(lite,op){
   });
   return out;
 }
+/* Угол митры в окнах кромки (владелец 27.11.2026): любое число до десятой,
+   больше 0° и меньше 90° (shapeMiterAngle). Пределы цеха — карточка работы
+   Mitering (angleMin / angleMax, заводские 10°–45°): угол за ними заказ
+   сохраняет, спросив при Save (salesMiterWarnings), — «без кирпичей». */
+function salesMiterLimits(){var w=salesServiceRateRow('miter');return {min:w&&w.angleMin!=null?+w.angleMin:null,max:w&&w.angleMax!=null?+w.angleMax:null};}
+function salesMiterAngleIn(value){var a=shapeMiterAngle(value);if(a==null)alert('Enter a miter angle above 0° and below 90°.');return a;}
+function salesMiterAngleField(angle,act){
+  var l=salesMiterLimits();
+  return `<span class='miter-angle'><input type='number' step='0.1' min='${l.min!=null?l.min:0.1}' max='${l.max!=null?l.max:89.9}' value='${esc(String(angle==null?45:angle))}' data-miter-angle ${act}><span>°</span></span>`;
+}
+function salesMiterOutside(a,l){return l.min!=null&&a<l.min||l.max!=null&&a>l.max;}
+/* Митры вне пределов — строкой на позицию: фигура строки и фигуры лайтов
+   (обработка кромки живёт только в фигуре). */
+function salesMiterWarnings(order){
+  var l=salesMiterLimits(),out=[];if(l.min==null&&l.max==null)return out;
+  var range=(l.min!=null?l.min:0)+'°–'+(l.max!=null?l.max:90)+'°';
+  var opsOf=function(s){var list=[],add=function(m){Object.keys(m||{}).forEach(function(k){(m[k]||[]).forEach(function(o){if(o&&o.type==='Mitering')list.push(+o.angle);});});};if(!s)return list;add(s.edgeOps);Object.keys(s.lites||{}).forEach(function(k){add(s.lites[k]&&s.lites[k].edgeOps);});return list;};
+  (order&&order.lines||[]).forEach(function(line,li){
+    var refs=[line.shapeRef].concat(Object.keys(line.liteShapes||{}).map(function(k){return line.liteShapes[k];})),seen={},bad=[];
+    refs.forEach(function(r){opsOf(r&&r.id?salesShapeByRef(r):null).forEach(function(a){if(salesMiterOutside(a,l)&&!seen[a]){seen[a]=1;bad.push(a+'°');}});});
+    if(bad.length)out.push('Line '+(li+1)+': miter '+bad.join(', ')+' is outside '+range+' (Data → Works → Mitering).');
+  });
+  return out;
+}
 function salesEdgeChargeMetaForServiceSet(op,ctx){
   var id='',label=op.type,rate=null;salesRateFrom=null;
   if(op.type==='Rough Arris'){id='roughArris';rate=salesCatalogRate(id,ctx);}
@@ -23041,10 +23101,10 @@ function salesEdgeChargeMetaForServiceSet(op,ctx){
   else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}
   else if(op.type==='Lami Polish'){id='lamiPolish';rate=salesCatalogRate(id,ctx);}
   else if(op.type==='CNC Lami Polish'){id='cncLamiPolish';rate=salesCatalogRate(id,ctx);}
-  /* Обе митры теперь тарифицируются: 45° получила свою ставку 10 сентября.
-     Ключ строки по-прежнему выводится из угла, поэтому сохранённые заказы с
-     miter22_5 читаются без миграции. */
-  else if(op.type==='Mitering'){id='miter'+String(op.angle||45).replace('.','_');label='Mitering '+(op.angle||45)+'°';rate=salesCatalogRate(+op.angle===22.5?'miter225':'miter45',ctx);}
+  /* Митра — одна работа за одни деньги при любом угле (владелец 27.11.2026:
+     «не отдельный сервис, а тот же самый за те же деньги»): в счёте одна
+     строка Mitering на все углы, угол — на чертеже и стикере. */
+  else if(op.type==='Mitering'){id='miter';label='Mitering';rate=salesCatalogRate('miter',ctx);}
   /* Фацет тарифицируется с 11 сентября 2026. Полосы у него свои — 3-8 / 9-15 /
      16-19, — и ни одна не ложится на банды 6 / 8-10 / 12-19, поэтому строка
      ищется ДИАПАЗОНОМ по толщине, а не ключом полосы. Ширина фацета остаётся в
@@ -24430,7 +24490,7 @@ function salesRouteStationOf(code,fallback){
 /* Кромочные операции названы ключами ПРАЙСА, а не кодами цеха: по этому же
    ключу считается цена, и станция обязана приезжать из той же строки. */
 const SALES_ROUTE_EDGE_OP={'Rough Arris':'roughArris','Flat Polish':'flatPolish',
-  'CNC Shape Polish':'cncShapePolish','Mitering':'miter225','Beveling':'bevel',
+  'CNC Shape Polish':'cncShapePolish','Mitering':'miter','Beveling':'bevel',
   'Lami Polish':'lamiPolish','CNC Lami Polish':'cncLamiPolish'};
 /* Запасного словаря станций у операций больше нет (этап 4, часть 3 плана
    Master Data): станцию даёт только карточка работы. Нет станции — операция
@@ -28512,7 +28572,9 @@ function cwGrip(){return '<span class="cw-grip" data-cw-grip aria-hidden="true">
    тянули, ужимаются поровну от лишнего, но не уже своего заголовка; длинный
    текст — многоточие. Потянутые руками держат свою ширину. Не влезает и
    так — таблица как была, с прокруткой. Только таблицы, что попросили
-   (adapter.fit: таблицы slTable). */
+   (adapter.fit: таблицы slTable). Своя нижняя граница колонки (adapter.floor,
+   minW колонки slTable) — для ячеек, которые нельзя резать «…»: поле с
+   пометкой, две строки размера станции (владелец 27.11.2026, Stations). */
 function cwFit(table){
  const id=table.dataset.cwTable,a=id&&CW_TABLES[id];if(!a||!a.fit)return;
  let wrap=table.parentElement;while(wrap&&wrap!==document.body&&!/auto|scroll|hidden/.test(getComputedStyle(wrap).overflowX))wrap=wrap.parentElement;
@@ -28522,7 +28584,7 @@ function cwFit(table){
  const min=c=>{const th=table.querySelector('thead th[data-cw-key="'+c.dataset.cwCol+'"]'),l=th&&th.querySelector('[data-cw-label]');let t=0;if(l){const r=document.createRange();r.selectNodeContents(l);t=r.getBoundingClientRect().width;}return Math.max(CW_MIN+20,Math.ceil(t)+44);};
  /* Влезает только целиком — иначе как было, с прокруткой (каталог стекла:
     12 колонок, владелец 27.11.2026: «оставить прокрутку»). */
- const room=cols.map(c=>{const w=parseFloat(c.style.width)||0;return {c,w,m:Math.min(w,min(c))};}),spare=room.reduce((s,r)=>s+r.w-r.m,0);if(spare<over)return;
+ const floor=a.floor||{},room=cols.map(c=>{const w=parseFloat(c.style.width)||0;return {c,w,m:Math.min(w,Math.max(min(c),floor[c.dataset.cwCol]||0))};}),spare=room.reduce((s,r)=>s+r.w-r.m,0);if(spare<over)return;
  const f=over/spare;let cut=0;
  room.forEach(r=>{const d=Math.min(r.w-r.m,Math.ceil((r.w-r.m)*f));if(d>0){r.c.style.width=(r.w-d)+'px';cut+=d;}});
  if(cut)table.style.width='max(100%,'+(table.offsetWidth-cut)+'px)';
@@ -31588,7 +31650,7 @@ function toggleShapeEdgeOp(groupIndex,opIndex,on){
   });
   render();
 }
-function setShapeOpParam(groupIndex,type,k,v){var op=shapeOperationAt(groupIndex,type);if(op)op[k]=v;refreshShapeEditor();}
+function setShapeOpParam(groupIndex,type,k,v){var op=shapeOperationAt(groupIndex,type);if(op&&type==='Mitering'&&k==='angle'){v=salesMiterAngleIn(v);if(v==null){refreshShapeEditor();return;}}if(op)op[k]=v;refreshShapeEditor();}
 /* Раскладка формы по лайтам. Ступенчатый пакет: у первого стекла контур формы,
    а второе меньше на отступ — поэтому у лайта есть свой inset по кромкам и своя
    обработка. Пока выбран «Все лайты», правится общая обработка формы. */
@@ -31913,7 +31975,7 @@ function shapeEdgeworkEditor(){
   var operationCount=Object.keys(sDraft.edgeOps||{}).reduce(function(n,id){return n+(sDraft.edgeOps[id]||[]).length;},0);
   return `<div class='shape-subsection shape-accordion' id='shapeEdgeworkEditor'><button type='button' class='shape-accordion-head' ${onAct('click',toggleShapeSection,'edgework')}><span><b>Edge processing</b><small>${groups.length} physical edges · allowance and routing</small></span><span class='shape-accordion-state'>${operationCount?operationCount+' operations':'no processing'}<i>${sEdgeworkOpen?'−':'+'}</i></span></button>${sEdgeworkOpen?`<div class='shape-edgework-scroll'><div class='shape-edgework-matrix${shapeEditorEdgeOps().length>5?' compact':''}' style='--edge-ops:${shapeEditorEdgeOps().length}'>${shapeEdgeLiteTabs()}<div class='shape-edgework-row shape-edgework-labels'><span>Edge work</span>${shapeEditorEdgeOps().map(function(t){return '<span>'+esc(shapeEdgeOpShort(t))+'</span>';}).join('')}</div>${groups.map(function(g,gi){
     var ops=(sEdgeLite==null?(sDraft.edgeOps||{}):((sDraft.lites&&sDraft.lites[String(sEdgeLite)]&&sDraft.lites[String(sEdgeLite)].edgeOps)||{}))[g.id]||[],has=function(t){return ops.some(function(o){return o.type===t;});},miter=ops.find(function(o){return o.type==='Mitering';}),bevel=ops.find(function(o){return o.type==='Beveling';});
-    return `<div class='shape-edgework-row'><span class='shape-edge-code'><b>${esc(edgeNames[g.id]||g.id)}</b><small>${dimIn16(g.length)}</small>${sEdgeLite==null?shapeBaseEdgeworkHint(has,g.id):''}</span>${shapeEditorEdgeOps().map(function(t){return `<label class='shape-op-compact ${has(t)?'on':''}' title='${esc(t)}'><input type='checkbox' ${has(t)?'checked':''} ${onAct('change',toggleShapeEdgeOp,gi,SHAPE_EDGE_OPS.indexOf(t),EL_CHECKED)}><span>${esc(shapeEdgeOpShort(t))}</span></label>`;}).join('')}${miter||bevel?`<div class='shape-edge-params'>${miter?`<label>Miter<select ${onAct('change',setShapeOpParam,gi,'Mitering','angle',EL_VALUE)}><option value='45' ${+miter.angle===45?'selected':''}>45°</option><option value='22.5' ${+miter.angle===22.5?'selected':''}>22.5°</option></select></label><label>Side<select ${onAct('change',setShapeOpParam,gi,'Mitering','side',EL_VALUE)}><option value='back' ${(miter.side||'back')==='back'?'selected':''}>Back mitre</option><option value='front' ${miter.side==='front'?'selected':''}>Front mitre</option></select></label>`:''}${bevel?`<label>Bevel width<input value='${esc(bevel.width)}' ${onAct('input',setShapeOpParam,gi,'Beveling','width',EL_VALUE)}></label><label>Side<select ${onAct('change',setShapeOpParam,gi,'Beveling','side',EL_VALUE)}><option value='front' ${(bevel.side||'front')==='front'?'selected':''}>Front bevel</option><option value='back' ${bevel.side==='back'?'selected':''}>Back bevel</option></select></label>`:''}</div>`:''}</div>`;
+    return `<div class='shape-edgework-row'><span class='shape-edge-code'><b>${esc(edgeNames[g.id]||g.id)}</b><small>${dimIn16(g.length)}</small>${sEdgeLite==null?shapeBaseEdgeworkHint(has,g.id):''}</span>${shapeEditorEdgeOps().map(function(t){return `<label class='shape-op-compact ${has(t)?'on':''}' title='${esc(t)}'><input type='checkbox' ${has(t)?'checked':''} ${onAct('change',toggleShapeEdgeOp,gi,SHAPE_EDGE_OPS.indexOf(t),EL_CHECKED)}><span>${esc(shapeEdgeOpShort(t))}</span></label>`;}).join('')}${miter||bevel?`<div class='shape-edge-params'>${miter?`<label>Miter${salesMiterAngleField(miter.angle,`${onAct('change',setShapeOpParam,gi,'Mitering','angle',EL_VALUE)}`)}</label><label>Side<select ${onAct('change',setShapeOpParam,gi,'Mitering','side',EL_VALUE)}><option value='back' ${(miter.side||'back')==='back'?'selected':''}>Back mitre</option><option value='front' ${miter.side==='front'?'selected':''}>Front mitre</option></select></label>`:''}${bevel?`<label>Bevel width<input value='${esc(bevel.width)}' ${onAct('input',setShapeOpParam,gi,'Beveling','width',EL_VALUE)}></label><label>Side<select ${onAct('change',setShapeOpParam,gi,'Beveling','side',EL_VALUE)}><option value='front' ${(bevel.side||'front')==='front'?'selected':''}>Front bevel</option><option value='back' ${bevel.side==='back'?'selected':''}>Back bevel</option></select></label>`:''}</div>`:''}</div>`;
   }).join('')}</div></div>`:''}</div>`;
 }
 
@@ -32460,7 +32522,7 @@ function shapeProdToggleDxfOp(edgeId,type,on){
 function shapeProdSetDxfOpParam(edgeId,type,key,value){
   var op=((sDraft.edgeOps&&sDraft.edgeOps[edgeId])||[]).find(function(x){return x.type===type;});if(!op)return;
   if(type==='Mitering'){
-    if(key==='angle')op.angle=+value===22.5?22.5:45;
+    if(key==='angle'){var a=salesMiterAngleIn(value);if(a==null){render();return;}op.angle=a;}
     if(key==='side')op.side=value==='front'?'front':'back';
   }else if(type==='Beveling'){
     if(key==='width'){if(!(inch(value)>0)){alert('Bevel width must be greater than zero.');render();return;}op.width=String(value);}
@@ -32481,7 +32543,7 @@ function shapeProdClearDxfAR(){
 }
 function shapeProdDxfParams(edge){
   var m=edge.ops.find(function(op){return op.type==='Mitering';}),b=edge.ops.find(function(op){return op.type==='Beveling';});if(!m&&!b)return'';
-  return `<div class='shape-prod-op-params'>${m?`<label>Miter angle<select ${onAct('change',shapeProdSetDxfOpParam,String(edge.id??''),'Mitering','angle',EL_VALUE)}><option value='45' ${+m.angle===45?'selected':''}>45°</option><option value='22.5' ${+m.angle===22.5?'selected':''}>22.5°</option></select></label><label>Miter side<select ${onAct('change',shapeProdSetDxfOpParam,String(edge.id??''),'Mitering','side',EL_VALUE)}><option value='back' ${(m.side||'back')==='back'?'selected':''}>Back mitre</option><option value='front' ${m.side==='front'?'selected':''}>Front mitre</option></select></label>`:''}${b?`<label>Bevel width<input value='${esc(b.width||'1')}' ${onAct('change',shapeProdSetDxfOpParam,String(edge.id??''),'Beveling','width',EL_VALUE)}></label><label>Bevel side<select ${onAct('change',shapeProdSetDxfOpParam,String(edge.id??''),'Beveling','side',EL_VALUE)}><option value='front' ${(b.side||'front')==='front'?'selected':''}>Front bevel</option><option value='back' ${b.side==='back'?'selected':''}>Back bevel</option></select></label>`:''}</div>`;
+  return `<div class='shape-prod-op-params'>${m?`<label>Miter angle${salesMiterAngleField(m.angle,`${onAct('change',shapeProdSetDxfOpParam,String(edge.id??''),'Mitering','angle',EL_VALUE)}`)}</label><label>Miter side<select ${onAct('change',shapeProdSetDxfOpParam,String(edge.id??''),'Mitering','side',EL_VALUE)}><option value='back' ${(m.side||'back')==='back'?'selected':''}>Back mitre</option><option value='front' ${m.side==='front'?'selected':''}>Front mitre</option></select></label>`:''}${b?`<label>Bevel width<input value='${esc(b.width||'1')}' ${onAct('change',shapeProdSetDxfOpParam,String(edge.id??''),'Beveling','width',EL_VALUE)}></label><label>Bevel side<select ${onAct('change',shapeProdSetDxfOpParam,String(edge.id??''),'Beveling','side',EL_VALUE)}><option value='front' ${(b.side||'front')==='front'?'selected':''}>Front bevel</option><option value='back' ${b.side==='back'?'selected':''}>Back bevel</option></select></label>`:''}</div>`;
 }
 function shapeProdDxfEdgeProcessing(){
   var groups=shapeProdDxfGroups(),selected=shapeProdSelectedDxfGroup(),th=shapeThicknessMm(sDraft),count=groups.reduce(function(n,g){return n+g.ops.length;},0);
@@ -33017,7 +33079,7 @@ function salesToggleSetOp(row,type,on){
 }
 function salesSetOpParam(row,type,key,value){
   var bucket=salesSetBucket(row),op=bucket.find(function(o){return o.type===type;});if(!op)return;
-  if(type==='Mitering'){if(key==='angle')op.angle=+value===22.5?22.5:45;if(key==='side')op.side=value==='front'?'front':'back';}
+  if(type==='Mitering'){if(key==='angle'){var a=salesMiterAngleIn(value);if(a==null){render();return;}op.angle=a;}if(key==='side')op.side=value==='front'?'front':'back';}
   if(type==='Beveling'){if(key==='width'){if(!(inch(value)>0)){alert('Bevel width must be greater than zero.');render();return;}op.width=String(value);}if(key==='side')op.side=value==='back'?'back':'front';}render();
 }
 function salesValidateSetDraft(){
@@ -33040,7 +33102,7 @@ function salesSetSideGuide(){
   return `<div class='ss-side-guide'><div class='ss-side-guide-copy'><b>Rectangle side reference</b><span>A and C follow Height. B and D follow Width.</span><small>OTHER is used for custom or extra edges that do not belong to the four rectangle sides.</small></div><div class='ss-side-map' role='img' aria-label='Rectangle side reference: A is left and follows height; B is bottom and follows width; C is right and follows height; D is top and follows width.'><span class='ss-side-map-label top'><b>D</b> Top · Width</span><span class='ss-side-map-label left'><b>A</b> Left · Height</span><span class='ss-side-map-glass'>Finished lite</span><span class='ss-side-map-label right'><b>C</b> Right · Height</span><span class='ss-side-map-label bottom'><b>B</b> Bottom · Width</span></div></div>`;
 }
 function salesSetMatrixRow(row){
-  var ops=salesSetBucket(row);return `<div class='ss-set-row'><div class='ss-set-side'><b>${esc(row)}</b><small>${esc(salesSetSideDescription(row))}</small></div><div class='ss-set-op-list'>${SALES_SERVICE_SET_OPS.map(function(type){var on=ops.some(function(o){return o.type===type;});return `<label class='ss-op ${on?'on':''}'><input type='checkbox' ${on?'checked':''} ${onAct('change',salesToggleSetOp,String(row),String(type),EL_CHECKED)}><span>${esc(salesServiceShort(type))}</span></label>`;}).join('')}</div><span class='ss-set-result'>${esc(salesServiceOpsText(ops))}</span></div>${ops.map(function(op){if(op.type==='Mitering')return `<div class='ss-param-row'><span>${row} · Miter</span><label>Angle<select ${onAct('change',salesSetOpParam,String(row),'Mitering','angle',EL_VALUE)}><option value='45' ${+op.angle===45?'selected':''}>45°</option><option value='22.5' ${+op.angle===22.5?'selected':''}>22.5°</option></select></label><label>Side<select ${onAct('change',salesSetOpParam,String(row),'Mitering','side',EL_VALUE)}><option value='back' ${(op.side||'back')==='back'?'selected':''}>Back</option><option value='front' ${op.side==='front'?'selected':''}>Front</option></select></label></div>`;if(op.type==='Beveling')return `<div class='ss-param-row'><span>${row} · Bevel</span><label>Width<input value='${esc(op.width||'1')}' ${onAct('change',salesSetOpParam,String(row),'Beveling','width',EL_VALUE)}></label><label>Side<select ${onAct('change',salesSetOpParam,String(row),'Beveling','side',EL_VALUE)}><option value='front' ${(op.side||'front')==='front'?'selected':''}>Front</option><option value='back' ${op.side==='back'?'selected':''}>Back</option></select></label></div>`;return '';}).join('')}`;
+  var ops=salesSetBucket(row);return `<div class='ss-set-row'><div class='ss-set-side'><b>${esc(row)}</b><small>${esc(salesSetSideDescription(row))}</small></div><div class='ss-set-op-list'>${SALES_SERVICE_SET_OPS.map(function(type){var on=ops.some(function(o){return o.type===type;});return `<label class='ss-op ${on?'on':''}'><input type='checkbox' ${on?'checked':''} ${onAct('change',salesToggleSetOp,String(row),String(type),EL_CHECKED)}><span>${esc(salesServiceShort(type))}</span></label>`;}).join('')}</div><span class='ss-set-result'>${esc(salesServiceOpsText(ops))}</span></div>${ops.map(function(op){if(op.type==='Mitering')return `<div class='ss-param-row'><span>${row} · Miter</span><label>Angle${salesMiterAngleField(op.angle,`${onAct('change',salesSetOpParam,String(row),'Mitering','angle',EL_VALUE)}`)}</label><label>Side<select ${onAct('change',salesSetOpParam,String(row),'Mitering','side',EL_VALUE)}><option value='back' ${(op.side||'back')==='back'?'selected':''}>Back</option><option value='front' ${op.side==='front'?'selected':''}>Front</option></select></label></div>`;if(op.type==='Beveling')return `<div class='ss-param-row'><span>${row} · Bevel</span><label>Width<input value='${esc(op.width||'1')}' ${onAct('change',salesSetOpParam,String(row),'Beveling','width',EL_VALUE)}></label><label>Side<select ${onAct('change',salesSetOpParam,String(row),'Beveling','side',EL_VALUE)}><option value='front' ${(op.side||'front')==='front'?'selected':''}>Front</option><option value='back' ${op.side==='back'?'selected':''}>Back</option></select></label></div>`;return '';}).join('')}`;
 }
 function salesServiceSetsModal(){
   if(!soServiceSetOpen||!soServiceSetDraft)return '';
@@ -33068,13 +33130,13 @@ function salesSetLineOpParam(lineId,edgeId,type,key,value){
   var snap=salesEffectiveProductionSnapshot(line,shape,soDraft),group=snap.valid&&snap.groups.find(function(g){return g.id===edgeId;});if(!group)return alert(snap.reason||'Edge is unavailable.');
   if(!Object.prototype.hasOwnProperty.call(line.serviceOverrides.edges,edgeId))line.serviceOverrides.edges[edgeId]=salesServiceClone(group.ops);
   var op=line.serviceOverrides.edges[edgeId].find(function(o){return o.type===type;});if(!op)return;
-  if(type==='Mitering'){if(key==='angle')op.angle=+value===22.5?22.5:45;if(key==='side')op.side=value==='front'?'front':'back';}
+  if(type==='Mitering'){if(key==='angle'){var a=salesMiterAngleIn(value);if(a==null)return render();op.angle=a;}if(key==='side')op.side=value==='front'?'front':'back';}
   if(type==='Beveling'){if(key==='width'){if(!(inch(value)>0)){alert('Bevel width must be greater than zero.');return render();}op.width=String(value);}if(key==='side')op.side=value==='back'?'back':'front';}
   if(shapeIsDxfSource(shape))line.serviceOverrides.pinnedTopology=ShapeModule.dxfTopologyFingerprint(shape);render();
 }
 function salesLineParamEditor(line,group){
   var m=group.ops.find(function(o){return o.type==='Mitering';}),b=group.ops.find(function(o){return o.type==='Beveling';});if(!m&&!b)return '';
-  return `<div class='ss-edge-params'>${m?`<label>Miter angle<select ${onAct('change',salesSetLineOpParam,String(line.id??''),String(group.id??''),'Mitering','angle',EL_VALUE)}><option value='45' ${+m.angle===45?'selected':''}>45°</option><option value='22.5' ${+m.angle===22.5?'selected':''}>22.5°</option></select></label><label>Miter side<select ${onAct('change',salesSetLineOpParam,String(line.id??''),String(group.id??''),'Mitering','side',EL_VALUE)}><option value='back' ${(m.side||'back')==='back'?'selected':''}>Back</option><option value='front' ${m.side==='front'?'selected':''}>Front</option></select></label>`:''}${b?`<label>Bevel width<input value='${esc(b.width||'1')}' ${onAct('change',salesSetLineOpParam,String(line.id??''),String(group.id??''),'Beveling','width',EL_VALUE)}></label><label>Bevel side<select ${onAct('change',salesSetLineOpParam,String(line.id??''),String(group.id??''),'Beveling','side',EL_VALUE)}><option value='front' ${(b.side||'front')==='front'?'selected':''}>Front</option><option value='back' ${b.side==='back'?'selected':''}>Back</option></select></label>`:''}</div>`;
+  return `<div class='ss-edge-params'>${m?`<label>Miter angle${salesMiterAngleField(m.angle,`${onAct('change',salesSetLineOpParam,String(line.id??''),String(group.id??''),'Mitering','angle',EL_VALUE)}`)}</label><label>Miter side<select ${onAct('change',salesSetLineOpParam,String(line.id??''),String(group.id??''),'Mitering','side',EL_VALUE)}><option value='back' ${(m.side||'back')==='back'?'selected':''}>Back</option><option value='front' ${m.side==='front'?'selected':''}>Front</option></select></label>`:''}${b?`<label>Bevel width<input value='${esc(b.width||'1')}' ${onAct('change',salesSetLineOpParam,String(line.id??''),String(group.id??''),'Beveling','width',EL_VALUE)}></label><label>Bevel side<select ${onAct('change',salesSetLineOpParam,String(line.id??''),String(group.id??''),'Beveling','side',EL_VALUE)}><option value='front' ${(b.side||'front')==='front'?'selected':''}>Front</option><option value='back' ${b.side==='back'?'selected':''}>Back</option></select></label>`:''}</div>`;
 }
 /* Превью показывает три вещи разом: готовую деталь, контур реза (больше на
    припуск кромки) и зону Safety Border вокруг реза. Раньше оба контура рисовались
@@ -33878,15 +33940,15 @@ function viewSfStations(edit,framed){
  const plain=h=>String(h||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
  const works=s=>stationOperations(s.code).map(o=>o.name||o.id);
  /* Таблица вида Sales (владелец 07.11.2026): фильтр, сортировка, ширина, порядок. */
- const table=slTable(edit?'mdStations':'prodStations',{list:DB.station,id:s=>s.code,empty:'empty',noun:l=>l.length+' station'+(l.length===1?'':'s'),fill:'works',acts:edit?120:90,
+ const table=slTable(edit?'mdStations':'prodStations',{list:DB.station,id:s=>s.code,empty:'empty',noun:l=>l.length+' station'+(l.length===1?'':'s'),fill:'works',acts:edit?165:90,
   columns:()=>[
-   {k:'step',label:'Step',type:'number',v:s=>s.seq,cell:(s,v,info)=>`<span style="white-space:nowrap">${edit?`<input class="sf-step" type="number" min="1" step="1" value="${s.seq}" data-sf-step="${esc(s.code)}" ${onAct('change',sfStationSetStep,info.i,EL_VALUE)}>`:`<b class="mono">${s.seq}</b>`}${steps.get(s.seq)>1?' <span class="pill info" title="Same step as another station">parallel</span>':''}</span>`},
+   {k:'step',label:'Step',type:'number',w:160,minW:edit?150:110,v:s=>s.seq,cell:(s,v,info)=>`<span style="white-space:nowrap">${edit?`<input class="sf-step" type="number" min="1" step="1" value="${s.seq}" data-sf-step="${esc(s.code)}" ${onAct('change',sfStationSetStep,info.i,EL_VALUE)}>`:`<b class="mono">${s.seq}</b>`}${steps.get(s.seq)>1?' <span class="pill info" title="Same step as another station">parallel</span>':''}</span>`},
    {k:'code',label:'Code',type:'text',v:s=>s.code,cell:s=>`<b class="mono">${raw(s.code)}</b>`},
    {k:'name',label:'Name',type:'text',v:s=>plain(sfLabel(s)),cell:s=>sfLabel(s)},
    {k:'machines',label:'Machines',type:'text',v:s=>(s.machines||[]).join(' · '),cell:s=>(s.machines||[]).length?`<span class="mono">${esc(s.machines.join(' · '))}</span>`:'<span class="mut">—</span>'},
    {k:'route',label:'In route',type:'list',v:s=>s.always?'always':'when required',cell:s=>`<span class="pill ${s.always?'ok':'info'}">${s.always?'always':'when required'}</span>`},
-   {k:'size',label:'Size, W × L',type:'text',v:s=>plain(sfDimText(s)),cell:s=>`<span class="mono">${sfDimText(s)}</span>`},
-   {k:'putsOn',label:'Puts on',type:'list',v:s=>plain(sfPutsOnCell(s,false)),cell:s=>sfPutsOnCell(s,edit)},
+   {k:'size',label:'Size, W × L',type:'text',w:210,minW:205,v:s=>plain(sfDimText(s)),cell:s=>`<span class="mono">${sfDimText(s)}</span>`},
+   {k:'putsOn',label:'Puts on',type:'list',w:170,minW:edit?160:110,v:s=>plain(sfPutsOnCell(s,false)),cell:s=>sfPutsOnCell(s,edit)},
    {k:'sheet',label:'Dolly / skid sheet',type:'text',v:s=>typeof carrierSheetCell==='function'?plain(carrierSheetCell(s,false)):'',cell:s=>`<span style="white-space:nowrap">${typeof carrierSheetCell==='function'?carrierSheetCell(s,edit):''}</span>`},
    {k:'works',label:'Works',type:'text',tokens:true,v:s=>works(s).join(' · '),cell:s=>{const w=works(s);return w.length?w.slice(0,6).map(n=>`<span class="pill info" data-raw>${esc(n)}</span>`).join(' ')+(w.length>6?` <span class="mut">+${w.length-6}</span>`:''):'<span class="mut">none</span>';}},
    {k:'note',label:'Note',type:'text',v:s=>s.note||'',cell:s=>`<span class="mut">${raw(s.note||'')}</span>`}],
@@ -33907,7 +33969,7 @@ function sfPutsOnCell(s,edit){
  if(sfPutsOnOwn(s.code))return '<span class="mut">'+(sfPutsOn(s)==='skid'?'Skid · always':'own rules')+'</span>';
  const v=sfPutsOn(s);
  if(!edit)return v==='none'?'<span class="mut">—</span>':esc(SF_PUTS_ON.find(([k])=>k===v)[1]);
- return `<select data-sf-puts-on="${esc(s.code)}" style="min-width:96px" ${onAct('change',sfPutsOnPick,String(s.code??''),EL_VALUE)}>${SF_PUTS_ON.map(([k,l])=>`<option value="${k}"${k===v?' selected':''}>${l}</option>`).join('')}</select>`;
+ return `<select data-sf-puts-on="${esc(s.code)}" style="min-width:130px" ${onAct('change',sfPutsOnPick,String(s.code??''),EL_VALUE)}>${SF_PUTS_ON.map(([k,l])=>`<option value="${k}"${k===v?' selected':''}>${l}</option>`).join('')}</select>`;
 }
 function sfPutsOnPick(code,v){sfSetPutsOn(code,v);render();}
 function sfStationSetStep(i,v){
@@ -34545,7 +34607,7 @@ function mdStationTreeHTML(){
 function viewMdSetup(){
  const s=orderSetup(),cur='CAD';
  const on=k=>`<input type="checkbox" data-setup="${k}" ${s[k]?'checked':''} ${onAct('change',orderSetupSet,String(k),EL_CHECKED)}>`;
- const num=(k,unit)=>`<input type="number" min="0" step="0.01" data-setup="${k}" value="${s[k]}" ${onAct('change',orderSetupSet,String(k),EL_VALUE)}> <span class="mut">${unit}</span>`;
+ const num=(k,unit)=>`<span class="md-num"><input type="number" min="0" step="0.01" data-setup="${k}" value="${s[k]}" ${onAct('change',orderSetupSet,String(k),EL_VALUE)}><span class="mut">${unit}</span></span>`;
  const inBase=(k,label)=>`<label class="md-setup-base">${on(k)} ${label}</label>`;
  /* Таблицы вида Sales (владелец 07.11.2026): фильтр, сортировка, ширина, порядок. */
  const charges=[['Energy surcharge (ES)','energyOn',num('energyRate','%'),'<span class="mut">—</span>',s.energyRate+' %','—'],
@@ -34553,10 +34615,10 @@ function viewMdSetup(){
   ['Card fee','cardOn','<span class="mut">by card below</span>',inBase('cardOnEnergy','ES')+inBase('cardOnHst','HST')+inBase('cardOnDelivery','Delivery'),'by card',[s.cardOnEnergy&&'ES',s.cardOnHst&&'HST',s.cardOnDelivery&&'Delivery'].filter(Boolean).join(', ')],
   ['Delivery','deliveryOn',num('deliveryAmount',cur),'<span class="mut">—</span>',s.deliveryAmount+' '+cur,'—'],
   ['Skid deposit','skidDepositOn',num('skidDepositAmount',cur),'<span class="mut">Not in any base</span>',s.skidDepositAmount+' '+cur,'Not in any base']];
- const chargeTable=slTable('mdSetupCharges',{list:charges,id:x=>x[1],cls:'ncr-table',fill:'charge',noun:l=>l.length+' charges',
-  columns:()=>[{k:'charge',label:'Charge',type:'text',v:x=>x[0],cell:x=>`<b>${x[0]}</b>`},{k:'on',label:'On',type:'list',v:x=>s[x[1]]?'Yes':'No',cell:x=>on(x[1])},{k:'value',label:'Value',type:'text',v:x=>x[4],cell:x=>x[2]},{k:'base',label:'Base besides Subtotal',type:'text',v:x=>x[5],cell:x=>x[3]}]});
- const cardTable=slTable('mdSetupCards',{list:s.cardNetworks,id:n=>n.id,cls:'ncr-table',acts:50,empty:'No cards',noun:l=>l.length+' card'+(l.length===1?'':'s'),
-  columns:()=>[{k:'name',label:'Name on order',type:'text',v:n=>n.name,cell:(n,v,i)=>`<input type="text" maxlength="60" value="${esc(n.name)}" ${onAct('change',orderSetupCardSet,i.i,'name',EL_VALUE)}>`},{k:'rate',label:'Rate',type:'number',v:n=>n.rate,cell:(n,v,i)=>`<input type="number" min="0" step="0.01" value="${n.rate}" ${onAct('change',orderSetupCardSet,i.i,'rate',EL_VALUE)}> <span class="mut">%</span>`}],
+ const chargeTable=slTable('mdSetupCharges',{list:charges,id:x=>x[1],cls:'ncr-table',fill:'base',noun:l=>l.length+' charges',
+  columns:()=>[{k:'charge',label:'Charge',type:'text',w:230,v:x=>x[0],cell:x=>`<b>${x[0]}</b>`},{k:'on',label:'On',type:'list',w:70,v:x=>s[x[1]]?'Yes':'No',cell:x=>on(x[1])},{k:'value',label:'Value',type:'text',w:190,v:x=>x[4],cell:x=>x[2]},{k:'base',label:'Base besides Subtotal',type:'text',w:320,v:x=>x[5],cell:x=>x[3]}]});
+ const cardTable=slTable('mdSetupCards',{list:s.cardNetworks,id:n=>n.id,cls:'ncr-table',fill:'rate',acts:50,empty:'No cards',noun:l=>l.length+' card'+(l.length===1?'':'s'),
+  columns:()=>[{k:'name',label:'Name on order',type:'text',w:260,v:n=>n.name,cell:(n,v,i)=>`<input type="text" maxlength="60" value="${esc(n.name)}" ${onAct('change',orderSetupCardSet,i.i,'name',EL_VALUE)}>`},{k:'rate',label:'Rate',type:'number',w:170,v:n=>n.rate,cell:(n,v,i)=>`<span class="md-num"><input type="number" min="0" step="0.01" value="${n.rate}" ${onAct('change',orderSetupCardSet,i.i,'rate',EL_VALUE)}><span class="mut">%</span></span>`}],
   row:i=>({attrs:` data-setup-card="${esc(i.x.id)}"`,last:`<button type="button" class="sm dl" aria-label="Remove" title="Remove" ${onAct('click',orderSetupCardRemove,i.i)}>×</button>`})});
  return `<div class="md-setup" data-md-setup>
   <h3>Order charges</h3><p class="mut">Defaults for new orders.</p>
@@ -35834,6 +35896,7 @@ function mdCatForm(){
     <div><label>Round quantity up to</label><input id="md_catRoundTo" type="number" step="any" min="0" value="${v(r.roundTo)}" placeholder="no rounding"><div class="hint">In the work's unit</div></div>
     <div><label>Min charge, CAD</label><input id="md_catMinCharge" type="number" step="0.01" min="0" value="${v(r.minCharge)}" placeholder="no minimum"><div class="hint">Per unit</div></div>
     ${r.unit==='ft²'?`<div><label>Min area, ft²</label><input id="md_catMinArea" type="number" step="any" min="0" value="${v(r.minAreaFt2)}" placeholder="real area"><div class="hint">Order can change</div></div>`:''}
+    ${r.id==='miter'?`<div><label>Angle from, °</label><input id="md_catAngleMin" type="number" step="0.1" min="0" value="${v(r.angleMin)}" placeholder="any"><div class="hint">Outside asks at Save</div></div><div><label>Angle to, °</label><input id="md_catAngleMax" type="number" step="0.1" min="0" value="${v(r.angleMax)}" placeholder="any"></div>`:''}
    </div>`}
    ${isNew||r.rule?'':mdPriceListsHTML('service:'+r.id)}`;
   return mdCardHTML({form:'work',crumb:['Works',r.rule?'Surcharges':'Works'],title:isNew?'New work':raw(r.name||r.id),
@@ -35993,14 +36056,17 @@ function mdWorkDraftRead(keep){
   useTiers=[{id:'flat',from:null,to:null,price:r.rule?(p0===undefined?first.price:p0):null}];
   unit=kind==='percent'?'%':'ft²';
  }else if(r.rule)useTiers=[{id:'flat',from:null,to:null,price:null}];
- const roundTo=num('md_catRoundTo'),minCharge=num('md_catMinCharge'),minArea=num('md_catMinArea');
+ const roundTo=num('md_catRoundTo'),minCharge=num('md_catMinCharge'),minArea=num('md_catMinArea'),angleMin=num('md_catAngleMin'),angleMax=num('md_catAngleMax');
  const next=Object.assign({},r,{name:mdVal('md_catName'),unit:unit,station:mdVal('md_catStation'),tiers:useTiers,rule,
   roundTo:rule?null:roundTo===undefined?r.roundTo:roundTo,minCharge:rule?null:minCharge===undefined?r.minCharge:minCharge,
   minAreaFt2:rule?null:minArea===undefined?(r.minAreaFt2==null?null:r.minAreaFt2):minArea,
   appliesBy:appliesBy,family:appliesBy?(document.getElementById('md_catFamily')?mdVal('md_catFamily'):r.family||'hole'):'',
   appliesFrom:appliesBy?(from===undefined?r.appliesFrom:from):null,appliesTo:appliesBy?(to===undefined?r.appliesTo:to):null,
   note:mdVal('md_catNote'),active:mdVal('md_catActive')!=='0'});
- if(useTiers.some(t=>bad(t.from)||bad(t.to)||bad(t.price))||[next.appliesFrom,next.appliesTo,next.roundTo,next.minCharge,next.minAreaFt2].some(bad)||rule&&[rule.areaOver,rule.areaUnder].some(bad))next.bad='Numbers must be 0 or more, or empty';
+ /* Пределы угла митры (27.11.2026): пустое поле — без предела. */
+ if(angleMin!==undefined){if(angleMin==null)delete next.angleMin;else next.angleMin=angleMin;}
+ if(angleMax!==undefined){if(angleMax==null)delete next.angleMax;else next.angleMax=angleMax;}
+ if(useTiers.some(t=>bad(t.from)||bad(t.to)||bad(t.price))||[next.appliesFrom,next.appliesTo,next.roundTo,next.minCharge,next.minAreaFt2,next.angleMin,next.angleMax].some(bad)||rule&&[rule.areaOver,rule.areaUnder].some(bad))next.bad='Numbers must be 0 or more, or empty';
  if(keep){mdCatDraft=Object.assign({},next);delete mdCatDraft.bad;}
  return next;
 }
@@ -39967,7 +40033,7 @@ function slTable(scope,o){
   const defs=Object.assign({},...cols0.filter(c=>c.w).map(c=>({[c.k]:c.w})),o.widths||{});
   salesListCwTable(cols.map(c=>c.k),[o.lead||44],o.acts||20,defs);
   /* Колонка, что забирает остаток ширины (как Customer в Sales): своя или первая текстовая. */
-  const reg=CW_TABLES[scope];if(reg){reg.fill=o.fill||(cols0.find(c=>c.type==='text')||cols0[0]||{}).k||'';reg.trail=o.acts||20;reg.lead=[o.lead||44];reg.fit=true;}
+  const reg=CW_TABLES[scope];if(reg){reg.fill=o.fill||(cols0.find(c=>c.type==='text')||cols0[0]||{}).k||'';reg.trail=o.acts||20;reg.lead=[o.lead||44];reg.fit=true;reg.floor=Object.assign({},...cols0.filter(c=>c.minW).map(c=>({[c.k]:c.minW})));}
   /* limit — сколько строк рисовать (длинный список стёкол раскроя рисуется
      частями); found(rows) — все строки после фильтра и сортировки. */
   const all=salesListRows(infos),rows=o.limit!=null?all.slice(0,o.limit):all;if(o.found)o.found(all);
@@ -53071,7 +53137,7 @@ function stationCarrierScan(code){
     IGU получают на долли, а отдают на скидах. На станции готовности так
     было и раньше: стекло со скида не снимают. */
  if(here.length){
-  const t=carrierType(c.code),mine=!!t&&t.kind.toLowerCase()===stationPutsOnHere();
+  const t=carrierType(c.code),mine=!!t&&sfPutsTakes(stationPutsOnHere(),t.kind);
   const took=mine?(stationSetPutOn(c.code),stationLooseTake(c.code)):0;
   stationIncoming=c.code;stationLast={check:{kind:'carrierIn',code:c.code,count:here.length,took,back},rec:null,data:null,place:null,at:now};stationBeep('info');return 'in';
  }
@@ -53128,7 +53194,7 @@ function stationLoadedCard(){
    скид, SHIP — без тары (грузит скиды). Какие сканы ждут тару — в сессии станции, как «кладу на»:
    переживают перезагрузку и уходят со сменой. */
 function stationPutsOnHere(){return typeof sfPutsOn==='function'?sfPutsOn(stationRow()):'none';}
-function stationTareWord(){return stationPutsOnHere()==='skid'?'skid':'dolly';}
+function stationTareWord(){const p=stationPutsOnHere();return p==='skid'?'skid':p==='both'?'dolly or skid':'dolly';}
 function stationLooseIds(){const s=stationSession();return s&&Array.isArray(s.loose)?s.loose:[];}
 function stationLooseSave(ids){const m=stationSessions(),s=m[stationCode];if(!s||typeof s!=='object')return;s.loose=ids;stationSessionsSave(m);}
 /* Сканы, всё ещё ждущие тару: не отменены, последние у своего стекла, тары нет. */
@@ -53199,7 +53265,7 @@ function stationWarnKeepBtn(code){return '<button type="button" class="b sm" dat
    что кладут здесь (на SHIPR — скид). */
 function stationWarnTare(code){
  const L=stationLast,w=L&&(L.wrong||L.foreign),t=typeof carrierType==='function'?carrierType(code):null;
- return !!w&&!!t&&t.kind.toLowerCase()===stationPutsOnHere();
+ return !!w&&!!t&&sfPutsTakes(stationPutsOnHere(),t.kind);
 }
 /* Стёкла предупреждённого скана: юнит — все его лайты одним действием. */
 function stationWarnPieces(L){
@@ -55057,7 +55123,9 @@ function carrierLoose(){
  }));
  return by;
 }
-function carrierLooseWord(list){return list.length&&list.every(x=>x.puts==='skid')?'No skid':'No dolly';}
+/* «No dolly or skid» — станция, что кладёт на тару обоих видов (Dolly + Skid). */
+function carrierLooseWord(list){return list.length&&list.every(x=>x.puts==='skid')?'No skid':list.some(x=>x.puts==='both')||list.some(x=>x.puts==='skid')?'No dolly or skid':'No dolly';}
+function carrierLooseOn(word){return String(word||'No dolly').replace(/^No /,'');}
 
 /* ----------------------------- Колонки ----------------------------- */
 /* Все колонки видны сразу (владелец: «добавь все, лишнее уберём
@@ -55304,7 +55372,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&carrierWin&&!(typeo
    документов (DOC_COLOR), а не темы экрана: тёмная тема на бумагу не идёт. */
 const CARRIER_NOWRAP=['pos','line','size','id','next','due','weight'];
 function carrierStamp(iso){return iso?docDate(finLocalDate(iso))+' · '+stationTime(iso):'—';}
-function carrierSheetKind(m){return m.code?(carrierWord(m.code)==='skid'?'Skid contents':'Dolly contents'):'Not on a '+(m.word==='No skid'?'skid':'dolly');}
+function carrierSheetKind(m){return m.code?(carrierWord(m.code)==='skid'?'Skid contents':'Dolly contents'):'Not on a '+carrierLooseOn(m.word);}
 /* «Printed … by … at …» — строка низа страницы листа. */
 let carrierPrintWhere='';
 function carrierPrintedLine(who,where){return 'Printed '+carrierStamp(new Date().toISOString())+(who&&who.name?' by '+who.name:'')+(where?' at '+where:'');}
@@ -55435,7 +55503,7 @@ function viewProdCarriers(){
  const groups=[];
  if(show==='loaded'||show==='all')stations.forEach(s=>{
   const list=cards.filter(c=>c.kind!=='out'&&c.station===s),d=list.filter(c=>c.code&&carrierWord(c.code)==='dolly').length,k=list.filter(c=>c.code&&carrierWord(c.code)==='skid').length,loose=list.find(c=>!c.code);
-  const sub=[d?many(d,'dolly','dollies'):'',k?many(k,'skid','skids'):'',loose?(loose.word==='No skid'?'not on a skid ':'not on a dolly ')+loose.here.length:''].filter(Boolean).join(' · ');
+  const sub=[d?many(d,'dolly','dollies'):'',k?many(k,'skid','skids'):'',loose?'not on a '+carrierLooseOn(loose.word)+' '+loose.here.length:''].filter(Boolean).join(' · ');
   groups.push(group(s,sub,list.sort((a,b)=>(a.code?1:0)-(b.code?1:0)||String(a.code).localeCompare(String(b.code),'en',{numeric:true})).map(carrierCardHTML).join(''),s));
  });
  if(show==='out'||show==='all'){
@@ -59083,7 +59151,7 @@ const REP_SOLD_KIND={EDGE:'Edgework',MI:'Fabrication',GLAZE:'Coating & paint',HE
 const REP_SOLD_UNIT={in:'in',inch:'in','ft²':'ft²',sqft:'ft²',pc:'pcs',pcs:'pcs',each:'pcs'};
 /* Строка начислений: категория, работа Works, вид и продукт. Вид — семья
    работы (Hole) или сама работа (Hinge, Clamp, Notch by CNC); продукт —
-   строка как в заказе (Hole 1/2″–1″, Mitering 45°). */
+   строка как в заказе (Hole 1/2″–1″, Mitering). */
 function repSoldCharge(row){
  const p=String(row.key||'').split(':'),f=p[0]==='FEATURE'?p[1]||'':'';
  const category=p[0]==='FEATURE'?(/^sandblast-/.test(f)?'Sandblasting':/^mirror-/.test(f)?'Mirror':'Fabrication'):REP_SOLD_KIND[p[0]]||'Other services';
