@@ -55,7 +55,7 @@ module.exports=async function({page,eq}){
   navGo('inventory');invGo('sizes');seen.push(...at());invGo('consumables');seen.push(...at());
   navGo('users');subtab='office';render();seen.push(...at());subtab='production';render();seen.push(...at());
   return seen;
- }),['mdTrucks','mdNcrReasons','mdStockReasons','mdCarriers','mdSetupCharges','mdSetupCards','mdStations','mdGlass','mdHwModels','mdHwKinds','invSizes','invConsumables','usersOffice','usersProduction']);
+ }),['mdTrucks','mdNcrReasons','mdStockReasons','mdCarriers','mdSetupCharges','mdSetupCodes','mdSetupCards','mdStations','mdGlass','mdHwModels','mdHwKinds','invSizes','invConsumables','usersOffice','usersProduction']);
  eq('a ready-made table on the engine (slFromTable): header ▾ per column, checkbox column kept, buttons on the right, link rows stay under their row, filter by Amount',await t.p.evaluate(()=>{
   ['tlFrom'].forEach(s=>{localStorage.removeItem('glass_erp_'+s+'_list_v1');delete salesQueuePrefs[s];});
   const html=`<table class="x" data-tl-x><thead><tr><th></th><th>Item</th><th class="n">Amount</th><th></th></tr></thead><tbody>
