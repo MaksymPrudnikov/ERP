@@ -362,7 +362,7 @@ function shapeDerivedRequirements(def,geo,fg){
       /* Любая фурнитура на кромке, включая виды, добавленные владельцем.
          Станция SERVICE, а не CNC: посадочное место делает человек по
          своему шаблону, и станка, который его режет, у цеха нет. */
-      req.push({id:'MANUFACTURING:'+item.id,source:'MANUFACTURING',operation:shapeMiOperationName(item.type),stationClass:'SERVICE',manufacturingItemId:item.id,params:{edge:item.edge,distance:item.distance,model:item.model||''}});
+      req.push({id:'MANUFACTURING:'+item.id,source:'MANUFACTURING',operation:shapeMiOperationName(item.type),stationClass:'SERVICE',manufacturingItemId:item.id,params:Object.assign({edge:item.edge,distance:item.distance,model:item.model||''},item.cutoutId?{cutoutId:item.cutoutId}:{})});
     }
   });
   return req;

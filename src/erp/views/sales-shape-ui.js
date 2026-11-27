@@ -466,7 +466,7 @@ function shapeCaptureMarkAnchors(){
       if(a)snap.holes[item.id]=a;
       return;
     }
-    var ed=defs[item.edge||'left'];
+    var ed=shapeMiEdgeDefs(item,g,defs)[item.edge||'left'];
     if(ed)snap.edges[item.id]={edge:item.edge||'left',shown:shapeMiShownDistance(item,ed.len)};
   });
   ((sDraft&&sDraft.features)||[]).forEach(function(f){
@@ -515,7 +515,7 @@ function shapeApplyMarkAnchors(snap){
       });
       return;
     }
-    var e=snap.edges[item.id],ed=e&&defs[e.edge];
+    var e=snap.edges[item.id],ed=e&&shapeMiEdgeDefs(item,g,defs)[e.edge];
     if(!ed)return;
     var d=shapeMiRefIsEnd(item.id)?ed.len-e.shown:e.shown;
     d=shapeSnapManufacturing16(Math.max(0,Math.min(ed.len,d)));
@@ -656,7 +656,8 @@ function shapeMiShownDistance(item,edgeLen){
   if(!isFinite(len)||len<=0||!shapeMiRefIsEnd(item.id))return d;
   return Math.max(0,shapeSnapManufacturing16(len-d));
 }
-function shapeMiOriginText(edge,fromEnd){
+function shapeMiOriginText(edge,fromEnd,cutout){
+  if(cutout)return (edge==='left'||edge==='right'?(fromEnd?'from the cutout top corner':'from the cutout bottom corner'):(fromEnd?'from the cutout right corner':'from the cutout left corner'))+' to the center';
   if(edge==='left'||edge==='right')return fromEnd?'from the top corner to the center':'from the bottom corner to the center';
   return fromEnd?'from the right corner to the center':'from the left corner to the center';
 }
@@ -833,9 +834,27 @@ function shapeManufacturingEdgeDefs(g){
   return {left:orient(pick(vs,'mx',-1),'left'),right:orient(pick(vs,'mx',1),'right'),bottom:orient(pick(hs,'my',-1),'bottom'),top:orient(pick(hs,'my',1),'top')};
 }
 function shapeManufacturingEdgeDef(edge,g){return shapeManufacturingEdgeDefs(g)[edge]||null;}
-function shapeManufacturingEdgePoint(item,g){var e=shapeManufacturingEdgeDef(item.edge,g);if(!e||!e.len)return null;var d=Math.max(0,Math.min(e.len,shapeSnapManufacturing16(item.distance||0))),t=d/e.len;return {x:e.start[0]+(e.end[0]-e.start[0])*t,y:e.start[1]+(e.end[1]-e.start[1])*t,edge:e,distance:d};}
+/* Фурнитура на краю внутреннего выреза (владелец, 27.11.2026: «внутри выреза
+   нужно разместить петли, иногда клемы»; вариант A — расстояние от угла
+   выреза). У метки cutoutId, край — сторона выреза; начало у боковых сторон —
+   нижний угол, у верхней и нижней — левый, как у краёв стекла. Вырез двигают
+   или меняют — фурнитура едет вместе с ним. */
+function shapeCutoutEdgeDefs(f){
+  var x=inch(f&&f.x),y=inch(f&&f.y),w=inch(f&&f.width),h=inch(f&&f.height);
+  if(![x,y,w,h].every(isFinite)||!(w>0)||!(h>0))return {};
+  var mk=function(edge,a,b){return {edge:edge,start:a,end:b,len:Math.hypot(b[0]-a[0],b[1]-a[1]),cutout:f};};
+  return {left:mk('left',[x,y],[x,y+h]),right:mk('right',[x+w,y],[x+w,y+h]),bottom:mk('bottom',[x,y],[x+w,y]),top:mk('top',[x,y+h],[x+w,y+h])};
+}
+function shapeCutoutFeatures(){return ((sDraft&&sDraft.features)||[]).filter(function(f){return f.type==='cutout';});}
+function shapeMiCutout(item){var id=item&&item.cutoutId;return id?shapeCutoutFeatures().find(function(f){return f.id===id;})||null:null;}
+function shapeMiEdgeDefs(item,g,outer){if(item&&item.cutoutId){var f=shapeMiCutout(item);return f?shapeCutoutEdgeDefs(f):{};}return outer||shapeManufacturingEdgeDefs(g);}
+function shapeCutoutTitle(f){return 'Cutout '+shapeDim16(inch(f.width))+' × '+shapeDim16(inch(f.height));}
+function shapeMiEdgeTitle(item){var f=shapeMiCutout(item);return (f?shapeCutoutTitle(f)+' · ':'')+shapeManufacturingEdgeLabel(item.edge||'left');}
+function shapeManufacturingEdgePoint(item,g){var e=shapeMiEdgeDefs(item,g)[item.edge];if(!e||!e.len)return null;var d=Math.max(0,Math.min(e.len,shapeSnapManufacturing16(item.distance||0))),t=d/e.len;return {x:e.start[0]+(e.end[0]-e.start[0])*t,y:e.start[1]+(e.end[1]-e.start[1])*t,edge:e,distance:d};}
 function shapeNearestManufacturingEdge(x,y,g){
-  var defs=shapeManufacturingEdgeDefs(g),best=null;['left','right','bottom','top'].forEach(function(k){var e=defs[k];if(!e||!e.len)return;var dx=e.end[0]-e.start[0],dy=e.end[1]-e.start[1],t=((x-e.start[0])*dx+(y-e.start[1])*dy)/(e.len*e.len);t=Math.max(0,Math.min(1,t));var px=e.start[0]+dx*t,py=e.start[1]+dy*t,dist=Math.hypot(x-px,y-py);if(!best||dist<best.error)best={edge:k,distance:shapeSnapManufacturing16(t*e.len),x:px,y:py,error:dist};});return best;
+  var best=null,scan=function(defs,cutoutId){['left','right','bottom','top'].forEach(function(k){var e=defs[k];if(!e||!e.len)return;var dx=e.end[0]-e.start[0],dy=e.end[1]-e.start[1],t=((x-e.start[0])*dx+(y-e.start[1])*dy)/(e.len*e.len);t=Math.max(0,Math.min(1,t));var px=e.start[0]+dx*t,py=e.start[1]+dy*t,dist=Math.hypot(x-px,y-py);if(!best||dist<best.error)best={edge:k,cutoutId:cutoutId,distance:shapeSnapManufacturing16(t*e.len),x:px,y:py,error:dist};});};
+  /* Ближайший край — стекла или выреза: клик у края выреза ставит туда. */
+  scan(shapeManufacturingEdgeDefs(g),'');shapeCutoutFeatures().forEach(function(f){scan(shapeCutoutEdgeDefs(f),f.id);});return best;
 }
 function shapeSetManufacturingCoord(id,k,v){
   var item=shapeManufacturingItems().find(function(x){return x.id===id;});if(!item||item.type!=='hole')return;var parsed=fabParseDimStrict(v),g=shapeManufacturingGeometry();if(!parsed.ok||!g){alert('Enter a valid position in inches.');render();return;}
@@ -845,10 +864,14 @@ function shapeSetManufacturingCoord(id,k,v){
   item[k]=k==='x'?x:y;render();
 }
 function shapeSetManufacturingEdge(id,edge){
-  var item=shapeManufacturingItems().find(function(x){return x.id===id;});if(!item||item.type==='hole')return;var g=shapeManufacturingGeometry(),e=shapeManufacturingEdgeDef(edge,g);if(!e){alert('The selected glass edge is not available.');render();return;}item.edge=edge;if((+item.distance||0)>e.len)item.distance=shapeSnapManufacturing16(e.len);render();
+  var item=shapeManufacturingItems().find(function(x){return x.id===id;});if(!item||item.type==='hole')return;
+  /* Значение списка: «left» — край стекла, «cut:<id>:left» — сторона выреза. */
+  var m=/^cut:(.+):(left|right|bottom|top)$/.exec(String(edge)),cutId=m?m[1]:'',side=m?m[2]:edge;
+  var g=shapeManufacturingGeometry(),e=shapeMiEdgeDefs({cutoutId:cutId},g)[side];if(!e){alert('The selected edge is not available.');render();return;}
+  item.edge=side;if(cutId)item.cutoutId=cutId;else delete item.cutoutId;if((+item.distance||0)>e.len)item.distance=shapeSnapManufacturing16(e.len);render();
 }
 function shapeSetManufacturingDistance(id,v){
-  var item=shapeManufacturingItems().find(function(x){return x.id===id;});if(!item||item.type==='hole')return;var parsed=fabParseDimStrict(v),g=shapeManufacturingGeometry(),e=shapeManufacturingEdgeDef(item.edge,g);if(!parsed.ok||!e){alert('Enter a valid distance in inches.');render();return;}var d=shapeSnapManufacturing16(parsed.v);if(!isFinite(d)||d<0||d>e.len+1e-9){alert('The distance must stay on the selected glass edge.');render();return;}
+  var item=shapeManufacturingItems().find(function(x){return x.id===id;});if(!item||item.type==='hole')return;var parsed=fabParseDimStrict(v),g=shapeManufacturingGeometry(),e=shapeMiEdgeDefs(item,g)[item.edge];if(!parsed.ok||!e){alert('Enter a valid distance in inches.');render();return;}var d=shapeSnapManufacturing16(parsed.v);if(!isFinite(d)||d<0||d>e.len+1e-9){alert('The distance must stay on the selected glass edge.');render();return;}
   /* Введено ОТ ПРИВЯЗКИ, хранится от начала кромки: у величины остаётся один
      смысл, как бы её ни показывали. */
   item.distance=shapeMiRefIsEnd(id)?Math.max(0,shapeSnapManufacturing16(e.len-d)):d;render();
@@ -956,9 +979,9 @@ function shapePlaceManufacturingFromEvent(ev,svg){
     if(+sManufacturingPlace.holeCount===2){data.count=2;data.spacing=isFinite(+sManufacturingPlace.spacing)?+sManufacturingPlace.spacing:SHAPE_HOLE_DROP_SPACING;data.axis=sManufacturingPlace.axis==='vertical'?'vertical':'horizontal';var pairProblem=shapeHolePairProblem(data,g);if(pairProblem&&data.axis==='horizontal'){data.axis='vertical';pairProblem=shapeHolePairProblem(data,g);}if(pairProblem){alert(pairProblem);return;}}
     else if(+sManufacturingPlace.holeCount===3){data.count=3;data.verticalSpacing=isFinite(+sManufacturingPlace.verticalSpacing)?+sManufacturingPlace.verticalSpacing:SHAPE_HOLE_DROP_VSPACING;data.horizontalSpacing=isFinite(+sManufacturingPlace.horizontalSpacing)?+sManufacturingPlace.horizontalSpacing:SHAPE_HOLE_DROP_HSPACING;data.horizontalDirection=sManufacturingPlace.horizontalDirection==='left'?'left':'right';var tripleProblem=shapeHolePairProblem(data,g);if(tripleProblem&&data.horizontalDirection==='right'){data.horizontalDirection='left';tripleProblem=shapeHolePairProblem(data,g);}if(tripleProblem){alert(tripleProblem);return;}}
   }else{
-    var snap=shapeNearestManufacturingEdge(x,y,g);if(!snap){alert('No valid glass edge is available for this item.');return;}data.edge=snap.edge;data.distance=snap.distance;
+    var snap=shapeNearestManufacturingEdge(x,y,g);if(!snap){alert('No valid glass edge is available for this item.');return;}data.edge=snap.edge;data.distance=snap.distance;if(snap.cutoutId)data.cutoutId=snap.cutoutId;
   }
-  if(sManufacturingPlace.moveId){var moving=shapeManufacturingItems().find(function(v){return v.id===sManufacturingPlace.moveId;});if(moving){if(type==='hole'){moving.x=data.x;moving.y=data.y;}else{moving.edge=data.edge;moving.distance=data.distance;}}}
+  if(sManufacturingPlace.moveId){var moving=shapeManufacturingItems().find(function(v){return v.id===sManufacturingPlace.moveId;});if(moving){if(type==='hole'){moving.x=data.x;moving.y=data.y;}else{moving.edge=data.edge;moving.distance=data.distance;if(data.cutoutId)moving.cutoutId=data.cutoutId;else delete moving.cutoutId;}}}
   else{var raw={id:shapeNewEntityId('mi-'),type:type,note:''};Object.keys(data).forEach(function(k){raw[k]=data[k];});var item=shapeNormalizeManufacturingItem(raw);shapeManufacturingItems().push(item);}
   sManufacturingSelected=null;sManufacturingPlace=null;render();
 }
@@ -1164,13 +1187,28 @@ function shapeManufacturingMarkersSvg(source,T){
        что именно стоит, говорит подпись с кодом вида и именем модели. */
     if(item.type==='clamp')mark=`<g class='shape-feature' transform='translate(${x} ${y}) rotate(${ang})'><rect x='-13' y='-13' width='26' height='26' rx='3'/><path d='M -5 -10 V 10 M 5 -10 V 10'/></g>`;
     else mark=`<g class='shape-feature' transform='translate(${x} ${y}) rotate(${ang})'><rect x='-16' y='-10' width='32' height='20' rx='3'/><line x1='0' y1='-10' x2='0' y2='10'/><circle cx='-7' cy='0' r='2.4'/><circle cx='7' cy='0' r='2.4'/></g>`;
-    var edge=item.edge||e.edge,band=lane(edge==='left'||edge==='right'?edge:edge)%4;
+    var edge=item.edge||e.edge,band=item.cutoutId?0:lane(edge==='left'||edge==='right'?edge:edge)%4;
     /* Откуда меряем — выбор оператора, как Left/Right у отверстия. Хранится в
        карте оформления: сама величина `distance` всегда считается от начала
        кромки и от привязки не зависит. */
     var fromEnd=shapeMiRefIsEnd(item.id),origin=fromEnd?e.end:e.start,shown=shapeMiShownDistance(item,e.len);
     var dimSvg='',labelTextSvg='';
-    if(edge==='left'||edge==='right'){
+    if(item.cutoutId&&e.cutout){
+      /* На краю выреза: размер — внутри проёма вдоль края от угла выреза, подпись —
+         снаружи, на стекле. */
+      var lw2=String(label).length*LABEL_CH;
+      if(edge==='left'||edge==='right'){
+        var cin=edge==='left'?1:-1,cdx=x+cin*16,clx=x-cin*22,cla=edge==='left'?'end':'start';
+        dimSvg=shapeDimChainSvg({id:item.id,axis:'e',vertical:true,a:[T.X(origin[0]),T.Y(origin[1])],b:[x,y],pos:cdx,dir:cin,side:cin,text:shapeDrawingDim16(shown),selected:chosen,T:T});
+        var cby=labelBaseline(clx,y-14,label,cla);
+        labelTextSvg=shapeAnnItem(lay,'feat:'+item.id,`<text data-raw x='${clx}' y='${cby}' text-anchor='${cla}'>${esc(label)}</text>`,clx+(cla==='end'?-lw2/2:lw2/2),cby-6,{from:[x,y],inline:true});
+      }else{
+        var cdn=edge==='bottom'?-1:1,cdy=y+cdn*16,cly=edge==='bottom'?y+28:y-18;
+        dimSvg=shapeDimChainSvg({id:item.id,axis:'e',vertical:false,a:[T.X(origin[0]),T.Y(origin[1])],b:[x,y],pos:cdy,dir:cdn,side:cdn,text:shapeDrawingDim16(shown),selected:chosen,T:T});
+        var cty=labelBaseline(x+20,cly,label,'start');
+        labelTextSvg=shapeAnnItem(lay,'feat:'+item.id,`<text data-raw x='${x+20}' y='${cty}' text-anchor='start'>${esc(label)}</text>`,x+20+lw2/2,cty-6,{from:[x,y],inline:true});
+      }
+    }else if(edge==='left'||edge==='right'){
       var dimX=edge==='left'?T.X(g.b.minX)-(34+band*CORRIDOR):T.X(g.b.maxX)+(34+band*CORRIDOR),originY=T.Y(origin[1]),labelX=edge==='left'?x+24:x-24,labelAnchor=edge==='left'?'start':'end';
       dimSvg=shapeDimChainSvg({id:item.id,axis:'e',vertical:true,a:[T.X(origin[0]),originY],b:[x,y],pos:dimX,dir:edge==='left'?-1:1,side:edge==='left'?-1:1,text:shapeDrawingDim16(shown),selected:chosen,T:T});
       var lby=labelBaseline(labelX,y-14,label,labelAnchor),lw=String(label).length*LABEL_CH;
@@ -1349,13 +1387,15 @@ function shapeMarksBodyHTML(){
          привязка и расстояние ДО ЦЕНТРА. Раньше край всегда мерился от низа или
          слева, и патч у верхнего угла приходилось задавать длинным числом от
          противоположного конца. */
-      var edge=item.edge||'left',ed=defs[edge],len=ed?ed.len:0,max=ed?shapeDim16(len):'—';
+      var edge=item.edge||'left',cut=shapeMiCutout(item),ed=shapeMiEdgeDefs(item,g,defs)[edge],len=ed?ed.len:0,max=ed?shapeDim16(len):'—';
       var vertical=(edge==='left'||edge==='right'),fromEnd=shapeMiRefIsEnd(item.id),shown=shapeMiShownDistance(item,len);
       var refOpts=vertical?[['start','Bottom'],['end','Top']]:[['start','Left'],['end','Right']];
-      summary=`<span>${esc(shapeManufacturingEdgeLabel(edge))}</span> · <span data-raw>${esc(shapeDim16(shown))}</span> <span>${esc(shapeMiOriginText(edge,fromEnd))}</span>`;
+      var edgeVal=cut?'cut:'+cut.id+':'+edge:edge,edgeOpts=['left','right','bottom','top'].map(function(k){return [k,shapeManufacturingEdgeLabel(k)];})
+        .concat(...shapeCutoutFeatures().map(function(f){return ['left','right','bottom','top'].map(function(k){return ['cut:'+f.id+':'+k,shapeCutoutTitle(f)+' · '+shapeManufacturingEdgeLabel(k)];});}));
+      summary=`<span data-raw>${esc(shapeMiEdgeTitle(item))}</span> · <span data-raw>${esc(shapeDim16(shown))}</span> <span>${esc(shapeMiOriginText(edge,fromEnd,!!cut))}</span>`;
       fields=shapeMarkModelFieldHTML(item)+`<div class='shape-mi-hole-position-grid'>
-        <div class='shape-mi-axis-card'><label>Glass edge<select ${onAct('change',shapeSetManufacturingEdge,String(item.id??''),EL_VALUE)}>${['left','right','bottom','top'].map(function(k){return `<option value='${k}' ${edge===k?'selected':''}>${shapeManufacturingEdgeLabel(k)}</option>`;}).join('')}</select><small>the item stays on the finished edge</small></label></div>
-        <div class='shape-mi-axis-card'><label>Reference<select ${onAct('change',shapeSetDimRef,String(item.id??''),'e',EL_VALUE)}>${refOpts.map(function(o){return `<option value='${o[0]}' ${(fromEnd?'end':'start')===o[0]?'selected':''}>${o[1]}</option>`;}).join('')}</select></label><label>Distance to center<input value='${esc(shapeFrac16(shown))}' ${onAct('change',shapeSetManufacturingDistance,String(item.id??''),EL_VALUE)}><small><span>${esc(shapeMiOriginText(edge,fromEnd))}</span> · <span>Edge length</span> <span data-raw>${esc(max)}</span></small></label></div>
+        <div class='shape-mi-axis-card'><label>Edge<select ${onAct('change',shapeSetManufacturingEdge,String(item.id??''),EL_VALUE)}>${edgeOpts.map(function(o){return `<option value='${esc(o[0])}' ${edgeVal===o[0]?'selected':''}>${esc(o[1])}</option>`;}).join('')}</select><small>glass edge or cutout edge</small></label></div>
+        <div class='shape-mi-axis-card'><label>Reference<select ${onAct('change',shapeSetDimRef,String(item.id??''),'e',EL_VALUE)}>${refOpts.map(function(o){return `<option value='${o[0]}' ${(fromEnd?'end':'start')===o[0]?'selected':''}>${o[1]}</option>`;}).join('')}</select></label><label>Distance to center<input value='${esc(shapeFrac16(shown))}' ${onAct('change',shapeSetManufacturingDistance,String(item.id??''),EL_VALUE)}><small><span>${esc(shapeMiOriginText(edge,fromEnd,!!cut))}</span> · <span>Edge length</span> <span data-raw>${esc(max)}</span></small></label></div>
       </div>`+shapeDimControlsHTML(item.id,[{key:'e',label:'Dimension on the drawing'}]);
     }
     return `<div class='shape-mi-card${expanded?' selected expanded':''}'><div class='shape-mi-card-head'><button type='button' class='shape-mi-card-toggle' ${onAct('click',shapeMiCardSet,expanded?null:String(item.id??''))}><span class='shape-mi-kind ${esc(item.type)}'>${esc(shapeManufacturingShort(item.type,item))}</span><span><b>${shapeMarkTitleHTML(item)}</b><small>${shapeCutFlagHTML(false)}${summary}</small></span><i>${expanded?'−':'+'}</i></button>${shapeCardDeleteHTML(shapeRemoveManufacturingItem,String(item.id??''))}</div>${expanded?`<div class='shape-mi-card-body'>${fields}<label>Note<input data-raw value='${esc(item.note||'')}' ${onAct('input',shapeSetManufacturingField,String(item.id??''),'note',EL_VALUE)}></label><div class='shape-mi-actions'><button class='sm' ${onAct('click',shapeMoveManufacturingItem,String(item.id??''))}>Pick on drawing</button></div></div>`:''}</div>`;
@@ -2473,7 +2513,10 @@ function setShapeStampType(i,v){
   var f=sDraft.features[i];if(!f||f.type!=='stamp'||SHAPE_STAMP_TYPES.indexOf(v)<0)return;
   f.stampType=v;f.text=v==='OWN Stamp'?'':v;render();
 }
-function removeShapeFeature(i){var f=sDraft.features[i];if(f&&sDraft.dims)delete sDraft.dims[f.id];if(f&&sFeatureExpandedId===f.id)sFeatureExpandedId=null;sDraft.features.splice(i,1);render();}
+function removeShapeFeature(i){var f=sDraft.features[i];
+  /* Вырез удалили — его фурнитура остаётся на той же стороне, но уже края стекла:
+     видно в карточке, ничего не пропадает молча. */
+  if(f&&f.type==='cutout')shapeManufacturingItems().forEach(function(it){if(it.cutoutId===f.id)delete it.cutoutId;});if(f&&sDraft.dims)delete sDraft.dims[f.id];if(f&&sFeatureExpandedId===f.id)sFeatureExpandedId=null;sDraft.features.splice(i,1);render();}
 function shapeFeatureFields(f,i,geo){
   function input(label,k){return `<label>${label}<input value='${esc(f[k])}' ${onAct('input',setShapeFeature,i,String(k),EL_VALUE)}></label>`;}
   if(f.type==='hole')return input('Diameter','diameter')+input('X from origin','x')+input('Y from origin','y')+input('Min edge clearance','minEdge');
