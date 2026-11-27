@@ -827,6 +827,9 @@ function normalizeServiceRate(r){
      только у работы, где они заданы: строки остальных работ прежние. За
      пределом заказ спрашивает при Save, не запрещает. */
   ...(num(r.angleMin)!=null?{angleMin:num(r.angleMin)}:{}),...(num(r.angleMax)!=null?{angleMax:num(r.angleMax)}:{}),
+  /* Код сборов работы (Data → Setup → Charge codes, 27.11.2026): какие
+     ES / HST / Card fee идут на неё; пусто — как у стекла заказа. */
+  ...(mdString(r.chargeCode)?{chargeCode:mdString(r.chargeCode)}:{}),
   rule:normalizeServiceRule(r.rule),
   minutesPerUnit:num(r.minutesPerUnit),setupMinutes:num(r.setupMinutes),
   note:mdString(r.note),active:r.active!==false

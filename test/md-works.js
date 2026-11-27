@@ -85,7 +85,9 @@ module.exports=async function({page,eq}){
    const old=newSalesOrderDraft();
    tab='masterdata';mdSetTab('setup');render();
    const set=(k,v)=>{const el=document.querySelector(`[data-setup="${k}"]`);if(el.type==='checkbox')el.checked=v;else el.value=v;el.dispatchEvent(new Event('change'));};
-   set('energyRate','10');set('hstRate','5');set('hstOnEnergy',false);set('hstOnDelivery',true);set('cardOnHst',false);set('cardOn',true);
+   /* Коды сборов (27.11.2026) вместо галочек базы: ES — только под картой, HST — ни под чем, доставка — под HST. */
+   set('energyRate','10');set('hstRate','5');set('cardOn',true);
+   orderSetupCodePick('energy','card');orderSetupCodePick('hst','none');orderSetupCodeAdd();const hc=DB.orderSetup.chargeCodes.length-1;orderSetupCodeToggle(hc,'hst',true);orderSetupCodePick('delivery',DB.orderSetup.chargeCodes[hc].id);
    const before=DB.masterDataEvent.length;touch();
    orderSetupCardAdd();orderSetupCardSet(3,'name','Debit fee');orderSetupCardSet(3,'rate','1');
    DB.orderSetup.cardNetworks.unshift(DB.orderSetup.cardNetworks.pop());normalizeOrderSetup();touch();
@@ -93,9 +95,9 @@ module.exports=async function({page,eq}){
    const o=newSalesOrderDraft(),c=o.orderCharges;c.delivery.enabled=true;c.delivery.amount=100;
    const x=salesApplyOrderCharges(1000,c),y=salesApplyOrderCharges(1000,old.orderCharges);
    const card=[...document.querySelectorAll('[data-setup-cards] input[type=text]')].some(i=>i.value==='Debit fee');
-   return [c.energy.rate,c.hst.rate,c.hst.base,c.card.enabled,c.card.name,c.card.rate,c.card.base,[x.hstBase,x.hst,x.cardBase,x.card,x.grand],[y.energy,y.hst],card,logged];
+   return [c.energy.rate,c.hst.rate,c.delivery.on,c.card.enabled,c.card.name,c.card.rate,c.energy.on,c.hst.on,[x.hstBase,x.hst,x.cardBase,x.card,x.grand],[y.energy,y.hst],card,logged];
   }finally{DB.orderSetup=JSON.parse(keep);normalizeOrderSetup();tab='dashboard';render();}
- }),[10,5,['delivery'],true,'Debit fee',1,['energy'],[1100,55,1100,11,1266],[97.5,142.68],true,true]);
+ }),[10,5,['hst'],true,'Debit fee',1,['card'],[],[1100,55,1100,11,1266],[97.5,142.68],true,true]);
  eq('Setup: карта, удалённая из списка, остаётся в старом заказе со своей ставкой; точка и отступ фрита — для нового лайта',await t.p.evaluate(()=>{
   const keep=JSON.stringify(DB.orderSetup);
   try{

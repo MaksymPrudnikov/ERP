@@ -212,6 +212,12 @@
 .sales-extra-bar{margin:10px 12px 12px}
 .sales-extra-form{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;margin:10px 12px 12px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);font-size:9.5px}
 .sales-extra-form label{display:flex;flex-direction:column;gap:2px}
+/* Код сборов разового сервиса (27.11.2026): метки и галочки Custom…. */
+.sales-extra-form .sales-extra-on{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center;align-self:center}
+.sales-extra-form .sales-extra-on-chk{flex-direction:row;align-items:center;gap:4px;font-size:12px}
+.sales-extra-chip{font-size:11px;border:1px solid var(--accent-line);background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:1px 8px}
+.sales-extra-chip.off{border-color:var(--line);background:var(--surface-3);color:var(--text-3);text-decoration:line-through}
+.sales-extra-code{font-size:11px;color:var(--text-2);border:1px solid var(--line);border-radius:999px;padding:0 7px;margin:0 4px;white-space:nowrap}
 .sales-extra-form label>span{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.035em;color:var(--text-2)}
 .sales-extra-form select,.sales-extra-form input{height:29px;padding:4px 6px;font-size:10px}
 .sales-extra-form [data-extra-pick]{max-width:300px}
@@ -942,6 +948,8 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
    Поле и его единица — одной строкой. */
 .md-setup .md-num{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}.md-setup .md-num input{width:90px}
 .md-setup td input[type=checkbox]{vertical-align:middle;margin:0}
+.md-setup select.md-code{width:170px}.md-setup select.md-kind{width:90px}.md-setup td input[type=text]{width:200px}
+.md-setup .md-setup-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:10px 0 4px}
 .md-trucks td{vertical-align:middle}
 
 /* Stock item: вид и измерения (пункт 4). */

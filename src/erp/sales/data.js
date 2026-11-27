@@ -64,19 +64,38 @@ function salesStoredDim16(v){const n=+v;return Number.isInteger(n)&&n>0?n:null;}
 function salesOrderChargeNumber(v,fallback){const n=Number(v);return Number.isFinite(n)&&n>=0?n:fallback;}
 /* Сборы заказа — снимок Setup на момент создания (erp/sales/order-setup).
    Карта хранит своё имя и ставку: удалённая из Setup карта в старом заказе
-   остаётся. Нет базы сбора — прежнее правило: HST на Subtotal + Energy,
-   карта на Subtotal + Energy + HST. */
-function salesOrderChargeBase(v,kind,legacy){return Array.isArray(v)?ORDER_CHARGE_BASE_PARTS[kind].filter(p=>v.includes(p)):legacy;}
+   остаётся. У ES, HST, доставки, депозита и своего сбора — набор `on`:
+   какие процентные сборы начисляются на него; `items` — набор стекла и работ
+   без своего кода; `codes` — коды Setup на день создания (имена в окне).
+   Заказ до кодов (27.11.2026) хранил базу HST и карты (`hst.base`,
+   `card.base`): из неё — те же наборы, суммы прежние. Нет базы — прежнее
+   правило: HST на Subtotal + Energy, карта на Subtotal + Energy + HST. */
+function salesOrderChargeLegacyOn(raw){
+ const b=(x,def)=>Array.isArray(x&&x.base)?x.base:def,hb=b(raw.hst,['energy']),cb=b(raw.card,['energy','hst']);
+ const on=part=>[hb.includes(part)&&'hst',cb.includes(part)&&'card'].filter(Boolean);
+ return {energy:on('energy'),hst:cb.includes('hst')?['card']:[],delivery:on('delivery'),skidDeposit:[]};
+}
 function normalizeSalesOrderCharges(raw){
  raw=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:{};
  const s=orderSetup(),rc=raw.card&&typeof raw.card==='object'?raw.card:{};
  const network=salesRefId(rc.network)||((s.cardNetworks[0]?s.cardNetworks[0].id:'')),known=orderSetupNetwork(network);
+ const ex=new Set(['energy','hst','card','delivery','skidDeposit']);
+ const extra=(Array.isArray(raw.extra)?raw.extra:[]).filter(x=>x&&typeof x==='object'&&typeof x.id==='string'&&!ex.has(x.id)&&(ex.add(x.id),true)).map(x=>({id:x.id,name:salesString(x.name).slice(0,60)||'Charge',kind:x.kind==='percent'?'percent':'fixed',value:salesOrderChargeNumber(x.value,0),enabled:x.enabled===true,code:salesString(x.code),on:x.on}));
+ const pct=orderChargePctIds(extra),coded=Array.isArray(raw.codes);
+ const codes=(coded?raw.codes:s.chargeCodes).filter(c=>c&&typeof c.id==='string').map(c=>({id:c.id,name:salesString(c.name).slice(0,40)||c.id,on:orderChargeSet(c.on,pct)}));
+ const legacy=coded||raw.items?null:salesOrderChargeLegacyOn(raw);
+ /* Набор сбора: свой; нет — заказа до кодов (из базы); код — по набору. */
+ const part=(x,k,fallback)=>{const on=orderChargeSet(x&&Array.isArray(x.on)?x.on:legacy&&legacy[k]?legacy[k]:fallback,pct),hit=codes.find(c=>c.id===(x&&x.code))||codes.find(c=>c.on.join(',')===on.join(','));return {code:hit&&hit.on.join(',')===on.join(',')?hit.id:'',on};};
+ const ri=raw.items&&typeof raw.items==='object'?raw.items:null;
  return {
-  energy:{enabled:raw.energy&&typeof raw.energy.enabled==='boolean'?raw.energy.enabled:s.energyOn,rate:salesOrderChargeNumber(raw.energy&&raw.energy.rate,s.energyRate)},
-  hst:{enabled:raw.hst&&typeof raw.hst.enabled==='boolean'?raw.hst.enabled:s.hstOn,rate:salesOrderChargeNumber(raw.hst&&raw.hst.rate,s.hstRate),base:salesOrderChargeBase(raw.hst&&raw.hst.base,'hst',['energy'])},
-  card:{enabled:!!rc.enabled,network:network,name:salesString(rc.name).slice(0,60)||(known&&known.name)||'Card fee',rate:salesOrderChargeNumber(rc.rate,known?known.rate:0),base:salesOrderChargeBase(rc.base,'card',['energy','hst'])},
-  delivery:{enabled:!!(raw.delivery&&raw.delivery.enabled),amount:salesOrderChargeNumber(raw.delivery&&raw.delivery.amount,0)},
-  skidDeposit:{enabled:!!(raw.skidDeposit&&raw.skidDeposit.enabled),amount:salesOrderChargeNumber(raw.skidDeposit&&raw.skidDeposit.amount,0)}
+  codes,
+  items:part(ri,'items',pct),
+  energy:Object.assign({enabled:raw.energy&&typeof raw.energy.enabled==='boolean'?raw.energy.enabled:s.energyOn,rate:salesOrderChargeNumber(raw.energy&&raw.energy.rate,s.energyRate)},part(raw.energy,'energy',[])),
+  hst:Object.assign({enabled:raw.hst&&typeof raw.hst.enabled==='boolean'?raw.hst.enabled:s.hstOn,rate:salesOrderChargeNumber(raw.hst&&raw.hst.rate,s.hstRate)},part(raw.hst,'hst',[])),
+  card:{enabled:!!rc.enabled,network:network,name:salesString(rc.name).slice(0,60)||(known&&known.name)||'Card fee',rate:salesOrderChargeNumber(rc.rate,known?known.rate:0)},
+  delivery:Object.assign({enabled:!!(raw.delivery&&raw.delivery.enabled),amount:salesOrderChargeNumber(raw.delivery&&raw.delivery.amount,0)},part(raw.delivery,'delivery',[])),
+  skidDeposit:Object.assign({enabled:!!(raw.skidDeposit&&raw.skidDeposit.enabled),amount:salesOrderChargeNumber(raw.skidDeposit&&raw.skidDeposit.amount,0)},part(raw.skidDeposit,'skidDeposit',[])),
+  extra:extra.map(x=>Object.assign(x,part(x,'',[])))
  };
 }
 
@@ -600,7 +619,11 @@ function normalizeSalesOrderLine(l){
 function normalizeSalesExtraService(x){
  x=x&&typeof x==='object'?x:{};
  const rateId=salesString(x.rateId).slice(0,80),q=x.qty==null||x.qty===''?null:+x.qty;
- return {id:salesEntityId(x.id,'SX'),rateId,name:rateId?'':salesString(x.name).trim().slice(0,80),unit:rateId?'':(['pc','ft²','in'].includes(x.unit)?x.unit:'pc'),qty:Number.isFinite(q)&&q>0?q:null};
+ /* Свой набор сборов (Charge code или Custom…, 27.11.2026): `on` — какие
+    процентные сборы на него идут, `code` — код для окна (пусто — Custom);
+    нет `on` — как у работы или у стекла заказа. */
+ const on=Array.isArray(x.on)?x.on.filter(k=>typeof k==='string'&&/^[A-Za-z0-9_-]{1,40}$/.test(k)):null;
+ return {id:salesEntityId(x.id,'SX'),rateId,name:rateId?'':salesString(x.name).trim().slice(0,80),unit:rateId?'':(['pc','ft²','in'].includes(x.unit)?x.unit:'pc'),qty:Number.isFinite(q)&&q>0?q:null,...(on?{on,code:salesString(x.code).slice(0,40)}:{})};
 }
 /* Строка-позиция каталога: изделие из стекла или готовая вещь — не одно и то
    же, и модель их не смешивает (раздел 6 схемы). Владелец: «там, где Single /
