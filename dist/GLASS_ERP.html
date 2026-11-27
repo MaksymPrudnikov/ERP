@@ -8,7 +8,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-8neA7u4PC1RlBt1ovZNkIKnbtPrK2o5wmAJgXwF0L7U=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-sRxnlbcR7qsRMk5EnssyRGmVrKb3RLN5jC4G3tTxTxk=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GLASS ERP — Glazing System</title>
 <style>
@@ -630,6 +630,12 @@ body.signin-mode main#app{padding:0}
 .sales-extra-bar{margin:10px 12px 12px}
 .sales-extra-form{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;margin:10px 12px 12px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);font-size:9.5px}
 .sales-extra-form label{display:flex;flex-direction:column;gap:2px}
+/* Код сборов разового сервиса (27.11.2026): метки и галочки Custom…. */
+.sales-extra-form .sales-extra-on{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center;align-self:center}
+.sales-extra-form .sales-extra-on-chk{flex-direction:row;align-items:center;gap:4px;font-size:12px}
+.sales-extra-chip{font-size:11px;border:1px solid var(--accent-line);background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:1px 8px}
+.sales-extra-chip.off{border-color:var(--line);background:var(--surface-3);color:var(--text-3);text-decoration:line-through}
+.sales-extra-code{font-size:11px;color:var(--text-2);border:1px solid var(--line);border-radius:999px;padding:0 7px;margin:0 4px;white-space:nowrap}
 .sales-extra-form label>span{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.035em;color:var(--text-2)}
 .sales-extra-form select,.sales-extra-form input{height:29px;padding:4px 6px;font-size:10px}
 .sales-extra-form [data-extra-pick]{max-width:300px}
@@ -1360,6 +1366,8 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
    Поле и его единица — одной строкой. */
 .md-setup .md-num{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}.md-setup .md-num input{width:90px}
 .md-setup td input[type=checkbox]{vertical-align:middle;margin:0}
+.md-setup select.md-code{width:170px}.md-setup select.md-kind{width:90px}.md-setup td input[type=text]{width:200px}
+.md-setup .md-setup-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:10px 0 4px}
 .md-trucks td{vertical-align:middle}
 
 /* Stock item: вид и измерения (пункт 4). */
@@ -1537,6 +1545,12 @@ table.cw-fixed tr[data-picked] td>select:has(+.line-locked-pill){width:calc(100%
 .metric-cut{display:block;font-size:10px;font-weight:400;color:var(--text-2);white-space:nowrap}
 /* Минимум площади заказа по макапам (17.11.2026) — над надбавками. */
 .metric-order-min+.metric-surcharge-foot{margin:6px 0 16px}
+/* Сбор заказа: ставка или сумма и код этого заказа (коды сборов, 27.11.2026). */
+.metric-order-charge-editor .metric-order-charge-row{grid-template-columns:minmax(150px,.8fr) minmax(220px,1.4fr) minmax(190px,1fr)}
+.metric-charge-body{display:flex;flex-wrap:wrap;align-items:center;gap:10px}.metric-charge-body>label{display:flex;align-items:center;gap:6px}
+.metric-charge-code-wrap{display:flex;align-items:center;gap:6px;justify-self:end}.metric-order-charge-row select.metric-charge-code{min-width:150px}
+.metric-order-bases{display:block;margin-top:6px;color:var(--text-3);font-size:12px;text-align:right}
+@media(max-width:600px){.metric-order-charge-editor .metric-order-charge-row{grid-template-columns:1fr}.metric-charge-code-wrap{justify-self:start}}
 
 /* ---- src/styles/documents.css ---- */
 /* Бланки заказа: окно Preview, панель ✎ Customize, печать листов Letter,
@@ -4714,7 +4728,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='c5ec95bdb805';
+var ERP_BUILD='e852dd036516';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -12764,6 +12778,9 @@ function normalizeServiceRate(r){
      только у работы, где они заданы: строки остальных работ прежние. За
      пределом заказ спрашивает при Save, не запрещает. */
   ...(num(r.angleMin)!=null?{angleMin:num(r.angleMin)}:{}),...(num(r.angleMax)!=null?{angleMax:num(r.angleMax)}:{}),
+  /* Код сборов работы (Data → Setup → Charge codes, 27.11.2026): какие
+     ES / HST / Card fee идут на неё; пусто — как у стекла заказа. */
+  ...(mdString(r.chargeCode)?{chargeCode:mdString(r.chargeCode)}:{}),
   rule:normalizeServiceRule(r.rule),
   minutesPerUnit:num(r.minutesPerUnit),setupMinutes:num(r.setupMinutes),
   note:mdString(r.note),active:r.active!==false
@@ -13985,26 +14002,29 @@ function exportCustomersCSV(){customerDownload('glass_erp_customers.csv',custome
 
 /* ==== src/erp/sales/order-setup.js ==== */
 /* =====================================================================
-   erp/sales/order-setup  ·  order-setup-1.0
+   erp/sales/order-setup  ·  order-setup-2.0
    Настройки нового заказа (план Master Data, этап 5): сборы заказа —
-   Energy, HST, комиссия карты, доставка, депозит за скид — и что входит в
-   базу каждого сбора; умолчания фрита — точка, отступ и угол. Раньше это
-   были числа в коде (9.75, 13, 2.34 / 2.39 / 3.15, 5 мм, 1″). Теперь их
-   правят в Data → Setup, а код только читает.
+   Energy, HST, комиссия карты, доставка, депозит за скид и свои сборы —
+   и коды сборов; умолчания фрита — точка, отступ и угол; дни Due date.
+   Раньше это были числа в коде (9.75, 13, 2.34 / 2.39 / 3.15, 5 мм, 1″).
+   Теперь их правят в Data → Setup, а код только читает.
    IN : DB.orderSetup
    OUT: orderSetup(); salesOrderChargeDefaults() — снимок для нового
-        заказа; orderSetupFrit() — умолчания фрита нового лайта
+        заказа; orderSetupCodeOn() — набор кода; orderSetupFrit() —
+        умолчания фрита нового лайта
    Правило: сохранённый заказ живёт по своему снимку orderCharges (ставки,
-   карта, база сборов); правка Setup его не меняет.
+   карта, коды и наборы сборов); правка Setup его не меняет.
+   Коды сборов (вариант A владельца, 27.11.2026: «нужно понимать, он будет с
+   HST или ES или без… и чтобы кредитка не упустила этот сервис… максимально
+   манёвренный результат»): код — именованный набор процентных сборов (ES,
+   HST, свои %, Card fee), которые начисляются на вещь. Код есть у стекла и
+   работ (первый код — по умолчанию), у работы, разового сервиса, у ES, HST, доставки, депозита и своего сбора. Начисление — сверху
+   вниз: ES → HST → свои % → Card fee; на Card fee ничего не начисляется.
    ===================================================================== */
-/* Порядок начисления один: Subtotal → Energy → HST → Card fee, доставка и
-   депозит — в конце. Настраивается, что входит в базу HST и комиссии карты.
-   Депозит за скид — деньги клиента, ни в одну базу не входит. Засев —
-   прежнее поведение кода. */
 const ORDER_SETUP_DEFAULT={
  energyOn:true,energyRate:9.75,
- hstOn:true,hstRate:13,hstOnEnergy:true,hstOnDelivery:false,
- cardOn:false,cardOnEnergy:true,cardOnHst:true,cardOnDelivery:false,
+ hstOn:true,hstRate:13,
+ cardOn:false,
  cardNetworks:[{id:'visa',name:'Visa card fee',rate:2.34},{id:'mastercard',name:'Mastercard fee',rate:2.39},{id:'amex',name:'American Express fee',rate:3.15}],
  deliveryOn:false,deliveryAmount:0,
  skidDepositOn:false,skidDepositAmount:0,
@@ -14012,10 +14032,14 @@ const ORDER_SETUP_DEFAULT={
  /* Due date по приоритету — рабочих дней Пн–Пт (владелец 17.11.2026). */
  dueNormalDays:7,dueRushDays:3,dueCriticalDays:1
 };
-/* Что может входить в базу сбора, кроме Subtotal. */
-const ORDER_CHARGE_BASE_PARTS={hst:['energy','delivery'],card:['energy','hst','delivery']};
-DEFAULT.orderSetup=JSON.parse(JSON.stringify(ORDER_SETUP_DEFAULT));
-if(!DB.orderSetup||typeof DB.orderSetup!=='object'||Array.isArray(DB.orderSetup))DB.orderSetup=JSON.parse(JSON.stringify(ORDER_SETUP_DEFAULT));
+/* Засев кодов (картинка, одобренная владельцем 27.11.2026). Прежнее
+   поведение кода: ES — под HST и картой, HST — под картой, доставка и
+   депозит — ни под чем; стекло и работы — под всеми. */
+const ORDER_CODE_SEED=[{id:'std',name:'Standard',on:['energy','hst','card']},{id:'hst-card',name:'HST + card',on:['hst','card']},{id:'card',name:'Card only',on:['card']},{id:'none',name:'No charges',on:[]}];
+/* Сборы, у которых свой код (на Card fee ничего не начисляется — кода нет). */
+const ORDER_CHARGE_CODED=['energy','hst','delivery','skidDeposit'];
+DEFAULT.orderSetup=JSON.parse(JSON.stringify(Object.assign({},ORDER_SETUP_DEFAULT,{chargeCodes:ORDER_CODE_SEED,energyCode:'hst-card',hstCode:'card',deliveryCode:'none',skidDepositCode:'none',charges:[]})));
+if(!DB.orderSetup||typeof DB.orderSetup!=='object'||Array.isArray(DB.orderSetup))DB.orderSetup=JSON.parse(JSON.stringify(DEFAULT.orderSetup));
 
 function orderSetupNumber(v,fallback){const n=Number(v);return v!==''&&v!=null&&Number.isFinite(n)&&n>=0?Math.round(n*10000)/10000:fallback;}
 function normalizeOrderSetup(){
@@ -14036,7 +14060,58 @@ function normalizeOrderSetup(){
   while(ids.has(id))id=id+'-2';ids.add(id);
   return {id,name:String(x.name==null?'':x.name).trim().slice(0,60),rate:orderSetupNumber(x.rate,0)};
  });
+ /* Свои сборы (+ Charge): % или сумма, включён ли в новом заказе, код. */
+ const cids=new Set(['energy','hst','card','delivery','skidDeposit']);
+ out.charges=(Array.isArray(s.charges)?s.charges:[]).filter(x=>x&&typeof x==='object').map(x=>{
+  let id=orderChargeId(x.id,'ch-');while(cids.has(id))id=id+'-2';cids.add(id);
+  return {id,name:String(x.name==null?'':x.name).trim().slice(0,60)||'Charge',kind:x.kind==='percent'?'percent':'fixed',value:orderSetupNumber(x.value,0),enabled:x.enabled===true,code:typeof x.code==='string'?x.code:''};
+ });
+ const pct=orderChargePctIds(out.charges);
+ /* Коды. Нет вовсе (база до 27.11.2026) — засев, а прежние галочки базы
+    («HST: ES, Delivery», «Card fee: ES, HST, Delivery») становятся кодами
+    ES, HST и доставки: суммы заказов не меняются. */
+ let codes=Array.isArray(s.chargeCodes)?s.chargeCodes:null;const was=!codes;
+ if(was)codes=JSON.parse(JSON.stringify(ORDER_CODE_SEED));
+ const kids=new Set();
+ out.chargeCodes=codes.filter(x=>x&&typeof x==='object').map(x=>{
+  let id=orderChargeId(x.id,'code-');while(kids.has(id))id=id+'-2';kids.add(id);
+  const on=orderChargeSet(x.on,pct);
+  return {id,name:String(x.name==null?'':x.name).trim().slice(0,40)||orderCodeName(on,out.charges),on};
+ });
+ if(!out.chargeCodes.length)out.chargeCodes=JSON.parse(JSON.stringify(ORDER_CODE_SEED));
+ const first=out.chargeCodes[0].id,has=id=>out.chargeCodes.some(c=>c.id===id);
+ if(was){
+  const flag=(k,def)=>typeof s[k]==='boolean'?s[k]:def;
+  out.energyCode=orderCodeFor(out,[flag('hstOnEnergy',true)&&'hst',flag('cardOnEnergy',true)&&'card']);
+  out.hstCode=orderCodeFor(out,[flag('cardOnHst',true)&&'card']);
+  out.deliveryCode=orderCodeFor(out,[flag('hstOnDelivery',false)&&'hst',flag('cardOnDelivery',false)&&'card']);
+  out.skidDepositCode=orderCodeFor(out,[]);
+ }else ORDER_CHARGE_CODED.forEach(k=>{out[k+'Code']=has(s[k+'Code'])?s[k+'Code']:first;});
+ out.charges.forEach(x=>{if(!has(x.code))x.code=orderCodeFor(out,[]);});
+ /* Код новой работы и нового разового сервиса. */
+ ['workCode','extraCode'].forEach(k=>{out[k]=has(s[k])?s[k]:first;});
  DB.orderSetup=out;
+}
+function orderChargeId(v,prefix){return typeof v==='string'&&/^[A-Za-z0-9_-]{1,40}$/.test(v)?v:prefix+Math.random().toString(36).slice(2,8);}
+/* Процентные сборы по порядку начисления: ES → HST → свои % → Card fee. */
+function orderChargePctIds(charges){return ['energy','hst'].concat((charges||[]).filter(x=>x.kind==='percent').map(x=>x.id),['card']);}
+/* Набор сборов: только известные процентные, по порядку начисления. */
+function orderChargeSet(on,pct){const l=Array.isArray(on)?on:typeof on==='string'?on.split(','):[];return pct.filter(k=>l.includes(k));}
+function orderChargeLabel(k,charges){return k==='energy'?'ES':k==='hst'?'HST':k==='card'?'Card fee':((charges||[]).find(x=>x.id===k)||{}).name||k;}
+/* Набор словами: «ES · HST · Card fee», пусто — «nothing». */
+function orderChargeSetText(on,charges){return on.length?on.map(k=>orderChargeLabel(k,charges)).join(' · '):'nothing';}
+/* Имя кода по набору: Standard, HST + card, Card only, No charges… */
+function orderCodeName(on,charges){
+ if(!on.length)return 'No charges';
+ const all=orderChargePctIds(charges);if(all.every(k=>on.includes(k)))return 'Standard';
+ const n=on.map(k=>k==='card'?'card':orderChargeLabel(k,charges));
+ return on.length===1?(on[0]==='card'?'Card only':n[0]+' only'):n.join(' + ');
+}
+/* Код с этим набором; нет — заводится. */
+function orderCodeFor(s,set){
+ const pct=orderChargePctIds(s.charges),on=orderChargeSet(set.filter(Boolean),pct),key=on.join(',');
+ const hit=s.chargeCodes.find(c=>c.on.join(',')===key);if(hit)return hit.id;
+ const id='code-'+(key.replace(/[^a-z0-9]+/gi,'-')||'none');s.chargeCodes.push({id,name:orderCodeName(on,s.charges),on});return id;
 }
 normalizeOrderSetup();
 function orderSetup(){return DB.orderSetup||ORDER_SETUP_DEFAULT;}
@@ -14051,16 +14126,21 @@ function salesDueDate(priority,from){
  const p=x=>String(x).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
 }
 function orderSetupNetwork(id){return orderSetup().cardNetworks.find(x=>x.id===id)||null;}
-function orderSetupBase(kind){const s=orderSetup(),key=kind+'On';return ORDER_CHARGE_BASE_PARTS[kind].filter(p=>s[key+p[0].toUpperCase()+p.slice(1)]);}
-/* Снимок для нового заказа: ставки, первая карта списка, база сборов. */
+function orderSetupCode(id){const s=orderSetup();return s.chargeCodes.find(c=>c.id===id)||null;}
+/* Набор кода Setup: null — кода нет (значит «по умолчанию»). */
+function orderSetupCodeOn(id){const c=id&&orderSetupCode(id);return c?c.on.slice():null;}
+/* Снимок для нового заказа: ставки, первая карта списка, коды и наборы. */
 function salesOrderChargeDefaults(){
- const s=orderSetup(),n=s.cardNetworks[0]||{id:'',name:'Card fee',rate:0};
+ const s=orderSetup(),n=s.cardNetworks[0]||{id:'',name:'Card fee',rate:0},on=id=>orderSetupCodeOn(id)||[];
  return {
-  energy:{enabled:s.energyOn,rate:s.energyRate},
-  hst:{enabled:s.hstOn,rate:s.hstRate,base:orderSetupBase('hst')},
-  card:{enabled:s.cardOn,network:n.id,name:n.name||'Card fee',rate:n.rate,base:orderSetupBase('card')},
-  delivery:{enabled:s.deliveryOn,amount:s.deliveryAmount},
-  skidDeposit:{enabled:s.skidDepositOn,amount:s.skidDepositAmount}
+  codes:JSON.parse(JSON.stringify(s.chargeCodes)),
+  items:{code:s.chargeCodes[0].id,on:on(s.chargeCodes[0].id)},
+  energy:{enabled:s.energyOn,rate:s.energyRate,code:s.energyCode,on:on(s.energyCode)},
+  hst:{enabled:s.hstOn,rate:s.hstRate,code:s.hstCode,on:on(s.hstCode)},
+  card:{enabled:s.cardOn,network:n.id,name:n.name||'Card fee',rate:n.rate},
+  delivery:{enabled:s.deliveryOn,amount:s.deliveryAmount,code:s.deliveryCode,on:on(s.deliveryCode)},
+  skidDeposit:{enabled:s.skidDepositOn,amount:s.skidDepositAmount,code:s.skidDepositCode,on:on(s.skidDepositCode)},
+  extra:s.charges.map(x=>({id:x.id,name:x.name,kind:x.kind,value:x.value,enabled:x.enabled,code:x.code,on:on(x.code)}))
  };
 }
 function orderSetupFrit(){const s=orderSetup();return {dotMm:s.fritDotMm,margin16:s.fritMargin16,marginFrom:s.fritCorner};}
@@ -14221,19 +14301,38 @@ function salesStoredDim16(v){const n=+v;return Number.isInteger(n)&&n>0?n:null;}
 function salesOrderChargeNumber(v,fallback){const n=Number(v);return Number.isFinite(n)&&n>=0?n:fallback;}
 /* Сборы заказа — снимок Setup на момент создания (erp/sales/order-setup).
    Карта хранит своё имя и ставку: удалённая из Setup карта в старом заказе
-   остаётся. Нет базы сбора — прежнее правило: HST на Subtotal + Energy,
-   карта на Subtotal + Energy + HST. */
-function salesOrderChargeBase(v,kind,legacy){return Array.isArray(v)?ORDER_CHARGE_BASE_PARTS[kind].filter(p=>v.includes(p)):legacy;}
+   остаётся. У ES, HST, доставки, депозита и своего сбора — набор `on`:
+   какие процентные сборы начисляются на него; `items` — набор стекла и работ
+   без своего кода; `codes` — коды Setup на день создания (имена в окне).
+   Заказ до кодов (27.11.2026) хранил базу HST и карты (`hst.base`,
+   `card.base`): из неё — те же наборы, суммы прежние. Нет базы — прежнее
+   правило: HST на Subtotal + Energy, карта на Subtotal + Energy + HST. */
+function salesOrderChargeLegacyOn(raw){
+ const b=(x,def)=>Array.isArray(x&&x.base)?x.base:def,hb=b(raw.hst,['energy']),cb=b(raw.card,['energy','hst']);
+ const on=part=>[hb.includes(part)&&'hst',cb.includes(part)&&'card'].filter(Boolean);
+ return {energy:on('energy'),hst:cb.includes('hst')?['card']:[],delivery:on('delivery'),skidDeposit:[]};
+}
 function normalizeSalesOrderCharges(raw){
  raw=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:{};
  const s=orderSetup(),rc=raw.card&&typeof raw.card==='object'?raw.card:{};
  const network=salesRefId(rc.network)||((s.cardNetworks[0]?s.cardNetworks[0].id:'')),known=orderSetupNetwork(network);
+ const ex=new Set(['energy','hst','card','delivery','skidDeposit']);
+ const extra=(Array.isArray(raw.extra)?raw.extra:[]).filter(x=>x&&typeof x==='object'&&typeof x.id==='string'&&!ex.has(x.id)&&(ex.add(x.id),true)).map(x=>({id:x.id,name:salesString(x.name).slice(0,60)||'Charge',kind:x.kind==='percent'?'percent':'fixed',value:salesOrderChargeNumber(x.value,0),enabled:x.enabled===true,code:salesString(x.code),on:x.on}));
+ const pct=orderChargePctIds(extra),coded=Array.isArray(raw.codes);
+ const codes=(coded?raw.codes:s.chargeCodes).filter(c=>c&&typeof c.id==='string').map(c=>({id:c.id,name:salesString(c.name).slice(0,40)||c.id,on:orderChargeSet(c.on,pct)}));
+ const legacy=coded||raw.items?null:salesOrderChargeLegacyOn(raw);
+ /* Набор сбора: свой; нет — заказа до кодов (из базы); код — по набору. */
+ const part=(x,k,fallback)=>{const on=orderChargeSet(x&&Array.isArray(x.on)?x.on:legacy&&legacy[k]?legacy[k]:fallback,pct),hit=codes.find(c=>c.id===(x&&x.code))||codes.find(c=>c.on.join(',')===on.join(','));return {code:hit&&hit.on.join(',')===on.join(',')?hit.id:'',on};};
+ const ri=raw.items&&typeof raw.items==='object'?raw.items:null;
  return {
-  energy:{enabled:raw.energy&&typeof raw.energy.enabled==='boolean'?raw.energy.enabled:s.energyOn,rate:salesOrderChargeNumber(raw.energy&&raw.energy.rate,s.energyRate)},
-  hst:{enabled:raw.hst&&typeof raw.hst.enabled==='boolean'?raw.hst.enabled:s.hstOn,rate:salesOrderChargeNumber(raw.hst&&raw.hst.rate,s.hstRate),base:salesOrderChargeBase(raw.hst&&raw.hst.base,'hst',['energy'])},
-  card:{enabled:!!rc.enabled,network:network,name:salesString(rc.name).slice(0,60)||(known&&known.name)||'Card fee',rate:salesOrderChargeNumber(rc.rate,known?known.rate:0),base:salesOrderChargeBase(rc.base,'card',['energy','hst'])},
-  delivery:{enabled:!!(raw.delivery&&raw.delivery.enabled),amount:salesOrderChargeNumber(raw.delivery&&raw.delivery.amount,0)},
-  skidDeposit:{enabled:!!(raw.skidDeposit&&raw.skidDeposit.enabled),amount:salesOrderChargeNumber(raw.skidDeposit&&raw.skidDeposit.amount,0)}
+  codes,
+  items:part(ri,'items',pct),
+  energy:Object.assign({enabled:raw.energy&&typeof raw.energy.enabled==='boolean'?raw.energy.enabled:s.energyOn,rate:salesOrderChargeNumber(raw.energy&&raw.energy.rate,s.energyRate)},part(raw.energy,'energy',[])),
+  hst:Object.assign({enabled:raw.hst&&typeof raw.hst.enabled==='boolean'?raw.hst.enabled:s.hstOn,rate:salesOrderChargeNumber(raw.hst&&raw.hst.rate,s.hstRate)},part(raw.hst,'hst',[])),
+  card:{enabled:!!rc.enabled,network:network,name:salesString(rc.name).slice(0,60)||(known&&known.name)||'Card fee',rate:salesOrderChargeNumber(rc.rate,known?known.rate:0)},
+  delivery:Object.assign({enabled:!!(raw.delivery&&raw.delivery.enabled),amount:salesOrderChargeNumber(raw.delivery&&raw.delivery.amount,0)},part(raw.delivery,'delivery',[])),
+  skidDeposit:Object.assign({enabled:!!(raw.skidDeposit&&raw.skidDeposit.enabled),amount:salesOrderChargeNumber(raw.skidDeposit&&raw.skidDeposit.amount,0)},part(raw.skidDeposit,'skidDeposit',[])),
+  extra:extra.map(x=>Object.assign(x,part(x,'',[])))
  };
 }
 
@@ -14757,7 +14856,11 @@ function normalizeSalesOrderLine(l){
 function normalizeSalesExtraService(x){
  x=x&&typeof x==='object'?x:{};
  const rateId=salesString(x.rateId).slice(0,80),q=x.qty==null||x.qty===''?null:+x.qty;
- return {id:salesEntityId(x.id,'SX'),rateId,name:rateId?'':salesString(x.name).trim().slice(0,80),unit:rateId?'':(['pc','ft²','in'].includes(x.unit)?x.unit:'pc'),qty:Number.isFinite(q)&&q>0?q:null};
+ /* Свой набор сборов (Charge code или Custom…, 27.11.2026): `on` — какие
+    процентные сборы на него идут, `code` — код для окна (пусто — Custom);
+    нет `on` — как у работы или у стекла заказа. */
+ const on=Array.isArray(x.on)?x.on.filter(k=>typeof k==='string'&&/^[A-Za-z0-9_-]{1,40}$/.test(k)):null;
+ return {id:salesEntityId(x.id,'SX'),rateId,name:rateId?'':salesString(x.name).trim().slice(0,80),unit:rateId?'':(['pc','ft²','in'].includes(x.unit)?x.unit:'pc'),qty:Number.isFinite(q)&&q>0?q:null,...(on?{on,code:salesString(x.code).slice(0,40)}:{})};
 }
 /* Строка-позиция каталога: изделие из стекла или готовая вещь — не одно и то
    же, и модель их не смешивает (раздел 6 схемы). Владелец: «там, где Single /
@@ -23598,10 +23701,28 @@ function salesExtraTargetLines(target){
   var picked=lines.filter(function(l){return soSelectedLines&&soSelectedLines.has(l.id);});
   return (picked.length?picked:lines).map(function(l){return l.id;});
 }
-function salesExtraFormOpen(target){soExtraForm={target:target,lines:salesExtraTargetLines(target),rateId:'',name:'',unit:'pc',qty:'',rate:'',error:''};render();}
+/* Код сборов разового сервиса (вариант A, 27.11.2026): код заказа, Custom…
+   (галочки только для этого сервиса) или, у работы Master Data, — «как у
+   работы». Свой сервис по умолчанию — Default code Setup «New one-off service». */
+function salesExtraCodes(){return normalizeSalesOrderCharges(soDraft&&soDraft.orderCharges);}
+function salesExtraDefaultCode(){var c=salesExtraCodes(),id=orderSetup().extraCode;return c.codes.some(function(k){return k.id===id;})?id:c.items.code||(c.codes[0]||{}).id||'';}
+function salesExtraFormOpen(target){soExtraForm={target:target,lines:salesExtraTargetLines(target),rateId:'',name:'',unit:'pc',qty:'',rate:'',code:salesExtraDefaultCode(),on:[],error:''};render();}
+/* Набор формы: Custom — свои галочки; код — его набор; пусто — как у работы. */
+function salesExtraFormOn(f){
+  var c=salesExtraCodes();if(f.code==='custom')return f.on.slice();
+  var hit=c.codes.find(function(k){return k.id===f.code;});if(hit)return hit.on.slice();
+  var w=f.rateId&&salesServiceRateRow(f.rateId),own=w&&w.chargeCode?orderSetupCodeOn(w.chargeCode):null;return own||c.items.on.slice();
+}
+function salesExtraFormToggle(k,on){var f=soExtraForm;if(!f)return;f.on=on?f.on.concat([k]):f.on.filter(function(x){return x!==k;});render();}
 function salesExtraFormClose(){soExtraForm=null;render();}
 function salesExtraFormUnit(u){salesExtraFormSet('unit',u);render();}
-function salesExtraFormSet(k,v){if(!soExtraForm)return;soExtraForm[k]=v;if(k==='rateId'){var r=salesServiceRateRow(v);if(r)soExtraForm.unit=r.unit||'pc';render();}}
+function salesExtraFormSet(k,v){
+  var f=soExtraForm;if(!f)return;
+  if(k==='code'&&v==='custom')f.on=salesExtraFormOn(f);
+  f[k]=v;
+  if(k==='rateId'){var r=salesServiceRateRow(v);if(r)f.unit=r.unit||'pc';f.code=v?'':salesExtraDefaultCode();render();}
+  if(k==='code')render();
+}
 /* Добавляет сервис во все строки формы, кроме тех, где такой уже есть.
    Возвращает число строк, куда добавлен. */
 function salesExtraAdd(){
@@ -23612,7 +23733,8 @@ function salesExtraAdd(){
   if(err){f.error=err;render();return 0;}
   var lines=(soDraft.lines||[]).filter(function(l){return f.lines.indexOf(l.id)>=0;}),n=0;
   lines.forEach(function(line){
-    var x=normalizeSalesExtraService({rateId:f.rateId,name:custom?name:'',unit:custom?f.unit:'',qty:qty});
+    var on=f.code?salesExtraFormOn(f):null;
+    var x=normalizeSalesExtraService({rateId:f.rateId,name:custom?name:'',unit:custom?f.unit:'',qty:qty,on:on,code:f.code==='custom'?'':f.code});
     /* Уже есть такой же в строке — второй раз не добавляем. */
     if((line.extraServices||[]).some(function(e){return salesExtraServiceGroup(e)===salesExtraServiceGroup(x);}))return;
     (line.extraServices||(line.extraServices=[])).push(x);n++;
@@ -23646,9 +23768,24 @@ function salesExtraFormHTML(){
     (f.rateId?'':`<label><span>Name</span><input data-extra-name value="${esc(f.name)}" maxlength="80" ${onAct('input',salesExtraFormSet,'name',EL_VALUE)}></label><span class="sales-extra-units"><span>Charged per</span><span>${SALES_EXTRA_UNITS.map(function(u){return `<button type="button" class="sm${f.unit===u?' on':''}" data-extra-unit="${u}" ${onAct('click',salesExtraFormUnit,String(u))}>${u}</button>`;}).join('')}</span></span>`)+
     `<label><span>Qty / unit</span><input data-extra-qty type="number" min="0" step="any" value="${esc(f.qty)}" placeholder="${unit==='ft²'?'area':unit==='in'?'perimeter':'1'}" ${onAct('input',salesExtraFormSet,'qty',EL_VALUE)}></label>`+
     `<label><span>Rate / ${esc(unit)}</span><input data-extra-rate type="number" min="0" step="0.01" value="${esc(f.rate)}" placeholder="${r?'catalog':'required'}" ${onAct('input',salesExtraFormSet,'rate',EL_VALUE)}></label>`+
+    salesExtraCodeHTML(f)+
     `<button class="sm pri" data-extra-add ${onAct('click',salesExtraAdd)}>Add${many?' to '+f.lines.length+' lines':''}</button><button class="sm" ${onAct('click',salesExtraFormClose)}>Cancel</button>`+
     (f.error?`<b class="sales-extra-error">${esc(f.error)}</b>`:'')+
     (salesExtraAutoDup(f)?`<b class="sales-extra-error" data-extra-dup>Already charged automatically</b>`:'')+`</div>`;
+}
+/* Поле Charge code формы и метки: что на сервис начисляется (зачёркнутое —
+   нет); Custom… — галочки по каждому процентному сбору заказа. */
+function salesExtraCodeHTML(f){
+  var c=salesExtraCodes(),on=salesExtraFormOn(f),pct=orderChargePctIds(c.extra),w=f.rateId&&salesServiceRateRow(f.rateId);
+  var opts=(f.rateId?`<option value="" ${f.code?'':'selected'}>As the work${w&&w.chargeCode?'':' · default'}</option>`:'')+c.codes.map(function(k){return `<option value="${esc(k.id)}" ${f.code===k.id?'selected':''}>${esc(k.name)}</option>`;}).join('')+`<option value="custom" ${f.code==='custom'?'selected':''}>Custom…</option>`;
+  var chips=pct.map(function(k){var n=esc(orderChargeLabel(k,c.extra));return f.code==='custom'?`<label class="sales-extra-on-chk"><input type="checkbox" data-extra-on="${esc(k)}" ${on.indexOf(k)>=0?'checked':''} ${onAct('change',salesExtraFormToggle,String(k),EL_CHECKED)}> ${n}</label>`:`<span class="sales-extra-chip${on.indexOf(k)>=0?'':' off'}">${n}</span>`;}).join('');
+  return `<label><span>Charge code</span><select data-extra-code ${onAct('change',salesExtraFormSet,'code',EL_VALUE)}>${opts}</select></label><span class="sales-extra-on" data-extra-on-list>${chips}</span>`;
+}
+/* Код уже добавленного сервиса — меткой в строке окна сервисов. */
+function salesExtraChargeTag(line,key){
+  var id=salesExtraIdOfKey(key),x=id&&(line.extraServices||[]).find(function(e){return e.id===id;});if(!x||!Array.isArray(x.on))return '';
+  var c=salesExtraCodes(),hit=c.codes.find(function(k){return k.id===x.code;}),text=orderChargeSetText(x.on,c.extra);
+  return `<span class="sales-extra-code" data-extra-code-tag title="${esc(text)}">${esc(hit?hit.name:'Custom')}</span>`;
 }
 /* Кнопка «+ Add service» или открытая форма — внизу окна сервисов. */
 function salesExtraBarHTML(target){
@@ -23864,18 +24001,59 @@ function salesCents(value){return +salesExact(value).toFixed(2);}
 /* Дюймы продажи: вверх до целого, как в Spiel. */
 function salesWholeInches(value){return Math.ceil(+value-1e-9);}
 function salesPlainRect(shape){return !shape||shape.type==='rectangle'&&!(shape.features||[]).length&&!shapeIsDxfSource(shape);}
-/* Порядок один: Energy → HST → Card fee, доставка и депозит в конце; что
-   входит в базу HST и карты — снимок заказа (erp/sales/order-setup). subtotal —
-   точная сумма позиций; Energy считается от неё, а не от округлённой. */
-function salesApplyOrderCharges(subtotal,raw){
+/* Порядок один: ES → HST → свои % → Card fee; суммы (доставка, депозит,
+   свои суммы) — в конце (erp/sales/order-setup). На процентный сбор идут:
+   вещи заказа, в наборе которых он есть (itemBase[k] — их точная сумма; не
+   передан — все вещи по набору стекла и работ), сборы выше и суммы, в
+   наборе которых он есть (коды, 27.11.2026). ES — от точной суммы, остальные
+   — от суммы в центах, как раньше: заказ без своих кодов даёт прежние цифры
+   до цента. */
+function salesApplyOrderCharges(subtotal,raw,itemBase){
  const c=normalizeSalesOrderCharges(raw),exact=salesExact(+subtotal||0),base=salesCents(exact);
- const energy=c.energy.enabled?salesCents(exact*c.energy.rate/100):0;
- const delivery=c.delivery.enabled?salesMoney(c.delivery.amount):0;
- const skidDeposit=c.skidDeposit.enabled?salesMoney(c.skidDeposit.amount):0;
- const part={energy,delivery},sum=(list,more)=>salesMoney(list.reduce((n,p)=>n+(more[p]||0),base));
- const hstBase=sum(c.hst.base,part),hst=c.hst.enabled?salesCents(hstBase*c.hst.rate/100):0;
- const cardBase=sum(c.card.base,Object.assign({hst},part)),card=c.card.enabled?salesCents(cardBase*c.card.rate/100):0;
- return {charges:c,subtotal:base,energy:energy,hstBase:hstBase,hst:hst,cardBase:cardBase,card:card,delivery:delivery,skidDeposit:skidDeposit,grand:salesMoney(base+energy+hst+card+delivery+skidDeposit)};
+ const fixed=[['delivery',c.delivery,c.delivery.amount],['skidDeposit',c.skidDeposit,c.skidDeposit.amount]].concat(c.extra.filter(x=>x.kind==='fixed').map(x=>[x.id,x,x.value]));
+ const pct=[['energy',c.energy,c.energy.rate],['hst',c.hst,c.hst.rate]].concat(c.extra.filter(x=>x.kind==='percent').map(x=>[x.id,x,x.value]),[['card',c.card,c.card.rate]]);
+ const amt={},bases={};
+ fixed.forEach(([k,x,v])=>{amt[k]=x.enabled?salesMoney(v):0;});
+ pct.forEach(([k,x,rate],i)=>{
+  const items=itemBase&&Object.prototype.hasOwnProperty.call(itemBase,k)?itemBase[k]:c.items.on.includes(k)?exact:0;
+  let more=0;
+  pct.slice(0,i).forEach(([q,y])=>{if((y.on||[]).includes(k))more+=amt[q];});
+  fixed.forEach(([f,y])=>{if((y.on||[]).includes(k))more+=amt[f];});
+  bases[k]=k==='energy'?salesExact(items+more):salesMoney(salesCents(items)+more);
+  amt[k]=x.enabled?salesCents(bases[k]*rate/100):0;
+ });
+ const grand=salesMoney(Object.keys(amt).reduce((n,k)=>n+amt[k],base));
+ return {charges:c,subtotal:base,energy:amt.energy,energyBase:bases.energy,hstBase:bases.hst,hst:amt.hst,cardBase:bases.card,card:amt.card,delivery:amt.delivery,skidDeposit:amt.skidDeposit,bases,
+  extra:c.extra.map(x=>({id:x.id,name:x.name,kind:x.kind,rate:x.kind==='percent'?x.value:null,amount:amt[x.id],enabled:x.enabled})),grand};
+}
+/* Набор сборов вещи со своим кодом (null — набор стекла и работ заказа).
+   Работа — снимок заказа на Save (priceBook «snap:svcOn:…»), как цена;
+   разовый сервис хранит набор сам. Позиции склада — по набору стекла. */
+function salesBookOn(key,live,order){const v=salesBook(key,live,order);return v==null?null:String(v).split(',').filter(Boolean);}
+function salesWorkOn(svc,order){return salesBookOn('snap:svcOn:'+svc,()=>{const w=salesServiceRateRow(svc),on=w&&w.chargeCode?orderSetupCodeOn(w.chargeCode):null;return on?on.join(','):null;},order);}
+function salesChargeRowOn(row,line,order){
+ const xid=typeof salesExtraIdOfKey==='function'?salesExtraIdOfKey(row.key):'';
+ if(xid){const x=(line.extraServices||[]).find(e=>e.id===xid);if(x&&Array.isArray(x.on))return x.on;if(x&&x.rateId)return salesWorkOn(x.rateId,order);return null;}
+ return row.svc?salesWorkOn(row.svc,order):null;
+}
+/* Есть ли в заказе вещи со своим кодом — иначе базы считать нечего. */
+function salesOrderOwnCodes(order){
+ if((order.lines||[]).some(l=>(l.extraServices||[]).some(x=>Array.isArray(x.on))))return true;
+ if((DB.serviceRate||[]).some(w=>w&&w.chargeCode))return true;
+ const b=order.priceBook;if(b)for(const k in b)if(b[k]!=null&&k.indexOf('snap:svcOn:')===0)return true;
+ return false;
+}
+/* Поправка баз по вещам со своим кодом: +сумма, где сбор есть в их наборе и
+   нет в наборе заказа, −сумма — наоборот; ничем не облагаемое — списком. */
+function salesOrderChargeDeltas(order,c){
+ const pct=orderChargePctIds(c.extra),def=c.items.on,delta={},free=[];
+ const add=(on,amount,name)=>{if(!on||amount==null)return;const same=on.length===def.length&&on.every(k=>def.includes(k));if(same)return;pct.forEach(k=>{const d=(on.includes(k)?1:0)-(def.includes(k)?1:0);if(d)delta[k]=salesExact((delta[k]||0)+d*amount);});if(!on.length)free.push({name,amount:salesMoney(amount)});};
+ (order.lines||[]).forEach(line=>{
+  const p=salesLineCommercialPrice(line,order);if(!p.complete||p.manual||!p.qty)return;
+  const k=p.base>0?p.unit/p.base:1;
+  (p.chargeRows||[]).forEach(row=>{const on=salesChargeRowOn(row,line,order);if(!on)return;const st=salesChargePricingState(line,row,order);if(st.effectiveRate==null)return;add(on,salesExact(salesChargeUnitAmount(row,st.effectiveRate)*k*p.qty),row.label);});
+ });
+ return {delta,free};
 }
 function salesOrderCommercialTotals(order){
  order=salesOrderArg(order);let subtotal=0,missing=0,qty=0;
@@ -23889,7 +24067,14 @@ function salesOrderCommercialTotals(order){
  (order&&order.cancellations||[]).forEach(function(c){const v=unitChargeOf(c);if(v!=null)subtotal+=v;else missing++;});
  /* Поправки руками (normalizeSalesAdjustments). */
  (order&&order.adjustments||[]).forEach(function(a){if(Number.isFinite(+a.amount))subtotal+=+a.amount;});
- const out=salesApplyOrderCharges(subtotal,order&&order.orderCharges);out.complete=!missing;out.missing=missing;out.qty=qty;return out;
+ /* Свои коды (работа, разовый сервис, позиция склада): база каждого
+    процентного сбора — сумма вещей с ним в наборе. */
+ let itemBase=null,free=[];
+ if(order&&salesOrderOwnCodes(order)){
+  const c=normalizeSalesOrderCharges(order.orderCharges),d=salesOrderChargeDeltas(order,c);free=d.free;
+  if(Object.keys(d.delta).length){itemBase={};orderChargePctIds(c.extra).forEach(k=>{itemBase[k]=salesExact((c.items.on.includes(k)?subtotal:0)+(d.delta[k]||0));});}
+ }
+ const out=salesApplyOrderCharges(subtotal,order&&order.orderCharges,itemBase);out.complete=!missing;out.missing=missing;out.qty=qty;out.uncharged=free;return out;
 }
 /* Единица продажи айтема (план Master Data, этап 2, часть 3; владелец,
    22.10.2026): поле Sales unit карточки говорит, за что цена — площадь
@@ -26407,9 +26592,13 @@ function docBuildModel(kind,order,opts){
    }else{if(freeRow)rows.push(freeRow);rows.push({label:'Subtotal',value:money(t.subtotal),strong:!!freeRow,sep:!!freeRow});}
    if(c.energy.enabled)rows.push({label:'Energy surcharge '+c.energy.rate+'%',value:money(t.energy)});
    if(c.hst.enabled)rows.push({label:'HST '+c.hst.rate+'%',value:money(t.hst)});
+   /* Свои сборы Setup (27.11.2026) — строкой там же, где их начисляют. */
+   const own=k=>(t.extra||[]).filter(x=>x.enabled&&x.kind===k).forEach(x=>rows.push({label:x.name+(k==='percent'?' '+x.rate+'%':''),value:money(x.amount)}));
+   own('percent');
    if(c.card.enabled)rows.push({label:'Card fee '+c.card.rate+'%',value:money(t.card)});
    if(c.delivery.enabled)rows.push({label:'Delivery',value:money(t.delivery)});
    if(c.skidDeposit.enabled)rows.push({label:'Skid deposit',value:money(t.skidDeposit)});
+   own('fixed');
    grand={label:'Total '+order.currency,value:money(t.grand)};
   }
   /* Оплаты заказа (экран Finance): уже внесённое уменьшает депозит к оплате,
@@ -28991,7 +29180,7 @@ function salesOrderCommercialAdjustmentsHtml(currency){
 }
 function salesLineServicesModal(line,index){
  const rows=salesLineChargeRows(line),currency=soDraft.currency||'CAD',s=salesShapeByRef(line.shapeRef),ctx=salesPricingThickness(line),thickness=ctx.ok?ctx.thickness+' mm':(ctx.thickness?ctx.thickness+' mm':'—'),summary=salesLinePricingSummary(line);
- return `<div class="sales-service-modal-back" ${onActSelf('click',salesCloseServices)}><div class="sales-service-modal line-modal"><div class="sales-service-modal-head"><div><span><span>Line</span> ${index+1}</span><h3>Services / Processing</h3><small>${s?raw(s.name):'Production Shape'}${line.mark?' · '+raw(line.mark):''}</small></div><button ${onAct('click',salesCloseServices)}>×</button></div>${rows.length||salesLineCommercialAdjustments(line,soDraft).length?`<div class="sales-service-context"><span>Makeup thickness <b>${esc(thickness)}</b></span><span>Line Qty <b>${esc(line.qty)}</b></span><span>Geometry / quantity <b>read-only</b></span></div>${summary.unpriced?`<div class="sales-pricing-warning"><b>Price not set</b><span><b data-raw>${summary.unpriced}</b> <span>charges have no effective rate. They are not included in the monetary total until a rate is entered.</span></span></div>`:''}${rows.length?`<div class="sales-line-service-table"><div class="sales-line-service-row head"><span>Charge</span><span>Calculated basis</span><span>Catalog</span><span>Order-wide</span><span>Line rate</span><span>Final total</span><span></span></div>${rows.map(function(row){const st=salesChargePricingState(line,row),q=salesPositiveInt(line.qty,1),final=st.effectiveRate==null?null:salesChargeUnitAmount(row,st.effectiveRate)*q,lineValue=st.lineRate==null?'':String(st.lineRate),inherited=st.orderRate!=null?st.orderRate:st.catalogRate,origin=st.origin==='line'?'LINE':(st.origin==='order'?'ORDER':(st.origin==='catalog'?'CATALOG':st.origin==='list'?priceListName(st.from).toUpperCase():'NO RATE'));return `<div class="sales-line-service-row${st.missing?' unpriced':''}"><span class="sales-price-charge"><b>${esc(row.label)}</b><small>${esc(row.source)}</small></span><span class="sales-price-basis">${esc(salesChargeBasisText(row,line))}</span><span>${row.source==='Custom'?`<span class="sales-extra-per">Custom · per ${esc(row.unit)}</span>`:st.catalogRate==null?'<span class="sales-price-missing">Not set</span>':esc(salesRateText(st.catalogRate,row.unit,currency))}</span><span>${esc(salesRateText(st.orderRate,row.unit,currency))}</span><span class="sales-line-rate"><input type="number" min="0" step="0.01" value="${esc(lineValue)}" placeholder="${inherited==null?'':esc(String(inherited))}" ${onAct('change',salesSetChargeOrderRate,String(line.id??''),String(row.key??''),EL_VALUE)}><small class="sales-rate-origin ${esc(st.origin)}">${esc(origin)}</small></span><strong>${final==null?'<span class="sales-price-missing">Rate required</span>':final.toFixed(2)+' '+esc(currency)}</strong><span class="sales-charge-acts"><button type="button" class="sales-charge-ico" data-charge-reset title="Use order / catalog rate" aria-label="Use order / catalog rate" ${st.lineRate==null?'disabled':''} ${onAct('click',salesResetChargeRate,String(line.id??''),String(row.key??''))}>↺</button>${salesExtraIdOfKey(row.key)?`<button type="button" class="sales-charge-ico rm" data-extra-remove title="Remove" aria-label="Remove" ${onAct('click',salesExtraRemove,String(line.id??''),String(salesExtraIdOfKey(row.key)??''))}>×</button>`:salesShapeChargeRemovable(row.key)?`<button type="button" class="sales-charge-ico rm" data-shape-remove title="Remove from drawing" aria-label="Remove from drawing" ${onAct('click',salesRemoveShapeCharge,String(line.id??''),String(row.key??''))}>×</button>`:salesEdgeChargeRemovable(row.key)?`<button type="button" class="sales-charge-ico rm" data-edge-remove title="No edgework · Clean cut" aria-label="No edgework" ${onAct('click',salesRemoveEdgeCharge,String(line.id??''),String(row.key??''))}>×</button>`:''}</span></div>`;}).join('')}</div><div class="sales-service-modal-total${summary.unpriced?' incomplete':''}"><span>Services / processing total for this line</span><strong>${summary.total.toFixed(2)} ${esc(currency)}</strong>${summary.unpriced?`<small>+ <span data-raw>${summary.unpriced}</span> <span>unpriced</span></small>`:''}</div>`:''}${salesLineCommercialAdjustmentsHtml(line,currency)}`:`<div class="empty compact sales-service-empty">This line has no services or processing charges yet.</div>`}${salesExtraBarHTML('line:'+line.id)}</div></div>`;
+ return `<div class="sales-service-modal-back" ${onActSelf('click',salesCloseServices)}><div class="sales-service-modal line-modal"><div class="sales-service-modal-head"><div><span><span>Line</span> ${index+1}</span><h3>Services / Processing</h3><small>${s?raw(s.name):'Production Shape'}${line.mark?' · '+raw(line.mark):''}</small></div><button ${onAct('click',salesCloseServices)}>×</button></div>${rows.length||salesLineCommercialAdjustments(line,soDraft).length?`<div class="sales-service-context"><span>Makeup thickness <b>${esc(thickness)}</b></span><span>Line Qty <b>${esc(line.qty)}</b></span><span>Geometry / quantity <b>read-only</b></span></div>${summary.unpriced?`<div class="sales-pricing-warning"><b>Price not set</b><span><b data-raw>${summary.unpriced}</b> <span>charges have no effective rate. They are not included in the monetary total until a rate is entered.</span></span></div>`:''}${rows.length?`<div class="sales-line-service-table"><div class="sales-line-service-row head"><span>Charge</span><span>Calculated basis</span><span>Catalog</span><span>Order-wide</span><span>Line rate</span><span>Final total</span><span></span></div>${rows.map(function(row){const st=salesChargePricingState(line,row),q=salesPositiveInt(line.qty,1),final=st.effectiveRate==null?null:salesChargeUnitAmount(row,st.effectiveRate)*q,lineValue=st.lineRate==null?'':String(st.lineRate),inherited=st.orderRate!=null?st.orderRate:st.catalogRate,origin=st.origin==='line'?'LINE':(st.origin==='order'?'ORDER':(st.origin==='catalog'?'CATALOG':st.origin==='list'?priceListName(st.from).toUpperCase():'NO RATE'));return `<div class="sales-line-service-row${st.missing?' unpriced':''}"><span class="sales-price-charge"><b>${esc(row.label)}</b><small>${esc(row.source)}</small></span><span class="sales-price-basis">${esc(salesChargeBasisText(row,line))}</span><span>${row.source==='Custom'?`<span class="sales-extra-per">Custom · per ${esc(row.unit)}</span>`:st.catalogRate==null?'<span class="sales-price-missing">Not set</span>':esc(salesRateText(st.catalogRate,row.unit,currency))}</span><span>${esc(salesRateText(st.orderRate,row.unit,currency))}</span><span class="sales-line-rate"><input type="number" min="0" step="0.01" value="${esc(lineValue)}" placeholder="${inherited==null?'':esc(String(inherited))}" ${onAct('change',salesSetChargeOrderRate,String(line.id??''),String(row.key??''),EL_VALUE)}><small class="sales-rate-origin ${esc(st.origin)}">${esc(origin)}</small></span><strong>${final==null?'<span class="sales-price-missing">Rate required</span>':final.toFixed(2)+' '+esc(currency)}</strong><span class="sales-charge-acts"><button type="button" class="sales-charge-ico" data-charge-reset title="Use order / catalog rate" aria-label="Use order / catalog rate" ${st.lineRate==null?'disabled':''} ${onAct('click',salesResetChargeRate,String(line.id??''),String(row.key??''))}>↺</button>${salesExtraChargeTag(line,row.key)}${salesExtraIdOfKey(row.key)?`<button type="button" class="sales-charge-ico rm" data-extra-remove title="Remove" aria-label="Remove" ${onAct('click',salesExtraRemove,String(line.id??''),String(salesExtraIdOfKey(row.key)??''))}>×</button>`:salesShapeChargeRemovable(row.key)?`<button type="button" class="sales-charge-ico rm" data-shape-remove title="Remove from drawing" aria-label="Remove from drawing" ${onAct('click',salesRemoveShapeCharge,String(line.id??''),String(row.key??''))}>×</button>`:salesEdgeChargeRemovable(row.key)?`<button type="button" class="sales-charge-ico rm" data-edge-remove title="No edgework · Clean cut" aria-label="No edgework" ${onAct('click',salesRemoveEdgeCharge,String(line.id??''),String(row.key??''))}>×</button>`:''}</span></div>`;}).join('')}</div><div class="sales-service-modal-total${summary.unpriced?' incomplete':''}"><span>Services / processing total for this line</span><strong>${summary.total.toFixed(2)} ${esc(currency)}</strong>${summary.unpriced?`<small>+ <span data-raw>${summary.unpriced}</span> <span>unpriced</span></small>`:''}</div>`:''}${salesLineCommercialAdjustmentsHtml(line,currency)}`:`<div class="empty compact sales-service-empty">This line has no services or processing charges yet.</div>`}${salesExtraBarHTML('line:'+line.id)}</div></div>`;
 }
 
 function salesOrderServicesModal(){
@@ -29189,23 +29378,46 @@ function salesCommercialOrderSummary(interactive){
  const t=salesOrderCommercialTotals(soDraft),c=t.charges,cur=esc(soDraft.currency),money=v=>t.complete?v.toFixed(2):'—';
  const item=(key,label,rate,value,shown)=>`<span class="metric-order-charge-item charge-${key}${shown?'':' is-empty'}"><span class="metric-order-charge-label">${label}${rate!=null?` <small data-raw>${rate}%</small>`:''}</span><b data-raw>${shown?money(value):''}</b></span>`;
  const adj=(soDraft.adjustments||[]).reduce((n,a)=>salesMoney(n+(+a.amount||0)),0);
- const rows=[...((soDraft.adjustments||[]).length?[item('adjust','Adjustments',null,adj,true)]:[]),item('subtotal','Subtotal',null,t.subtotal,true),item('energy','ES',c.energy.rate,t.energy,c.energy.enabled),item('hst','HST',c.hst.rate,t.hst,c.hst.enabled),item('card',esc(c.card.name),c.card.rate,t.card,c.card.enabled),item('delivery','Delivery',null,t.delivery,c.delivery.enabled),item('skid','Skid Deposit',null,t.skidDeposit,c.skidDeposit.enabled)];
+ const ex=k=>(t.extra||[]).filter(x=>x.kind===k).map(x=>item('extra',esc(x.name),x.rate,x.amount,x.enabled));
+ const rows=[...((soDraft.adjustments||[]).length?[item('adjust','Adjustments',null,adj,true)]:[]),item('subtotal','Subtotal',null,t.subtotal,true),item('energy','ES',c.energy.rate,t.energy,c.energy.enabled),item('hst','HST',c.hst.rate,t.hst,c.hst.enabled),...ex('percent'),item('card',esc(c.card.name),c.card.rate,t.card,c.card.enabled),item('delivery','Delivery',null,t.delivery,c.delivery.enabled),item('skid','Skid Deposit',null,t.skidDeposit,c.skidDeposit.enabled),...ex('fixed')];
  rows.push(`<span class="metric-order-charge-item charge-total metric-grand-total"><span class="metric-order-charge-label">Total</span><b data-raw>${money(t.grand)}</b>${t.missing?`<small>${t.missing} ${'lines need pricing'}</small>`:''}</span>`);
  const serviceButton=interactive===false?'':`<button type="button" class="metric-order-service-add" ${onAct('click',salesOpenMetrics,'orderCharges')}>Service +</button>`;
- return salesOrderReviewHTML(soDraft,t)+`<div class="metric-order-total">${serviceButton}<div class="metric-order-total-main"><small>${'Entire order'} · ${t.qty} ${'units'} · <span class="metric-order-currency" data-raw>${cur}</span></small><div class="metric-order-charge-lines">${rows.join('')}</div></div></div>`;
+ return salesOrderReviewHTML(soDraft,t)+`<div class="metric-order-total">${serviceButton}<div class="metric-order-total-main"><small>${'Entire order'} · ${t.qty} ${'units'} · <span class="metric-order-currency" data-raw>${cur}</span></small><div class="metric-order-charge-lines">${rows.join('')}</div>${t.complete?salesChargeBasesHTML(t):''}</div></div>`;
+}
+/* С какой суммы взят каждый процентный сбор и что ничем не облагается
+   (коды сборов, 27.11.2026) — решение системы на виду. */
+function salesChargeBasesHTML(t){
+ const c=t.charges,on=[['energy','ES',c.energy.enabled],['hst','HST',c.hst.enabled],...c.extra.filter(x=>x.kind==='percent').map(x=>[x.id,x.name,x.enabled]),['card',c.card.name||'Card fee',c.card.enabled]].filter(x=>x[2]&&t.bases&&t.bases[x[0]]!=null);
+ const parts=on.map(([k,n])=>esc(n)+' on '+t.bases[k].toFixed(2)),free=(t.uncharged||[]).map(x=>esc(x.name)+' '+x.amount.toFixed(2));
+ if(free.length)parts.push('not charged: '+free.join(', '));
+ return parts.length?`<small class="metric-order-bases" data-order-bases>${parts.join(' · ')}</small>`:'';
 }
 function salesOrderReviewHTML(o,t){
  t=t||finOrderTotals(o);if(!t.complete||t.grand>=0)return '';
  return `<div class="sales-pricing-warning" role="alert" data-order-review><b>Negative order total · Review required</b><span>Order ${esc(o.businessNumber)} · ${esc(salesCustomerDisplay(o.customerId))} · ${esc(t.grand.toFixed(2))} ${esc(o.currency||'CAD')} · Resolve with the customer</span></div>`;
 }
+/* Сбор заказа по ключу: встроенный или свой (extra). */
+function salesOrderChargeAt(c,key){return ['energy','hst','card','delivery','skidDeposit'].includes(key)?c[key]:c.extra.find(x=>x.id===key)||null;}
 function salesSetOrderChargeEnabled(key,enabled){
- if(!['energy','hst','card','delivery','skidDeposit'].includes(key))return;
- soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);soDraft.orderCharges[key].enabled=!!enabled;touch();render();
+ if(!soDraft)return;soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);const x=salesOrderChargeAt(soDraft.orderCharges,key);if(!x)return;
+ x.enabled=!!enabled;touch();render();
 }
 function salesSetOrderChargeValue(key,field,value){
- if(!soDraft||!['energy','hst','card','delivery','skidDeposit'].includes(key)||!['rate','amount'].includes(field))return;
+ if(!soDraft||!['rate','amount','value'].includes(field))return;
  const n=Number(value);if(!Number.isFinite(n)||n<0){alert('Enter a value of zero or greater.');render();return;}
- soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);soDraft.orderCharges[key][field]=n;touch();render();
+ soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);const x=salesOrderChargeAt(soDraft.orderCharges,key);if(!x)return;
+ x[field]=n;touch();render();
+}
+/* Код сбора только в этом заказе (коды — снимок заказа). */
+function salesSetOrderChargeCode(key,code){
+ if(!soDraft||key==='card')return;soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);
+ const c=soDraft.orderCharges,x=salesOrderChargeAt(c,key),hit=c.codes.find(k=>k.id===code);if(!x||!hit)return;
+ x.code=hit.id;x.on=hit.on.slice();touch();render();
+}
+/* Список кодов заказа; набор, которого нет среди кодов, — «Custom». */
+function salesOrderCodeSelect(c,x,act){
+ const opts=c.codes.map(k=>`<option value="${esc(k.id)}" ${k.id===x.code?'selected':''}>${esc(k.name)}</option>`).join('');
+ return `<select class="metric-charge-code" ${act}>${x.code?'':`<option value="" selected>Custom · ${esc(orderChargeSetText(x.on,c.extra))}</option>`}${opts}</select>`;
 }
 /* Карты — список Data → Setup; карта старого заказа, которой в списке уже
    нет, остаётся со своим именем и ставкой. */
@@ -29213,8 +29425,6 @@ function salesSetCardNetwork(network){
  const n=orderSetupNetwork(network);if(!soDraft||!n)return;
  soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);Object.assign(soDraft.orderCharges.card,{network:n.id,name:n.name||'Card fee',rate:n.rate});touch();render();
 }
-const SALES_CHARGE_PART_LABELS={energy:'ES',hst:'HST',delivery:'Delivery'};
-function salesChargeBaseText(base){return 'Base: '+['Subtotal'].concat(base.map(p=>SALES_CHARGE_PART_LABELS[p])).join(' + ');}
 /* Поправки на заказ руками (normalizeSalesAdjustments): текст и сумма. */
 function salesAddAdjustment(){if(!soDraft)return;soDraft.adjustments=(soDraft.adjustments||[]).concat([{id:salesUid('ADJ'),label:'',amount:0}]);render();}
 function salesRemoveAdjustment(i){if(!soDraft||!soDraft.adjustments)return;soDraft.adjustments.splice(i,1);if(!soDraft.adjustments.length)delete soDraft.adjustments;touch();render();}
@@ -29229,14 +29439,22 @@ function salesAdjustmentsHTML(){
  return `<div class="metric-adjustments" data-adjustments><b>Adjustments</b>${list.map((a,i)=>`<div class="metric-adjustment-row" data-adjustment="${i}"><input type="text" data-adjustment-label value="${esc(a.label)}" maxlength="120" placeholder="Price correction" ${onAct('input',salesSetAdjustment,i,'label',EL_VALUE)} ${onAct('change',touch)}><input type="number" step="0.01" data-adjustment-amount value="${esc(a.amount)}" ${onAct('change',salesSetAdjustment,i,'amount',EL_VALUE)}><span>${esc(soDraft.currency)}</span><button type="button" class="sm dl" aria-label="Remove adjustment" ${onAct('click',salesRemoveAdjustment,i)}>×</button></div>`).join('')}<button type="button" class="sm" data-adjustment-add ${onAct('click',salesAddAdjustment)}>+ Adjustment</button><small>Minus — less to pay. Goes to the subtotal.</small></div>`;
 }
 function salesOrderChargesPanel(){
- const c=normalizeSalesOrderCharges(soDraft.orderCharges),toggle=(key,label,body)=>`<div class="metric-order-charge-row ${c[key].enabled?'on':''}"><label><input type="checkbox" ${c[key].enabled?'checked':''} ${onAct('change',salesSetOrderChargeEnabled,String(key),EL_CHECKED)}><b>${label}</b></label>${body}</div>`;
- const pct=(key)=>`<label>${'Rate'}<input type="number" min="0" step="0.01" value="${c[key].rate}" ${onAct('change',salesSetOrderChargeValue,String(key),'rate',EL_VALUE)}><span>%</span></label>`;
- return `<p class="mut">${'Charges apply from top to bottom. A disabled row keeps its rate and can be enabled again. Defaults: Data → Setup.'}</p><div class="metric-order-charge-editor">
-  ${toggle('energy','Energy Surcharge',pct('energy'))}
-  ${toggle('hst','HST',pct('hst')+`<small>${salesChargeBaseText(c.hst.base)}. ${'Payment method does not disable tax automatically.'}</small>`)}
-   ${toggle('card','Card fee',`<label>${'Card'}<select ${onAct('change',salesSetCardNetwork,EL_VALUE)}>${(()=>{const list=orderSetup().cardNetworks.slice();if(c.card.network&&!list.some(n=>n.id===c.card.network))list.push({id:c.card.network,name:c.card.name});return list.map(n=>`<option value="${esc(n.id)}" ${c.card.network===n.id?'selected':''}>${esc(n.name||n.id)}</option>`).join('');})()}</select></label>${pct('card')}<small>${salesChargeBaseText(c.card.base)}</small>`)}
-   ${toggle('delivery','Delivery',`<label>${'Fixed amount'}<input type="number" min="0" step="0.01" value="${c.delivery.amount}" ${onAct('change',salesSetOrderChargeValue,'delivery','amount',EL_VALUE)}><span>${esc(soDraft.currency)}</span></label><small>${(b=>b.length?'In the '+b.join(' and ')+' base.':'Excluded from the ES, HST and Card fee bases.')([['hst','HST'],['card','Card fee']].filter(([k])=>c[k].base.includes('delivery')).map(x=>x[1]))}</small>`)}
-   ${toggle('skidDeposit','Skid Deposit',`<label>${'Fixed amount'}<input type="number" min="0" step="0.01" value="${c.skidDeposit.amount}" ${onAct('change',salesSetOrderChargeValue,'skidDeposit','amount',EL_VALUE)}><span>${esc(soDraft.currency)}</span></label><small>${'Customer skid deposit; excluded from all fee bases.'}</small>`)}
+ const c=normalizeSalesOrderCharges(soDraft.orderCharges),cur=esc(soDraft.currency);
+ /* Строка сбора: галочка, ставка или сумма, код этого заказа (кроме Card fee —
+    на него ничего не начисляется). */
+ const row=(key,label,body,x)=>`<div class="metric-order-charge-row ${x.enabled?'on':''}" data-order-charge="${esc(key)}"><label><input type="checkbox" ${x.enabled?'checked':''} ${onAct('change',salesSetOrderChargeEnabled,String(key),EL_CHECKED)}><b>${label}</b></label><span class="metric-charge-body">${body}</span>${key==='card'?'<span></span>':`<label class="metric-charge-code-wrap">Code${salesOrderCodeSelect(c,x,onAct('change',salesSetOrderChargeCode,String(key),EL_VALUE))}</label>`}</div>`;
+ const pct=(key,field,x)=>`<label>${'Rate'}<input type="number" min="0" step="0.01" value="${x[field]}" ${onAct('change',salesSetOrderChargeValue,String(key),String(field),EL_VALUE)}><span>%</span></label>`;
+ const amt=(key,field,x)=>`<label>${'Fixed amount'}<input type="number" min="0" step="0.01" value="${x[field]}" ${onAct('change',salesSetOrderChargeValue,String(key),String(field),EL_VALUE)}><span>${cur}</span></label>`;
+ const own=k=>c.extra.filter(x=>x.kind===k).map(x=>row(x.id,esc(x.name),k==='percent'?pct(x.id,'value',x):amt(x.id,'value',x),x)).join('');
+ const card=`<label>${'Card'}<select ${onAct('change',salesSetCardNetwork,EL_VALUE)}>${(()=>{const list=orderSetup().cardNetworks.slice();if(c.card.network&&!list.some(n=>n.id===c.card.network))list.push({id:c.card.network,name:c.card.name});return list.map(n=>`<option value="${esc(n.id)}" ${c.card.network===n.id?'selected':''}>${esc(n.name||n.id)}</option>`).join('');})()}</select></label>${pct('card','rate',c.card)}`;
+ return `<p class="mut">${'Charges apply from top to bottom. Code — what is charged on it in this order. Defaults: Data → Setup.'}</p><div class="metric-order-charge-editor">
+  ${row('energy','Energy Surcharge',pct('energy','rate',c.energy),c.energy)}
+  ${row('hst','HST',pct('hst','rate',c.hst),c.hst)}
+  ${own('percent')}
+  ${row('card','Card fee',card,c.card)}
+  ${row('delivery','Delivery',amt('delivery','amount',c.delivery),c.delivery)}
+  ${row('skidDeposit','Skid Deposit',amt('skidDeposit','amount',c.skidDeposit),c.skidDeposit)}
+  ${own('fixed')}
  </div>${salesAdjustmentsHTML()}<div class="metric-order-charge-preview">${salesCommercialOrderSummary()}</div>`;
 }
 function salesColumnsPanel(){
@@ -34605,24 +34823,46 @@ function mdStationTreeHTML(){
 /* Setup (этап 5 плана Master Data): сборы и умолчания нового заказа —
    erp/sales/order-setup. Сохранённые заказы держат свой снимок. */
 function viewMdSetup(){
- const s=orderSetup(),cur='CAD';
+ const s=orderSetup(),cur='CAD',codes=s.chargeCodes,pct=orderChargePctIds(s.charges),lbl=k=>orderChargeLabel(k,s.charges);
  const on=k=>`<input type="checkbox" data-setup="${k}" ${s[k]?'checked':''} ${onAct('change',orderSetupSet,String(k),EL_CHECKED)}>`;
  const num=(k,unit)=>`<span class="md-num"><input type="number" min="0" step="0.01" data-setup="${k}" value="${s[k]}" ${onAct('change',orderSetupSet,String(k),EL_VALUE)}><span class="mut">${unit}</span></span>`;
- const inBase=(k,label)=>`<label class="md-setup-base">${on(k)} ${label}</label>`;
+ const codeSel=(target,val)=>`<select class="md-code" data-setup-code="${esc(target)}" ${onAct('change',orderSetupCodePick,String(target),EL_VALUE)}>${codes.map(c=>`<option value="${esc(c.id)}" ${c.id===val?'selected':''}>${esc(c.name)}</option>`).join('')}</select>`;
+ /* Сборы — по порядку начисления (erp/sales/order-setup): ES → HST → свои % →
+    Card fee, суммы — в конце. «What it means» — набор кода словами:
+    процентный сбор идёт только на то, что выше него. */
+ const means=(self,code,short)=>{const i=pct.indexOf(self),l=(orderSetupCodeOn(code)||[]).filter(k=>k!==self&&(i<0||pct.indexOf(k)>i)).map(lbl);
+  return l.length?(l.length>1?l.slice(0,-1).join(', ')+' and '+l[l.length-1]+' are':l[0]+' is')+' charged on '+short:'Nothing is charged on '+short;};
+ const built=k=>({id:k,builtin:true}),own=s.charges.map(x=>Object.assign({builtin:false},x));
+ const rows=[{id:'energy',builtin:true,name:'Energy surcharge (ES)',short:'ES',kind:'percent'},{id:'hst',builtin:true,name:'HST',short:'HST',kind:'percent'}]
+  .concat(own.filter(x=>x.kind==='percent'),[{id:'card',builtin:true,name:'Card fee',kind:'percent'},{id:'delivery',builtin:true,name:'Delivery',short:'delivery',kind:'fixed'},{id:'skidDeposit',builtin:true,name:'Skid deposit',short:'the deposit',kind:'fixed'}],own.filter(x=>x.kind==='fixed'));
+ const code=x=>x.builtin?s[x.id+'Code']:x.code;
  /* Таблицы вида Sales (владелец 07.11.2026): фильтр, сортировка, ширина, порядок. */
- const charges=[['Energy surcharge (ES)','energyOn',num('energyRate','%'),'<span class="mut">—</span>',s.energyRate+' %','—'],
-  ['HST','hstOn',num('hstRate','%'),inBase('hstOnEnergy','ES')+inBase('hstOnDelivery','Delivery'),s.hstRate+' %',[s.hstOnEnergy&&'ES',s.hstOnDelivery&&'Delivery'].filter(Boolean).join(', ')],
-  ['Card fee','cardOn','<span class="mut">by card below</span>',inBase('cardOnEnergy','ES')+inBase('cardOnHst','HST')+inBase('cardOnDelivery','Delivery'),'by card',[s.cardOnEnergy&&'ES',s.cardOnHst&&'HST',s.cardOnDelivery&&'Delivery'].filter(Boolean).join(', ')],
-  ['Delivery','deliveryOn',num('deliveryAmount',cur),'<span class="mut">—</span>',s.deliveryAmount+' '+cur,'—'],
-  ['Skid deposit','skidDepositOn',num('skidDepositAmount',cur),'<span class="mut">Not in any base</span>',s.skidDepositAmount+' '+cur,'Not in any base']];
- const chargeTable=slTable('mdSetupCharges',{list:charges,id:x=>x[1],cls:'ncr-table',fill:'base',noun:l=>l.length+' charges',
-  columns:()=>[{k:'charge',label:'Charge',type:'text',w:230,v:x=>x[0],cell:x=>`<b>${x[0]}</b>`},{k:'on',label:'On',type:'list',w:70,v:x=>s[x[1]]?'Yes':'No',cell:x=>on(x[1])},{k:'value',label:'Value',type:'text',w:190,v:x=>x[4],cell:x=>x[2]},{k:'base',label:'Base besides Subtotal',type:'text',w:320,v:x=>x[5],cell:x=>x[3]}]});
+ const chargeTable=slTable('mdSetupCharges',{list:rows,id:x=>x.id,cls:'ncr-table',fill:'means',acts:50,noun:l=>l.length+' charges',
+  columns:()=>[
+   {k:'charge',label:'Charge',type:'text',w:230,v:x=>x.name,cell:x=>x.builtin?`<b>${esc(x.name)}</b>`:`<input type="text" maxlength="60" data-setup-charge-name="${esc(x.id)}" value="${esc(x.name)}" ${onAct('change',orderSetupChargeSet,String(x.id),'name',EL_VALUE)}>`},
+   {k:'on',label:'On',type:'list',w:70,v:x=>(x.builtin?s[x.id+'On']:x.enabled)?'Yes':'No',cell:x=>x.builtin?on(x.id+'On'):`<input type="checkbox" data-setup-charge-on="${esc(x.id)}" ${x.enabled?'checked':''} ${onAct('change',orderSetupChargeSet,String(x.id),'enabled',EL_CHECKED)}>`},
+   {k:'kind',label:'Type',type:'list',w:120,v:x=>x.kind==='percent'?'%':'Fixed',cell:x=>x.builtin?`<span class="mut">${x.kind==='percent'?'%':'Fixed'}</span>`:`<select class="md-kind" data-setup-charge-kind="${esc(x.id)}" ${onAct('change',orderSetupChargeSet,String(x.id),'kind',EL_VALUE)}><option value="percent" ${x.kind==='percent'?'selected':''}>%</option><option value="fixed" ${x.kind==='fixed'?'selected':''}>Fixed</option></select>`},
+   {k:'value',label:'Value',type:'text',w:190,v:x=>x.builtin?String(s[x.id==='energy'?'energyRate':x.id==='hst'?'hstRate':x.id+'Amount']??''):String(x.value),cell:x=>x.id==='card'?'<span class="mut">by card below</span>':x.builtin?num(x.id==='energy'?'energyRate':x.id==='hst'?'hstRate':x.id+'Amount',x.kind==='percent'?'%':cur):`<span class="md-num"><input type="number" min="0" step="0.01" data-setup-charge-value="${esc(x.id)}" value="${x.value}" ${onAct('change',orderSetupChargeSet,String(x.id),'value',EL_VALUE)}><span class="mut">${x.kind==='percent'?'%':cur}</span></span>`},
+   {k:'code',label:'Charge code',type:'list',w:200,v:x=>x.id==='card'?'':((codes.find(c=>c.id===code(x))||{}).name||''),cell:x=>x.id==='card'?'<span class="mut">—</span>':codeSel(x.id,code(x))},
+   {k:'means',label:'What it means',type:'text',v:x=>'',cell:x=>`<span class="mut">${x.id==='card'?'Rate by card below':esc(means(x.id,code(x),x.short||x.name))}</span>`}],
+  row:i=>({attrs:` data-setup-charge="${esc(i.x.id)}"`,last:i.x.builtin?'':`<button type="button" class="sm dl" aria-label="Remove" title="Remove" ${onAct('click',orderSetupChargeRemove,String(i.x.id))}>×</button>`})});
+ /* Коды: колонка на каждый процентный сбор; «What it means» — кто им пользуется. */
+ const usedBy=(c,i)=>[i===0?'Glass & IGU · works and services without own code':'',...rows.filter(x=>x.id!=='card'&&code(x)===c.id).map(x=>x.name),...(DB.serviceRate||[]).filter(w=>w&&w.chargeCode===c.id).map(w=>w.name||w.id)].filter(Boolean).join(' · ');
+ const codeTable=slTable('mdSetupCodes',{list:codes,id:c=>c.id,cls:'ncr-table',fill:'used',acts:50,noun:l=>l.length+' codes',
+  columns:()=>[{k:'name',label:'Code',type:'text',w:220,v:c=>c.name,cell:(c,v,i)=>`<input type="text" maxlength="40" data-setup-code-name="${esc(c.id)}" value="${esc(c.name)}" ${onAct('change',orderSetupCodeSet,i.i,'name',EL_VALUE)}>`}]
+   .concat(pct.map(k=>({k:'on_'+k.replace(/[^A-Za-z0-9_]/g,'_'),label:lbl(k),type:'list',w:k==='card'?105:90,v:c=>c.on.includes(k)?'Yes':'No',cell:(c,v,i)=>`<input type="checkbox" data-setup-code-on="${esc(c.id)}:${esc(k)}" ${c.on.includes(k)?'checked':''} ${onAct('change',orderSetupCodeToggle,i.i,String(k),EL_CHECKED)}>`})),
+    [{k:'used',label:'What it means',type:'text',v:(c,i)=>'',cell:(c,v,i)=>`<span class="mut">${esc(usedBy(c,i.i))}</span>`}]),
+  row:i=>({attrs:` data-setup-code-row="${esc(i.x.id)}"`,last:codes.length>1?`<button type="button" class="sm dl" aria-label="Remove" title="Remove" ${onAct('click',orderSetupCodeRemove,i.i)}>×</button>`:''})});
  const cardTable=slTable('mdSetupCards',{list:s.cardNetworks,id:n=>n.id,cls:'ncr-table',fill:'rate',acts:50,empty:'No cards',noun:l=>l.length+' card'+(l.length===1?'':'s'),
   columns:()=>[{k:'name',label:'Name on order',type:'text',w:260,v:n=>n.name,cell:(n,v,i)=>`<input type="text" maxlength="60" value="${esc(n.name)}" ${onAct('change',orderSetupCardSet,i.i,'name',EL_VALUE)}>`},{k:'rate',label:'Rate',type:'number',w:170,v:n=>n.rate,cell:(n,v,i)=>`<span class="md-num"><input type="number" min="0" step="0.01" value="${n.rate}" ${onAct('change',orderSetupCardSet,i.i,'rate',EL_VALUE)}><span class="mut">%</span></span>`}],
   row:i=>({attrs:` data-setup-card="${esc(i.x.id)}"`,last:`<button type="button" class="sm dl" aria-label="Remove" title="Remove" ${onAct('click',orderSetupCardRemove,i.i)}>×</button>`})});
  return `<div class="md-setup" data-md-setup>
-  <h3>Order charges</h3><p class="mut">Defaults for new orders.</p>
+  <h3>Order charges</h3><p class="mut">Defaults for new orders. Applied top to bottom: a charge is charged only on what is above it.</p>
   ${chargeTable}
+  <div class="row md-setup-row"><button type="button" data-setup-charge-add ${onAct('click',orderSetupChargeAdd)}>+ Charge</button><span class="mut">A new % charge adds a column to Charge codes.</span></div>
+  <h3>Charge codes</h3><p class="mut">Which charges are charged on a thing. Glass, works, one-off services and the charges above all have a code.</p>
+  <div data-setup-codes>${codeTable}</div>
+  <div class="row md-setup-row"><button type="button" data-setup-code-add ${onAct('click',orderSetupCodeAdd)}>+ Code</button><b>Default code</b><label class="md-setup-base">New work ${codeSel('workCode',s.workCode)}</label><label class="md-setup-base">New one-off service ${codeSel('extraCode',s.extraCode)}</label></div>
   <h4>Cards</h4><p class="mut">The first card is the default.</p>
   <div data-setup-cards>${cardTable}</div>
   <button type="button" data-setup-card-add ${onAct('click',orderSetupCardAdd)}>+ Card</button>
@@ -34646,6 +34886,35 @@ function orderSetupSet(k,v){
  else{const n=k==='fritMargin16'?salesMarginTo16(v):Number(v);
   if(n==null||!Number.isFinite(n)||n<0||(k==='fritDotMm'&&!n)){alert('Enter a value of zero or greater.');render();return;}
   s[k]=n;}
+ normalizeOrderSetup();touch();render();
+}
+/* Коды и свои сборы Setup (27.11.2026). Код сбора, работы и разового
+   сервиса по умолчанию — orderSetupCodePick; удалённый код — что им
+   пользовалось, переходит на первый код. */
+function orderSetupCodePick(target,id){
+ const s=DB.orderSetup;if(!s.chargeCodes.some(c=>c.id===id))return;
+ if(ORDER_CHARGE_CODED.includes(target))s[target+'Code']=id;else if(target==='workCode'||target==='extraCode')s[target]=id;
+ else{const x=s.charges.find(c=>c.id===target);if(!x)return;x.code=id;}
+ normalizeOrderSetup();touch();render();
+}
+function orderSetupChargeAdd(){const s=DB.orderSetup;s.charges.push({id:'ch-'+Date.now().toString(36),name:'New charge',kind:'fixed',value:0,enabled:false,code:(s.chargeCodes.find(c=>!c.on.length)||s.chargeCodes[0]).id});normalizeOrderSetup();touch();render();}
+function orderSetupChargeSet(id,k,v){
+ const x=DB.orderSetup.charges.find(c=>c.id===id);if(!x)return;
+ if(k==='value'){const n=Number(v);if(v===''||!Number.isFinite(n)||n<0){alert('Enter a value of zero or greater.');render();return;}x.value=n;}
+ else if(k==='enabled')x.enabled=!!v;else if(k==='kind')x.kind=v==='percent'?'percent':'fixed';else if(k==='name')x.name=String(v);
+ normalizeOrderSetup();touch();render();
+}
+function orderSetupChargeRemove(id){
+ const s=DB.orderSetup,x=s.charges.find(c=>c.id===id);if(!x||!confirm('Remove the charge '+x.name+'? Saved orders keep it.'))return;
+ s.charges=s.charges.filter(c=>c!==x);s.chargeCodes.forEach(c=>{c.on=c.on.filter(k=>k!==id);});normalizeOrderSetup();touch();render();
+}
+function orderSetupCodeAdd(){DB.orderSetup.chargeCodes.push({id:'code-'+Date.now().toString(36),name:'New code',on:[]});normalizeOrderSetup();touch();render();}
+function orderSetupCodeSet(i,k,v){const c=DB.orderSetup.chargeCodes[i];if(!c)return;if(k==='name')c.name=String(v);normalizeOrderSetup();touch();render();}
+function orderSetupCodeToggle(i,k,on){const c=DB.orderSetup.chargeCodes[i];if(!c)return;c.on=on?c.on.concat([k]):c.on.filter(x=>x!==k);normalizeOrderSetup();touch();render();}
+function orderSetupCodeRemove(i){
+ const s=DB.orderSetup,c=s.chargeCodes[i];if(!c||s.chargeCodes.length<2)return;
+ const to=s.chargeCodes[i===0?1:0];if(!confirm('Remove the code '+c.name+'? What uses it gets '+to.name+'. Saved orders keep theirs.'))return;
+ s.chargeCodes.splice(i,1);(DB.serviceRate||[]).forEach(w=>{if(w&&w.chargeCode===c.id)delete w.chargeCode;});
  normalizeOrderSetup();touch();render();
 }
 function orderSetupCardAdd(){DB.orderSetup.cardNetworks.push({id:'card-'+Date.now().toString(36),name:'Card fee',rate:0});normalizeOrderSetup();touch();render();}
@@ -35896,6 +36165,8 @@ function mdCatForm(){
     <div><label>Round quantity up to</label><input id="md_catRoundTo" type="number" step="any" min="0" value="${v(r.roundTo)}" placeholder="no rounding"><div class="hint">In the work's unit</div></div>
     <div><label>Min charge, CAD</label><input id="md_catMinCharge" type="number" step="0.01" min="0" value="${v(r.minCharge)}" placeholder="no minimum"><div class="hint">Per unit</div></div>
     ${r.unit==='ft²'?`<div><label>Min area, ft²</label><input id="md_catMinArea" type="number" step="any" min="0" value="${v(r.minAreaFt2)}" placeholder="real area"><div class="hint">Order can change</div></div>`:''}
+    ${(()=>{const s=orderSetup(),cur=r.chargeCode!=null?r.chargeCode:isNew&&s.workCode!==s.chargeCodes[0].id?s.workCode:'';
+     return `<div><label>Charge code</label><select id="md_catChargeCode"><option value="" ${cur?'':'selected'}>Default · ${esc(s.chargeCodes[0].name)}</option>${s.chargeCodes.slice(1).map(c=>`<option value="${esc(c.id)}" ${cur===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select><div class="hint">${esc(orderChargeSetText((orderSetupCodeOn(cur)||s.chargeCodes[0].on),s.charges))}</div></div>`;})()}
     ${r.id==='miter'?`<div><label>Angle from, °</label><input id="md_catAngleMin" type="number" step="0.1" min="0" value="${v(r.angleMin)}" placeholder="any"><div class="hint">Outside asks at Save</div></div><div><label>Angle to, °</label><input id="md_catAngleMax" type="number" step="0.1" min="0" value="${v(r.angleMax)}" placeholder="any"></div>`:''}
    </div>`}
    ${isNew||r.rule?'':mdPriceListsHTML('service:'+r.id)}`;
@@ -36063,6 +36334,8 @@ function mdWorkDraftRead(keep){
   appliesBy:appliesBy,family:appliesBy?(document.getElementById('md_catFamily')?mdVal('md_catFamily'):r.family||'hole'):'',
   appliesFrom:appliesBy?(from===undefined?r.appliesFrom:from):null,appliesTo:appliesBy?(to===undefined?r.appliesTo:to):null,
   note:mdVal('md_catNote'),active:mdVal('md_catActive')!=='0'});
+ /* Код сборов работы (27.11.2026): пусто — как у стекла заказа. */
+ const cc=document.getElementById('md_catChargeCode');if(cc&&!rule){if(cc.value)next.chargeCode=cc.value;else delete next.chargeCode;}
  /* Пределы угла митры (27.11.2026): пустое поле — без предела. */
  if(angleMin!==undefined){if(angleMin==null)delete next.angleMin;else next.angleMin=angleMin;}
  if(angleMax!==undefined){if(angleMax==null)delete next.angleMax;else next.angleMax=angleMax;}
@@ -59201,6 +59474,8 @@ function repSoldOrder(o,shipped,rows){
  (o.adjustments||[]).forEach(a=>put({category:'Adjustments',type:'Adjustment',product:a.label||'Adjustment',amount:a.amount}));
  const t=finOrderTotals(o);
  [['energy','Energy surcharge'],['delivery','Delivery'],['card','Card fee'],['skidDeposit','Skid deposit']].forEach(([k,label])=>{if(t[k])put({category:'Order charges',type:label,product:label,amount:t[k]});});
+ /* Свои сборы Setup (27.11.2026) — тоже Order charges. */
+ (t.extra||[]).forEach(x=>{if(x.amount)put({category:'Order charges',type:x.name,product:x.name,amount:x.amount});});
 }
 /* Позиция: стекло и плёнка по лайтам, обвязка, работы, надбавки; деньги —
    на все живые юниты позиции. */
