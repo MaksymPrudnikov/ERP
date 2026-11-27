@@ -3,12 +3,12 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 221 модулей, 28 стиля.
+  Состав сборки: 222 модулей, 28 стиля.
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-TvkNVACFfiyE5spyxRxc6vqCMxYxKsOcnZPE3q1KlxE=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-Od6mURs911f75El4Ic9+sfFe1x/3W7WUsWihrpAJ/uI=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GLASS ERP — Glazing System</title>
 <style>
@@ -2082,7 +2082,9 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
    04.11.2026): ряд кнопок, заголовки таблицы; строки — по середине. */
 .card.sales-list-card>.sales-toolbar{min-height:37px;margin-bottom:8px}
 .sales-list-card table.sl-table>thead>tr{height:47px}
-.sales-list-card table.sl-table>tbody>tr>td{vertical-align:middle}
+table.sl-table>tbody>tr>td{vertical-align:middle}
+/* Выбранная строка таблицы-списка (группа прайса справа открыта) — видна (27.11.2026). */
+table.sl-table>tbody>tr.sel>td{background:var(--accent-soft)}
 /* Строки и текст списков — как в Sales на всех экранах (владелец, 05.11.2026: «размеры
    строчек и текста разные»): строка не ниже 52 px, текст ячейки 13.5 px. Подстроки
    производства (pb-sub) и распорка дорисовки — свои. */
@@ -2539,9 +2541,11 @@ button.recut-btn{border-color:var(--warning);color:var(--warning)}
 .fm-margin{position:absolute;top:0;bottom:0;border-left:1px dashed var(--accent-line);border-right:1px dashed var(--accent-line);pointer-events:none}
 .fm-hit{position:absolute;cursor:grab;border:1px solid transparent;border-radius:2px}
 .fm-hit:hover{border-color:var(--accent-line)}
-.fm-hit.sel{border:1.5px solid var(--accent)}
+/* Выбранный блок — поверх соседних: его ручки не прячутся под рамкой блока рядом (27.11.2026). */
+.fm-hit.sel{border:1.5px solid var(--accent);z-index:3}
 .fm-rs{position:absolute;width:8px;height:8px;background:var(--accent);border-radius:1px}
 .fm-rs.e{right:-5px;top:50%;margin-top:-4px;cursor:ew-resize}
+.fm-rs.w{left:-5px;top:50%;margin-top:-4px;cursor:ew-resize}
 .fm-rs.s{bottom:-5px;left:50%;margin-left:-4px;cursor:ns-resize}
 .fm-right label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--text-2);margin-top:8px}
 .fm-right label.wide{margin-top:4px}
@@ -4707,7 +4711,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='594ff49cf3d1';
+var ERP_BUILD='c9d24416f653';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -24965,7 +24969,10 @@ function salesSheetTreatmentCode(treatments){
     if(t.kind==='coating')return t.where;
     var table=t.kind==='frit'?'fritProduct':'spandrelProduct';
     var product=(typeof mdById==='function')?mdById(table,t.spec&&t.spec.productId):null;
+    /* Код уже начинается с вида (FRIT-CER) — вид второй раз не пишем
+       (владелец 27.11.2026: «фрит 2 раза»). */
     var kind=t.kind==='frit'?'FRIT':'SPDL',code=product&&(product.code||product.name);
+    if(code&&String(code).toUpperCase().indexOf(kind)===0)kind='';
     return [kind,code,t.spec&&t.spec.color,t.where].filter(Boolean).join(' ');
   }).join(' ');
 }
@@ -25453,14 +25460,17 @@ function salesFritFirstDot(record,shape,result){
 function salesFritSvgText(x,y,text,size,anchor){
  return '<text x="'+x+'" y="'+y+'" font-family="Arial, sans-serif" font-size="'+(size||10)+'" text-anchor="'+(anchor||'start')+'" fill="#24313b">'+esc(text)+'</text>';
 }
-function salesFritSampleSvg(record,x,y,note){
+/* k — масштаб образца: в середине стекла он крупнее (владелец 27.11.2026:
+   «чтобы легко читалось»); ширина образца — 160 × k. */
+function salesFritSampleSvg(record,x,y,note,k){
  var f=record.spec,p=SALES_FRIT_PATTERNS[f.pattern],body='',lines=[];
  var sx=22,sy=33,box=116,pad=10,scale=(box-pad*2)/8;
  body+='<rect x="'+sx+'" y="'+sy+'" width="'+box+'" height="'+box+'" fill="#fff" stroke="#a8b0b5" stroke-width="0.6"/>';
  if(p){
   for(var row=0;row*p.dy<=8;row++)for(var col=0;col*p.dx<=8;col++){
    var px=col*p.dx+(p.stag&&row%2?p.dx/2:0);if(px>8)continue;
-   body+='<circle class="frit-sample-dot" cx="'+(sx+pad+px*scale)+'" cy="'+(sy+pad+row*p.dy*scale)+'" r="'+Math.max(.6,+f.dotMm/25.4*scale/2)+'" fill="'+(f.color==='White'?'#fff':'#edf0f2')+'" stroke="#111" stroke-width="0.55"/>';
+   /* Точки образца — чётко на бумаге (владелец 27.11.2026: «точка — более чётко»). */
+   body+='<circle class="frit-sample-dot" cx="'+(sx+pad+px*scale)+'" cy="'+(sy+pad+row*p.dy*scale)+'" r="'+Math.max(2.3,+f.dotMm/25.4*scale/2)+'" fill="'+(f.color==='White'?'#9aa3aa':'#3d464d')+'" stroke="#111" stroke-width="1.1"/>';
   }
  }else{
   body+=salesFritSvgText(80,86,'CUSTOM',11,'middle')+salesFritSvgText(80,103,'See silk screen sheet',9,'middle');
@@ -25476,43 +25486,69 @@ function salesFritSampleSvg(record,x,y,note){
   var words=String(line||'').match(/.{1,27}(?:\s|$)|.{1,27}/g)||[''];
   words.forEach(function(part){body+=salesFritSvgText(8,yy,part.trim(),9);yy+=12;});
  });
- var height=yy+3;
- return {height:height,svg:'<g class="frit-pattern-sample" data-frit="'+record.id+'" transform="translate('+x+' '+y+')">'+
+ var height=yy+3;k=k||1;
+ return {height:height*k,width:160*k,svg:'<g class="frit-pattern-sample" data-frit="'+record.id+'" transform="translate('+x+' '+y+')'+(k!==1?' scale('+k+')':'')+'">'+
   '<rect width="160" height="'+height+'" rx="4" fill="#fff" stroke="#d2d7db" stroke-width="0.7"/>'+
   salesFritSvgText(8,14,record.id+' · '+record.label+' · '+record.treatment.where,10)+
   salesFritSvgText(8,27,'PATTERN SAMPLE',8)+body+'</g>'};
 }
+/* Размеры W / H от кромки до первой точки — крупно и жирно (владелец
+   27.11.2026: «там, где 1″ от края, — увеличить, чтобы чётко и ясно»). */
 function salesFritSetoutSvg(dot,T,ids){
  var x=T.X(dot.x),y=T.Y(dot.y),ex=T.X(dot.edgeX),ey=T.Y(dot.edgeY);
- var dx=dot.right?-1:1,dy=dot.top?1:-1,hY=y+dy*34,vX=x+dx*46;
- var line=function(a,b,c,d,dashed){return '<line x1="'+a+'" y1="'+b+'" x2="'+c+'" y2="'+d+'" stroke="#44515a" stroke-width="0.7"'+(dashed?' stroke-dasharray="3 3"':'')+'/>';};
+ var dx=dot.right?-1:1,dy=dot.top?1:-1,hY=y+dy*62,vX=x+dx*86;
+ var line=function(a,b,c,d,dashed){return '<line x1="'+a+'" y1="'+b+'" x2="'+c+'" y2="'+d+'" stroke="#24313b" stroke-width="'+(dashed?1:1.3)+'"'+(dashed?' stroke-dasharray="4 3"':'')+'/>';};
  var arrow=function(a,b,c,d){
-  var angle=Math.atan2(d-b,c-a),s=4,ux=Math.cos(angle),uy=Math.sin(angle),px=-uy,py=ux;
-  return line(a,b,c,d,false)+'<path d="M '+(a+ux*s+px*2)+' '+(b+uy*s+py*2)+' L '+a+' '+b+' L '+(a+ux*s-px*2)+' '+(b+uy*s-py*2)+
-   ' M '+(c-ux*s+px*2)+' '+(d-uy*s+py*2)+' L '+c+' '+d+' L '+(c-ux*s-px*2)+' '+(d-uy*s-py*2)+'" fill="none" stroke="#44515a" stroke-width="0.8"/>';
+  var angle=Math.atan2(d-b,c-a),s=6,ux=Math.cos(angle),uy=Math.sin(angle),px=-uy,py=ux;
+  return line(a,b,c,d,false)+'<path d="M '+(a+ux*s+px*3)+' '+(b+uy*s+py*3)+' L '+a+' '+b+' L '+(a+ux*s-px*3)+' '+(b+uy*s-py*3)+
+   ' M '+(c-ux*s+px*3)+' '+(d-uy*s+py*3)+' L '+c+' '+d+' L '+(c-ux*s-px*3)+' '+(d-uy*s-py*3)+'" fill="none" stroke="#24313b" stroke-width="1.3"/>';
  };
- var out=line(ex,y,ex,hY+dy*5,true)+line(x,y,x,hY+dy*5,true)+arrow(ex,hY,x,hY)+
-  line(x,ey,vX+dx*5,ey,true)+line(x,y,vX+dx*5,y,true)+arrow(vX,ey,vX,y);
+ var big=function(tx,ty,text,anchor){return '<text x="'+tx+'" y="'+ty+'" font-family="Arial, sans-serif" font-size="22" font-weight="700" text-anchor="'+anchor+'" fill="#111">'+esc(text)+'</text>';};
+ var out=line(ex,y,ex,hY+dy*6,true)+line(x,y,x,hY+dy*6,true)+arrow(ex,hY,x,hY)+
+  line(x,ey,vX+dx*6,ey,true)+line(x,y,vX+dx*6,y,true)+arrow(vX,ey,vX,y);
  // Labels sit beyond the short 1-inch segments, so text cannot collide with arrows.
- out+=salesFritSvgText(x+dx*8,hY+dy*13,'W '+dimPrintText(dot.w),10,dx<0?'end':'start');
- out+=salesFritSvgText(vX+dx*8,y+dy*13,'H '+dimPrintText(dot.h),10,dx<0?'end':'start');
- out+='<circle class="frit-first-dot" data-x="'+dot.x+'" data-y="'+dot.y+'" cx="'+x+'" cy="'+y+'" r="2.5" fill="#fff" stroke="#111" stroke-width="0.8"/>';
- out+=line(x-5,y,x+5,y,false)+line(x,y-5,x,y+5,false);
- out+=salesFritSvgText(x+dx*8,y-dy*9,ids,10,dx<0?'end':'start');
+ out+=big(x+dx*10,hY+dy*26,'W '+dimPrintText(dot.w),dx<0?'end':'start');
+ out+=big(vX+dx*10,y+dy*26,'H '+dimPrintText(dot.h),dx<0?'end':'start');
+ /* Первая точка — крупно и жирно: место начала видно сразу. */
+ out+='<circle class="frit-first-dot" data-x="'+dot.x+'" data-y="'+dot.y+'" cx="'+x+'" cy="'+y+'" r="5" fill="#9aa3aa" stroke="#111" stroke-width="1.5"/>';
+ out+=line(x-9,y,x+9,y,false)+line(x,y-9,x,y+9,false);
+ out+=salesFritSvgText(x+dx*9,y-dy*11,ids,14,dx<0?'end':'start');
  return '<g class="frit-setout" pointer-events="none">'+out+'</g>';
+}
+/* Образец паттерна — в середине стекла (владелец 27.11.2026: «квадрат
+   разместить на центр стекла, чтобы он не съедал борта»): справа место не
+   занято, чертёж на листе крупнее. Не помещается внутри контура (маленькое
+   стекло, узкая фигура, рядом точка начала) — стоит справа, как раньше. */
+function salesFritSampleFit(T,P,w,h,avoid){
+ if(!P||P.length<3)return null;
+ var Q=P.map(function(q){return [T.X(q[0]),T.Y(q[1])];}),b=fabEdgeBounds(Q),pad=12;
+ var x=(b.minX+b.maxX)/2-w/2,y=(b.minY+b.maxY)/2-h/2,x0=x-pad,y0=y-pad,x1=x+w+pad,y1=y+h+pad,pts=[];
+ for(var i=0;i<=4;i++){pts.push([x0+(x1-x0)*i/4,y0],[x0+(x1-x0)*i/4,y1],[x0,y0+(y1-y0)*i/4],[x1,y0+(y1-y0)*i/4]);}
+ if(!pts.every(function(q){return fabPointInPoly(q,Q);}))return null;
+ if(Q.some(function(q){return q[0]>x0&&q[0]<x1&&q[1]>y0&&q[1]<y1;}))return null;
+ if((avoid||[]).some(function(d){var px=T.X(d.x),py=T.Y(d.y);return px>x0-150&&px<x1+150&&py>y0-110&&py<y1+110;}))return null;
+ return {x:x,y:y};
 }
 function salesFritDecorateSvg(svg,shape,result,T){
  if(!T||!svg||svg.indexOf('data-frit-decorated')>=0)return svg;
  var records=salesFritDrawingSpecs(shape);if(!records.length)return svg;
- var x=T.vw+12,y=Math.max(36,T.Y(T.b.maxY)),extra='',dots={};
- records.forEach(function(r){
-  var dot=salesFritFirstDot(r,shape,result),sample=salesFritSampleSvg(r,x,y,dot.valid?'':dot.note);
-  extra+=sample.svg;y+=sample.height+10;
-  if(dot.valid){var key=[dot.x,dot.y,dot.edgeX,dot.edgeY].join('|');if(!dots[key])dots[key]={dot:dot,ids:[]};dots[key].ids.push(r.id);}
+ var extra='',dots={},rows=records.map(function(r){return {r:r,dot:salesFritFirstDot(r,shape,result)};});
+ rows.forEach(function(x){var dot=x.dot;if(dot.valid){var key=[dot.x,dot.y,dot.edgeX,dot.edgeY].join('|');if(!dots[key])dots[key]={dot:dot,ids:[]};dots[key].ids.push(x.r.id);}});
+ var avoid=Object.keys(dots).map(function(k){return dots[k].dot;}),gap=10;
+ var stack=function(k){return rows.reduce(function(s,x){return s+salesFritSampleSvg(x.r,0,0,x.dot.valid?'':x.dot.note,k).height;},0)+gap*(rows.length-1);};
+ /* Крупнее, пока помещается: ×1.6 … ×0.8. */
+ var at=null,k=1.6;
+ while(k>=.8){at=salesFritSampleFit(T,result&&result.points,160*k,stack(k),avoid);if(at)break;k=Math.round((k-.1)*10)/10;}
+ if(!at)k=1;
+ var x=at?at.x:T.vw+12,y=at?at.y:Math.max(36,T.Y(T.b.maxY));
+ rows.forEach(function(row){
+  var sample=salesFritSampleSvg(row.r,x,y,row.dot.valid?'':row.dot.note,k);
+  extra+=sample.svg;y+=sample.height+gap;
  });
- Object.keys(dots).forEach(function(k){extra+=salesFritSetoutSvg(dots[k].dot,T,dots[k].ids.join(', '));});
- var height=Math.max(T.vh,y+12),width=x+172;
- svg=svg.replace('<svg ','<svg data-frit-decorated="true" ').replace(/viewBox=("[^"]+"|'[^']+')/,'viewBox="0 0 '+width+' '+height+'"');
+ Object.keys(dots).forEach(function(key){extra+=salesFritSetoutSvg(dots[key].dot,T,dots[key].ids.join(', '));});
+ if(!at){var height=Math.max(T.vh,y+12),width=x+172;
+  svg=svg.replace(/viewBox=("[^"]+"|'[^']+')/,'viewBox="0 0 '+width+' '+height+'"');}
+ svg=svg.replace('<svg ','<svg data-frit-decorated="true"'+(at?' data-frit-inside="true"':'')+' ');
  return svg.replace('</svg>',extra+'</svg>');
 }
 
@@ -27097,7 +27133,7 @@ async function docDrawingsPdf(o){
    Части листа: every — верх каждой страницы, first — верх первой, table —
    таблица (её рисует код бланка через formFlow), totals — итоги, bottom —
    низ каждой страницы.
-   Блок: type text | field | image | line | box | barcode; place left |
+   Блок: type text | field | image | line | box | barcode | qr; place left |
    center | right | free (free — свой x); y — от верха части; w, h — размер.
    У текста y — линия букв первой строки, строки идут через lh, блок
    занимает строки × lh. Текст и поле растут и сжимаются по числу строк, и
@@ -27227,7 +27263,7 @@ function formLayout(tpl,part,ctx){
   if(b.after||b.before)text(x);
  });
  /* sa — интервал после блока (у текста — только у непустого). */
- bs.forEach(x=>{x.e=x.lines?(x.lines.length?x.lines.length*formLh(x.b)+(x.b.sa||0):0):x.hide?0:(x.sec?x.sec.h:x.b.h||0)+(x.b.sa||0);});
+ bs.forEach(x=>{x.e=x.lines?(x.lines.length?x.lines.length*formLh(x.b)+(x.b.sa||0):0):x.hide?0:(x.sec?x.sec.h:x.b.type==='qr'?x.b.w||72:x.b.h||0)+(x.b.sa||0);});
  /* pin — место закреплено: блок не ходит за блоками выше (шапка справа). */
  const done=[];
  bs.slice().sort((p,q)=>p.yt-q.yt||p.i-q.i).forEach(x=>{x.off=x.b.pin?0:formShift(done,x.yt);x.top=x.yt+x.off;done.push(x);});
@@ -27259,6 +27295,16 @@ function formDrawBlock(P,tpl,x,ctx,top,late){
   const m=b.module||1.44,bw=(barcode128Width(v)-2*BARCODE128_QUIET)*m,align=b.align||'left';
   const sx=align==='right'?bx+w-bw:align==='center'?bx+(w-bw)/2:bx;
   P.items.push(...barcode128Items(v,sx-BARCODE128_QUIET*m,top,h,m));
+  /* Рамка в конструкторе — по самим полосам, а не по w (27.11.2026). */
+  x.bar={x:sx,w:bw};
+ }
+ /* QR (erp/production/qr): квадрат w × w, модуль — w / число модулей;
+    тихая зона — за краем блока, как у штрихкода. */
+ else if(b.type==='qr'){
+  const v=String(ctx.field(b.field)||''),m=v&&qrMatrix(v);if(!m)return;
+  const s=w>0?w:72,k=s/m.length;
+  qrRuns(m).forEach(r=>P.items.push({t:'rect',x:bx+r.x*k,y:top+r.y*k,w:r.w*k,h:k,fill:'#000000'}));
+  x.bar={x:bx,w:s,h:s};
  }
 }
 /* Место блока на листе для конструктора: у текста y — линия букв, рамка
@@ -27266,6 +27312,7 @@ function formDrawBlock(P,tpl,x,ctx,top,late){
    было выбрать мышью. */
 function formRect(tpl,x,top,lines){
  const b=x.b,text=formIsText(b),w=x.aw!=null?x.aw:b.w||0,bx=x.ax!=null?(x.al==='right'?x.ax-w:x.ax):formBlockX(tpl,b);
+ if(x.bar)return {x:x.bar.x,y:top,w:x.bar.w,h:x.bar.h||b.h||0};
  return {x:bx,y:text?top-(b.size||9):top,w,h:text?Math.max(lines==null?x.e:lines*formLh(b),formLh(b)):x.sec?x.sec.h:b.h||0};
 }
 /* Часть целиком на одном листе (верх и низ страницы); блоки рисуются в
@@ -27375,7 +27422,7 @@ function formCleanColumn(c){
    добавил новую), берутся по умолчанию; колонки таблицы — сохранённые,
    если они есть. Поля страницы и направляющие (guides — только для
    конструктора, не печатаются) — из сохранённого, в разумных пределах. */
-const FORM_BLOCK_TYPES=['text','field','image','line','box','barcode','section'];
+const FORM_BLOCK_TYPES=['text','field','image','line','box','barcode','qr','section'];
 const FORM_PLACES=['left','center','right','free'];
 function formCleanBlock(b){
  if(!b||typeof b!=='object'||!FORM_BLOCK_TYPES.includes(b.type))return null;
@@ -27624,7 +27671,7 @@ function docFormBlockLabel(b){
  if(b.type==='text'){const t=String(b.text||'').replace(/\{[\w.]+(\|[^}]*)?\}/g,'…').replace(/\s+/g,' ').trim();return t.length>34?t.slice(0,33)+'…':t||'Text';}
  if(b.type==='field'){const f=formWithCompany(DOC_FORM_FIELDS).find(x=>x.k===b.field)||formMyFields().find(x=>x.k===b.field);return (b.prefix||'')+(f?f.label:b.field);}
  if(b.type==='section')return DOC_SECTIONS[b.k]||'Section';
- return {line:'Line',box:'Frame',image:'Picture',barcode:'Barcode'}[b.type]||'Block';
+ return {line:'Line',box:'Frame',image:'Picture',barcode:'Barcode',qr:'QR code'}[b.type]||'Block';
 }
 /* Конструктор: последние заказы (у Quote — квоты) для живого листа. */
 function docFormSamples(kind){
@@ -28089,7 +28136,7 @@ function formsCarrierColors(c){formsEdit(t=>{t.style=Object.assign({},carrierFor
 /* ===================== Наклейка долли / скида 4 × 6 ==================== */
 /* Форма carrierLabel (Data → Forms → Dolly / Skid label; владелец
    06.11.2026: «управление стикерами долли и скида — добавь»). Наклейка —
-   SVG 4 × 6″ стоя, 288 × 432 pt; блок: text, field, barcode, image; y у
+   SVG 4 × 6″ стоя, 288 × 432 pt; блок: text, field, barcode, qr, image; y у
    текста — линия букв, у штрихкода и картинки — верх. По умолчанию —
    прежняя наклейка: тип тары, крупный номер, штрихкод Code 128 номера,
    номер мелко. */
@@ -28133,6 +28180,10 @@ function carrierLabelSVGOf(tpl,code,edit){
   if(b.type==='barcode'){const v=String(ctx.field(b.field||'code')||'');if(!v)return '';const mod=b.module||2.4,h=b.h||110,bars=barcode128Items(v,0,0,h,mod),bw=barcode128Width(v)*mod;
    const x0=b.place==='free'?b.x||0:b.place==='left'?CL_MARGIN:b.place==='right'?CL_W-CL_MARGIN-bw:(CL_W-bw)/2;
    return `<g transform="translate(${x0.toFixed(1)} ${b.y||0})"${hit(b)}>${bars.map(r=>`<rect x="${r.x.toFixed(2)}" y="0" width="${r.w.toFixed(2)}" height="${h}" fill="${/^#[0-9a-f]{3,6}$/i.test(b.color||'')?b.color:'#000'}"/>`).join('')}</g>`;}
+  /* QR (erp/production/qr) — квадрат w, белая подложка под тихую зону. */
+  if(b.type==='qr'){const v=String(ctx.field(b.field||'code')||''),m=v&&qrMatrix(v);if(!m)return '';const s=b.w||72,k=s/m.length,q=4*k;
+   const x0=b.place==='free'?b.x||0:b.place==='left'?CL_MARGIN:b.place==='right'?CL_W-CL_MARGIN-s:(CL_W-s)/2;
+   return `<g transform="translate(${x0.toFixed(1)} ${b.y||0})"${hit(b)}><rect x="${-q}" y="${-q}" width="${s+2*q}" height="${s+2*q}" fill="#fff"/><path d="${qrRuns(m).map(r=>`M${(r.x*k).toFixed(2)} ${(r.y*k).toFixed(2)}h${(r.w*k).toFixed(2)}v${k.toFixed(2)}h${(-r.w*k).toFixed(2)}z`).join('')}" fill="#000"/></g>`;}
   if(b.type==='image'){const src=b.src||(b.field?ctx.field(b.field):'');if(!/^data:image\/jpeg;base64,/.test(src||''))return '';const h=b.h||40,w=b.w||h*3,p=at(b);
    return `<image href="${esc(src)}" x="${(p.a==='middle'?p.x-w/2:p.a==='end'?CL_W-CL_MARGIN-w:p.x).toFixed(1)}" y="${b.y||0}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet"${hit(b)}/>`;}
   const v=drawBlockText(b,ctx),p=at(b);if(!v&&!edit)return '';
@@ -28404,7 +28455,7 @@ function finBalancesDoc(list,selection){
    Ширина и порядок колонок прямо в заголовке — один механизм для списка
    Sales и Order Lines (пункт 11 плана v1.16).
    IN : адаптер таблицы (cwRegister): ключи колонок и её настройки в браузере
-   OUT: cwColgroup, cwGrip, cwTableAttrs, cwTableClass — ширины и перенос колонок
+   OUT: cwColgroup, cwGrip, cwTableAttrs, cwTableClass, cwFit — ширины, перенос колонок, «влезть в окно»
    Владелец, 30.10.2026: вид —
    вариант 1 («черта как в Excel»: тонкая черта между заголовками, при
    наведении и перетаскивании зелёная, через таблицу — линия); «чтобы колонки
@@ -28456,6 +28507,26 @@ function cwTableAttrs(id,keys){
 function cwTableClass(id){return CW_TABLES[id]&&(cwFixed(id)||CW_TABLES[id].fill)?' cw-fixed':'';}
 function cwColgroup(id,keys){return cwColgroupFor(id,keys,cwWidths(id));}
 function cwGrip(){return '<span class="cw-grip" data-cw-grip aria-hidden="true"></span>';}
+/* Таблица шире своего окна (Data: каталог стекла, станции, спейсеры;
+   владелец 27.11.2026: «таблица ездит») — колонки, которые руками не
+   тянули, ужимаются поровну от лишнего, но не уже своего заголовка; длинный
+   текст — многоточие. Потянутые руками держат свою ширину. Не влезает и
+   так — таблица как была, с прокруткой. Только таблицы, что попросили
+   (adapter.fit: таблицы slTable). */
+function cwFit(table){
+ const id=table.dataset.cwTable,a=id&&CW_TABLES[id];if(!a||!a.fit)return;
+ let wrap=table.parentElement;while(wrap&&wrap!==document.body&&!/auto|scroll|hidden/.test(getComputedStyle(wrap).overflowX))wrap=wrap.parentElement;
+ if(!wrap||wrap===document.body)return;const over=table.offsetWidth-wrap.clientWidth;if(over<=1)return;
+ const saved=cwWidths(id),cols=[...table.querySelectorAll('colgroup>col[data-cw-col]')].filter(c=>!saved[c.dataset.cwCol]&&c.style.width);
+ /* Ширина текста заголовка — по самому тексту (Range), а не по ячейке. */
+ const min=c=>{const th=table.querySelector('thead th[data-cw-key="'+c.dataset.cwCol+'"]'),l=th&&th.querySelector('[data-cw-label]');let t=0;if(l){const r=document.createRange();r.selectNodeContents(l);t=r.getBoundingClientRect().width;}return Math.max(CW_MIN+20,Math.ceil(t)+44);};
+ /* Влезает только целиком — иначе как было, с прокруткой (каталог стекла:
+    12 колонок, владелец 27.11.2026: «оставить прокрутку»). */
+ const room=cols.map(c=>{const w=parseFloat(c.style.width)||0;return {c,w,m:Math.min(w,min(c))};}),spare=room.reduce((s,r)=>s+r.w-r.m,0);if(spare<over)return;
+ const f=over/spare;let cut=0;
+ room.forEach(r=>{const d=Math.min(r.w-r.m,Math.ceil((r.w-r.m)*f));if(d>0){r.c.style.width=(r.w-d)+'px';cut+=d;}});
+ if(cut)table.style.width='max(100%,'+(table.offsetWidth-cut)+'px)';
+}
 
 /* ------------------------------ Жесты ---------------------------------- */
 let cwDrag=null;
@@ -34429,9 +34500,10 @@ function viewMasterData(){
  const sec=MD_SECTIONS.find(s=>s.tabs.includes(mdTab))||MD_SECTIONS[0];
  const pills=`<div class="sl-filter-row"><div class="sl-quick" role="tablist" data-md-sections>${MD_SECTIONS.map(s=>`<button type="button" role="tab" class="sl-quick-pill${s.tabs.includes(mdTab)?' on':''}" data-md-section="${s.k}" ${onAct('click',mdSetTab,String(s.tabs[0]))}>${s.label}</button>`).join('')}</div></div>`;
  const subs=sec.k!=='catalog'&&sec.tabs.length>1?`<div class="sl-filter-row md-mat-subs" data-md-subtabs><div class="sl-quick">${sec.tabs.map(k=>`<button type="button" class="sl-quick-pill${mdTab===k?' on':''}" ${onAct('click',mdSetTab,String(k))}>${esc(MD_TABS.find(t=>t.k===k).label)}</button>`).join('')}</div></div>`:'';
- /* Каталог — своя раскладка (viewMdCatalog); остальные разделы — карточка с таблетками. */
- return `${sec.k==='catalog'?viewMdCatalog(pills):`<div class="card md-card">${pills}${subs}
-   ${({prices:viewMdPrices,stations:viewMdStations,setup:viewMdSetup,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,forms:viewMdForms,emails:viewMdMailTemplates,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,stockreasons:viewMdStockReasons,overview:viewMdOverview})[mdTab]()}
+ /* Каталог и Prices — своя раскладка с деревом слева (viewMdCatalog, viewMdPrices);
+    остальные разделы — карточка с таблетками. */
+ return `${sec.k==='catalog'?viewMdCatalog(pills):sec.k==='prices'?viewMdPrices(pills):`<div class="card md-card">${pills}${subs}
+   ${({stations:viewMdStations,setup:viewMdSetup,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,forms:viewMdForms,emails:viewMdMailTemplates,cutting:viewMdCutting,carriers:viewMdCarriers,trucks:viewMdTrucks,ncr:viewMdNcr,stockreasons:viewMdStockReasons,overview:viewMdOverview})[mdTab]()}
   </div>`}
   ${mdTab==='materials'&&mdMatCategory==='glass'&&(mdMatView==='glassProduct'||accessCost())?mdImportCard():''}`;
 }
@@ -36140,7 +36212,8 @@ function mdSpacerSystemDelete(id){
    карточке клиента — его личный прайс. Правка прайса пишется сразу, как в
    Works: журнал Master Data видит каждую цену «было → стало».
    IN : DB.priceList, DB.itemGroup, DB.customer
-   OUT: viewMdPrices, customerPricesTab, salesPriceListStrip; правка — DB.priceList, DB.itemGroup
+   OUT: viewMdPrices(pills) — Data → Prices видом Catalog, customerPricesTab, salesPriceListStrip;
+        правка — DB.priceList, DB.itemGroup
    ===================================================================== */
 let plView='groups',plGroupId='',plItemGroupId='',plAddKind='',plBulk=null,plFile=null;
 
@@ -36188,31 +36261,38 @@ function plSetPrice(listId,rowId,band,v){
 function plRemoveRow(listId,rowId){plCommand(()=>{const l=plList(listId);if(l)l.rows=l.rows.filter(r=>r.id!==rowId);});}
 
 /* --- Data → Prices ------------------------------------------------------ */
-function viewMdPrices(){
- const views=[['groups','Customer groups'],['items','Item groups'],['bulk','Set for customers'],['file','Excel']];
- const subs=`<div class="md-mat-subs" data-pl-subs>${views.map(([k,label])=>`<button class="sm ${k===plView?'on':''}" ${onAct('click',plViewSet,String(k))}>${label}</button>`).join('')}</div>`;
- return subs+(plView==='items'?plItemGroupsView():plView==='bulk'?plBulkView():plView==='file'?plFileView():plGroupsView());
+/* Вид как Catalog (владелец 27.11.2026, вариант A): слева дерево — группы
+   клиентов, группы айтемов, инструменты; справа открытое на всю ширину.
+   pills — разделы Data (viewMasterData). */
+function viewMdPrices(pills){
+ const groups=priceListGroups(),items=DB.itemGroup||[];
+ if(plView==='groups'&&!groups.some(g=>g.id===plGroupId))plGroupId=groups[0]?groups[0].id:'';
+ if(plView==='items'&&!items.some(g=>g.id===plItemGroupId))plItemGroupId=items[0]?items[0].id:'';
+ const node=(on,label,n,attr,fn,...args)=>`<button type="button" class="${on?'on':''}" ${attr} ${onAct('click',fn,...args)}>${esc(label)}${n!=null?` <span class="mut">${n}</span>`:''}</button>`;
+ const tree=`<nav class="card md-tree" aria-label="Prices" data-pl-tree>
+  <div class="md-tree-group">Customer groups</div>${groups.map(g=>node(plView==='groups'&&g.id===plGroupId,g.name||'Unnamed group',plGroupCustomers(g.id).length,`data-pl-group="${esc(g.id)}"`,plGroupPick,String(g.id??''))).join('')}
+  <button type="button" class="mut" data-pl-new-group ${onAct('click',plNewGroup)}>+ Customer group</button>
+  <div class="md-tree-group">Item groups</div>${items.map(g=>node(plView==='items'&&g.id===plItemGroupId,g.name||'Unnamed',g.members.length,`data-pl-item-group="${esc(g.id)}"`,plItemGroupPick,String(g.id??''))).join('')}
+  <button type="button" class="mut" data-pl-new-item-group ${onAct('click',plNewItemGroup)}>+ Item group</button>
+  <div class="md-tree-group">Tools</div>${node(plView==='bulk','Set for customers',null,'data-pl-tool="bulk"',plViewSet,'bulk')}${node(plView==='file','Excel',null,'data-pl-tool="file"',plViewSet,'file')}
+ </nav>`;
+ const g=plView==='groups'&&priceListById(plGroupId),ig=plView==='items'&&itemGroupById(plItemGroupId);
+ const title=g?`${g.name||'Unnamed group'} · ${plGroupCustomers(g.id).length} customers · ${g.rows.length} prices`:ig?`${ig.name||'Unnamed'} · ${ig.members.length} items`:plView==='bulk'?'Set for customers':plView==='file'?'Excel':'Customer groups';
+ const body=plView==='items'?plItemGroupsView():plView==='bulk'?plBulkView():plView==='file'?plFileView():plGroupsView();
+ return `<div class="md-shell" data-md-prices>${tree}<div class="card sales-list-card md-catalog-main"><div class="sales-toolbar md-bar"><span class="mut" data-pl-title>${esc(title)}</span><span class="sales-toolbar-sp"></span></div>${pills}<div class="md-catalog-body">${body}</div></div></div>`;
 }
 function plGroupCustomers(id){return (DB.customer||[]).filter(c=>c.priceGroupId===id&&c.status!=='archived');}
 function plViewSet(k){plView=k;render();}
-function plGroupPick(id){plGroupId=id;render();}
-function plItemGroupPick(id){plItemGroupId=id;render();}
+function plGroupPick(id){plView='groups';plGroupId=id;render();}
+function plItemGroupPick(id){plView='items';plItemGroupId=id;render();}
 function plUpdatePricesAsk(){if(confirm("Update prices from today's price lists? Prices typed by hand stay.")){salesUpdatePrices();render();}}
 function plFileCancel(){plFile=null;render();}
 function plFileScopeSet(v){plFileScope=v;}
 function plCsvChoose(){document.getElementById('plCsv').click();}
+/* Открытая группа клиентов; список групп — в дереве слева. */
 function plGroupsView(){
- const groups=priceListGroups();if(plGroupId&&!groups.some(g=>g.id===plGroupId))plGroupId='';
  const g=priceListById(plGroupId);
- const list=slTable('plGroups',{list:groups,id:x=>x.id,empty:'No groups yet.',noun:l=>l.length+' group'+(l.length===1?'':'s'),fill:'name',
-  columns:()=>[{k:'name',label:'Group',type:'text',v:x=>x.name||'Unnamed group',cell:x=>`<b>${esc(x.name||'Unnamed group')}</b>`},{k:'customers',label:'Customers',type:'number',sum:true,v:x=>plGroupCustomers(x.id).length},{k:'prices',label:'Prices',type:'number',sum:true,v:x=>x.rows.length}],
-  row:i=>({attrs:` data-pl-group class="${i.x.id===plGroupId?'sel':''}" style="cursor:pointer" ${onAct('click',plGroupPick,String(i.x.id??''))}`})});
- return `<div class="sub">Personal beats group; else base price.</div>
-  <div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap">
-   <div style="flex:0 0 340px">${list}
-    <button class="pri" style="margin-top:8px" ${onAct('click',plNewGroup)}>+ Customer group</button></div>
-   <div style="flex:1 1 480px;min-width:0">${g?plGroupEditor(g):groups.length?'<div class="mut">Pick a group.</div>':'<div class="mut">Add a group, then give it prices.</div>'}</div>
-  </div>`;
+ return `<div class="sub">Personal beats group; else base price.</div>${g?plGroupEditor(g):'<div class="mut">Add a group, then give it prices.</div>'}`;
 }
 function plGroupEditor(g){
  const members=plGroupCustomers(g.id),others=(DB.customer||[]).filter(c=>c.status!=='archived'&&c.priceGroupId!==g.id);
@@ -36224,7 +36304,7 @@ function plGroupEditor(g){
 }
 function plNewGroup(){
  const name=prompt('Customer group name');if(name==null||!name.trim())return;
- const id=salesUid('PL');plCommand(()=>{DB.priceList.push({id,kind:'group',name:name.trim(),customerId:'',rows:[]});});plGroupId=id;render();
+ const id=salesUid('PL');plCommand(()=>{DB.priceList.push({id,kind:'group',name:name.trim(),customerId:'',rows:[]});});plView='groups';plGroupId=id;render();
 }
 function plRenameGroup(id,name){plCommand(()=>{const g=plList(id);if(g)g.name=String(name||'').trim();});}
 function plDeleteGroup(id){
@@ -36238,27 +36318,19 @@ function plSetCustomerGroup(customerId,groupId){
  plCommand(()=>{const c=(DB.customer||[]).find(x=>x.id===customerId);if(c){c.priceGroupId=groupId||'';c.group='';c.updatedAt=plNow();}});
 }
 
+/* Открытая группа айтемов; список — в дереве слева. */
 function plItemGroupsView(){
- const groups=DB.itemGroup||[];if(plItemGroupId&&!groups.some(g=>g.id===plItemGroupId))plItemGroupId='';
  const g=itemGroupById(plItemGroupId),targets=salesPriceTargets();
- const list=slTable('plItemGroups',{list:groups,id:x=>x.id,empty:'No item groups yet.',noun:l=>l.length+' item group'+(l.length===1?'':'s'),fill:'name',
-  columns:()=>[{k:'name',label:'Item group',type:'text',v:x=>x.name||'Unnamed',cell:x=>`<b>${esc(x.name||'Unnamed')}</b>`},{k:'items',label:'Items',type:'number',sum:true,v:x=>x.members.length}],
-  row:i=>({attrs:` data-pl-item-group class="${i.x.id===plItemGroupId?'sel':''}" style="cursor:pointer" ${onAct('click',plItemGroupPick,String(i.x.id??''))}`})});
  const editor=g?`<div class="row" style="gap:8px;margin-bottom:10px"><input aria-label="Item group name" value="${esc(g.name)}" ${onAct('change',plItemGroupName,String(g.id??''),EL_VALUE)} style="max-width:260px"><button class="sm dl" ${onAct('click',plItemGroupDelete,String(g.id??''))}>Delete group</button></div>
    ${slTable('plItemMembers',{list:g.members,id:k=>k,empty:'No items yet.',noun:l=>l.length+' item'+(l.length===1?'':'s'),fill:'item',acts:50,
     columns:()=>[{k:'item',label:'Item',type:'text',v:k=>salesPriceTargetLabel(k,targets)}],
     row:i=>({attrs:' data-pl-member',last:`<button class="sm dl" title="Remove" ${onAct('click',plItemGroupDrop,String(g.id??''),String(i.x??''))}>×</button>`})})}
-   <select aria-label="Add item" style="max-width:360px;margin-top:8px" ${onAct('change',plItemGroupAdd,String(g.id??''),EL_VALUE)}>${plTargetOptions(targets.filter(t=>!g.members.includes(t.key)),false,'')}</select>`:'<div class="mut">Pick a group.</div>';
- return `<div class="sub">Item group = one price line for many items, e.g. "Edge work". Inside a price list, an item's own price beats its group; an item in two groups takes the group priced last.</div>
-  <div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap">
-   <div style="flex:0 0 340px">${list}
-    <button class="pri" style="margin-top:8px" ${onAct('click',plNewItemGroup)}>+ Item group</button></div>
-   <div style="flex:1 1 480px;min-width:0">${editor}</div>
-  </div>`;
+   <select aria-label="Add item" style="max-width:360px;margin-top:8px" ${onAct('change',plItemGroupAdd,String(g.id??''),EL_VALUE)}>${plTargetOptions(targets.filter(t=>!g.members.includes(t.key)),false,'')}</select>`:'<div class="mut">Add an item group, then put items in it.</div>';
+ return `<div class="sub">Item group = one price line for many items, e.g. "Edge work". Inside a price list, an item's own price beats its group; an item in two groups takes the group priced last.</div>${editor}`;
 }
 function plNewItemGroup(){
  const name=prompt('Item group name');if(name==null||!name.trim())return;
- const id=salesUid('IG');plCommand(()=>{DB.itemGroup.push({id,name:name.trim(),members:[]});});plItemGroupId=id;render();
+ const id=salesUid('IG');plCommand(()=>{DB.itemGroup.push({id,name:name.trim(),members:[]});});plView='items';plItemGroupId=id;render();
 }
 function plItemGroupSet(id,fn){plCommand(()=>{const g=itemGroupById(id);if(g)fn(g);});}
 function plItemGroupName(id,v){plItemGroupSet(id,x=>{x.name=String(v).trim();});}
@@ -36295,7 +36367,7 @@ function plBulkView(){
    <button class="sm" ${onAct('click',plBulkTick,customers.map(c=>c.id))}>Tick shown</button><button class="sm" ${onAct('click',plBulkClear)}>Clear</button></div>
   ${(()=>{const now=c=>{const r=b.target?(priceListOfCustomer(c.id)||{rows:[]}).rows.find(x=>x.target===b.target):null;return r?plRowText(r):'';};
    return slTable('plBulk',{list:customers,id:c=>c.id,empty:'No customers.',noun:l=>l.length+' customer'+(l.length===1?'':'s'),fill:'customer',
-    columns:()=>[{k:'customer',label:'Customer',type:'text',v:c=>c.displayName||c.legalName},{k:'code',label:'Account',type:'text',def:false,v:c=>c.code},{k:'group',label:'Group',type:'list',v:c=>customerGroupName(c)},{k:'now',label:'Now',type:'text',v:now,cell:c=>`<span class="mono">${esc(now(c)||'—')}</span>`}],
+    columns:()=>[{k:'customer',label:'Customer',type:'text',v:c=>c.displayName||c.legalName},{k:'code',label:'Account',type:'text',def:false,v:c=>c.code},{k:'group',label:'Group',type:'list',w:220,v:c=>customerGroupName(c)},{k:'now',label:'Now',type:'text',v:now,cell:c=>`<span class="mono">${esc(now(c)||'—')}</span>`}],
     row:i=>({attrs:' data-pl-bulk-row',first:`<td class="sl-check"><input type="checkbox" ${b.ids.includes(i.x.id)?'checked':''} ${onAct('change',plBulkPick,String(i.x.id??''),EL_CHECKED)}></td>`})});})()}`;
 }
 function plBulkApply(){
@@ -39756,6 +39828,7 @@ function salesListSplitNav(){
      ещё раз. Подрядные строки производства (pb-sub) пустые нарочно. */
 const SL_FRZ_MAX=12;
 function salesListTableFit(table){
+ if(typeof cwFit==='function')cwFit(table);
  const head=table.tHead&&table.tHead.rows[0];if(!head)return;
  const ths=[...head.cells],lead=ths.findIndex(th=>th.dataset.col);if(lead<0)return;
  const frozen=salesListLoadPrefs().frozen||[];let n=0;
@@ -39894,7 +39967,7 @@ function slTable(scope,o){
   const defs=Object.assign({},...cols0.filter(c=>c.w).map(c=>({[c.k]:c.w})),o.widths||{});
   salesListCwTable(cols.map(c=>c.k),[o.lead||44],o.acts||20,defs);
   /* Колонка, что забирает остаток ширины (как Customer в Sales): своя или первая текстовая. */
-  const reg=CW_TABLES[scope];if(reg){reg.fill=o.fill||(cols0.find(c=>c.type==='text')||cols0[0]||{}).k||'';reg.trail=o.acts||20;reg.lead=[o.lead||44];}
+  const reg=CW_TABLES[scope];if(reg){reg.fill=o.fill||(cols0.find(c=>c.type==='text')||cols0[0]||{}).k||'';reg.trail=o.acts||20;reg.lead=[o.lead||44];reg.fit=true;}
   /* limit — сколько строк рисовать (длинный список стёкол раскроя рисуется
      частями); found(rows) — все строки после фильтра и сортировки. */
   const all=salesListRows(infos),rows=o.limit!=null?all.slice(0,o.limit):all;if(o.found)o.found(all);
@@ -41254,6 +41327,114 @@ function barcode128Items(text,x,y,h,module){
  const m=module||1.44,items=[];let cx=x+BARCODE128_QUIET*m;
  barcode128Modules(text).forEach((w,i)=>{if(i%2===0)items.push({t:'rect',x:cx,y,w:w*m,h,fill:'#000000'});cx+=w*m;});
  return items;
+}
+
+/* ==== src/erp/production/qr.js ==== */
+/* =====================================================================
+   erp/production/qr  ·  qr-1.0
+   QR-код (ISO/IEC 18004) для бланков: блок QR code в конструкторе форм
+   (владелец 27.11.2026: «добавить QR, чтобы заменить им штрихкод, где
+   нужно»). Байтовый режим (UTF-8), коррекция M (около 15 % кода можно
+   потерять), версии 1–10 — до 213 байт, хватает на любой номер ERP.
+   IN : текст (номер заказа, скида, PS — что выбрано полем блока)
+   OUT: qrMatrix(text) — квадрат size × size, true — тёмный модуль;
+        qrRuns(m) — тёмные отрезки строк для рисования прямоугольниками
+   Правило: без внешних библиотек — файл программы открывается с диска.
+   Тихая зона (4 модуля белого вокруг) — за краем блока, как у штрихкода.
+   Маска — та из восьми, что даёт меньший штраф (правила 1–4 стандарта).
+   ===================================================================== */
+/* Коррекция M: байт коррекции на блок и число блоков, версии 1–10. */
+const QR_ECC_M=[0,10,16,26,18,24,16,18,22,22,26],QR_BLOCKS_M=[0,1,1,1,2,2,4,4,4,5,5],QR_MAX_VER=10;
+function qrGfMul(x,y){let z=0;for(let i=7;i>=0;i--){z=(z<<1)^((z>>>7)*0x11D);z^=((y>>>i)&1)*x;}return z;}
+function qrRsDivisor(deg){
+ const r=new Array(deg).fill(0);r[deg-1]=1;let root=1;
+ for(let i=0;i<deg;i++){for(let j=0;j<deg;j++){r[j]=qrGfMul(r[j],root);if(j+1<deg)r[j]^=r[j+1];}root=qrGfMul(root,2);}
+ return r;
+}
+function qrRsRemainder(data,div){
+ const r=div.map(()=>0);
+ data.forEach(b=>{const f=b^r.shift();r.push(0);div.forEach((c,i)=>{r[i]^=qrGfMul(c,f);});});
+ return r;
+}
+/* Модулей под данные и коррекцию (всё, кроме служебных узоров). */
+function qrRawModules(ver){
+ let n=(16*ver+128)*ver+64;
+ if(ver>=2){const a=Math.floor(ver/7)+2;n-=(25*a-10)*a-55;if(ver>=7)n-=36;}
+ return n;
+}
+function qrDataCodewords(ver){return Math.floor(qrRawModules(ver)/8)-QR_ECC_M[ver]*QR_BLOCKS_M[ver];}
+function qrAlignPos(ver){
+ if(ver===1)return [];
+ const n=Math.floor(ver/7)+2,step=Math.ceil((ver*4+4)/(n*2-2))*2,out=[6];
+ for(let pos=ver*4+10;out.length<n;pos-=step)out.splice(1,0,pos);
+ return out;
+}
+/* Текст → кодовые слова данных с длиной, концом и заполнением. */
+function qrCodewords(text,ver){
+ const bytes=[...new TextEncoder().encode(String(text))],bits=[],put=(v,n)=>{for(let i=n-1;i>=0;i--)bits.push((v>>>i)&1);};
+ put(4,4);put(bytes.length,ver<10?8:16);bytes.forEach(b=>put(b,8));
+ const cap=qrDataCodewords(ver)*8;put(0,Math.min(4,cap-bits.length));while(bits.length%8)bits.push(0);
+ const out=[];for(let i=0;i<bits.length;i+=8)out.push(bits.slice(i,i+8).reduce((a,b)=>a*2+b,0));
+ for(let pad=0xEC;out.length<cap/8;pad^=0xEC^0x11)out.push(pad);
+ return out;
+}
+/* Блоки с коррекцией Рида — Соломона, перемешанные по стандарту. */
+function qrInterleave(data,ver){
+ const nb=QR_BLOCKS_M[ver],ecl=QR_ECC_M[ver],raw=Math.floor(qrRawModules(ver)/8),nShort=nb-raw%nb,shortLen=Math.floor(raw/nb),div=qrRsDivisor(ecl),blocks=[];
+ for(let i=0,k=0;i<nb;i++){const d=data.slice(k,k+shortLen-ecl+(i<nShort?0:1));k+=d.length;const ec=qrRsRemainder(d,div);if(i<nShort)d.push(0);blocks.push(d.concat(ec));}
+ const out=[];
+ for(let i=0;i<blocks[0].length;i++)blocks.forEach((b,j)=>{if(i!==shortLen-ecl||j>=nShort)out.push(b[i]);});
+ return out;
+}
+const QR_MASKS=[(x,y)=>(x+y)%2===0,(x,y)=>y%2===0,x=>x%3===0,(x,y)=>(x+y)%3===0,(x,y)=>(Math.floor(x/3)+Math.floor(y/2))%2===0,
+ (x,y)=>x*y%2+x*y%3===0,(x,y)=>(x*y%2+x*y%3)%2===0,(x,y)=>((x+y)%2+x*y%3)%2===0];
+function qrBuild(cw,ver,mask){
+ const n=ver*4+17,m=[...Array(n)].map(()=>Array(n).fill(false)),fn=[...Array(n)].map(()=>Array(n).fill(false));
+ const set=(x,y,d)=>{m[y][x]=d;fn[y][x]=true;};
+ for(let i=0;i<n;i++){set(6,i,i%2===0);set(i,6,i%2===0);}
+ [[3,3],[n-4,3],[3,n-4]].forEach(([cx,cy])=>{for(let dy=-4;dy<=4;dy++)for(let dx=-4;dx<=4;dx++){const x=cx+dx,y=cy+dy,d=Math.max(Math.abs(dx),Math.abs(dy));if(x>=0&&x<n&&y>=0&&y<n)set(x,y,d!==2&&d!==4);}});
+ const al=qrAlignPos(ver),last=al.length-1;
+ al.forEach((ax,i)=>al.forEach((ay,j)=>{if(i===0&&j===0||i===0&&j===last||i===last&&j===0)return;for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++)set(ax+dx,ay+dy,Math.max(Math.abs(dx),Math.abs(dy))!==1);}));
+ /* Формат: коррекция M (00) и маска, BCH(15,5), XOR 0x5412. */
+ let rem=mask;for(let i=0;i<10;i++)rem=(rem<<1)^((rem>>>9)*0x537);
+ const f=((mask<<10)|rem)^0x5412,fb=i=>((f>>>i)&1)===1;
+ for(let i=0;i<=5;i++)set(8,i,fb(i));set(8,7,fb(6));set(8,8,fb(7));set(7,8,fb(8));for(let i=9;i<15;i++)set(14-i,8,fb(i));
+ for(let i=0;i<8;i++)set(n-1-i,8,fb(i));for(let i=8;i<15;i++)set(8,n-15+i,fb(i));set(8,n-8,true);
+ if(ver>=7){let r=ver;for(let i=0;i<12;i++)r=(r<<1)^((r>>>11)*0x1F25);const v=(ver<<12)|r;for(let i=0;i<18;i++){const d=((v>>>i)&1)===1,a=n-11+i%3,b=Math.floor(i/3);set(a,b,d);set(b,a,d);}}
+ /* Данные — змейкой по парам колонок снизу вверх и обратно. */
+ let k=0;
+ for(let right=n-1;right>=1;right-=2){if(right===6)right=5;
+  for(let v=0;v<n;v++)for(let j=0;j<2;j++){const x=right-j,y=((right+1)&2)===0?n-1-v:v;
+   if(!fn[y][x]&&k<cw.length*8){m[y][x]=((cw[k>>>3]>>>(7-(k&7)))&1)===1;k++;}}}
+ const mk=QR_MASKS[mask];
+ for(let y=0;y<n;y++)for(let x=0;x<n;x++)if(!fn[y][x]&&mk(x,y))m[y][x]=!m[y][x];
+ return m;
+}
+/* Штраф маски (стандарт, 7.8.3): серии одного цвета, квадраты 2 × 2,
+   узор «как у угла» и перекос тёмного и светлого. */
+function qrPenalty(m){
+ const n=m.length;let p=0,dark=0;
+ const line=get=>{let run=1;for(let i=1;i<=n;i++){if(i<n&&get(i)===get(i-1))run++;else{if(run>=5)p+=run-2;run=1;}}
+  const s=[...Array(n)].map((_,i)=>get(i)?1:0).join('');for(const pat of ['10111010000','00001011101']){let at=s.indexOf(pat);while(at>=0){p+=40;at=s.indexOf(pat,at+1);}}};
+ for(let y=0;y<n;y++){line(x=>m[y][x]);line(x=>m[x][y]);}
+ for(let y=0;y<n-1;y++)for(let x=0;x<n-1;x++){const c=m[y][x];if(c===m[y][x+1]&&c===m[y+1][x]&&c===m[y+1][x+1])p+=3;}
+ m.forEach(r=>r.forEach(c=>{if(c)dark++;}));
+ return p+Math.floor(Math.abs(dark*20-n*n*10)/(n*n))*10;
+}
+/* Текст → квадрат модулей; длиннее 213 байт — null (такого номера в ERP нет). */
+function qrMatrix(text){
+ const len=new TextEncoder().encode(String(text)).length;let ver=1;
+ while(ver<=QR_MAX_VER&&4+(ver<10?8:16)+len*8>qrDataCodewords(ver)*8)ver++;
+ if(ver>QR_MAX_VER)return null;
+ const cw=qrInterleave(qrCodewords(text,ver),ver);let best=null,bp=Infinity;
+ for(let mask=0;mask<8;mask++){const m=qrBuild(cw,ver,mask),pen=qrPenalty(m);if(pen<bp){bp=pen;best=m;}}
+ return best;
+}
+/* Тёмные модули строки, слитые в отрезки: [{x, y, w}] в модулях. */
+function qrRuns(m){
+ const out=[];
+ m.forEach((row,y)=>{let x=0;while(x<row.length){if(!row[x]){x++;continue;}const s=x;while(x<row.length&&row[x])x++;out.push({x:s,y,w:x-s});}});
+ return out;
 }
 
 /* ==== src/erp/production/stickers.js ==== */
@@ -49089,7 +49270,7 @@ function formsDefs(){
   samples:()=>carrierFormSamples(),doc:id=>id,context:()=>carrierFormContext(),columns:{},html:(tpl,id,view)=>carrierFormSheetHTML(tpl,id,view),after:()=>drawFormOverlaps(),
   panel:(part,tpl)=>part==='head'||part==='foot'?'':carrierFormPanelHTML(part,tpl)},
   /* Наклейка тары 4 × 6 (erp/documents/carrier-form): живой лист — наклейка. */
-  {k:'carrierLabel',label:'Dolly / Skid label',def:carrierLabelDefault,fields:()=>carrierLabelFields(),add:['text','field','image','barcode'],sheetClass:tpl=>'fm-lsheet'+(carrierLabelSize(tpl)==='3x4'?' cl-small':''),
+  {k:'carrierLabel',label:'Dolly / Skid label',def:carrierLabelDefault,fields:()=>carrierLabelFields(),add:['text','field','image','barcode','qr'],sheetClass:tpl=>'fm-lsheet'+(carrierLabelSize(tpl)==='3x4'?' cl-small':''),
   parts:{label:['Label 4 × 6','portrait'],small:['Label 3 × 4','landscape']},samples:()=>carrierLabelSamples(),doc:id=>id,context:id=>carrierLabelCtx(id&&id!=='sample'?id:'SA-10'),columns:{},
   html:(tpl,id,view)=>carrierLabelSheetHTML(tpl,id,view),after:()=>drawFormOverlaps(),pageOf:tpl=>carrierLabelPage(tpl),panel:(part,tpl)=>carrierLabelPanelHTML(part,tpl)}])
  /* Свои формы — в конце строки форм; данные и печать — бланка base. */
@@ -49178,10 +49359,10 @@ function formsBlockLabel(b){
  if(b.type==='section')return DOC_SECTIONS[b.k]||'Section';
  if(b.type==='text'){const t=String(b.text||'').replace(/\s+/g,' ').trim();return t.length>34?t.slice(0,33)+'…':t||'Text';}
  if(b.type==='field'){const f=formsFieldDef(b.field);return (b.prefix?b.prefix.replace(/\s*$/,' '):'')+(f?f.label:b.field);}
- if(b.type==='barcode'){const f=formsFieldDef(b.field);return b.field==='barcode'?'Barcode':'Barcode · '+(f?f.label:b.field);}
+ if(b.type==='barcode'||b.type==='qr'){const f=formsFieldDef(b.field),t=b.type==='qr'?'QR code':'Barcode';return b.field==='barcode'?t:t+' · '+(f?f.label:b.field);}
  return {line:'Line',box:'Frame',image:'Picture'}[b.type]||b.type;
 }
-function formsTypeLabel(b){return {text:'Text',field:'Field',line:'Line',box:'Frame',image:'Picture',barcode:'Barcode',section:'Section'}[b.type]||'Block';}
+function formsTypeLabel(b){return {text:'Text',field:'Field',line:'Line',box:'Frame',image:'Picture',barcode:'Barcode',qr:'QR code',section:'Section'}[b.type]||'Block';}
 /* Новый блок встаёт под части и раздвигает её — ничего не налезает. */
 function formsAddBlock(make){
  const s=formsState();let part=s.sel?s.sel.part:s.part||'every';
@@ -49201,9 +49382,13 @@ function formsAdd(type){
   text:()=>({type:'text',text:'Text',place:'left',w:240,h:14,size:9,lh:14,wrap:true}),
   line:()=>({type:'line',place:'left',w:540,h:0,lw:.6,color:C.line}),
   box:()=>({type:'box',place:'left',w:200,h:40,lw:.6,color:C.line,r:3}),
-  barcode:()=>({type:'barcode',field:'barcode',place:'left',w:200,h:30})}[type];
+  barcode:()=>({type:'barcode',field:'barcode',place:'left',w:200,h:30}),
+  /* QR — квадрат 1″; поле то же, что у штрихкода этой формы (номер), иначе
+     Barcode (владелец 27.11.2026: «заменить бар на QR»). */
+  qr:()=>({type:'qr',field:formsCodeField(),place:'left',w:72,h:72})}[type];
  if(make)formsAddBlock(make);
 }
+function formsCodeField(){const ps=formsDraft().tpl.parts,bar=Object.values(ps).flatMap(p=>p.blocks||[]).find(b=>b.type==='barcode');return bar&&bar.field||'barcode';}
 /* Картинка — в JPEG (PDF вставляет JPEG как есть), не шире 800 точек. */
 function formsPicture(input){
  const file=input.files&&input.files[0];input.value='';if(!file)return;
@@ -49452,20 +49637,23 @@ function formsSheetsHTML(){
    if(String(r.id).startsWith('col:')){const k=r.id.slice(4),on=s.cols&&s.cols.part===r.part&&s.cols.k===k;
     return `<div class="fm-hit fm-colhit${on?' sel':''}" data-forms-hit="${esc(r.part)}|${esc(r.id)}" title="Column" style="left:${pc(r.x,W)};top:${pc(r.y,H)};width:${pc(Math.max(r.w,4),W)};height:${pc(r.h,H)}" ${onAct('pointerdown',formsColumnsDown,EVENT,String(r.part??''),String(k??''))}></div>`;}
    const sel=s.sel&&s.sel.part===r.part&&s.sel.id===r.id,b=formsFind(tpl,r);if(!b)return '';
-   const handles=sel&&b.type!=='section'?'<span class="fm-rs e" data-forms-resize="e"></span>'+(formIsText(b)?'':'<span class="fm-rs s" data-forms-resize="s"></span>'):'';
+   /* Ручка ширины — с той стороны, что ходит: у Right правый край стоит на поле листа, ручка слева. */
+   const side=b.place==='right'?'w':'e',handles=sel&&b.type!=='section'?`<span class="fm-rs ${side}" data-forms-resize="${side}"></span>`+(formIsText(b)||b.type==='qr'?'':'<span class="fm-rs s" data-forms-resize="s"></span>'):'';
    return `<div class="fm-hit${sel?' sel':''}" data-forms-hit="${esc(r.part)}|${esc(r.id)}" title="${esc(formsBlockLabel(b))}" style="left:${pc(r.x,W)};top:${pc(r.y,H)};width:${pc(Math.max(r.w,4),W)};height:${pc(Math.max(r.h,4),H)}" ${onAct('pointerdown',formsPointerStart,EVENT,String(r.part??''),String(r.id??''))}>${handles}</div>`;}).join('');
   return `<div class="fm-sheet" data-forms-page="${i}" data-w="${W}" data-h="${H}">${docPageSVG(pg).replace('width="612" height="792"','width="100%" height="100%"')}${i?'':formsRuler(false,W)+formsRuler(true,H)+formsRulerMarks(tpl)}<div class="fm-margin" style="left:${pc(m.left,W)};right:${pc(m.right,W)}"></div>${formsGuidesHTML(tpl)}${hits}</div>`;
  }).join('');
 }
 function formsStageRefresh(){const st=document.querySelector('[data-forms-stage]');if(st)st.innerHTML=formsSheetsHTML();}
 /* Тянуть блок мышью: Left / Center / Right ходят только вверх-вниз, Free —
-   куда угодно; уголок справа — ширина, снизу — высота рамки и линии. */
+   куда угодно; уголок сбоку — ширина (у Right — слева), снизу — высота рамки
+   и линии. */
 function formsPointerStart(e,part,id){
  if(e.button!==0||formsPointer)return;
  const sheet=e.currentTarget.closest('[data-forms-page]'),stage=e.currentTarget.closest('[data-forms-stage]'),d=formsDraft(),b=formsFind(d.tpl,{part,id});if(!sheet||!b)return;
  e.preventDefault();e.stopPropagation();const s=formsState();s.sel={part,id};s.part=part;
  const handle=e.target.closest('[data-forms-resize]'),r=sheet.getBoundingClientRect();
- formsPointer={part,id,pid:e.pointerId,stage,before:formsClone(d.tpl),b0:formsClone(b),x0:formBlockX(d.tpl,b),handle:handle?handle.dataset.formsResize:'move',x:e.clientX,y:e.clientY,k:(+sheet.dataset.w||d.tpl.page.w)/r.width,moved:false};
+ const k=(+sheet.dataset.w||d.tpl.page.w)/r.width;
+ formsPointer={part,id,pid:e.pointerId,stage,before:formsClone(d.tpl),b0:formsClone(b),x0:formBlockX(d.tpl,b),handle:handle?handle.dataset.formsResize:'move',x:e.clientX,y:e.clientY,k,bw0:e.currentTarget.getBoundingClientRect().width*k,moved:false};
  try{stage.setPointerCapture(e.pointerId);}catch(x){}
  stage.onpointermove=formsPointerMove;stage.onpointerup=ev=>formsPointerEnd(ev,false);stage.onpointercancel=ev=>formsPointerEnd(ev,true);
  formsStageRefresh();
@@ -49474,7 +49662,13 @@ function formsPointerMove(e){
  const p=formsPointer;if(!p||e.pointerId!==p.pid)return;e.preventDefault();
  const b=formsFind(formsDraft().tpl,p),dx=(e.clientX-p.x)*p.k,dy=(e.clientY-p.y)*p.k,r=v=>Math.round(v*2)/2;if(!b)return;
  if(Math.abs(e.clientX-p.x)+Math.abs(e.clientY-p.y)>2)p.moved=true;if(!p.moved)return;
- if(p.handle==='e')b.w=Math.max(8,r((p.b0.w||0)+dx));
+ /* Ручка идёт за мышью: у Right тянут левую (w), у Center блок растёт в обе
+    стороны; у штрихкода вместе с рамкой растягиваются полосы (module). */
+ if(p.handle==='e'||p.handle==='w'){const d=p.handle==='w'?-dx:dx,grow=b.place==='center'?2*d:d;
+  if(b.type==='barcode'&&p.bw0>0){const nw=Math.max(8,p.bw0+grow);b.module=Math.round((p.b0.module||1.44)*nw/p.bw0*1000)/1000;b.w=r(nw);}
+  else b.w=Math.max(8,r((p.b0.w||0)+grow));
+  /* QR — квадрат: высота за шириной. */
+  if(b.type==='qr')b.h=b.w;}
  else if(p.handle==='s')b.h=Math.max(0,r((p.b0.h||0)+dy));
  else{const t=formsDraft().tpl;b.y=r(p.b0.y+dy);
   if(b.place==='free'){const nx=r(p.x0+dx),gx=formsGuides(t,'x'),sl=formsSnap(nx,gx),sr=formsSnap(nx+(b.w||0),gx)-(b.w||0);b.x=sl!==nx?sl:sr;}}
@@ -49500,14 +49694,14 @@ function formsSettingsHTML(tpl){
  const s=formsState();if(s.cols)return formsColsHTML(tpl);const b=formsFind(tpl,s.sel);
  const panel=!b&&formsDef(s.form).panel&&formsDef(s.form).panel(s.part,tpl);if(panel)return panel;
  if(!b){const lab=formsPartLabel(s.part);return `<div class="fm-h">Part · ${esc(lab[0])}</div><p class="fm-note">Click a block on the sheet or in the list. Add puts a new block here.</p>`;}
- const mm=v=>v==null?'':Math.round(v*FORMS_PT_MM*10)/10,f=b.type==='field'||b.type==='barcode'?formsFieldDef(b.field):null,text=formIsText(b);
+ const mm=v=>v==null?'':Math.round(v*FORMS_PT_MM*10)/10,f=b.type==='field'||b.type==='barcode'||b.type==='qr'?formsFieldDef(b.field):null,text=formIsText(b);
  /* Лист чертежа: строка текста в колонке — без ширины, интервала, переноса. */
  const hl=!!formsDef(s.form).html;
  const seg=(cur,list,fn)=>`<div class="fm-seg">${list.map(([k,l])=>`<button type="button" class="${cur===k?'on':''}" ${onAct('click',fn,String(k))}>${l}</button>`).join('')}</div>`;
  const num=(k,label,v,isMm)=>`<label><span>${label}</span><input class="fm-in" data-forms-num="${k}" inputmode="decimal" value="${esc(String(v))}" ${onAct('change',formsNum,String(k),EL_VALUE,!!isMm)}></label>`;
  let what='';
  if(b.type==='text')what=`<label class="wide"><span>Text</span><textarea class="fm-in" data-forms-text rows="3" ${onAct('change',formsSet,'text',EL_VALUE)}>${esc(b.text||'')}</textarea></label><p class="fm-note">Fields in text: {number}, {page} of {pages}</p>`;
- else if(f||b.type==='field'||b.type==='barcode')what=`<label class="wide"><span>Field</span><button type="button" class="fm-in fm-field-btn" data-forms-change ${onAct('click',formsOpenField,'change')}>${esc(f?f.label:b.field)} ▾</button></label>${b.prefix?`<p class="fm-note">Before: “${esc(b.prefix)}”</p>`:''}`;
+ else if(f||b.type==='field'||b.type==='barcode'||b.type==='qr')what=`<label class="wide"><span>Field</span><button type="button" class="fm-in fm-field-btn" data-forms-change ${onAct('click',formsOpenField,'change')}>${esc(f?f.label:b.field)} ▾</button></label>${b.prefix?`<p class="fm-note">Before: “${esc(b.prefix)}”</p>`:''}`;
  else if(b.type==='image')what=`<button type="button" class="fm-wide-btn" ${onAct('click',formsPictureChoose)}>Replace picture</button>`;
  const look=text?`<div class="fm-h">Text</div><div class="fm-row">${num('size','Size, pt',b.size||9)}${hl?'':num('lh','Line spacing, pt',formLh(b))}</div>
    <label><span>Font</span><select class="fm-in" data-forms-font ${onAct('change',formsSet,'font',EL_VALUE)}>${[['','Helvetica'],['times','Times'],['courier','Courier']].map(([k,l])=>`<option value="${k}" ${(b.font||'')===k?'selected':''}>${l}</option>`).join('')}</select></label>
@@ -49520,12 +49714,12 @@ function formsSettingsHTML(tpl){
  return `<div class="fm-h fm-sel-h"><span>Selected · ${esc(formsTypeLabel(b))}</span><button type="button" class="fm-del" data-forms-delete ${onAct('click',formsDelete)}>Delete</button></div>${what}
   ${sec?`<p class="fm-note">Drawn by the program.${formsDef(s.form).custom?' What it shows — ✎ Customize.':''}</p><div class="fm-h">Place on sheet</div><div class="fm-row">${num('y','Y, mm',mm(b.y),true)}</div>`
   :`<div class="fm-h">Place on sheet</div>${seg(b.place||'left',[['left','Left'],['center','Center'],['right','Right'],['free','Free']],formsPlace)}
-  <div class="fm-row">${b.place==='free'?num('x','X, mm',mm(b.x),true):''}${num('y','Y, mm',mm(b.y),true)}${hl?'':num('w','Width, mm',mm(b.w),true)}${text?'':num('h','Height, mm',mm(b.h),true)}</div>`}${hl?drawLayerHTML(b):''}${look}${showIf}${sec?'':`<button type="button" class="fm-wide-btn" data-forms-addto ${onAct('click',formsAddToOpen)}>Add to other forms…</button>`}`;
+  <div class="fm-row">${b.place==='free'?num('x','X, mm',mm(b.x),true):''}${num('y','Y, mm',mm(b.y),true)}${hl&&b.type!=='qr'?'':num('w',b.type==='qr'?'Size, mm':'Width, mm',mm(b.w),true)}${text||b.type==='qr'?'':num('h','Height, mm',mm(b.h),true)}</div>`}${hl?drawLayerHTML(b):''}${look}${showIf}${sec?'':`<button type="button" class="fm-wide-btn" data-forms-addto ${onAct('click',formsAddToOpen)}>Add to other forms…</button>`}`;
 }
 function viewMdForms(){
  const s=formsState(),def=formsDef(s.form),d=formsDraft(),tpl=d.tpl,dirty=formsDirty(),samples=def.samples();
  const ctx=def.context(def.doc(s.sample));
- const add=[['text','Text'],['field','Field'],['image','Picture'],['line','Line'],['box','Frame'],['barcode','Barcode']].filter(([k])=>!def.add||def.add.includes(k));
+ const add=[['text','Text'],['field','Field'],['image','Picture'],['line','Line'],['box','Frame'],['barcode','Barcode'],['qr','QR code']].filter(([k])=>!def.add||def.add.includes(k));
  return `<div class="fm" data-forms>
   <div class="fm-bar"><div class="fm-forms">${formsDefs().map(x=>`<button type="button" class="sl-quick-pill${x.k===s.form?' on':''}" ${onAct('click',formsSetForm,String(x.k))}>${esc(x.label)}</button>`).join('')}</div><span class="fm-sp"></span>
    <label class="fm-preview"><span>Preview</span><select data-forms-sample ${onAct('change',formsSetSample,EL_VALUE)}>${samples.length?samples.map(x=>`<option value="${esc(x.id)}" ${x.id===s.sample?'selected':''}>${esc(x.label)}</option>`).join(''):'<option value="sample">Sample</option>'}</select></label>
