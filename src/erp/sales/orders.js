@@ -342,6 +342,9 @@ function salesOrderSaveCommand(opts){
  if(temperWarnings.length&&!ask('Glass / heat-treatment warning:\n\n- '+temperWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
  const cleanWarnings=salesCleanCutWarnings(soDraft);
  if(cleanWarnings.length&&!ask('Edgework warning:\n\n- '+cleanWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
+ /* Митра вне пределов карточки работы Mitering — спросить, сохранить можно. */
+ const miterWarnings=salesMiterWarnings(soDraft);
+ if(miterWarnings.length&&!ask('Miter angle warning:\n\n- '+miterWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
  /* Габарит станции — тот же приём, что у закалки: предупредить и дать сохранить.
     Решение владельца 13 сентября 2026: запрет на засеянных 144 × 100″ стоял бы
     на пути законных заказов. */
@@ -1451,7 +1454,7 @@ function salesLineChargeRowsRaw(line){
  const s=salesShapeByRef(line&&line.shapeRef);if(!s)return rows.filter(x=>x.basis>0);const r=ShapeModule.compute(s),ctx=salesPricingThickness(line),items=Array.isArray(s.manufacturingItems)?s.manufacturingItems:[];
  salesManufacturingChargeRows(items,ctx).forEach(function(row){rows.push(row);});
  salesSurfaceMarkChargeRows(s.features,ctx,r&&r.valid?r.area/144:0,r&&r.valid?salesShapePerimeterIn(r):0).forEach(function(row){rows.push(row);});
- if(r&&r.valid){(r.edges||[]).forEach(function(g){(shapeEdgeOps(s,g.id)||[]).forEach(function(op){let id='',label=op.type,rate=null;if(op.type==='Rough Arris'){id='roughArris';rate=salesCatalogRate(id,ctx);}else if(op.type==='Flat Polish'){id='flatPolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='Mitering'){id='miter'+String(op.angle||45).replace('.','_');label='Mitering '+(op.angle||45)+'°';rate=+op.angle===22.5?salesCatalogRate('miter225',ctx):null;}else if(op.type==='Beveling'){id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');rate=null;}else return;const key='EDGE:'+id+':'+salesRateBandKey(SALES_ROUTE_EDGE_OP[op.type]||id,ctx),found=rows.find(x=>x.key===key);if(found)found.basis+=g.length;else rows.push(salesChargeRow(key,label,g.length,'in',rate,'Edge Processing'));});});
+ if(r&&r.valid){(r.edges||[]).forEach(function(g){(shapeEdgeOps(s,g.id)||[]).forEach(function(op){let id='',label=op.type,rate=null;if(op.type==='Rough Arris'){id='roughArris';rate=salesCatalogRate(id,ctx);}else if(op.type==='Flat Polish'){id='flatPolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='Mitering'){id='miter';label='Mitering';rate=salesCatalogRate('miter',ctx);}else if(op.type==='Beveling'){id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');rate=null;}else return;const key='EDGE:'+id+':'+salesRateBandKey(SALES_ROUTE_EDGE_OP[op.type]||id,ctx),found=rows.find(x=>x.key===key);if(found)found.basis+=g.length;else rows.push(salesChargeRow(key,label,g.length,'in',rate,'Edge Processing'));});});
   const radiusCount=(s.features||[]).filter(f=>f.type==='radius'&&inch(f.radius)>0).length;if(radiusCount)rows.push(salesChargeRow('FEATURE:radius:'+salesRateBandKey('radiusCorner',ctx),'Radius Corner',radiusCount,'pc',salesCatalogRate('radiusCorner',ctx),'Shape feature'));
   const cutoutCount=(s.features||[]).filter(f=>f.type==='cutout').length;if(cutoutCount)rows.push(salesChargeRow('FEATURE:cutout:'+salesRateBandKey('cutout',ctx),'Cutout',cutoutCount,'pc',null,'Shape feature'));
   /* Нотч — работа, а не геометрия: контур раскроя от него не меняется, но угол

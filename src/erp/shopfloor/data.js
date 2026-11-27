@@ -85,7 +85,7 @@ DEFAULT.station=[
  {seq:2, code:'ARRIS', name:'Arrising',                  nameEn:'Arrising',       always:false, note:'2 machines · rough arris'},
  {seq:2, code:'POLISH',name:'Polishing',                 nameEn:'Polishing',      always:false, note:'3 machines · flat polish · lami polish'},
  {seq:2, code:'BEVEL', name:'Beveling',                  nameEn:'Beveling',       always:false, note:'bevel'},
- {seq:2, code:'MITER', name:'Mitering',                  nameEn:'Mitering',       always:false, note:'miter 22.5° · 45°'},
+ {seq:2, code:'MITER', name:'Mitering',                  nameEn:'Mitering',       always:false, note:'miter 10°–45°'},
  {seq:2, code:'CNC',  name:'CNC',                    nameEn:'CNC',            always:false, note:'CNC shape polish · CNC lami polish · CNC notch · internal cutouts · radii · holes over 1 3/4"'},
  {seq:3, code:'DRILL',name:'Сверловка',              nameEn:'Drilling',       always:false, note:'hinges · clamps · patches · holes up to 1 3/4\" · hand notch. The shop has no larger drills'},
  {seq:5, code:'CERP', name:'Ceramic paint',              nameEn:'Ceramic paint',  always:false, note:'works: ceramic frit (3 patterns) · digital ceramic print'},
@@ -214,8 +214,13 @@ function sfSplitEdgeFix(){
    лайты»; до этого IGU отдавал на скидах). У SHIPR и SHIP опции нет: SHIPR всегда на скидах («шипинг реди уже на скидах»;
    проход 7.10.2026: без скида 104 стекла остались без тары, и SHIP было
    нечего грузить), SHIP грузит скиды в машину. Станция с тарой спрашивает
-   её, если не отсканировали (views/station, «Which dolly?»). */
-const SF_PUTS_ON=[['dolly','Dolly'],['skid','Skid'],['none','—']];
+   её, если не отсканировали (views/station, «Which dolly?»).
+   Dolly + Skid (владелец 27.11.2026: «а вдруг мне нужно и так и так»):
+   своя тара обоих видов — приехавший скид так же «кладу обратно на него»,
+   как долли; слова станции — «dolly or skid». */
+const SF_PUTS_ON=[['dolly','Dolly'],['skid','Skid'],['both','Dolly + Skid'],['none','—']];
+/* Своя ли станции тара этого вида (carrierType().kind — Dolly / Skid). */
+function sfPutsTakes(puts,kind){const k=String(kind||'').toLowerCase();return k==='dolly'||k==='skid'?puts===k||puts==='both':false;}
 function sfPutsOnOwn(code){const sh=typeof shippingStations==='function'?shippingStations():null;return !!sh&&!!code&&(code===sh.ready||code===sh.ship);}
 function sfPutsOn(s){
  if(!s)return 'none';

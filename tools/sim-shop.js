@@ -529,9 +529,9 @@ function simPage() {
       if (station === 'SHIPR') { (READYSET[p.o] = READYSET[p.o] || new Set()).add(p.key + '|' + p.unit); if (!(READYDAY[p.o] >= day)) READYDAY[p.o] = day; }
       if (station === 'CUT') { const k = m + '|' + p.mm; TR.cut[k] = TR.cut[k] || { n: 0, ft2: 0 }; TR.cut[k].n++; TR.cut[k].ft2 += p.area; add(TR.cutBy, who + '|' + m, 1); }
       if (station === 'HEAT') { const k = m + '|' + p.mm; TR.temper[k] = TR.temper[k] || { n: 0, ft2: 0 }; TR.temper[k].n++; TR.temper[k].ft2 += p.area; }
-      const op = station === 'POLISH' ? (p.lamiPolish && p.polished ? 'Lami Polish' : 'Flat Polish') : station === 'ARRIS' ? 'Rough Arris' : station === 'BEVEL' ? 'Beveling 1' : station === 'MITER' ? 'Mitering 45°' : station === 'CNC' && p.edge === 'cnc' ? 'CNC Shape Polish' : '';
+      const op = station === 'POLISH' ? (p.lamiPolish && p.polished ? 'Lami Polish' : 'Flat Polish') : station === 'ARRIS' ? 'Rough Arris' : station === 'BEVEL' ? 'Beveling 1' : station === 'MITER' ? 'Mitering' : station === 'CNC' && p.edge === 'cnc' ? 'CNC Shape Polish' : '';
       if (op) {
-        const rid = op === 'Flat Polish' ? 'flatPolish' : op === 'Rough Arris' ? 'roughArris' : op === 'Lami Polish' ? 'lamiPolish' : op === 'CNC Shape Polish' ? 'cncShapePolish' : op === 'Mitering 45°' ? 'miter45' : 'bevel';
+        const rid = op === 'Flat Polish' ? 'flatPolish' : op === 'Rough Arris' ? 'roughArris' : op === 'Lami Polish' ? 'lamiPolish' : op === 'CNC Shape Polish' ? 'cncShapePolish' : op === 'Mitering' ? 'miter' : 'bevel';
         const inch = op === 'Lami Polish' ? p.perim / 2 : p.perim, rate = rateOf(rid, p.mm), k = who + '|' + op + '|' + p.mm + '|' + m + '|' + (p.ply ? 'lam' : '');
         TR.edge[k] = TR.edge[k] || { in: 0, usd: 0, n: 0 }; TR.edge[k].in += inch; TR.edge[k].usd += rate == null ? 0 : inch * rate; TR.edge[k].n++;
         if (station === 'POLISH') p.polished = true;

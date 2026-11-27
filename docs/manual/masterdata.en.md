@@ -87,6 +87,8 @@ Tables work as in Sales ([lists.en.md](lists.en.md)); fields in settings rows ar
   without a station is not lost: the sheet prints “NO STATION”, Save warns.
   A work billed per ft² (Heat Soak, Shape Unit, sandblasting…) has **Min area, ft²** on the Prices tab: its own
   minimum, empty — by the real area (set to 4 on the 17 Nov 2026 switch).
+  **Mitering** has **Angle from, ° / Angle to, °** there: the miter angles the shop makes (10°–45° out of the box). An
+  order with an angle outside them still saves, Save asks; empty — no limit (27 Nov 2026). Mitering is one work for any angle.
 - **Heat treatment** — tempering types.
 - **Cutting allowance** — how much bigger the glass is cut per side so the edge finishes to size. A row: work ·
   Monolithic (by the glass thickness) or Laminated · ply (by the ply thickness) · thickness from–to, mm · allowance.
@@ -119,7 +121,7 @@ right; the top line reads “group · customers · prices”.
 ## Production
 
 - **Stations** — “Steps in order; same step — parallel.” Stations by route step: code, name, step number, the works
-  done there, **Puts on** (Dolly, Skid or nothing — what the station puts glass on), size, carrier sheet, note, **Machines** —
+  done there, **Puts on** (Dolly, Skid, Dolly + Skid or nothing — what the station puts glass on), size, carrier sheet, note, **Machines** —
   the station's machines, comma separated (`P1, P2, P3`, each with its own scan screen; empty — the whole station), **Working, min** — for how many minutes
   after a scan the station counts as working on the floor plan (empty — 15; beside it “Usual gap” — the station's usual
   break). Adding, editing, removing

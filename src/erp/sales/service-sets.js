@@ -470,6 +470,30 @@ function salesEdgeOpThicknessTargets(lite,op){
   });
   return out;
 }
+/* Угол митры в окнах кромки (владелец 27.11.2026): любое число до десятой,
+   больше 0° и меньше 90° (shapeMiterAngle). Пределы цеха — карточка работы
+   Mitering (angleMin / angleMax, заводские 10°–45°): угол за ними заказ
+   сохраняет, спросив при Save (salesMiterWarnings), — «без кирпичей». */
+function salesMiterLimits(){var w=salesServiceRateRow('miter');return {min:w&&w.angleMin!=null?+w.angleMin:null,max:w&&w.angleMax!=null?+w.angleMax:null};}
+function salesMiterAngleIn(value){var a=shapeMiterAngle(value);if(a==null)alert('Enter a miter angle above 0° and below 90°.');return a;}
+function salesMiterAngleField(angle,act){
+  var l=salesMiterLimits();
+  return `<span class='miter-angle'><input type='number' step='0.1' min='${l.min!=null?l.min:0.1}' max='${l.max!=null?l.max:89.9}' value='${esc(String(angle==null?45:angle))}' data-miter-angle ${act}><span>°</span></span>`;
+}
+function salesMiterOutside(a,l){return l.min!=null&&a<l.min||l.max!=null&&a>l.max;}
+/* Митры вне пределов — строкой на позицию: фигура строки и фигуры лайтов
+   (обработка кромки живёт только в фигуре). */
+function salesMiterWarnings(order){
+  var l=salesMiterLimits(),out=[];if(l.min==null&&l.max==null)return out;
+  var range=(l.min!=null?l.min:0)+'°–'+(l.max!=null?l.max:90)+'°';
+  var opsOf=function(s){var list=[],add=function(m){Object.keys(m||{}).forEach(function(k){(m[k]||[]).forEach(function(o){if(o&&o.type==='Mitering')list.push(+o.angle);});});};if(!s)return list;add(s.edgeOps);Object.keys(s.lites||{}).forEach(function(k){add(s.lites[k]&&s.lites[k].edgeOps);});return list;};
+  (order&&order.lines||[]).forEach(function(line,li){
+    var refs=[line.shapeRef].concat(Object.keys(line.liteShapes||{}).map(function(k){return line.liteShapes[k];})),seen={},bad=[];
+    refs.forEach(function(r){opsOf(r&&r.id?salesShapeByRef(r):null).forEach(function(a){if(salesMiterOutside(a,l)&&!seen[a]){seen[a]=1;bad.push(a+'°');}});});
+    if(bad.length)out.push('Line '+(li+1)+': miter '+bad.join(', ')+' is outside '+range+' (Data → Works → Mitering).');
+  });
+  return out;
+}
 function salesEdgeChargeMetaForServiceSet(op,ctx){
   var id='',label=op.type,rate=null;salesRateFrom=null;
   if(op.type==='Rough Arris'){id='roughArris';rate=salesCatalogRate(id,ctx);}
@@ -477,10 +501,10 @@ function salesEdgeChargeMetaForServiceSet(op,ctx){
   else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}
   else if(op.type==='Lami Polish'){id='lamiPolish';rate=salesCatalogRate(id,ctx);}
   else if(op.type==='CNC Lami Polish'){id='cncLamiPolish';rate=salesCatalogRate(id,ctx);}
-  /* Обе митры теперь тарифицируются: 45° получила свою ставку 10 сентября.
-     Ключ строки по-прежнему выводится из угла, поэтому сохранённые заказы с
-     miter22_5 читаются без миграции. */
-  else if(op.type==='Mitering'){id='miter'+String(op.angle||45).replace('.','_');label='Mitering '+(op.angle||45)+'°';rate=salesCatalogRate(+op.angle===22.5?'miter225':'miter45',ctx);}
+  /* Митра — одна работа за одни деньги при любом угле (владелец 27.11.2026:
+     «не отдельный сервис, а тот же самый за те же деньги»): в счёте одна
+     строка Mitering на все углы, угол — на чертеже и стикере. */
+  else if(op.type==='Mitering'){id='miter';label='Mitering';rate=salesCatalogRate('miter',ctx);}
   /* Фацет тарифицируется с 11 сентября 2026. Полосы у него свои — 3-8 / 9-15 /
      16-19, — и ни одна не ложится на банды 6 / 8-10 / 12-19, поэтому строка
      ищется ДИАПАЗОНОМ по толщине, а не ключом полосы. Ширина фацета остаётся в

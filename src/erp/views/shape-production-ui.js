@@ -376,7 +376,7 @@ function shapeProdToggleDxfOp(edgeId,type,on){
 function shapeProdSetDxfOpParam(edgeId,type,key,value){
   var op=((sDraft.edgeOps&&sDraft.edgeOps[edgeId])||[]).find(function(x){return x.type===type;});if(!op)return;
   if(type==='Mitering'){
-    if(key==='angle')op.angle=+value===22.5?22.5:45;
+    if(key==='angle'){var a=salesMiterAngleIn(value);if(a==null){render();return;}op.angle=a;}
     if(key==='side')op.side=value==='front'?'front':'back';
   }else if(type==='Beveling'){
     if(key==='width'){if(!(inch(value)>0)){alert('Bevel width must be greater than zero.');render();return;}op.width=String(value);}
@@ -397,7 +397,7 @@ function shapeProdClearDxfAR(){
 }
 function shapeProdDxfParams(edge){
   var m=edge.ops.find(function(op){return op.type==='Mitering';}),b=edge.ops.find(function(op){return op.type==='Beveling';});if(!m&&!b)return'';
-  return `<div class='shape-prod-op-params'>${m?`<label>Miter angle<select ${onAct('change',shapeProdSetDxfOpParam,String(edge.id??''),'Mitering','angle',EL_VALUE)}><option value='45' ${+m.angle===45?'selected':''}>45°</option><option value='22.5' ${+m.angle===22.5?'selected':''}>22.5°</option></select></label><label>Miter side<select ${onAct('change',shapeProdSetDxfOpParam,String(edge.id??''),'Mitering','side',EL_VALUE)}><option value='back' ${(m.side||'back')==='back'?'selected':''}>Back mitre</option><option value='front' ${m.side==='front'?'selected':''}>Front mitre</option></select></label>`:''}${b?`<label>Bevel width<input value='${esc(b.width||'1')}' ${onAct('change',shapeProdSetDxfOpParam,String(edge.id??''),'Beveling','width',EL_VALUE)}></label><label>Bevel side<select ${onAct('change',shapeProdSetDxfOpParam,String(edge.id??''),'Beveling','side',EL_VALUE)}><option value='front' ${(b.side||'front')==='front'?'selected':''}>Front bevel</option><option value='back' ${b.side==='back'?'selected':''}>Back bevel</option></select></label>`:''}</div>`;
+  return `<div class='shape-prod-op-params'>${m?`<label>Miter angle${salesMiterAngleField(m.angle,`${onAct('change',shapeProdSetDxfOpParam,String(edge.id??''),'Mitering','angle',EL_VALUE)}`)}</label><label>Miter side<select ${onAct('change',shapeProdSetDxfOpParam,String(edge.id??''),'Mitering','side',EL_VALUE)}><option value='back' ${(m.side||'back')==='back'?'selected':''}>Back mitre</option><option value='front' ${m.side==='front'?'selected':''}>Front mitre</option></select></label>`:''}${b?`<label>Bevel width<input value='${esc(b.width||'1')}' ${onAct('change',shapeProdSetDxfOpParam,String(edge.id??''),'Beveling','width',EL_VALUE)}></label><label>Bevel side<select ${onAct('change',shapeProdSetDxfOpParam,String(edge.id??''),'Beveling','side',EL_VALUE)}><option value='front' ${(b.side||'front')==='front'?'selected':''}>Front bevel</option><option value='back' ${b.side==='back'?'selected':''}>Back bevel</option></select></label>`:''}</div>`;
 }
 function shapeProdDxfEdgeProcessing(){
   var groups=shapeProdDxfGroups(),selected=shapeProdSelectedDxfGroup(),th=shapeThicknessMm(sDraft),count=groups.reduce(function(n,g){return n+g.ops.length;},0);

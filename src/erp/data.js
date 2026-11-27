@@ -302,8 +302,9 @@ const DATA_FIXES=[
  /* Номер 4 · 29 сентября 2026. EDGE разделена по станкам цеха (владелец:
     «полировки 3, аррисинга 2», бевелинг, майтер, CNC Shape Polish — на CNC).
     Работа переезжает, только если стоит на EDGE, — свою станцию владелец мог
-    уже выбрать. Станции, причины брака и сканы — sfSplitEdgeFix. */
- ...['roughArris','flatPolish','cncShapePolish','miter225','miter45','lamiPolish','cncLamiPolish','bevel:3-8','bevel:9-15','bevel:16-19','bevel']
+    уже выбрать. Станции, причины брака и сканы — sfSplitEdgeFix. `miter` —
+    одна митра вместо двух с 27.11.2026 (serviceRateMiterMerge). */
+ ...['roughArris','flatPolish','cncShapePolish','miter225','miter45','miter','lamiPolish','cncLamiPolish','bevel:3-8','bevel:9-15','bevel:16-19','bevel']
   .map(id=>[4,'serviceRate',id,{station:'EDGE'},['station']]),
  /* Номер 5 · 29 сентября 2026. Припуск CNC Shape Polish по плите ламината —
     1/4″, как у одинарного стекла (владелец). Только если стоит заводское

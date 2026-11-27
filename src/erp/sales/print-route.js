@@ -36,7 +36,7 @@ function salesRouteStationOf(code,fallback){
 /* Кромочные операции названы ключами ПРАЙСА, а не кодами цеха: по этому же
    ключу считается цена, и станция обязана приезжать из той же строки. */
 const SALES_ROUTE_EDGE_OP={'Rough Arris':'roughArris','Flat Polish':'flatPolish',
-  'CNC Shape Polish':'cncShapePolish','Mitering':'miter225','Beveling':'bevel',
+  'CNC Shape Polish':'cncShapePolish','Mitering':'miter','Beveling':'bevel',
   'Lami Polish':'lamiPolish','CNC Lami Polish':'cncLamiPolish'};
 /* Запасного словаря станций у операций больше нет (этап 4, часть 3 плана
    Master Data): станцию даёт только карточка работы. Нет станции — операция

@@ -823,6 +823,10 @@ function normalizeServiceRate(r){
   /* Свой минимум площади работы за ft² (владелец 17.11.2026): пусто — по
      настоящей площади, от стекла не зависит. */
   minAreaFt2:num(r.minAreaFt2),
+  /* Пределы угла (митра, владелец 27.11.2026: «можем делать от 10 до 45») —
+     только у работы, где они заданы: строки остальных работ прежние. За
+     пределом заказ спрашивает при Save, не запрещает. */
+  ...(num(r.angleMin)!=null?{angleMin:num(r.angleMin)}:{}),...(num(r.angleMax)!=null?{angleMax:num(r.angleMax)}:{}),
   rule:normalizeServiceRule(r.rule),
   minutesPerUnit:num(r.minutesPerUnit),setupMinutes:num(r.setupMinutes),
   note:mdString(r.note),active:r.active!==false
@@ -941,6 +945,8 @@ function salesWorkForValue(family,value){
 /* Порог ручного сверла 1 3/4″ — граница строк 1-1/16″–1-3/4″ (DRILL) и
    1-13/16″–2″ (CNC): станцию отверстия даёт строка его диапазона (этап 4,
    часть 3 плана Master Data), в коде порога больше нет. */
+/* Заводские пределы угла митры, градусы (владелец 27.11.2026). */
+const SERVICE_ANGLE_SEED={miter:{angleMin:10,angleMax:45}};
 const SERVICE_HOLE_SEED={'hole:0.5-1':[null,1],'hole:1-2':[1.0625,1.75],'hole:1.75-2':[1.8125,2],'hole:2-3':[2.0625,3],'hole:3-4':[3.0625,4],'hole:4+':[4.0625,null]};
 const SERVICE_RATE_SEED=[
  /* Четвёртое поле — СТАНЦИЯ. С 11 сентября 2026 работа несёт и станцию, и цену
@@ -965,11 +971,10 @@ const SERVICE_RATE_SEED=[
  ['roughArris',       'Rough Arris',           'in',  'ARRIS',  [.01,.02,.03]],
  ['flatPolish',       'Flat Polish',           'in',  'POLISH',  [.07,.10,.13]],
  ['cncShapePolish',   'CNC Shape Polish',      'in',  'CNC',  [.28,.38,.48]],
- ['miter225',         'Mitering 22.5°',        'in',  'MITER',  [.28,.38,.45]],
- /* Митры 45° в прайсе нет; владелец 10 сентября: «столько же, сколько и 22,5».
-    Отдельной строкой, а не ссылкой: когда цены разойдутся, правится одно
-    число, а ключи сохранённых заказов не поедут. */
- ['miter45',          'Mitering 45°',          'in',  'MITER',  [.28,.38,.45]],
+ /* Митра — одна работа на любой угол (владелец 27.11.2026); пределы угла
+    цеха — angleMin / angleMax (SERVICE_ANGLE_SEED). До 27.11 было две работы,
+    miter225 и miter45 с одной ценой, — serviceRateMiterMerge. */
+ ['miter',            'Mitering',              'in',  'MITER',  [.28,.38,.45]],
  ['radiusCorner',     'Radius Corner',         'pc',  'CNC',   [10,12,15]],
  ['notchHand',        'Notch by hand',         'pc',  'DRILL', [10,15,20]],
  ['notchCnc',         'Notch by CNC',          'pc',  'CNC',   [15,20,25]],
@@ -978,7 +983,8 @@ const SERVICE_RATE_SEED=[
  ['sandblastPattern', 'Pattern Sandblasting',  'ft²', 'SAND',  [6,6,6]]
 ].map(x=>normalizeServiceRate(Object.assign({id:x[0],name:x[1],unit:x[2],station:x[3],
   tiers:[{id:'6',to:7,price:x[4][0]},{id:'8-10',from:8,to:11,price:x[4][1]},{id:'12-19',from:12,to:19,price:x[4][2]}],active:x[5]!==false},
-  SERVICE_HOLE_SEED[x[0]]?{family:'hole',appliesBy:'diameter',appliesFrom:SERVICE_HOLE_SEED[x[0]][0],appliesTo:SERVICE_HOLE_SEED[x[0]][1]}:{})))
+  SERVICE_HOLE_SEED[x[0]]?{family:'hole',appliesBy:'diameter',appliesFrom:SERVICE_HOLE_SEED[x[0]][0],appliesTo:SERVICE_HOLE_SEED[x[0]][1]}:{},
+  SERVICE_ANGLE_SEED[x[0]]||{})))
 /* Ставки, у которых цена одна на любую толщину. Разводить три одинаковые
    цифры значило бы придумать различие, которого у цеха нет; а появятся банды —
    владелец переключит вид строки на экране, кода это не потребует. */
@@ -1034,11 +1040,24 @@ SERVICE_RATE_SEED.push(
  normalizeServiceRate({id:'triple',name:'Triple unit',unit:'%',station:'',tiers:[{id:'flat',price:50}],rule:{kind:'percent',unitTypes:['triple'],priority:1}}),
  normalizeServiceRate({id:'largeUnit',name:'Large unit',unit:'%',station:'',tiers:[{id:'flat',price:50}],rule:{kind:'percent',areaOver:60,priority:2}}));
 DEFAULT.serviceRate=SERVICE_RATE_SEED;
+/* Две митры (22.5° и 45°, одна цена) — одна работа `miter` (владелец
+   27.11.2026). Цены, станция и включённость берутся у 45°, нет её — у 22.5°;
+   имя «Mitering 45°» становится «Mitering», своё имя владельца остаётся.
+   Пределы угла — заводские 10°–45°. */
+function serviceRateMiterMerge(){
+ const old=DB.serviceRate.filter(r=>r&&(r.id==='miter45'||r.id==='miter225'));if(!old.length)return;
+ if(!DB.serviceRate.some(r=>r&&r.id==='miter')){
+  const from=old.find(r=>r.id==='miter45')||old[0],name=/^Mitering (22\.5|45)°$/.test(from.name||'')?'Mitering':from.name;
+  DB.serviceRate.splice(DB.serviceRate.indexOf(from),0,Object.assign(JSON.parse(JSON.stringify(from)),{id:'miter',name},SERVICE_ANGLE_SEED.miter));
+ }
+ DB.serviceRate=DB.serviceRate.filter(r=>old.indexOf(r)<0);
+}
 /* Перенос сохранённого прайса на этап 4: три строки фацета с диапазоном
    толщины становятся одной работой `bevel` с таблицей (цены владельца
    переезжают), у отверстий диапазон диаметра встаёт из заводского. */
 function serviceRateStage4Migrate(){
  if(!Array.isArray(DB.serviceRate))return;
+ serviceRateMiterMerge();
  const old=DB.serviceRate.filter(r=>r&&/^bevel:/.test(r.id)&&r.appliesBy==='thickness');
  if(old.length){
   if(!DB.serviceRate.some(r=>r&&r.id==='bevel'))DB.serviceRate.push(Object.assign({},old[0],{id:'bevel',name:'Beveling',family:'',appliesBy:'',appliesFrom:null,appliesTo:null,kind:undefined,flat:undefined,

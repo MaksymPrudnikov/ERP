@@ -27,7 +27,8 @@ Customers, Agents, Users and Data.
   One rule in every table, as in Excel: drag an edge — only that column changes, the columns to its left stay put,
   those to its right shift as a whole; no column shrinks by itself. A table wider than the screen: the columns nobody
   widened by hand shrink (not below their header) when the whole table then fits (27 Nov 2026); if not, it scrolls
-  sideways; a narrower one leaves empty space at the end. Until widths are touched, the long column (Customer, Glass, Name…)
+  sideways; a column that must not be cut (a field with its tag, two lines of a size — Step and Size in Stations) does not
+  shrink below its own width; a narrower one leaves empty space at the end. Until widths are touched, the long column (Customer, Glass, Name…)
   takes the rest of the screen.
 - **Alignment** — one rule in every table, set by the column type: text and dates (Customer, PO, Status, Due,
   Makeup…) on the left, numbers and money (Units, Area ft², Ready, Total, Balance, Qty, days…) on the right, as in

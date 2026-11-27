@@ -70,7 +70,9 @@ function carrierLoose(){
  }));
  return by;
 }
-function carrierLooseWord(list){return list.length&&list.every(x=>x.puts==='skid')?'No skid':'No dolly';}
+/* «No dolly or skid» — станция, что кладёт на тару обоих видов (Dolly + Skid). */
+function carrierLooseWord(list){return list.length&&list.every(x=>x.puts==='skid')?'No skid':list.some(x=>x.puts==='both')||list.some(x=>x.puts==='skid')?'No dolly or skid':'No dolly';}
+function carrierLooseOn(word){return String(word||'No dolly').replace(/^No /,'');}
 
 /* ----------------------------- Колонки ----------------------------- */
 /* Все колонки видны сразу (владелец: «добавь все, лишнее уберём
@@ -317,7 +319,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&carrierWin&&!(typeo
    документов (DOC_COLOR), а не темы экрана: тёмная тема на бумагу не идёт. */
 const CARRIER_NOWRAP=['pos','line','size','id','next','due','weight'];
 function carrierStamp(iso){return iso?docDate(finLocalDate(iso))+' · '+stationTime(iso):'—';}
-function carrierSheetKind(m){return m.code?(carrierWord(m.code)==='skid'?'Skid contents':'Dolly contents'):'Not on a '+(m.word==='No skid'?'skid':'dolly');}
+function carrierSheetKind(m){return m.code?(carrierWord(m.code)==='skid'?'Skid contents':'Dolly contents'):'Not on a '+carrierLooseOn(m.word);}
 /* «Printed … by … at …» — строка низа страницы листа. */
 let carrierPrintWhere='';
 function carrierPrintedLine(who,where){return 'Printed '+carrierStamp(new Date().toISOString())+(who&&who.name?' by '+who.name:'')+(where?' at '+where:'');}
@@ -448,7 +450,7 @@ function viewProdCarriers(){
  const groups=[];
  if(show==='loaded'||show==='all')stations.forEach(s=>{
   const list=cards.filter(c=>c.kind!=='out'&&c.station===s),d=list.filter(c=>c.code&&carrierWord(c.code)==='dolly').length,k=list.filter(c=>c.code&&carrierWord(c.code)==='skid').length,loose=list.find(c=>!c.code);
-  const sub=[d?many(d,'dolly','dollies'):'',k?many(k,'skid','skids'):'',loose?(loose.word==='No skid'?'not on a skid ':'not on a dolly ')+loose.here.length:''].filter(Boolean).join(' · ');
+  const sub=[d?many(d,'dolly','dollies'):'',k?many(k,'skid','skids'):'',loose?'not on a '+carrierLooseOn(loose.word)+' '+loose.here.length:''].filter(Boolean).join(' · ');
   groups.push(group(s,sub,list.sort((a,b)=>(a.code?1:0)-(b.code?1:0)||String(a.code).localeCompare(String(b.code),'en',{numeric:true})).map(carrierCardHTML).join(''),s));
  });
  if(show==='out'||show==='all'){

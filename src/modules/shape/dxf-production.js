@@ -110,7 +110,7 @@ function shapeValidateEdgeOperations(ops,edgeId){
     var op=list[i];
     if(seen[op.type])return {ok:false,reason:'Edge '+edgeId+': duplicate '+op.type+' operation.'};
     seen[op.type]=true;
-    if(op.type==='Mitering'&&[22.5,45].indexOf(+op.angle)<0)return {ok:false,reason:'Edge '+edgeId+': Mitering angle must be 22.5° or 45°.'};
+    if(op.type==='Mitering'&&shapeMiterAngle(op.angle)==null)return {ok:false,reason:'Edge '+edgeId+': Mitering angle must be above 0° and below 90°.'};
     if(op.type==='Beveling'&&!(inch(op.width)>0))return {ok:false,reason:'Edge '+edgeId+': Bevel width must be greater than zero.'};
   }
   var conflict=shapeFinishConflict(list,edgeId);if(conflict)return {ok:false,reason:conflict};

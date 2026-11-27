@@ -194,8 +194,10 @@ hides the bar (24 Nov 2026).
 Scan the carrier first, then what goes on it (owner, 29 Sep 2026). Scanning a carrier code: if it holds glass for this
 station — “DL-1 arrived”, its stack on the right; otherwise “Putting on DL-2”, and every next glass goes on it. Forgot
 to pick a carrier — the scan still counts, the card shows a yellow strip “WHICH DOLLY?”; the next carrier scanned takes
-that glass. Nothing is blocked without a carrier (owner, 7 Oct 2026). What a station puts glass on — Dolly, Skid or
-nothing — is the Puts on column in Data → Stations.
+that glass. Nothing is blocked without a carrier (owner, 7 Oct 2026). What a station puts glass on — Dolly, Skid,
+**Dolly + Skid** or nothing — is the Puts on column in Data → Stations. Dolly + Skid (27 Nov 2026): both kinds are the
+station's own — a skid that arrives with glass, like a dolly, becomes “putting on it”, and the station asks “WHICH DOLLY
+OR SKID?”.
 
 ### Queue
 

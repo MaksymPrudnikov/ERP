@@ -92,13 +92,18 @@ function shapeTextValue(v,d){return String(v==null?(d==null?'':d):v);}
    новый создавался на каждой нормализации и выбрасывался: Finance на базе
    3 мес. тратил на это треть экрана (задание «База», П2). */
 function shapeIdValue(v,prefix){return v==null?shapeNewEntityId(prefix):String(v);}
+/* Угол митры — любое число больше 0° и меньше 90°, до десятой градуса
+   (владелец 27.11.2026: «от 10 до 45… вдруг можно выше 45», «до десятой —
+   23.1»). Пределы цеха (10°–45°) — в карточке работы Mitering, это вопрос
+   при Save, а не правило фигуры. Не число — null. */
+function shapeMiterAngle(v){var n=Math.round(+v*10)/10;return v!==''&&v!=null&&isFinite(n)&&n>0&&n<90?n:null;}
 function shapeNormalizeOp(op){
   op=shapePlainObject(op);var type=SHAPE_EDGE_OPS.indexOf(op.type)>=0?op.type:null;if(!type)return null;
   var out={id:shapeIdValue(op.id,'eo-'),type:type};
   /* Сторона обработки — производственный параметр, а не оформление:
      Front Mitre оставляет длинной ЛИЦЕВУЮ грань и подрезает тыльную,
      Back Mitre — наоборот. От неё зависит вид сверху и тип машинной линии. */
-  if(type==='Mitering'){out.angle=[22.5,45].indexOf(+op.angle)>=0?+op.angle:45;out.side=op.side==='front'?'front':'back';}
+  if(type==='Mitering'){out.angle=shapeMiterAngle(op.angle)||45;out.side=op.side==='front'?'front':'back';}
   if(type==='Beveling'){out.width=shapeTextValue(op.width,'1');out.side=op.side==='back'?'back':'front';}
   return out;
 }

@@ -151,6 +151,19 @@ sheet.
 - Heat-treated glass (HS, Tempered) with Clean cut: the edge is processed before the furnace, so a yellow
   "Heat-treated · N edges without edgework" line in Edgework and a question on Save — **saving is allowed**.
 
+## Mitering — any angle, one price
+
+- Mitering is one work, **Mitering**, at one price for any angle (owner, 27 Nov 2026: “not a separate service but the
+  same one for the same money”). Type the angle as a number in the edge window (shape Edgework, line Services, DXF) —
+  to a tenth of a degree: 23.1, 37.5, 45. Side — Back or Front, as before.
+- The invoice has one **Mitering** row: inches of all mitred edges together, the price from Data → Works → Mitering. The
+  angle shows on the drawing, the sticker and the MITER station route (“23.1° Back Mitre”).
+- The shop's limits are on the work card: **Angle from / Angle to** (10°–45° out of the box). An order with an angle
+  outside them still saves: Save asks “Miter angle warning … Save this order anyway?”. Above 0° and below 90° is the
+  shape's own rule.
+- Until 27 Nov 2026 there were two works, Mitering 22.5° and Mitering 45° (one price); the database turns them into one
+  by itself — prices from 45°.
+
 ## Surcharges window — order surcharges
 
 The Surcharges button above the lines. Surcharges are Data → Works items with a rule (percent or minimum area).
