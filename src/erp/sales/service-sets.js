@@ -475,7 +475,7 @@ function salesEdgeOpThicknessTargets(lite,op){
    Mitering (angleMin / angleMax, заводские 10°–45°): угол за ними заказ
    сохраняет, спросив при Save (salesMiterWarnings), — «без кирпичей». */
 function salesMiterLimits(){var w=salesServiceRateRow('miter');return {min:w&&w.angleMin!=null?+w.angleMin:null,max:w&&w.angleMax!=null?+w.angleMax:null};}
-function salesMiterAngleIn(value){var a=shapeMiterAngle(value);if(a==null)alert('Enter a miter angle above 0° and below 90°.');return a;}
+function salesMiterAngleIn(value){var a=shapeMiterAngle(typeof value==='string'?value.replace(',','.'):value);if(a==null)alert('Enter a miter angle above 0° and below 90°.');return a;}
 function salesMiterAngleField(angle,act){
   var l=salesMiterLimits();
   return `<span class='miter-angle'><input type='number' step='0.1' min='${l.min!=null?l.min:0.1}' max='${l.max!=null?l.max:89.9}' value='${esc(String(angle==null?45:angle))}' data-miter-angle ${act}><span>°</span></span>`;

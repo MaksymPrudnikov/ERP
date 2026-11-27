@@ -232,7 +232,15 @@ function salesApplyOrderCharges(subtotal,raw,itemBase){
    Работа — снимок заказа на Save (priceBook «snap:svcOn:…»), как цена;
    разовый сервис хранит набор сам. Позиции склада — по набору стекла. */
 function salesBookOn(key,live,order){const v=salesBook(key,live,order);return v==null?null:String(v).split(',').filter(Boolean);}
-function salesWorkOn(svc,order){return salesBookOn('snap:svcOn:'+svc,()=>{const w=salesServiceRateRow(svc),on=w&&w.chargeCode?orderSetupCodeOn(w.chargeCode):null;return on?on.join(','):null;},order);}
+/* Сохранённый заказ без снимка набора работы (записан, когда у работ кодов
+   не было) — набор стекла, как при его Save: код, поставленный работе потом,
+   его не меняет (аудит 27.11.2026). Открытый в Sales заказ и сама запись Save
+   берут сегодняшний код работы — его и записывает Save. */
+function salesWorkOn(svc,order){
+ const key='snap:svcOn:'+svc,b=order&&order.priceBook;
+ if(b&&!Object.prototype.hasOwnProperty.call(b,key)&&!salesBookRec&&order!==(typeof soDraft==='undefined'?null:soDraft))return null;
+ return salesBookOn(key,()=>{const w=salesServiceRateRow(svc),on=w&&w.chargeCode?orderSetupCodeOn(w.chargeCode):null;return on?on.join(','):null;},order);
+}
 function salesChargeRowOn(row,line,order){
  const xid=typeof salesExtraIdOfKey==='function'?salesExtraIdOfKey(row.key):'';
  if(xid){const x=(line.extraServices||[]).find(e=>e.id===xid);if(x&&Array.isArray(x.on))return x.on;if(x&&x.rateId)return salesWorkOn(x.rateId,order);return null;}

@@ -84,7 +84,7 @@ function normalizeOrderSetup(){
   out.deliveryCode=orderCodeFor(out,[flag('hstOnDelivery',false)&&'hst',flag('cardOnDelivery',false)&&'card']);
   out.skidDepositCode=orderCodeFor(out,[]);
  }else ORDER_CHARGE_CODED.forEach(k=>{out[k+'Code']=has(s[k+'Code'])?s[k+'Code']:first;});
- out.charges.forEach(x=>{if(!has(x.code))x.code=orderCodeFor(out,[]);});
+ out.charges.forEach(x=>{if(!has(x.code))x.code=first;});
  /* Код новой работы и нового разового сервиса. */
  ['workCode','extraCode'].forEach(k=>{out[k]=has(s[k])?s[k]:first;});
  DB.orderSetup=out;
