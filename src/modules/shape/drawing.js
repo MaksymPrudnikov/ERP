@@ -579,7 +579,7 @@ function shapeEdgeLabelsSvg(result,F,layer,metricMode,layoutOpts,metricClean,ext
      стороны — общий размер — уходит за них: крупная подпись иначе ложилась
      на их подписи (28.09.2026, кегль 18). */
   var mfgSide={L:0,R:0,T:0,B:0},mfgKey={left:'L',right:'R',top:'T',bottom:'B'};
-  ((result.definition&&result.definition.manufacturingItems)||[]).forEach(function(it){var k=it&&it.type!=='hole'&&mfgKey[it.edge];if(k)mfgSide[k]=Math.min(4,mfgSide[k]+1);});
+  ((result.definition&&result.definition.manufacturingItems)||[]).forEach(function(it){var k=it&&it.type!=='hole'&&!it.cutoutId&&mfgKey[it.edge];if(k)mfgSide[k]=Math.min(4,mfgSide[k]+1);});
   /* Раскладка ставит «лесенку» накопительных размеров над стеклом (ряд на
      каждый вертикальный бар со второго) и справа (горизонтальные), шаг до
      22 px и подпись над линией. Размер стороны — снаружи лесенки. */
@@ -650,7 +650,7 @@ function shapeEdgeLabelsSvg(result,F,layer,metricMode,layoutOpts,metricClean,ext
 function shapeProductionFeaturesSvg(result,F){
   var fg=result.featureGeometry,out='';
   fg.holes.forEach(function(h,i){var x=F.X(h.center[0]),y=F.Y(h.center[1]),r=Math.max(3,h.diameter/2*F.sc),right=h.center[0]<(F.b.minX+F.b.maxX)/2,lx=x+(right?55:-55),anchor=right?'start':'end';out+='<circle class="shape-feature" cx="'+x+'" cy="'+y+'" r="'+r+'" fill="#fff" stroke="#101828" stroke-width="1.5"/><line x1="'+(x+(right?r:-r))+'" y1="'+(y-r)+'" x2="'+lx+'" y2="'+(y-28-i*4)+'" stroke="#667085"/><text x="'+(lx+(right?4:-4))+'" y="'+(y-30-i*4)+'" class="shape-feature-text" text-anchor="'+anchor+'" font-size="13" fill="#101828">Ø '+shapeXml(shapeDrawingDim(h.diameter))+' · X '+shapeXml(shapeDrawingDim(h.center[0]))+' · Y '+shapeXml(shapeDrawingDim(h.center[1]))+'</text>';});
-  fg.cutouts.forEach(function(c,i){out+='<path class="shape-feature" d="'+shapeSvgPath(c.points,F.X,F.Y)+'" fill="#fff" stroke="#101828" stroke-width="1.5"/><text x="'+F.X(c.x+c.width/2)+'" y="'+(F.Y(c.y+c.height)-8-i*3)+'" class="shape-feature-text" text-anchor="middle" font-size="13" fill="#101828">CUTOUT '+shapeXml(shapeDrawingDim(c.width))+' × '+shapeXml(shapeDrawingDim(c.height))+'</text>';});
+  fg.cutouts.forEach(function(c,i){out+='<path class="shape-feature" d="'+shapeSvgPath(c.points,F.X,F.Y)+'" fill="#fff" stroke="#101828" stroke-width="1.5"/><text x="'+F.X(c.x+c.width/2)+'" y="'+(F.Y(c.y+c.height)-8-i*3)+'" class="shape-feature-text" text-anchor="middle" font-size="13" fill="#101828">CUTOUT '+shapeXml(shapeDrawingDim(c.width))+' × '+shapeXml(shapeDrawingDim(c.height))+'</text>'+shapeCutoutRadiusSvg(c,F);});
   fg.hardware.forEach(function(h,i){if(h.invalid)return;out+='<path class="shape-feature" d="'+shapeSvgPath(h.points,F.X,F.Y)+'" fill="#fff" stroke="#7f56d9" stroke-width="1.7"/><circle cx="'+F.X(h.center[0])+'" cy="'+F.Y(h.center[1])+'" r="'+Math.max(2,h.holeDia/2*F.sc)+'" fill="#fff" stroke="#7f56d9"/><text x="'+(F.X(h.center[0])+12)+'" y="'+(F.Y(h.center[1])-12-i*3)+'" class="shape-feature-text" font-size="13" fill="#6941c6">'+shapeXml(h.name)+' · '+shapeXml(h.edgeId)+'</text>';});
   /* Штамп — только надпись: рамки вокруг нет (владелец, 25.11.2026: «штампу
      не нужна обводка»). Белая подложка без линии прячет контур под буквами. */
@@ -659,6 +659,15 @@ function shapeProductionFeaturesSvg(result,F){
 }
 /* The radius is a feature of the finished contour, not the length of its
    sampled arc.  Place one R callout at the displayed arc for every fillet. */
+/* Радиус углов выреза — выноской «R 4» от середины дуги верхнего правого угла
+   наружу, как у скруглённого угла стекла (владелец, 26.11.2026: «задал
+   радиус, а на чертеже его не видно»). Углы выреза одинаковые — подпись одна. */
+function shapeCutoutRadiusSvg(c,F){
+  var r=+c.cornerRadius;if(!(r>0))return '';
+  var k=Math.SQRT1_2,px=F.X(c.x+c.width-r+r*k),py=F.Y(c.y+c.height-r+r*k);
+  return '<g class="shape-cutout-radius" data-cutout-radius="'+shapeXml(c.id)+'"><line class="shape-feature" x1="'+px+'" y1="'+py+'" x2="'+(px+16)+'" y2="'+(py-16)+'" stroke="#344054" stroke-width="1"/>'+
+    '<text x="'+(px+19)+'" y="'+(py-19)+'" class="shape-feature-text" font-size="13" font-weight="700" fill="#101828">R '+shapeXml(shapeDrawingDim(r))+'</text></g>';
+}
 function shapeRadiusCalloutsSvg(result,L,opts){
   var meta=result.geometry&&result.geometry.radiusMeta||{},edges=result.geometry&&result.geometry.edges||[],out='',box=L.box,cx=(box.left+box.right)/2,cy=(box.top+box.bottom)/2;
   Object.keys(meta).forEach(function(id){

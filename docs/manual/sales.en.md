@@ -127,6 +127,17 @@ sheet.
   release the place is written to 1/16″, outside the glass the stamp is not dropped. A new stamp sits at the lower
   right corner so that the whole text is on the glass.
 
+## Hinges and clamps on a cutout edge
+
+- Hardware (Hinge, Clamp, Patch and your own kinds) sits on an edge: the card's **Edge** lists the glass edges (Left,
+  Right, Bottom, Top) and the sides of every internal cutout: "Cutout 20″ × 40″ · Left / Right / Bottom / Top".
+- On a cutout side **Distance to center** runs from the cutout corner: on left and right — from the bottom corner
+  (Reference Top — from the top one), on bottom and top — from the left corner (Right — from the right one).
+- **Pick on drawing** — a click near a cutout edge places the item on it. Move or resize the cutout and the hardware
+  moves with it. Delete the cutout and the hardware stays on the same side, now on the glass edge.
+- On the drawing the dimension runs inside the opening from the cutout corner, the model label sits outside on the
+  glass. The cutout corner radius is labelled "R 4".
+
 ## Clean cut — glass without edge processing
 
 - An edge without processing gets the glass base edge: up to 8 mm Rough Arris, from 10 mm Flat Polish. A clean cut

@@ -236,6 +236,9 @@ function shapeNormalizeManufacturingItem(raw){
     var modelId=shapeTextValue(raw.modelId,'').trim().slice(0,64),model=shapeTextValue(raw.model,'').trim().slice(0,60);
     if(modelId)out.modelId=modelId;
     if(model)out.model=model;
+    /* На краю внутреннего выреза (27.11.2026): id выреза, край — его сторона,
+       расстояние — от его угла. Пишется только когда есть. */
+    var cutoutId=shapeTextValue(raw.cutoutId,'').trim().slice(0,64);if(cutoutId)out.cutoutId=cutoutId;
   }
   return out;
 }
