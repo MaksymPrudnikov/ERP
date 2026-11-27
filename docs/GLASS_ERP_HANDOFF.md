@@ -1,6 +1,6 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 5.351 · 27 ноября 2026 — тара Dolly + Skid, одна митра с любым углом, ровные таблицы Setup и Stations.
+Версия 5.352 · 27 ноября 2026 — коды сборов заказа (ES · HST · Card fee), свои сборы, код у работы и разового сервиса.
 
 ## Как читать
 
@@ -44,14 +44,14 @@
   хранится и вне базы, не повторяется после старой выгрузки; с сервером — блоками `cloudNumbersReserve`.
 - Посчитанное живёт между отрисовками (`READ_KEEP`, `erp/read-scope`), сброс — любая запись и новый день.
 - Страница ходит только туда, что в CSP (`build/build.js`): свой сайт, `https://*.supabase.co`, Google Maps; `test/csp.js`.
-  **Встроенный код запрещён** (`script-src` без `'unsafe-inline'`, PR 5 задания ниже, 14.11): обработчик `onclick="…"`
+  **Встроенный код запрещён** (`script-src` без `'unsafe-inline'`, 14.11): обработчик `onclick="…"`
   или `<script>`, попавший в страницу (текст из базы без `esc`), браузер не выполняет. Свой единственный встроенный
   `<script>` страница пропускает по хешу: сборка считает `sha256` его текста и кладёт `'sha256-…'` в `script-src`
   (`cspWithScript`, `renderHtml` / `renderWeb`) — в `dist/GLASS_ERP.html` это весь код, в `src/index.html` — метка
   сборки (`ERP_BUILD`). Правка модуля меняет метку, а с ней и хеш, — `npm run build:web` после правки `src/` и так
   обязателен. Стили `style="…"` можно (`style-src 'unsafe-inline'` оставлен). Новый `<script>` в разметке
   (`src/shell.html`, строки модулей) не заработает — код только в модулях манифеста.
-- **Действия экрана без кода в разметке** (`src/core/actions.js`, задание `ЗАДАЧА_CSP_БЕЗ_INLINE.md`, 14.11): кнопка
+- **Действия экрана без кода в разметке** (`src/core/actions.js`, 14.11): кнопка
   несёт имя функции и аргументы данными (`data-on-click`, `data-args-click`), вызывает один слушатель на `document`
   — только функции из реестра (их кладёт туда `onAct` при отрисовке), имя из разметки в `window` не ищется.
   Порядок прежний: от цели вверх, раньше слушателей `document`; `event.stopPropagation()` и `event.currentTarget`
@@ -65,9 +65,7 @@
   осталось (14.11). Имя действия, которое берёт функцию чужого раздела, —
   тоже вызов снаружи: оно должно быть в `FIN_API` / `STOCK_API` / `SHIP_API` (`test/sections-api.js`).
 - **Новый `onclick` в любом модуле или `src/shell.html` — красный `test/docs.js`** (`inlineProblems`,
-  `tools/csp-handlers.js`): в странице он молча не сработал бы. Ветка, начатая раньше, переводит свои обработчики
-  `node tools/csp-handlers.js --write <файлы>` (простые формы; остальные печатает «руками» с причиной), `git diff`
-  прочитать по каждому файлу (что проверять — в шапке скрипта). Функция, которую подменяют на `window[name]`, должна
+  `tools/csp-handlers.js`): в странице он молча не сработал бы. Функция, которую подменяют на `window[name]`, должна
   сохранить имя (`Object.defineProperty(fn,'name',…)`, так в `sales-shape-ui.js` и `reports/archive-facts.js`); тесты
   ищут элемент по `[data-on-click="имя"]`. Кнопку записи база узнаёт по имени действия
   (`storageLockButtons`): имя новой функции-обёртки должно так же подходить под `save*`, `*Save`, `*Create`, `del*`,
@@ -165,6 +163,8 @@
   заданию `docs/ЗАДАЧА_ПОЧТА_ЗАКАЗЫ.md` — пилот на настоящем ящике, метки в списке писем, Chrome Web Store.
 
 **Как устроено**
+- Сборы — `salesApplyOrderCharges` (база сбора — вещи с ним в наборе: `salesOrderChargeDeltas`, работа — снимок
+  `snap:svcOn:` в priceBook), окно — `salesOrderChargesPanel`, под итогом — базы (`salesChargeBasesHTML`).
 - Заказ — параметр расчёта: `salesOrderCommercialTotals(order)`, чужой заказ — `salesOrderArg`; `soDraft` только для
   открытого в Sales (этап 4 «до 10»). Расчёт строки `erp/sales/line-metrics`, работы `line-measure`, фигура
   `salesLineCutRect`, Save в фоне `save-job.js`, журнал `order-log.js` (`DB.orderEvent`), Hold `line-hold.js`.
@@ -474,7 +474,7 @@ Ready по скану, packing slip (PS), погрузка на SHIP, части
   сначала возвращается в работу (`finBringBack`). Номера возврата RF- — с сервера.
 - Экраны Finance — на действиях `onAct`: поля прихода — `finDraftSet`, окна действия по
   заказу — `finActionSet`; действия строки списка (`r.acts`) — `[label, [функция, …аргументы], атрибуты]`, меню
-  правой кнопки зовёт их через `finListMenuRun`; плитки сводки — так же функцией и аргументами.
+  правой кнопки зовёт их через `finListMenuRun`.
 - Сторожа: `test/finance*.js`, `fin-journal`, `invoice`, `money`, `order-totals`.
 
 **Открыто**: формат QuickBooks Online / Desktop (IIF) — у бухгалтера; оплата датой в будущем принимается.
@@ -523,7 +523,7 @@ Ready по скану, packing slip (PS), погрузка на SHIP, части
 двигает склад — см. Inventory), `invoices.js`, `documents.js` (бланк на конструкторе форм); номера PO-, GR-, DR-,
 PI-, PP- с сервера. Факты — `CLOUD_FACT`. Экраны — на действиях `onAct`: поля пишут в
 черновик `purSupplierSet` / `purOrderSet` / `purOrderLineSet` / `purFulfilSet` / `purFulfilLineSet` / `purMoneySet`;
-выбор поставщика и валюты берут функцию (`purCurrencyControl(d, id, set)`); `purArg` больше нет. Сторожа: `test/purchasing*.js`, `purchase-orders`, `supply-points`.
+выбор поставщика и валюты берут функцию (`purCurrencyControl(d, id, set)`). Сторожа: `test/purchasing*.js`, `purchase-orders`, `supply-points`.
 
 ## Inventory
 
@@ -556,7 +556,7 @@ PI-, PP- с сервера. Факты — `CLOUD_FACT`. Экраны — на �
 **Как устроено**: `inventory/sheets.js` (`invSheetRows`), `offcuts.js`, `consumables.js` (`consRows`, упаковки
 `packs`), `stock-items.js`, `stock-reasons.js`; пересчёт сверяется в `CLOUD_CHECK` по карточке. Экраны — на действиях
 `onAct`: окно + / − / Count — `invMoveSet`, строка Stock items — `invStockSet` / `invStockKey`,
-причина разницы — `invWhySet(store, …)`, плитки — функцией и аргументами; `invArg` больше нет. Сторожа:
+причина разницы — `invWhySet(store, …)`, плитки — функцией и аргументами. Сторожа:
 `test/inventory*.js`, `consumables`, `stock-items`, `sim-inventory`.
 
 ## Customers
@@ -639,7 +639,10 @@ masterdata.*` и `forms.*`.
 - **Работа = станция + цена**; станции настраивает владелец (порядок `seq`, равный — параллельные); станцию с
   работами не удалить (29.09). Цены работ — по толщине (`tiers`); нахлёст — предупреждение. Фурнитуру не продаём —
   только вырезы под неё (Hinge, Clamp, Patch, Hole — в Works).
-- Сборы заказа (Setup): Subtotal → Energy → HST → Card fee, доставка и депозит в конце (23.10).
+- **Сборы заказа — коды** (27.11, вариант A): начисление ES → HST → свои % → Card fee, суммы в конце; код — набор
+  процентных сборов на вещь: стекло — первый код, работа — Charge code карточки, разовый сервис — Charge code или
+  Custom…, у ES, HST, доставки, депозита и своего сбора — свой; свои сборы — «+ Charge» (% / Fixed). Заказ — снимком
+  (`orderCharges.codes`, наборы `on`), прежние `hst.base`/`card.base` — те же наборы, суммы до цента прежние.
 - **Short name стекла**: код — ключ; внутри — Short name, клиенту и поставщику — Name (29.10). «We cut it» — да по
   умолчанию; COG — производитель, без реза (14.10).
 - Закупочные цены в Data — только галочка Cost & margin; администратор видит всё (26.10).
