@@ -10,7 +10,8 @@ people do not need it.
 - **A customer belongs to one person.** Give the customer to someone else — the previous person loses them. Commission
   goes to whoever brought the customer; customers are not handed over (owner, said it 2–3 times).
 - **The percent is only of what the customer paid**: payments on orders (Finance → Payments, no Void) in the period, by
-  payment date. Without HST by default: payment × (total − HST) / order total. The **With HST** box adds columns with
+  payment date. Without HST by default, and without charges whose **Commission** box is off in Data → Setup → Order charges (your own
+  tax, e.g. PST): payment × (total − those charges) / order total. The **With HST** box adds columns with
   HST.
 - **A new customer — for all time; a changed percent — from the From date** (today by default). Past payments are not
   recounted: each one uses the percent of its payment day (owner, 19–20 Oct 2026).

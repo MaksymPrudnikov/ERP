@@ -72,6 +72,20 @@ module.exports=async function({page,eq}){
   }finally{DB.serviceRate=JSON.parse(keep);}
  }),{hadKey:false,same:true,open:true,saved:true,key:'',keeps:true});
 
+ eq('Commission (28.11): у каждого сбора галочка «в базе комиссии агента» — HST и свой PST не идут, остальное как было; снимок заказа; старый заказ — всё, кроме HST',await run(()=>{
+  const keep=JSON.stringify(DB.orderSetup);
+  try{
+   soDraft=null;soEdit=null;
+   orderSetupChargeAdd();const id=DB.orderSetup.charges[0].id;orderSetupChargeSet(id,'name','PST');orderSetupChargeSet(id,'kind','percent');orderSetupChargeSet(id,'value','8');orderSetupChargeSet(id,'enabled',true);orderSetupCodeToggle(0,id,true);
+   const c=newSalesOrderDraft().orderCharges,flags=[c.energy.com,c.hst.com,c.card.com,c.delivery.com,c.skidDeposit.com,c.extra[0].com];
+   const t=salesApplyOrderCharges(1000,c),pst=t.extra[0].amount,share=comNoHstShare(t);
+   const c2=JSON.parse(JSON.stringify(c));c2.extra[0].com=true;const t2=salesApplyOrderCharges(1000,c2);
+   const old=salesApplyOrderCharges(1000,{energy:{enabled:true,rate:9.75},hst:{enabled:true,rate:13}});
+   navGo('masterdata');mdSetTab('setup');render();const box=!!document.querySelector('[data-setup="hstCom"]')&&!!document.querySelector('[data-setup-charge-com="'+id+'"]');
+   return {flags,excl:t.comExcluded===salesMoney(t.hst+pst),share:Math.abs(share-(t.grand-t.hst-pst)/t.grand)<1e-12,ticked:t2.comExcluded===t2.hst,old:old.comExcluded===old.hst,box};
+  }finally{DB.orderSetup=JSON.parse(keep);normalizeOrderSetup();}
+ }),{flags:[true,false,true,true,true,false],excl:true,share:true,ticked:true,old:true,box:true});
+
  eq('Setup: «+ Charge» — свой сбор % с колонкой в Charge codes, в окне заказа со своим кодом, на бланке строкой; удалённый код уходит на первый',await run(()=>{
   const keep=JSON.stringify(DB.orderSetup);
   try{

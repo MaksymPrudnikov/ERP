@@ -55,7 +55,7 @@ function archiveLedgerOf(set){
  set.forEach(x=>{
   const r=x.row,key='L:'+x.tbl+':'+r.id;
   if(x.tbl==='salesOrder'&&!salesIsQuote(r)){
-   const t=finOrderTotals(r),e={id:r.id,customerId:r.customerId,com:{number:r.businessNumber||'',created:r.createdAt||'',t:{grand:t.grand,hst:t.hst,complete:!!t.complete}}},l=finStatementOrderLine(r);
+   const t=finOrderTotals(r),e={id:r.id,customerId:r.customerId,com:{number:r.businessNumber||'',created:r.createdAt||'',t:{grand:t.grand,hst:t.hst,comExcluded:t.comExcluded,complete:!!t.complete}}},l=finStatementOrderLine(r);
    if(l&&l.skipped)e.skipped=r.businessNumber||'';
    else if(l){const f=finOrderFinancial(r);e.line=l;e.order={number:r.businessNumber||'',po:r.customerPo||'',billed:l.date,paidOn:paidOn.get(r.id)||[],
     f:{b:{total:f.b.total,paid:f.b.paid,balance:f.b.balance,status:f.b.status},overdue:0,dueOn:f.dueOn||'',terms:{paymentMode:f.terms.paymentMode,creditDays:f.terms.creditDays},handover:f.handover}};}

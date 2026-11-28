@@ -25,6 +25,9 @@ const ORDER_SETUP_DEFAULT={
  cardNetworks:[{id:'visa',name:'Visa card fee',rate:2.34},{id:'mastercard',name:'Mastercard fee',rate:2.39},{id:'amex',name:'American Express fee',rate:3.15}],
  deliveryOn:false,deliveryAmount:0,
  skidDepositOn:false,skidDepositAmount:0,
+ /* В базу комиссии агента (владелец 28.11.2026: «PST тоже исключать… чтобы у
+    меня была возможность настроить»): HST — нет, остальное — как было. */
+ energyCom:true,hstCom:false,cardCom:true,deliveryCom:true,skidDepositCom:true,
  fritDotMm:5,fritMargin16:16,fritCorner:'Top right',
  /* Due date по приоритету — рабочих дней Пн–Пт (владелец 17.11.2026). */
  dueNormalDays:7,dueRushDays:3,dueCriticalDays:1
@@ -61,7 +64,7 @@ function normalizeOrderSetup(){
  const cids=new Set(['energy','hst','card','delivery','skidDeposit']);
  out.charges=(Array.isArray(s.charges)?s.charges:[]).filter(x=>x&&typeof x==='object').map(x=>{
   let id=orderChargeId(x.id,'ch-');while(cids.has(id))id=id+'-2';cids.add(id);
-  return {id,name:String(x.name==null?'':x.name).trim().slice(0,60)||'Charge',kind:x.kind==='percent'?'percent':'fixed',value:orderSetupNumber(x.value,0),enabled:x.enabled===true,code:typeof x.code==='string'?x.code:''};
+  return {id,name:String(x.name==null?'':x.name).trim().slice(0,60)||'Charge',kind:x.kind==='percent'?'percent':'fixed',value:orderSetupNumber(x.value,0),enabled:x.enabled===true,code:typeof x.code==='string'?x.code:'',com:x.com===true};
  });
  const pct=orderChargePctIds(out.charges);
  /* Коды. Нет вовсе (база до 27.11.2026) — засев, а прежние галочки базы
@@ -132,12 +135,12 @@ function salesOrderChargeDefaults(){
  return {
   codes:JSON.parse(JSON.stringify(s.chargeCodes)),
   items:{code:s.chargeCodes[0].id,on:on(s.chargeCodes[0].id)},
-  energy:{enabled:s.energyOn,rate:s.energyRate,code:s.energyCode,on:on(s.energyCode)},
-  hst:{enabled:s.hstOn,rate:s.hstRate,code:s.hstCode,on:on(s.hstCode)},
-  card:{enabled:s.cardOn,network:n.id,name:n.name||'Card fee',rate:n.rate},
-  delivery:{enabled:s.deliveryOn,amount:s.deliveryAmount,code:s.deliveryCode,on:on(s.deliveryCode)},
-  skidDeposit:{enabled:s.skidDepositOn,amount:s.skidDepositAmount,code:s.skidDepositCode,on:on(s.skidDepositCode)},
-  extra:s.charges.map(x=>({id:x.id,name:x.name,kind:x.kind,value:x.value,enabled:x.enabled,code:x.code,on:on(x.code)}))
+  energy:{enabled:s.energyOn,rate:s.energyRate,code:s.energyCode,on:on(s.energyCode),com:s.energyCom},
+  hst:{enabled:s.hstOn,rate:s.hstRate,code:s.hstCode,on:on(s.hstCode),com:s.hstCom},
+  card:{enabled:s.cardOn,network:n.id,name:n.name||'Card fee',rate:n.rate,com:s.cardCom},
+  delivery:{enabled:s.deliveryOn,amount:s.deliveryAmount,code:s.deliveryCode,on:on(s.deliveryCode),com:s.deliveryCom},
+  skidDeposit:{enabled:s.skidDepositOn,amount:s.skidDepositAmount,code:s.skidDepositCode,on:on(s.skidDepositCode),com:s.skidDepositCom},
+  extra:s.charges.map(x=>({id:x.id,name:x.name,kind:x.kind,value:x.value,enabled:x.enabled,code:x.code,on:on(x.code),com:x.com}))
  };
 }
 function orderSetupFrit(){const s=orderSetup();return {dotMm:s.fritDotMm,margin16:s.fritMargin16,marginFrom:s.fritCorner};}

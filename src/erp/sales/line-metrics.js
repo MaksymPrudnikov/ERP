@@ -225,7 +225,9 @@ function salesApplyOrderCharges(subtotal,raw,itemBase){
   amt[k]=x.enabled?salesCents(bases[k]*rate/100):0;
  });
  const grand=salesMoney(Object.keys(amt).reduce((n,k)=>n+amt[k],base));
- return {charges:c,subtotal:base,energy:amt.energy,energyBase:bases.energy,hstBase:bases.hst,hst:amt.hst,cardBase:bases.card,card:amt.card,delivery:amt.delivery,skidDeposit:amt.skidDeposit,bases,
+ /* Сборы вне базы комиссии агента (Setup → Commission; erp/finance/commissions). */
+ const comExcluded=salesMoney([['energy',c.energy],['hst',c.hst],['card',c.card],['delivery',c.delivery],['skidDeposit',c.skidDeposit]].concat(c.extra.map(x=>[x.id,x])).reduce((n,[k,x])=>x.com===false?n+(amt[k]||0):n,0));
+ return {charges:c,subtotal:base,comExcluded,energy:amt.energy,energyBase:bases.energy,hstBase:bases.hst,hst:amt.hst,cardBase:bases.card,card:amt.card,delivery:amt.delivery,skidDeposit:amt.skidDeposit,bases,
   extra:c.extra.map(x=>({id:x.id,name:x.name,kind:x.kind,rate:x.kind==='percent'?x.value:null,amount:amt[x.id],enabled:x.enabled})),grand};
 }
 /* Набор сборов вещи со своим кодом (null — набор стекла и работ заказа).

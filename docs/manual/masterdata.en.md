@@ -171,7 +171,8 @@ right; the top line reads “group · customers · prices”.
   fee, amounts at the end; a % charge goes only on what is above it. A charge's **Charge code** says what is charged on
   it, **What it means** says it in words. **Charge codes** — codes: a name and a tick per % charge (your own % adds a
   column). The first code is for glass and everything without its own code; a removed code's users get the first one.
-  **Default code** — the code of a new work and a new one-off service. The old base ticks (before 27 Nov 2026) became
+  **Commission** — whether the charge is in the agents' commission base (off for HST and your own charges by default;
+  28 Nov 2026). **Default code** — the code of a new work and a new one-off service. The old base ticks (before 27 Nov 2026) became
   codes: ES — HST + card, HST — Card only, Delivery — No charges; order totals did not change. **Cards** — cards and their fee, the first is the default; **Weights** — glass density
   (unit weight on orders and stickers); **Frit** — defaults for a new frit lite (dot, margin, from which corner).
 - **Data overview** — **Collections** (every list, how many records, filled or not), **Change log** (the Data log: who,
