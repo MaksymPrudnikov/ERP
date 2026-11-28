@@ -1,6 +1,6 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 5.352 · 27 ноября 2026 — коды сборов заказа (ES · HST · Card fee), свои сборы, код у работы и разового сервиса.
+Версия 5.353 · 28 ноября 2026 — Commission у сборов, Code у Adjustments, кнопка Charges, аудит #506–#507.
 
 ## Как читать
 
@@ -164,7 +164,7 @@
 
 **Как устроено**
 - Сборы — `salesApplyOrderCharges` (база сбора — вещи с ним в наборе: `salesOrderChargeDeltas`, работа — снимок
-  `snap:svcOn:` в priceBook), окно — `salesOrderChargesPanel`, под итогом — базы (`salesChargeBasesHTML`).
+  `snap:svcOn:` в priceBook, Save пишет всегда), окно — `salesOrderChargesPanel`, под итогом — базы (`salesChargeBasesHTML`).
 - Заказ — параметр расчёта: `salesOrderCommercialTotals(order)`, чужой заказ — `salesOrderArg`; `soDraft` только для
   открытого в Sales (этап 4 «до 10»). Расчёт строки `erp/sales/line-metrics`, работы `line-measure`, фигура
   `salesLineCutRect`, Save в фоне `save-job.js`, журнал `order-log.js` (`DB.orderEvent`), Hold `line-hold.js`.
@@ -424,7 +424,7 @@ Ready по скану, packing slip (PS), погрузка на SHIP, части
 - Экраны Shipping, план доставки и поиск заказа — на действиях `onAct`: поля черновика PS —
   `shippingDraftSet` / `shippingShipToSet`, кнопки окна PS берут функцию и аргументы (`[shippingUndo, id, 'cancel']`),
   команды рейса — `deliveryRunMove` / `deliveryRunAssign` / `deliveryRunDriver` / `deliveryRunTime` (имя с
-  `delivery`, как прежний `onclick="deliveryRun(…)"`: кнопку записи база узнаёт по имени).
+  `delivery`: кнопку записи база узнаёт по имени).
 - Сторожа: `test/shipping.js`, `shipping-loading`, `-skids`, `-restack`, `-delivery`, `-lookup`, `-audit`,
   `-walk-fixes`.
 
@@ -642,7 +642,7 @@ masterdata.*` и `forms.*`.
   только вырезы под неё (Hinge, Clamp, Patch, Hole — в Works).
 - **Сборы заказа — коды** (27.11, вариант A): начисление ES → HST → свои % → Card fee, суммы в конце; код — набор
   процентных сборов на вещь: стекло — первый код, работа — Charge code карточки, разовый сервис — Charge code или
-  Custom…, у ES, HST, доставки, депозита и своего сбора — свой; свои сборы — «+ Charge» (% / Fixed). Заказ — снимком
+  Custom…, у ES, HST, доставки, депозита, своего сбора и Adjustments — свой; свои сборы — «+ Charge» (% / Fixed). Заказ — снимком
   (`orderCharges.codes`, наборы `on`), прежние `hst.base`/`card.base` — те же наборы, суммы до цента прежние.
 - **Short name стекла**: код — ключ; внутри — Short name, клиенту и поставщику — Name (29.10). «We cut it» — да по
   умолчанию; COG — производитель, без реза (14.10).

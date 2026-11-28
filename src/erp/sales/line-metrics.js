@@ -285,6 +285,9 @@ function salesOrderCommercialTotals(order){
  (order&&order.cancellations||[]).forEach(function(c){const v=unitChargeOf(c);if(v!=null)subtotal+=v;else missing++;});
  /* Поправки руками (normalizeSalesAdjustments). */
  (order&&order.adjustments||[]).forEach(function(a){if(Number.isFinite(+a.amount))subtotal+=+a.amount;});
+ /* Save пишет в снимок набор каждой работы заказа — и когда кодов у работ ещё
+    нет (аудит Qwen №3, 28.11.2026): нет ключа — значит строка новая, как у цены. */
+ if(salesBookRec&&order)(order.lines||[]).forEach(l=>{try{salesLineChargeRows(l,order).forEach(r=>{if(r.svc||salesExtraIdOfKey(r.key))salesChargeRowOn(r,l,order);});}catch(e){}});
  /* Свои коды (работа, разовый сервис, позиция склада): база каждого
     процентного сбора — сумма вещей с ним в наборе. */
  let itemBase=null,free=[];

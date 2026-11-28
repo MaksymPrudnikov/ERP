@@ -57,20 +57,21 @@ module.exports=async function({page,eq}){
   return {opts,saved,has,a,b,gone:!('chargeCode' in DB.serviceRate.find(w=>w.id==='roughArris'))};
  }),{opts:['Default · Standard','HST + card','Card only','No charges'],saved:'none',has:true,a:['Rough Arris'],b:[],gone:true});
 
- eq('аудит: сохранённый до кода работы заказ не меняется, когда работе ставят код; открытый в Sales — с кодом; Save пишет снимок, и дальше код работы его не меняет',await run(()=>{
+ eq('аудит: Save пишет набор каждой работы и без кодов; код, поставленный работе потом, сохранённый заказ не меняет (и при новом Save); Update prices + Save — новый код',await run(()=>{
   soDraft=null;soEdit=null;const keep=JSON.stringify(DB.serviceRate);
   try{
    const id=oqOrder(oqCustomer());soDraft=null;soEdit=null;
-   const o=salesRecord(id),t0=salesOrderCommercialTotals(o),hadKey=Object.keys(o.priceBook||{}).some(k=>k.indexOf('snap:svcOn:')===0);
+   const o=salesRecord(id),t0=salesOrderCommercialTotals(o),hadKey=o.priceBook&&Object.prototype.hasOwnProperty.call(o.priceBook,'snap:svcOn:roughArris')?o.priceBook['snap:svcOn:roughArris']:'missing';
    DB.serviceRate.find(w=>w.id==='roughArris').chargeCode='none';
    const t1=salesOrderCommercialTotals(o);
    salesOrderEdit(id);const open=salesOrderCommercialTotals(soDraft);
    const saved=salesOrderSave();soDraft=null;soEdit=null;const o2=salesRecord(id),key=o2.priceBook&&o2.priceBook['snap:svcOn:roughArris'];
    DB.serviceRate.find(w=>w.id==='roughArris').chargeCode='hst-card';
    const t2=salesOrderCommercialTotals(salesRecord(id));
-   return {hadKey,same:t1.grand===t0.grand&&t1.energyBase===t0.energyBase,open:open.energyBase<t0.energyBase&&open.uncharged.some(f=>f.name==='Rough Arris'),saved:!!saved,key,keeps:t2.grand===open.grand&&t2.energyBase===open.energyBase};
+   salesOrderEdit(id);salesUpdatePrices();salesOrderSave();soDraft=null;soEdit=null;const updated=salesRecord(id).priceBook['snap:svcOn:roughArris'];
+   return {updated,hadKey,same:t1.grand===t0.grand&&t1.energyBase===t0.energyBase,open:open.energyBase<t0.energyBase&&open.uncharged.some(f=>f.name==='Rough Arris'),saved:!!saved,key,keeps:t2.grand===open.grand&&t2.energyBase===open.energyBase};
   }finally{DB.serviceRate=JSON.parse(keep);}
- }),{hadKey:false,same:true,open:true,saved:true,key:'',keeps:true});
+ }),{updated:'hst,card',hadKey:null,same:true,open:false,saved:true,key:null,keeps:true});
 
  eq('Commission (28.11): у каждого сбора галочка «в базе комиссии агента» — HST и свой PST не идут, остальное как было; снимок заказа; старый заказ — всё, кроме HST',await run(()=>{
   const keep=JSON.stringify(DB.orderSetup);
