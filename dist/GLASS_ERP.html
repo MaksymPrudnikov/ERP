@@ -8,7 +8,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-sRxnlbcR7qsRMk5EnssyRGmVrKb3RLN5jC4G3tTxTxk=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-RW5caEqZKs/GWRwEwYc7c599ddhfazkkl8RowxNl2nA=' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://maps.googleapis.com; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GLASS ERP — Glazing System</title>
 <style>
@@ -1551,6 +1551,25 @@ table.cw-fixed tr[data-picked] td>select:has(+.line-locked-pill){width:calc(100%
 .metric-charge-code-wrap{display:flex;align-items:center;gap:6px;justify-self:end}.metric-order-charge-row select.metric-charge-code{min-width:150px}
 .metric-order-bases{display:block;margin-top:6px;color:var(--text-3);font-size:12px;text-align:right}
 @media(max-width:600px){.metric-order-charge-editor .metric-order-charge-row{grid-template-columns:1fr}.metric-charge-code-wrap{justify-self:start}}
+/* Код поправки (28.11.2026). */
+.metric-adjustment-code{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-2)}.metric-adjustment-code select{min-width:150px}
+.metric-adjustment-on{display:inline-flex;gap:10px;font-size:12px}.metric-adjustment-on label{display:inline-flex;gap:4px;align-items:center}
+/* Окно сборов ровной сеткой (владелец 28.11.2026: «выровняй экраны… строки и
+   таблицы слегка скачут»): у всех строк одни колонки — название · значения ·
+   код; поправки — текст · сумма · валюта · код · ×; галочки Custom… — под
+   кодом, строку не раздвигают. Итог заказа: ширины ячеек — нижние, большая
+   сумма раздвигает свою ячейку, а не налезает на соседнюю. */
+.metric-order-charge-editor .metric-order-charge-row{grid-template-columns:180px minmax(0,1fr) 220px}
+.metric-charge-body{flex-wrap:nowrap}.metric-charge-body select{width:150px;min-width:150px}.metric-order-charge-row .metric-charge-body input[type=number]{width:84px}
+.metric-charge-code-wrap{justify-self:stretch;justify-content:flex-end}.metric-order-charge-row select.metric-charge-code{width:160px;min-width:160px}
+.metric-adjustments .metric-adjustment-row{display:grid;grid-template-columns:minmax(0,1fr) 110px 36px 220px 32px;align-items:start;gap:8px}
+.metric-adjustments .metric-adjustment-row>span:not(.metric-adjustment-codecell){align-self:start;line-height:36px}
+.metric-adjustment-codecell{display:flex;flex-direction:column;align-items:flex-end;gap:6px}.metric-adjustment-code select{width:160px;min-width:160px}
+.metric-adjustment-on{justify-content:flex-end;flex-wrap:wrap}
+.metric-order-charge-lines .metric-order-charge-item{width:auto}
+.metric-order-charge-lines .charge-subtotal{min-width:82px}.metric-order-charge-lines .charge-energy,.metric-order-charge-lines .charge-hst{min-width:62px}.metric-order-charge-lines .charge-card{min-width:105px}.metric-order-charge-lines .charge-delivery{min-width:80px}.metric-order-charge-lines .charge-skid{min-width:96px}.metric-order-charge-lines .charge-total{min-width:123px}
+.metric-order-total-main{width:auto;min-width:610px}
+@media(max-width:600px){.metric-order-charge-editor .metric-order-charge-row,.metric-adjustments .metric-adjustment-row{grid-template-columns:1fr}.metric-adjustment-codecell{align-items:flex-start}.metric-order-total-main{min-width:0}}
 
 /* ---- src/styles/documents.css ---- */
 /* Бланки заказа: окно Preview, панель ✎ Customize, печать листов Letter,
@@ -4728,7 +4747,7 @@ html[data-motion="out"]::view-transition-new(erp-main){animation-name:sheet-fron
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='e852dd036516';
+var ERP_BUILD='bc025f398cbe';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -14028,6 +14047,9 @@ const ORDER_SETUP_DEFAULT={
  cardNetworks:[{id:'visa',name:'Visa card fee',rate:2.34},{id:'mastercard',name:'Mastercard fee',rate:2.39},{id:'amex',name:'American Express fee',rate:3.15}],
  deliveryOn:false,deliveryAmount:0,
  skidDepositOn:false,skidDepositAmount:0,
+ /* В базу комиссии агента (владелец 28.11.2026: «PST тоже исключать… чтобы у
+    меня была возможность настроить»): HST — нет, остальное — как было. */
+ energyCom:true,hstCom:false,cardCom:true,deliveryCom:true,skidDepositCom:true,
  fritDotMm:5,fritMargin16:16,fritCorner:'Top right',
  /* Due date по приоритету — рабочих дней Пн–Пт (владелец 17.11.2026). */
  dueNormalDays:7,dueRushDays:3,dueCriticalDays:1
@@ -14064,7 +14086,7 @@ function normalizeOrderSetup(){
  const cids=new Set(['energy','hst','card','delivery','skidDeposit']);
  out.charges=(Array.isArray(s.charges)?s.charges:[]).filter(x=>x&&typeof x==='object').map(x=>{
   let id=orderChargeId(x.id,'ch-');while(cids.has(id))id=id+'-2';cids.add(id);
-  return {id,name:String(x.name==null?'':x.name).trim().slice(0,60)||'Charge',kind:x.kind==='percent'?'percent':'fixed',value:orderSetupNumber(x.value,0),enabled:x.enabled===true,code:typeof x.code==='string'?x.code:''};
+  return {id,name:String(x.name==null?'':x.name).trim().slice(0,60)||'Charge',kind:x.kind==='percent'?'percent':'fixed',value:orderSetupNumber(x.value,0),enabled:x.enabled===true,code:typeof x.code==='string'?x.code:'',com:x.com===true};
  });
  const pct=orderChargePctIds(out.charges);
  /* Коды. Нет вовсе (база до 27.11.2026) — засев, а прежние галочки базы
@@ -14087,7 +14109,7 @@ function normalizeOrderSetup(){
   out.deliveryCode=orderCodeFor(out,[flag('hstOnDelivery',false)&&'hst',flag('cardOnDelivery',false)&&'card']);
   out.skidDepositCode=orderCodeFor(out,[]);
  }else ORDER_CHARGE_CODED.forEach(k=>{out[k+'Code']=has(s[k+'Code'])?s[k+'Code']:first;});
- out.charges.forEach(x=>{if(!has(x.code))x.code=orderCodeFor(out,[]);});
+ out.charges.forEach(x=>{if(!has(x.code))x.code=first;});
  /* Код новой работы и нового разового сервиса. */
  ['workCode','extraCode'].forEach(k=>{out[k]=has(s[k])?s[k]:first;});
  DB.orderSetup=out;
@@ -14135,12 +14157,12 @@ function salesOrderChargeDefaults(){
  return {
   codes:JSON.parse(JSON.stringify(s.chargeCodes)),
   items:{code:s.chargeCodes[0].id,on:on(s.chargeCodes[0].id)},
-  energy:{enabled:s.energyOn,rate:s.energyRate,code:s.energyCode,on:on(s.energyCode)},
-  hst:{enabled:s.hstOn,rate:s.hstRate,code:s.hstCode,on:on(s.hstCode)},
-  card:{enabled:s.cardOn,network:n.id,name:n.name||'Card fee',rate:n.rate},
-  delivery:{enabled:s.deliveryOn,amount:s.deliveryAmount,code:s.deliveryCode,on:on(s.deliveryCode)},
-  skidDeposit:{enabled:s.skidDepositOn,amount:s.skidDepositAmount,code:s.skidDepositCode,on:on(s.skidDepositCode)},
-  extra:s.charges.map(x=>({id:x.id,name:x.name,kind:x.kind,value:x.value,enabled:x.enabled,code:x.code,on:on(x.code)}))
+  energy:{enabled:s.energyOn,rate:s.energyRate,code:s.energyCode,on:on(s.energyCode),com:s.energyCom},
+  hst:{enabled:s.hstOn,rate:s.hstRate,code:s.hstCode,on:on(s.hstCode),com:s.hstCom},
+  card:{enabled:s.cardOn,network:n.id,name:n.name||'Card fee',rate:n.rate,com:s.cardCom},
+  delivery:{enabled:s.deliveryOn,amount:s.deliveryAmount,code:s.deliveryCode,on:on(s.deliveryCode),com:s.deliveryCom},
+  skidDeposit:{enabled:s.skidDepositOn,amount:s.skidDepositAmount,code:s.skidDepositCode,on:on(s.skidDepositCode),com:s.skidDepositCom},
+  extra:s.charges.map(x=>({id:x.id,name:x.name,kind:x.kind,value:x.value,enabled:x.enabled,code:x.code,on:on(x.code),com:x.com}))
  };
 }
 function orderSetupFrit(){const s=orderSetup();return {dotMm:s.fritDotMm,margin16:s.fritMargin16,marginFrom:s.fritCorner};}
@@ -14317,7 +14339,10 @@ function normalizeSalesOrderCharges(raw){
  const s=orderSetup(),rc=raw.card&&typeof raw.card==='object'?raw.card:{};
  const network=salesRefId(rc.network)||((s.cardNetworks[0]?s.cardNetworks[0].id:'')),known=orderSetupNetwork(network);
  const ex=new Set(['energy','hst','card','delivery','skidDeposit']);
- const extra=(Array.isArray(raw.extra)?raw.extra:[]).filter(x=>x&&typeof x==='object'&&typeof x.id==='string'&&!ex.has(x.id)&&(ex.add(x.id),true)).map(x=>({id:x.id,name:salesString(x.name).slice(0,60)||'Charge',kind:x.kind==='percent'?'percent':'fixed',value:salesOrderChargeNumber(x.value,0),enabled:x.enabled===true,code:salesString(x.code),on:x.on}));
+ const extra=(Array.isArray(raw.extra)?raw.extra:[]).filter(x=>x&&typeof x==='object'&&typeof x.id==='string'&&!ex.has(x.id)&&(ex.add(x.id),true)).map(x=>({id:x.id,name:salesString(x.name).slice(0,60)||'Charge',kind:x.kind==='percent'?'percent':'fixed',value:salesOrderChargeNumber(x.value,0),enabled:x.enabled===true,code:salesString(x.code),on:x.on,com:x.com===true}));
+ /* В базе комиссии агента (Setup → Commission, 28.11.2026); нет в снимке — как
+    было: всё, кроме HST. */
+ const com=(x,def)=>({com:x&&typeof x.com==='boolean'?x.com:def});
  const pct=orderChargePctIds(extra),coded=Array.isArray(raw.codes);
  const codes=(coded?raw.codes:s.chargeCodes).filter(c=>c&&typeof c.id==='string').map(c=>({id:c.id,name:salesString(c.name).slice(0,40)||c.id,on:orderChargeSet(c.on,pct)}));
  const legacy=coded||raw.items?null:salesOrderChargeLegacyOn(raw);
@@ -14327,11 +14352,11 @@ function normalizeSalesOrderCharges(raw){
  return {
   codes,
   items:part(ri,'items',pct),
-  energy:Object.assign({enabled:raw.energy&&typeof raw.energy.enabled==='boolean'?raw.energy.enabled:s.energyOn,rate:salesOrderChargeNumber(raw.energy&&raw.energy.rate,s.energyRate)},part(raw.energy,'energy',[])),
-  hst:Object.assign({enabled:raw.hst&&typeof raw.hst.enabled==='boolean'?raw.hst.enabled:s.hstOn,rate:salesOrderChargeNumber(raw.hst&&raw.hst.rate,s.hstRate)},part(raw.hst,'hst',[])),
-  card:{enabled:!!rc.enabled,network:network,name:salesString(rc.name).slice(0,60)||(known&&known.name)||'Card fee',rate:salesOrderChargeNumber(rc.rate,known?known.rate:0)},
-  delivery:Object.assign({enabled:!!(raw.delivery&&raw.delivery.enabled),amount:salesOrderChargeNumber(raw.delivery&&raw.delivery.amount,0)},part(raw.delivery,'delivery',[])),
-  skidDeposit:Object.assign({enabled:!!(raw.skidDeposit&&raw.skidDeposit.enabled),amount:salesOrderChargeNumber(raw.skidDeposit&&raw.skidDeposit.amount,0)},part(raw.skidDeposit,'skidDeposit',[])),
+  energy:Object.assign({enabled:raw.energy&&typeof raw.energy.enabled==='boolean'?raw.energy.enabled:s.energyOn,rate:salesOrderChargeNumber(raw.energy&&raw.energy.rate,s.energyRate)},part(raw.energy,'energy',[]),com(raw.energy,true)),
+  hst:Object.assign({enabled:raw.hst&&typeof raw.hst.enabled==='boolean'?raw.hst.enabled:s.hstOn,rate:salesOrderChargeNumber(raw.hst&&raw.hst.rate,s.hstRate)},part(raw.hst,'hst',[]),com(raw.hst,false)),
+  card:Object.assign({enabled:!!rc.enabled,network:network,name:salesString(rc.name).slice(0,60)||(known&&known.name)||'Card fee',rate:salesOrderChargeNumber(rc.rate,known?known.rate:0)},com(rc,true)),
+  delivery:Object.assign({enabled:!!(raw.delivery&&raw.delivery.enabled),amount:salesOrderChargeNumber(raw.delivery&&raw.delivery.amount,0)},part(raw.delivery,'delivery',[]),com(raw.delivery,true)),
+  skidDeposit:Object.assign({enabled:!!(raw.skidDeposit&&raw.skidDeposit.enabled),amount:salesOrderChargeNumber(raw.skidDeposit&&raw.skidDeposit.amount,0)},part(raw.skidDeposit,'skidDeposit',[]),com(raw.skidDeposit,true)),
   extra:extra.map(x=>Object.assign(x,part(x,'',[])))
  };
 }
@@ -14916,7 +14941,10 @@ function normalizeSalesOrder(o){
    (владелец, 7.10.2026: «то, что касается денег, должно быть максимально
    флексибл — иногда где-то ошибка, и нужна возможность решить её руками»). */
 function normalizeSalesAdjustments(raw){
- return (Array.isArray(raw)?raw:[]).filter(x=>x&&typeof x==='object'&&Number.isFinite(+x.amount)).map(x=>({id:salesEntityId(x.id,'ADJ'),label:salesString(x.label).slice(0,120),amount:Math.round(+x.amount*100)/100}));
+ /* Свой набор сборов поправки (Code, владелец 28.11.2026: «чтобы было и там и
+    там… для чарджеса в целом, а не под стекла»): `on`, `code`; нет — как стекло. */
+ return (Array.isArray(raw)?raw:[]).filter(x=>x&&typeof x==='object'&&Number.isFinite(+x.amount)).map(x=>{const on=Array.isArray(x.on)?x.on.filter(k=>typeof k==='string'&&/^[A-Za-z0-9_-]{1,40}$/.test(k)):null;
+  return {id:salesEntityId(x.id,'ADJ'),label:salesString(x.label).slice(0,120),amount:Math.round(+x.amount*100)/100,...(on?{on,code:salesString(x.code).slice(0,40)}:{})};});
 }
 function salesNextMakeupCodeFromSet(used){const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';for(const c of letters)if(!used.has(c))return c;let n=27,code;do{code='MU-'+String(n++).padStart(3,'0');}while(used.has(code));return code;}
 function nextMakeupCode(order){return salesNextMakeupCodeFromSet(new Set((order.makeups||[]).map(m=>m.code)));}
@@ -17460,8 +17488,11 @@ function comTotals(o){
  if(!comScope)return finOrderTotals(o);
  const k=o.id+'|'+(o.updatedAt||'');if(!comScope.totals.has(k))comScope.totals.set(k,finOrderTotals(o));return comScope.totals.get(k);
 }
-/* Доля заказа без HST: оплата делится в пропорции суммы заказа. */
-function comNoHstShare(t){return t&&t.grand>0?Math.max(0,(t.grand-t.hst)/t.grand):1;}
+/* Доля заказа, с которой платится комиссия: без сборов, которые в Data → Setup
+   не идут в комиссию (Commission; по умолчанию — HST; владелец 28.11.2026: «PST
+   тоже исключать… чтобы была возможность настроить»). Оплата делится в
+   пропорции суммы заказа. */
+function comNoHstShare(t){return t&&t.grand>0?Math.max(0,(t.grand-(t.comExcluded!=null?t.comExcluded:t.hst))/t.grand):1;}
 /* Заказы клиентов человека с оплатами за период (по дате оплаты). range —
    {from, to} днями или null (всё время). */
 function comOrders(ref,range){
@@ -23178,7 +23209,7 @@ function salesEdgeOpThicknessTargets(lite,op){
    Mitering (angleMin / angleMax, заводские 10°–45°): угол за ними заказ
    сохраняет, спросив при Save (salesMiterWarnings), — «без кирпичей». */
 function salesMiterLimits(){var w=salesServiceRateRow('miter');return {min:w&&w.angleMin!=null?+w.angleMin:null,max:w&&w.angleMax!=null?+w.angleMax:null};}
-function salesMiterAngleIn(value){var a=shapeMiterAngle(value);if(a==null)alert('Enter a miter angle above 0° and below 90°.');return a;}
+function salesMiterAngleIn(value){var a=shapeMiterAngle(typeof value==='string'?value.replace(',','.'):value);if(a==null)alert('Enter a miter angle above 0° and below 90°.');return a;}
 function salesMiterAngleField(angle,act){
   var l=salesMiterLimits();
   return `<span class='miter-angle'><input type='number' step='0.1' min='${l.min!=null?l.min:0.1}' max='${l.max!=null?l.max:89.9}' value='${esc(String(angle==null?45:angle))}' data-miter-angle ${act}><span>°</span></span>`;
@@ -23997,6 +24028,10 @@ function salesMoney(value){return Math.round(+(value*100).toFixed(6))/100;}
    округление цены юнита и давало расхождение. salesExact убирает только шум
    двоичных чисел. */
 function salesExact(value){return +(+value).toFixed(6);}
+/* Ничьи — как Spiel (журнал «Счёт до цента как в Spiel», 02.11.2026): ближайшее
+   двоичное число и toFixed(2), 1.005 → 1.00, 8.345 → 8.35; так сошлись 4 заказа
+   Spiel до цента. Половина цента вверх (salesMoney) с ним сходится хуже — для
+   итогов заказа не брать (аудит Qwen 28.11.2026 предлагал — оставлено). */
 function salesCents(value){return +salesExact(value).toFixed(2);}
 /* Дюймы продажи: вверх до целого, как в Spiel. */
 function salesWholeInches(value){return Math.ceil(+value-1e-9);}
@@ -24023,14 +24058,24 @@ function salesApplyOrderCharges(subtotal,raw,itemBase){
   amt[k]=x.enabled?salesCents(bases[k]*rate/100):0;
  });
  const grand=salesMoney(Object.keys(amt).reduce((n,k)=>n+amt[k],base));
- return {charges:c,subtotal:base,energy:amt.energy,energyBase:bases.energy,hstBase:bases.hst,hst:amt.hst,cardBase:bases.card,card:amt.card,delivery:amt.delivery,skidDeposit:amt.skidDeposit,bases,
+ /* Сборы вне базы комиссии агента (Setup → Commission; erp/finance/commissions). */
+ const comExcluded=salesMoney([['energy',c.energy],['hst',c.hst],['card',c.card],['delivery',c.delivery],['skidDeposit',c.skidDeposit]].concat(c.extra.map(x=>[x.id,x])).reduce((n,[k,x])=>x.com===false?n+(amt[k]||0):n,0));
+ return {charges:c,subtotal:base,comExcluded,energy:amt.energy,energyBase:bases.energy,hstBase:bases.hst,hst:amt.hst,cardBase:bases.card,card:amt.card,delivery:amt.delivery,skidDeposit:amt.skidDeposit,bases,
   extra:c.extra.map(x=>({id:x.id,name:x.name,kind:x.kind,rate:x.kind==='percent'?x.value:null,amount:amt[x.id],enabled:x.enabled})),grand};
 }
 /* Набор сборов вещи со своим кодом (null — набор стекла и работ заказа).
    Работа — снимок заказа на Save (priceBook «snap:svcOn:…»), как цена;
    разовый сервис хранит набор сам. Позиции склада — по набору стекла. */
 function salesBookOn(key,live,order){const v=salesBook(key,live,order);return v==null?null:String(v).split(',').filter(Boolean);}
-function salesWorkOn(svc,order){return salesBookOn('snap:svcOn:'+svc,()=>{const w=salesServiceRateRow(svc),on=w&&w.chargeCode?orderSetupCodeOn(w.chargeCode):null;return on?on.join(','):null;},order);}
+/* Сохранённый заказ без снимка набора работы (записан, когда у работ кодов
+   не было) — набор стекла, как при его Save: код, поставленный работе потом,
+   его не меняет (аудит 27.11.2026). Открытый в Sales заказ и сама запись Save
+   берут сегодняшний код работы — его и записывает Save. */
+function salesWorkOn(svc,order){
+ const key='snap:svcOn:'+svc,b=order&&order.priceBook;
+ if(b&&!Object.prototype.hasOwnProperty.call(b,key)&&!salesBookRec&&order!==(typeof soDraft==='undefined'?null:soDraft))return null;
+ return salesBookOn(key,()=>{const w=salesServiceRateRow(svc),on=w&&w.chargeCode?orderSetupCodeOn(w.chargeCode):null;return on?on.join(','):null;},order);
+}
 function salesChargeRowOn(row,line,order){
  const xid=typeof salesExtraIdOfKey==='function'?salesExtraIdOfKey(row.key):'';
  if(xid){const x=(line.extraServices||[]).find(e=>e.id===xid);if(x&&Array.isArray(x.on))return x.on;if(x&&x.rateId)return salesWorkOn(x.rateId,order);return null;}
@@ -24038,7 +24083,7 @@ function salesChargeRowOn(row,line,order){
 }
 /* Есть ли в заказе вещи со своим кодом — иначе базы считать нечего. */
 function salesOrderOwnCodes(order){
- if((order.lines||[]).some(l=>(l.extraServices||[]).some(x=>Array.isArray(x.on))))return true;
+ if((order.lines||[]).some(l=>(l.extraServices||[]).some(x=>Array.isArray(x.on)))||(order.adjustments||[]).some(a=>Array.isArray(a.on)))return true;
  if((DB.serviceRate||[]).some(w=>w&&w.chargeCode))return true;
  const b=order.priceBook;if(b)for(const k in b)if(b[k]!=null&&k.indexOf('snap:svcOn:')===0)return true;
  return false;
@@ -24048,6 +24093,8 @@ function salesOrderOwnCodes(order){
 function salesOrderChargeDeltas(order,c){
  const pct=orderChargePctIds(c.extra),def=c.items.on,delta={},free=[];
  const add=(on,amount,name)=>{if(!on||amount==null)return;const same=on.length===def.length&&on.every(k=>def.includes(k));if(same)return;pct.forEach(k=>{const d=(on.includes(k)?1:0)-(def.includes(k)?1:0);if(d)delta[k]=salesExact((delta[k]||0)+d*amount);});if(!on.length)free.push({name,amount:salesMoney(amount)});};
+ /* Поправка заказа (Adjustments) со своим кодом — 28.11.2026. */
+ (order.adjustments||[]).forEach(a=>{if(Array.isArray(a.on)&&Number.isFinite(+a.amount))add(a.on,+a.amount,a.label||'Adjustment');});
  (order.lines||[]).forEach(line=>{
   const p=salesLineCommercialPrice(line,order);if(!p.complete||p.manual||!p.qty)return;
   const k=p.base>0?p.unit/p.base:1;
@@ -24067,6 +24114,9 @@ function salesOrderCommercialTotals(order){
  (order&&order.cancellations||[]).forEach(function(c){const v=unitChargeOf(c);if(v!=null)subtotal+=v;else missing++;});
  /* Поправки руками (normalizeSalesAdjustments). */
  (order&&order.adjustments||[]).forEach(function(a){if(Number.isFinite(+a.amount))subtotal+=+a.amount;});
+ /* Save пишет в снимок набор каждой работы заказа — и когда кодов у работ ещё
+    нет (аудит Qwen №3, 28.11.2026): нет ключа — значит строка новая, как у цены. */
+ if(salesBookRec&&order)(order.lines||[]).forEach(l=>{try{salesLineChargeRows(l,order).forEach(r=>{if(r.svc||salesExtraIdOfKey(r.key))salesChargeRowOn(r,l,order);});}catch(e){}});
  /* Свои коды (работа, разовый сервис, позиция склада): база каждого
     процентного сбора — сумма вещей с ним в наборе. */
  let itemBase=null,free=[];
@@ -26580,13 +26630,18 @@ function docBuildModel(kind,order,opts){
    const ncr=free&&order.remakeNcrId&&typeof ncrFind==='function'?ncrFind(order.remakeNcrId):null,parent=ncr&&salesRecord(ncr.orderId);
    const freeRow=free&&{label:'No charge · remake'+(ncr?' for '+ncr.number:'')+(parent?' · order '+parent.businessNumber:''),value:free.complete?'−'+docMoney(free.subtotal):'—'};
    if(opts.groupTotals||mode==='glass'){
-    const g={glass:0,services:0,surcharges:0,extra:0};
+    const g={glass:0,services:0,surcharges:0,cancel:0,extra:0};
     (order.lines||[]).forEach(l=>{const p=salesLineCommercialPrice(l,order);if(!p.complete)return;const gl=p.manual?p.line:salesMoney(p.materials*p.qty),su=p.manual?0:salesMoney((p.unit-p.base)*p.qty);g.glass+=gl;g.surcharges+=su;g.services+=salesMoney(p.line-gl-su);});
     (order.extraItems||[]).forEach(x=>{const v=salesExtraItemLineTotal(x,order);if(v!=null)g.extra+=v;});
     (order.adjustments||[]).forEach(a=>{g.extra+=+a.amount||0;});
-    rows.push({label:'Glass & IGU',value:money(salesMoney(g.glass))},{label:'Services and processing',value:money(salesMoney(g.services))});
-    if(g.surcharges)rows.push({label:'Surcharges',value:money(salesMoney(g.surcharges))});
-    if(g.extra)rows.push({label:'Additional items',value:money(salesMoney(g.extra))});
+    /* Отменённые юниты — в Subtotal они есть, в разбивке не было (аудит 28.11.2026). */
+    (order.cancellations||[]).forEach(c=>{const v=unitChargeOf(c);if(v!=null)g.cancel+=v;});
+    /* Копейки — от итога (аудит Qwen 28.11.2026): позиции округлены каждая сама,
+       Subtotal — один раз от точной суммы; разница в цент — на самую крупную часть. */
+    const parts=[['Glass & IGU',salesMoney(g.glass),true],['Services and processing',salesMoney(g.services),true],['Surcharges',salesMoney(g.surcharges)],['Cancelled units',salesMoney(g.cancel)],['Additional items',salesMoney(g.extra)]];
+    const want=(free||t).subtotal,diff=salesMoney(want-parts.reduce((n,x)=>n+x[1],0));
+    if(diff&&Math.abs(diff)<=0.005*((order.lines||[]).length+1)+1e-9){const big=parts.reduce((b,x)=>Math.abs(x[1])>Math.abs(b[1])?x:b,parts[0]);big[1]=salesMoney(big[1]+diff);}
+    parts.forEach(([label,v,always])=>{if(always||v)rows.push({label,value:money(v)});});
     if(freeRow)rows.push(freeRow);
     rows.push({label:'Subtotal',value:money(t.subtotal),strong:true,sep:true});
    }else{if(freeRow)rows.push(freeRow);rows.push({label:'Subtotal',value:money(t.subtotal),strong:!!freeRow,sep:!!freeRow});}
@@ -29381,7 +29436,7 @@ function salesCommercialOrderSummary(interactive){
  const ex=k=>(t.extra||[]).filter(x=>x.kind===k).map(x=>item('extra',esc(x.name),x.rate,x.amount,x.enabled));
  const rows=[...((soDraft.adjustments||[]).length?[item('adjust','Adjustments',null,adj,true)]:[]),item('subtotal','Subtotal',null,t.subtotal,true),item('energy','ES',c.energy.rate,t.energy,c.energy.enabled),item('hst','HST',c.hst.rate,t.hst,c.hst.enabled),...ex('percent'),item('card',esc(c.card.name),c.card.rate,t.card,c.card.enabled),item('delivery','Delivery',null,t.delivery,c.delivery.enabled),item('skid','Skid Deposit',null,t.skidDeposit,c.skidDeposit.enabled),...ex('fixed')];
  rows.push(`<span class="metric-order-charge-item charge-total metric-grand-total"><span class="metric-order-charge-label">Total</span><b data-raw>${money(t.grand)}</b>${t.missing?`<small>${t.missing} ${'lines need pricing'}</small>`:''}</span>`);
- const serviceButton=interactive===false?'':`<button type="button" class="metric-order-service-add" ${onAct('click',salesOpenMetrics,'orderCharges')}>Service +</button>`;
+ const serviceButton=interactive===false?'':`<button type="button" class="metric-order-service-add" ${onAct('click',salesOpenMetrics,'orderCharges')}>Charges</button>`;
  return salesOrderReviewHTML(soDraft,t)+`<div class="metric-order-total">${serviceButton}<div class="metric-order-total-main"><small>${'Entire order'} · ${t.qty} ${'units'} · <span class="metric-order-currency" data-raw>${cur}</span></small><div class="metric-order-charge-lines">${rows.join('')}</div>${t.complete?salesChargeBasesHTML(t):''}</div></div>`;
 }
 /* С какой суммы взят каждый процентный сбор и что ничем не облагается
@@ -29434,9 +29489,26 @@ function salesSetAdjustment(i,key,value){
  const n=Number(value);if(!Number.isFinite(n)){alert('Enter an amount. Minus — less to pay.');render();return;}
  a.amount=Math.round(n*100)/100;touch();render();
 }
+/* Код поправки (28.11.2026): как стекло (пусто), код заказа или Custom… —
+   галочки только для этой поправки. */
+function salesSetAdjustmentCode(i,code){
+ const a=soDraft&&(soDraft.adjustments||[])[i];if(!a)return;
+ const c=normalizeSalesOrderCharges(soDraft.orderCharges),hit=c.codes.find(k=>k.id===code);
+ if(code==='custom'){a.on=Array.isArray(a.on)?a.on.slice():c.items.on.slice();a.code='';}
+ else if(hit){a.on=hit.on.slice();a.code=hit.id;}
+ else{delete a.on;delete a.code;}
+ touch();render();
+}
+function salesSetAdjustmentOn(i,k,on){const a=soDraft&&(soDraft.adjustments||[])[i];if(!a||!Array.isArray(a.on))return;a.on=on?a.on.concat([k]):a.on.filter(x=>x!==k);a.code='';touch();render();}
+function salesAdjustmentCodeHTML(a,i){
+ const c=normalizeSalesOrderCharges(soDraft.orderCharges),own=Array.isArray(a.on),custom=own&&!c.codes.some(k=>k.id===a.code);
+ const opts=`<option value="" ${own?'':'selected'}>As glass · ${esc((c.codes.find(k=>k.id===c.items.code)||{name:'default'}).name)}</option>`+c.codes.map(k=>`<option value="${esc(k.id)}" ${own&&!custom&&a.code===k.id?'selected':''}>${esc(k.name)}</option>`).join('')+`<option value="custom" ${custom?'selected':''}>Custom…</option>`;
+ const ticks=custom?`<span class="metric-adjustment-on">${orderChargePctIds(c.extra).map(k=>`<label><input type="checkbox" data-adjustment-on="${esc(k)}" ${a.on.includes(k)?'checked':''} ${onAct('change',salesSetAdjustmentOn,i,String(k),EL_CHECKED)}> ${esc(orderChargeLabel(k,c.extra))}</label>`).join('')}</span>`:'';
+ return `<span class="metric-adjustment-codecell"><label class="metric-adjustment-code">Code<select data-adjustment-code ${onAct('change',salesSetAdjustmentCode,i,EL_VALUE)}>${opts}</select></label>${ticks}</span>`;
+}
 function salesAdjustmentsHTML(){
  const list=soDraft.adjustments||[];
- return `<div class="metric-adjustments" data-adjustments><b>Adjustments</b>${list.map((a,i)=>`<div class="metric-adjustment-row" data-adjustment="${i}"><input type="text" data-adjustment-label value="${esc(a.label)}" maxlength="120" placeholder="Price correction" ${onAct('input',salesSetAdjustment,i,'label',EL_VALUE)} ${onAct('change',touch)}><input type="number" step="0.01" data-adjustment-amount value="${esc(a.amount)}" ${onAct('change',salesSetAdjustment,i,'amount',EL_VALUE)}><span>${esc(soDraft.currency)}</span><button type="button" class="sm dl" aria-label="Remove adjustment" ${onAct('click',salesRemoveAdjustment,i)}>×</button></div>`).join('')}<button type="button" class="sm" data-adjustment-add ${onAct('click',salesAddAdjustment)}>+ Adjustment</button><small>Minus — less to pay. Goes to the subtotal.</small></div>`;
+ return `<div class="metric-adjustments" data-adjustments><b>Adjustments</b>${list.map((a,i)=>`<div class="metric-adjustment-row" data-adjustment="${i}"><input type="text" data-adjustment-label value="${esc(a.label)}" maxlength="120" placeholder="Price correction" ${onAct('input',salesSetAdjustment,i,'label',EL_VALUE)} ${onAct('change',touch)}><input type="number" step="0.01" data-adjustment-amount value="${esc(a.amount)}" ${onAct('change',salesSetAdjustment,i,'amount',EL_VALUE)}><span>${esc(soDraft.currency)}</span>${salesAdjustmentCodeHTML(a,i)}<button type="button" class="sm dl" aria-label="Remove adjustment" ${onAct('click',salesRemoveAdjustment,i)}>×</button></div>`).join('')}<button type="button" class="sm" data-adjustment-add ${onAct('click',salesAddAdjustment)}>+ Adjustment</button><small>Minus — less to pay. Goes to the subtotal. Code — what is charged on it.</small></div>`;
 }
 function salesOrderChargesPanel(){
  const c=normalizeSalesOrderCharges(soDraft.orderCharges),cur=esc(soDraft.currency);
@@ -34844,6 +34916,8 @@ function viewMdSetup(){
    {k:'kind',label:'Type',type:'list',w:120,v:x=>x.kind==='percent'?'%':'Fixed',cell:x=>x.builtin?`<span class="mut">${x.kind==='percent'?'%':'Fixed'}</span>`:`<select class="md-kind" data-setup-charge-kind="${esc(x.id)}" ${onAct('change',orderSetupChargeSet,String(x.id),'kind',EL_VALUE)}><option value="percent" ${x.kind==='percent'?'selected':''}>%</option><option value="fixed" ${x.kind==='fixed'?'selected':''}>Fixed</option></select>`},
    {k:'value',label:'Value',type:'text',w:190,v:x=>x.builtin?String(s[x.id==='energy'?'energyRate':x.id==='hst'?'hstRate':x.id+'Amount']??''):String(x.value),cell:x=>x.id==='card'?'<span class="mut">by card below</span>':x.builtin?num(x.id==='energy'?'energyRate':x.id==='hst'?'hstRate':x.id+'Amount',x.kind==='percent'?'%':cur):`<span class="md-num"><input type="number" min="0" step="0.01" data-setup-charge-value="${esc(x.id)}" value="${x.value}" ${onAct('change',orderSetupChargeSet,String(x.id),'value',EL_VALUE)}><span class="mut">${x.kind==='percent'?'%':cur}</span></span>`},
    {k:'code',label:'Charge code',type:'list',w:200,v:x=>x.id==='card'?'':((codes.find(c=>c.id===code(x))||{}).name||''),cell:x=>x.id==='card'?'<span class="mut">—</span>':codeSel(x.id,code(x))},
+   /* В базе комиссии агента (Agents) — владелец 28.11.2026. */
+   {k:'com',label:'Commission',type:'list',w:120,v:x=>(x.builtin?s[x.id+'Com']:x.com)?'Yes':'No',cell:x=>x.builtin?on(x.id+'Com'):`<input type="checkbox" data-setup-charge-com="${esc(x.id)}" ${x.com?'checked':''} ${onAct('change',orderSetupChargeSet,String(x.id),'com',EL_CHECKED)}>`},
    {k:'means',label:'What it means',type:'text',v:x=>'',cell:x=>`<span class="mut">${x.id==='card'?'Rate by card below':esc(means(x.id,code(x),x.short||x.name))}</span>`}],
   row:i=>({attrs:` data-setup-charge="${esc(i.x.id)}"`,last:i.x.builtin?'':`<button type="button" class="sm dl" aria-label="Remove" title="Remove" ${onAct('click',orderSetupChargeRemove,String(i.x.id))}>×</button>`})});
  /* Коды: колонка на каждый процентный сбор; «What it means» — кто им пользуется. */
@@ -34857,7 +34931,7 @@ function viewMdSetup(){
   columns:()=>[{k:'name',label:'Name on order',type:'text',w:260,v:n=>n.name,cell:(n,v,i)=>`<input type="text" maxlength="60" value="${esc(n.name)}" ${onAct('change',orderSetupCardSet,i.i,'name',EL_VALUE)}>`},{k:'rate',label:'Rate',type:'number',w:170,v:n=>n.rate,cell:(n,v,i)=>`<span class="md-num"><input type="number" min="0" step="0.01" value="${n.rate}" ${onAct('change',orderSetupCardSet,i.i,'rate',EL_VALUE)}><span class="mut">%</span></span>`}],
   row:i=>({attrs:` data-setup-card="${esc(i.x.id)}"`,last:`<button type="button" class="sm dl" aria-label="Remove" title="Remove" ${onAct('click',orderSetupCardRemove,i.i)}>×</button>`})});
  return `<div class="md-setup" data-md-setup>
-  <h3>Order charges</h3><p class="mut">Defaults for new orders. Applied top to bottom: a charge is charged only on what is above it.</p>
+  <h3>Order charges</h3><p class="mut">Defaults for new orders. Applied top to bottom: a charge is charged only on what is above it. Commission — agents get paid on it.</p>
   ${chargeTable}
   <div class="row md-setup-row"><button type="button" data-setup-charge-add ${onAct('click',orderSetupChargeAdd)}>+ Charge</button><span class="mut">A new % charge adds a column to Charge codes.</span></div>
   <h3>Charge codes</h3><p class="mut">Which charges are charged on a thing. Glass, works, one-off services and the charges above all have a code.</p>
@@ -34901,7 +34975,7 @@ function orderSetupChargeAdd(){const s=DB.orderSetup;s.charges.push({id:'ch-'+Da
 function orderSetupChargeSet(id,k,v){
  const x=DB.orderSetup.charges.find(c=>c.id===id);if(!x)return;
  if(k==='value'){const n=Number(v);if(v===''||!Number.isFinite(n)||n<0){alert('Enter a value of zero or greater.');render();return;}x.value=n;}
- else if(k==='enabled')x.enabled=!!v;else if(k==='kind')x.kind=v==='percent'?'percent':'fixed';else if(k==='name')x.name=String(v);
+ else if(k==='enabled')x.enabled=!!v;else if(k==='com')x.com=!!v;else if(k==='kind')x.kind=v==='percent'?'percent':'fixed';else if(k==='name')x.name=String(v);
  normalizeOrderSetup();touch();render();
 }
 function orderSetupChargeRemove(id){
@@ -59476,6 +59550,14 @@ function repSoldOrder(o,shipped,rows){
  [['energy','Energy surcharge'],['delivery','Delivery'],['card','Card fee'],['skidDeposit','Skid deposit']].forEach(([k,label])=>{if(t[k])put({category:'Order charges',type:label,product:label,amount:t[k]});});
  /* Свои сборы Setup (27.11.2026) — тоже Order charges. */
  (t.extra||[]).forEach(x=>{if(x.amount)put({category:'Order charges',type:x.name,product:x.name,amount:x.amount});});
+ /* Копейки — от итога заказа (аудит Qwen 28.11.2026): позиция доведена до своей
+    суммы, а итог заказа округляется один раз от точной суммы, — разница в цент
+    на самую крупную строку заказа: сумма строк = итог до HST до цента. Больше
+    полцента на строку — не округление, такое не прячем. */
+ if(cad&&!free&&t.complete&&rows.length){
+  const sum=salesMoney(rows.reduce((n,x)=>n+(x.amount||0),0)),diff=salesMoney(salesMoney(t.grand-t.hst)-sum);
+  if(diff&&Math.abs(diff)<=0.005*rows.length+1e-9){const big=rows.reduce((b,x)=>Math.abs(x.amount||0)>Math.abs(b.amount||0)?x:b,rows[0]);big.amount=salesMoney((big.amount||0)+diff);big.unitPrice=big.qty>0?big.amount/big.qty:null;}
+ }
 }
 /* Позиция: стекло и плёнка по лайтам, обвязка, работы, надбавки; деньги —
    на все живые юниты позиции. */
@@ -62407,7 +62489,7 @@ function archiveLedgerOf(set){
  set.forEach(x=>{
   const r=x.row,key='L:'+x.tbl+':'+r.id;
   if(x.tbl==='salesOrder'&&!salesIsQuote(r)){
-   const t=finOrderTotals(r),e={id:r.id,customerId:r.customerId,com:{number:r.businessNumber||'',created:r.createdAt||'',t:{grand:t.grand,hst:t.hst,complete:!!t.complete}}},l=finStatementOrderLine(r);
+   const t=finOrderTotals(r),e={id:r.id,customerId:r.customerId,com:{number:r.businessNumber||'',created:r.createdAt||'',t:{grand:t.grand,hst:t.hst,comExcluded:t.comExcluded,complete:!!t.complete}}},l=finStatementOrderLine(r);
    if(l&&l.skipped)e.skipped=r.businessNumber||'';
    else if(l){const f=finOrderFinancial(r);e.line=l;e.order={number:r.businessNumber||'',po:r.customerPo||'',billed:l.date,paidOn:paidOn.get(r.id)||[],
     f:{b:{total:f.b.total,paid:f.b.paid,balance:f.b.balance,status:f.b.status},overdue:0,dueOn:f.dueOn||'',terms:{paymentMode:f.terms.paymentMode,creditDays:f.terms.creditDays},handover:f.handover}};}
