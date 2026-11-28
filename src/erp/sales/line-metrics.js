@@ -254,7 +254,7 @@ function salesChargeRowOn(row,line,order){
 }
 /* Есть ли в заказе вещи со своим кодом — иначе базы считать нечего. */
 function salesOrderOwnCodes(order){
- if((order.lines||[]).some(l=>(l.extraServices||[]).some(x=>Array.isArray(x.on))))return true;
+ if((order.lines||[]).some(l=>(l.extraServices||[]).some(x=>Array.isArray(x.on)))||(order.adjustments||[]).some(a=>Array.isArray(a.on)))return true;
  if((DB.serviceRate||[]).some(w=>w&&w.chargeCode))return true;
  const b=order.priceBook;if(b)for(const k in b)if(b[k]!=null&&k.indexOf('snap:svcOn:')===0)return true;
  return false;
@@ -264,6 +264,8 @@ function salesOrderOwnCodes(order){
 function salesOrderChargeDeltas(order,c){
  const pct=orderChargePctIds(c.extra),def=c.items.on,delta={},free=[];
  const add=(on,amount,name)=>{if(!on||amount==null)return;const same=on.length===def.length&&on.every(k=>def.includes(k));if(same)return;pct.forEach(k=>{const d=(on.includes(k)?1:0)-(def.includes(k)?1:0);if(d)delta[k]=salesExact((delta[k]||0)+d*amount);});if(!on.length)free.push({name,amount:salesMoney(amount)});};
+ /* Поправка заказа (Adjustments) со своим кодом — 28.11.2026. */
+ (order.adjustments||[]).forEach(a=>{if(Array.isArray(a.on)&&Number.isFinite(+a.amount))add(a.on,+a.amount,a.label||'Adjustment');});
  (order.lines||[]).forEach(line=>{
   const p=salesLineCommercialPrice(line,order);if(!p.complete||p.manual||!p.qty)return;
   const k=p.base>0?p.unit/p.base:1;

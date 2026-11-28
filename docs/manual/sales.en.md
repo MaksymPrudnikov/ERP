@@ -166,7 +166,7 @@ sheet.
 
 ## Order charges and codes (Order charges, Charge code)
 
-- The **Order charges** window (the **Service +** button at the order total): ES, HST, your own % from Data → Setup,
+- The **Order charges** window (the **Charges** button at the order total; “Service +” before 28 Nov 2026): ES, HST, your own % from Data → Setup,
   Card fee, Delivery, Skid deposit, your own amounts. Each has a tick, a rate or amount and a **Code** — what is charged
   on that charge in this order (Card fee has no code: nothing is charged on it). Codes and sets are a snapshot of Setup
   on the day the order was created.
@@ -175,6 +175,8 @@ sheet.
 - A one-off service (**+ Add service**): the **Charge code** field — an order code (a Master Data work also has **As the
   work**) or **Custom…** — ES / HST / Card fee ticks for this service only. The tags beside it show what is charged,
   struck through — not charged. In the Services window such a service carries its code tag.
+- **Adjustments** in the same window have a **Code** too: empty — as glass, an order code or **Custom…** (ticks under
+  the code). So an adjustment or a one-off amount can go without ES, without tax or without any charges (28 Nov 2026).
 - A work has its own code on its card (Data → Works → Charge code); the order records it at Save, like the price.
 - Under the total — what each charge was taken on and what is charged nothing: “ES on … · HST on … · Card fee on … ·
   not charged: City permit 50.00”.

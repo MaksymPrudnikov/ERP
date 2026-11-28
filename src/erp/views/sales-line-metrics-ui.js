@@ -167,7 +167,7 @@ function salesCommercialOrderSummary(interactive){
  const ex=k=>(t.extra||[]).filter(x=>x.kind===k).map(x=>item('extra',esc(x.name),x.rate,x.amount,x.enabled));
  const rows=[...((soDraft.adjustments||[]).length?[item('adjust','Adjustments',null,adj,true)]:[]),item('subtotal','Subtotal',null,t.subtotal,true),item('energy','ES',c.energy.rate,t.energy,c.energy.enabled),item('hst','HST',c.hst.rate,t.hst,c.hst.enabled),...ex('percent'),item('card',esc(c.card.name),c.card.rate,t.card,c.card.enabled),item('delivery','Delivery',null,t.delivery,c.delivery.enabled),item('skid','Skid Deposit',null,t.skidDeposit,c.skidDeposit.enabled),...ex('fixed')];
  rows.push(`<span class="metric-order-charge-item charge-total metric-grand-total"><span class="metric-order-charge-label">Total</span><b data-raw>${money(t.grand)}</b>${t.missing?`<small>${t.missing} ${'lines need pricing'}</small>`:''}</span>`);
- const serviceButton=interactive===false?'':`<button type="button" class="metric-order-service-add" ${onAct('click',salesOpenMetrics,'orderCharges')}>Service +</button>`;
+ const serviceButton=interactive===false?'':`<button type="button" class="metric-order-service-add" ${onAct('click',salesOpenMetrics,'orderCharges')}>Charges</button>`;
  return salesOrderReviewHTML(soDraft,t)+`<div class="metric-order-total">${serviceButton}<div class="metric-order-total-main"><small>${'Entire order'} · ${t.qty} ${'units'} · <span class="metric-order-currency" data-raw>${cur}</span></small><div class="metric-order-charge-lines">${rows.join('')}</div>${t.complete?salesChargeBasesHTML(t):''}</div></div>`;
 }
 /* С какой суммы взят каждый процентный сбор и что ничем не облагается
@@ -220,9 +220,26 @@ function salesSetAdjustment(i,key,value){
  const n=Number(value);if(!Number.isFinite(n)){alert('Enter an amount. Minus — less to pay.');render();return;}
  a.amount=Math.round(n*100)/100;touch();render();
 }
+/* Код поправки (28.11.2026): как стекло (пусто), код заказа или Custom… —
+   галочки только для этой поправки. */
+function salesSetAdjustmentCode(i,code){
+ const a=soDraft&&(soDraft.adjustments||[])[i];if(!a)return;
+ const c=normalizeSalesOrderCharges(soDraft.orderCharges),hit=c.codes.find(k=>k.id===code);
+ if(code==='custom'){a.on=Array.isArray(a.on)?a.on.slice():c.items.on.slice();a.code='';}
+ else if(hit){a.on=hit.on.slice();a.code=hit.id;}
+ else{delete a.on;delete a.code;}
+ touch();render();
+}
+function salesSetAdjustmentOn(i,k,on){const a=soDraft&&(soDraft.adjustments||[])[i];if(!a||!Array.isArray(a.on))return;a.on=on?a.on.concat([k]):a.on.filter(x=>x!==k);a.code='';touch();render();}
+function salesAdjustmentCodeHTML(a,i){
+ const c=normalizeSalesOrderCharges(soDraft.orderCharges),own=Array.isArray(a.on),custom=own&&!c.codes.some(k=>k.id===a.code);
+ const opts=`<option value="" ${own?'':'selected'}>As glass · ${esc((c.codes.find(k=>k.id===c.items.code)||{name:'default'}).name)}</option>`+c.codes.map(k=>`<option value="${esc(k.id)}" ${own&&!custom&&a.code===k.id?'selected':''}>${esc(k.name)}</option>`).join('')+`<option value="custom" ${custom?'selected':''}>Custom…</option>`;
+ const ticks=custom?`<span class="metric-adjustment-on">${orderChargePctIds(c.extra).map(k=>`<label><input type="checkbox" data-adjustment-on="${esc(k)}" ${a.on.includes(k)?'checked':''} ${onAct('change',salesSetAdjustmentOn,i,String(k),EL_CHECKED)}> ${esc(orderChargeLabel(k,c.extra))}</label>`).join('')}</span>`:'';
+ return `<span class="metric-adjustment-codecell"><label class="metric-adjustment-code">Code<select data-adjustment-code ${onAct('change',salesSetAdjustmentCode,i,EL_VALUE)}>${opts}</select></label>${ticks}</span>`;
+}
 function salesAdjustmentsHTML(){
  const list=soDraft.adjustments||[];
- return `<div class="metric-adjustments" data-adjustments><b>Adjustments</b>${list.map((a,i)=>`<div class="metric-adjustment-row" data-adjustment="${i}"><input type="text" data-adjustment-label value="${esc(a.label)}" maxlength="120" placeholder="Price correction" ${onAct('input',salesSetAdjustment,i,'label',EL_VALUE)} ${onAct('change',touch)}><input type="number" step="0.01" data-adjustment-amount value="${esc(a.amount)}" ${onAct('change',salesSetAdjustment,i,'amount',EL_VALUE)}><span>${esc(soDraft.currency)}</span><button type="button" class="sm dl" aria-label="Remove adjustment" ${onAct('click',salesRemoveAdjustment,i)}>×</button></div>`).join('')}<button type="button" class="sm" data-adjustment-add ${onAct('click',salesAddAdjustment)}>+ Adjustment</button><small>Minus — less to pay. Goes to the subtotal.</small></div>`;
+ return `<div class="metric-adjustments" data-adjustments><b>Adjustments</b>${list.map((a,i)=>`<div class="metric-adjustment-row" data-adjustment="${i}"><input type="text" data-adjustment-label value="${esc(a.label)}" maxlength="120" placeholder="Price correction" ${onAct('input',salesSetAdjustment,i,'label',EL_VALUE)} ${onAct('change',touch)}><input type="number" step="0.01" data-adjustment-amount value="${esc(a.amount)}" ${onAct('change',salesSetAdjustment,i,'amount',EL_VALUE)}><span>${esc(soDraft.currency)}</span>${salesAdjustmentCodeHTML(a,i)}<button type="button" class="sm dl" aria-label="Remove adjustment" ${onAct('click',salesRemoveAdjustment,i)}>×</button></div>`).join('')}<button type="button" class="sm" data-adjustment-add ${onAct('click',salesAddAdjustment)}>+ Adjustment</button><small>Minus — less to pay. Goes to the subtotal. Code — what is charged on it.</small></div>`;
 }
 function salesOrderChargesPanel(){
  const c=normalizeSalesOrderCharges(soDraft.orderCharges),cur=esc(soDraft.currency);

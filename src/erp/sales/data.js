@@ -682,7 +682,10 @@ function normalizeSalesOrder(o){
    (владелец, 7.10.2026: «то, что касается денег, должно быть максимально
    флексибл — иногда где-то ошибка, и нужна возможность решить её руками»). */
 function normalizeSalesAdjustments(raw){
- return (Array.isArray(raw)?raw:[]).filter(x=>x&&typeof x==='object'&&Number.isFinite(+x.amount)).map(x=>({id:salesEntityId(x.id,'ADJ'),label:salesString(x.label).slice(0,120),amount:Math.round(+x.amount*100)/100}));
+ /* Свой набор сборов поправки (Code, владелец 28.11.2026: «чтобы было и там и
+    там… для чарджеса в целом, а не под стекла»): `on`, `code`; нет — как стекло. */
+ return (Array.isArray(raw)?raw:[]).filter(x=>x&&typeof x==='object'&&Number.isFinite(+x.amount)).map(x=>{const on=Array.isArray(x.on)?x.on.filter(k=>typeof k==='string'&&/^[A-Za-z0-9_-]{1,40}$/.test(k)):null;
+  return {id:salesEntityId(x.id,'ADJ'),label:salesString(x.label).slice(0,120),amount:Math.round(+x.amount*100)/100,...(on?{on,code:salesString(x.code).slice(0,40)}:{})};});
 }
 function salesNextMakeupCodeFromSet(used){const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';for(const c of letters)if(!used.has(c))return c;let n=27,code;do{code='MU-'+String(n++).padStart(3,'0');}while(used.has(code));return code;}
 function nextMakeupCode(order){return salesNextMakeupCodeFromSet(new Set((order.makeups||[]).map(m=>m.code)));}

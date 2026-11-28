@@ -52,3 +52,22 @@
 .metric-charge-code-wrap{display:flex;align-items:center;gap:6px;justify-self:end}.metric-order-charge-row select.metric-charge-code{min-width:150px}
 .metric-order-bases{display:block;margin-top:6px;color:var(--text-3);font-size:12px;text-align:right}
 @media(max-width:600px){.metric-order-charge-editor .metric-order-charge-row{grid-template-columns:1fr}.metric-charge-code-wrap{justify-self:start}}
+/* Код поправки (28.11.2026). */
+.metric-adjustment-code{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-2)}.metric-adjustment-code select{min-width:150px}
+.metric-adjustment-on{display:inline-flex;gap:10px;font-size:12px}.metric-adjustment-on label{display:inline-flex;gap:4px;align-items:center}
+/* Окно сборов ровной сеткой (владелец 28.11.2026: «выровняй экраны… строки и
+   таблицы слегка скачут»): у всех строк одни колонки — название · значения ·
+   код; поправки — текст · сумма · валюта · код · ×; галочки Custom… — под
+   кодом, строку не раздвигают. Итог заказа: ширины ячеек — нижние, большая
+   сумма раздвигает свою ячейку, а не налезает на соседнюю. */
+.metric-order-charge-editor .metric-order-charge-row{grid-template-columns:180px minmax(0,1fr) 220px}
+.metric-charge-body{flex-wrap:nowrap}.metric-charge-body select{width:150px;min-width:150px}.metric-order-charge-row .metric-charge-body input[type=number]{width:84px}
+.metric-charge-code-wrap{justify-self:stretch;justify-content:flex-end}.metric-order-charge-row select.metric-charge-code{width:160px;min-width:160px}
+.metric-adjustments .metric-adjustment-row{display:grid;grid-template-columns:minmax(0,1fr) 110px 36px 220px 32px;align-items:start;gap:8px}
+.metric-adjustments .metric-adjustment-row>span:not(.metric-adjustment-codecell){align-self:start;line-height:36px}
+.metric-adjustment-codecell{display:flex;flex-direction:column;align-items:flex-end;gap:6px}.metric-adjustment-code select{width:160px;min-width:160px}
+.metric-adjustment-on{justify-content:flex-end;flex-wrap:wrap}
+.metric-order-charge-lines .metric-order-charge-item{width:auto}
+.metric-order-charge-lines .charge-subtotal{min-width:82px}.metric-order-charge-lines .charge-energy,.metric-order-charge-lines .charge-hst{min-width:62px}.metric-order-charge-lines .charge-card{min-width:105px}.metric-order-charge-lines .charge-delivery{min-width:80px}.metric-order-charge-lines .charge-skid{min-width:96px}.metric-order-charge-lines .charge-total{min-width:123px}
+.metric-order-total-main{width:auto;min-width:610px}
+@media(max-width:600px){.metric-order-charge-editor .metric-order-charge-row,.metric-adjustments .metric-adjustment-row{grid-template-columns:1fr}.metric-adjustment-codecell{align-items:flex-start}.metric-order-total-main{min-width:0}}

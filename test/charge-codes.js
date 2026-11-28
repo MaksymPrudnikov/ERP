@@ -100,6 +100,20 @@ module.exports=async function({page,eq}){
   return {halves:ex.every(e=>Math.abs(e*1000%10-5)<1e-6),sold:sold===salesMoney(t.grand-t.hst),groups:sum===Math.round(t.subtotal*100),cancel:parts.some(r=>r.label==='Cancelled units')};
  }),{halves:true,sold:true,groups:true,cancel:true});
 
+ eq('Adjustments с кодом (28.11): поправка «как стекло», с кодом заказа или Custom… — базы ES / HST / карты; кнопка у итога — Charges; итог не налезает',await run(()=>{
+  soDraft=null;soEdit=null;const o=ccOrder();o.orderCharges=normalizeSalesOrderCharges(o.orderCharges);salesSetOrderChargeEnabled('card',true);
+  const t0=salesOrderCommercialTotals(o);
+  salesAddAdjustment();salesSetAdjustment(0,'label','Crane rental');salesSetAdjustment(0,'amount','200');salesSetAdjustmentCode(0,'hst-card');
+  salesAddAdjustment();salesSetAdjustment(1,'label','City permit');salesSetAdjustment(1,'amount','50');salesSetAdjustmentCode(1,'custom');['energy','hst','card'].forEach(k=>salesSetAdjustmentOn(1,k,false));
+  const t=salesOrderCommercialTotals(o);
+  salesOpenMetrics('orderCharges');render();
+  const codes=[...document.querySelectorAll('[data-adjustment-code]')].map(s=>s.value),ticks=document.querySelectorAll('[data-adjustment-on]').length;
+  const items=[...document.querySelectorAll('.metric-order-charge-preview .metric-order-charge-item:not(.is-empty)')].map(x=>x.getBoundingClientRect()),apart=items.slice(1).every((r,i)=>r.left>=items[i].right-0.5);
+  salesSetAdjustmentCode(0,'');const back=!('on' in o.adjustments[0]);
+  salesCloseMetrics();const btn=(document.querySelector('.metric-order-service-add')||{}).textContent;soDraft=null;soEdit=null;
+  return {es:salesMoney(t.energyBase-t0.energyBase),hst:salesMoney(t.hstBase-t0.hstBase),free:t.uncharged.map(f=>f.name+' '+f.amount),codes,ticks,apart,back,btn:(btn||'').trim()};
+ }),{es:0,hst:200,free:['City permit 50'],codes:['hst-card','custom'],ticks:3,apart:true,back:true,btn:'Charges'});
+
  eq('Setup: «+ Charge» — свой сбор % с колонкой в Charge codes, в окне заказа со своим кодом, на бланке строкой; удалённый код уходит на первый',await run(()=>{
   const keep=JSON.stringify(DB.orderSetup);
   try{
