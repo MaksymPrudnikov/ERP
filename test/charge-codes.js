@@ -86,6 +86,20 @@ module.exports=async function({page,eq}){
   }finally{DB.orderSetup=JSON.parse(keep);normalizeOrderSetup();}
  }),{flags:[true,false,true,true,true,false],excl:true,share:true,ticked:true,old:true,box:true});
 
+ eq('аудит Qwen №2: копейки — от итога заказа: сумма строк Products · sold = итог до HST, разбивка бланка (с отменёнными юнитами) = Subtotal',await run(()=>{
+  soDraft=null;soEdit=null;
+  const id=oqOrder(oqCustomer());salesOrderEdit(id);const o=soDraft;o.lines.forEach(l=>{l.qty=1;});
+  /* Каждая позиция — с половиной цента: сумма строк в центах уходит от итога. */
+  o.lines.forEach(l=>{const e=salesLineCommercialPrice(l,o).exact,x=+(Math.floor(e*100)/100+0.005+1-e).toFixed(6);salesExtraFormOpen('line:'+l.id);Object.assign(soExtraForm,{name:'Half',unit:'pc',rate:String(x)});salesExtraAdd();});
+  o.cancellations=[{id:'CX1',lineId:o.lines[0].id,units:['u1'],charge:12.34,at:new Date().toISOString()}];
+  const ex=o.lines.map(l=>salesLineCommercialPrice(l,o).exact),t=salesOrderCommercialTotals(o);
+  const rows=[];repSoldOrder(o,'',rows);const sold=salesMoney(rows.reduce((n,x)=>n+(x.amount||0),0));
+  const doc=docBuildModel('invoice',o,Object.assign({},docDefaultOptions('invoice'),{groupTotals:true})).end.rows,at=doc.findIndex(r=>r.label==='Subtotal');
+  const cents=v=>Math.round(+String(v).replace(/[^0-9.-]/g,'')*100),parts=doc.slice(0,at),sum=parts.reduce((n,r)=>n+cents(r.value),0);
+  soDraft=null;soEdit=null;
+  return {halves:ex.every(e=>Math.abs(e*1000%10-5)<1e-6),sold:sold===salesMoney(t.grand-t.hst),groups:sum===Math.round(t.subtotal*100),cancel:parts.some(r=>r.label==='Cancelled units')};
+ }),{halves:true,sold:true,groups:true,cancel:true});
+
  eq('Setup: «+ Charge» — свой сбор % с колонкой в Charge codes, в окне заказа со своим кодом, на бланке строкой; удалённый код уходит на первый',await run(()=>{
   const keep=JSON.stringify(DB.orderSetup);
   try{

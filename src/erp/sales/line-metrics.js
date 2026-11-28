@@ -199,6 +199,10 @@ function salesMoney(value){return Math.round(+(value*100).toFixed(6))/100;}
    округление цены юнита и давало расхождение. salesExact убирает только шум
    двоичных чисел. */
 function salesExact(value){return +(+value).toFixed(6);}
+/* Ничьи — как Spiel (журнал «Счёт до цента как в Spiel», 02.11.2026): ближайшее
+   двоичное число и toFixed(2), 1.005 → 1.00, 8.345 → 8.35; так сошлись 4 заказа
+   Spiel до цента. Половина цента вверх (salesMoney) с ним сходится хуже — для
+   итогов заказа не брать (аудит Qwen 28.11.2026 предлагал — оставлено). */
 function salesCents(value){return +salesExact(value).toFixed(2);}
 /* Дюймы продажи: вверх до целого, как в Spiel. */
 function salesWholeInches(value){return Math.ceil(+value-1e-9);}
