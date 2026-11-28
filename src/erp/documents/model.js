@@ -426,13 +426,18 @@ function docBuildModel(kind,order,opts){
    const ncr=free&&order.remakeNcrId&&typeof ncrFind==='function'?ncrFind(order.remakeNcrId):null,parent=ncr&&salesRecord(ncr.orderId);
    const freeRow=free&&{label:'No charge · remake'+(ncr?' for '+ncr.number:'')+(parent?' · order '+parent.businessNumber:''),value:free.complete?'−'+docMoney(free.subtotal):'—'};
    if(opts.groupTotals||mode==='glass'){
-    const g={glass:0,services:0,surcharges:0,extra:0};
+    const g={glass:0,services:0,surcharges:0,cancel:0,extra:0};
     (order.lines||[]).forEach(l=>{const p=salesLineCommercialPrice(l,order);if(!p.complete)return;const gl=p.manual?p.line:salesMoney(p.materials*p.qty),su=p.manual?0:salesMoney((p.unit-p.base)*p.qty);g.glass+=gl;g.surcharges+=su;g.services+=salesMoney(p.line-gl-su);});
     (order.extraItems||[]).forEach(x=>{const v=salesExtraItemLineTotal(x,order);if(v!=null)g.extra+=v;});
     (order.adjustments||[]).forEach(a=>{g.extra+=+a.amount||0;});
-    rows.push({label:'Glass & IGU',value:money(salesMoney(g.glass))},{label:'Services and processing',value:money(salesMoney(g.services))});
-    if(g.surcharges)rows.push({label:'Surcharges',value:money(salesMoney(g.surcharges))});
-    if(g.extra)rows.push({label:'Additional items',value:money(salesMoney(g.extra))});
+    /* Отменённые юниты — в Subtotal они есть, в разбивке не было (аудит 28.11.2026). */
+    (order.cancellations||[]).forEach(c=>{const v=unitChargeOf(c);if(v!=null)g.cancel+=v;});
+    /* Копейки — от итога (аудит Qwen 28.11.2026): позиции округлены каждая сама,
+       Subtotal — один раз от точной суммы; разница в цент — на самую крупную часть. */
+    const parts=[['Glass & IGU',salesMoney(g.glass),true],['Services and processing',salesMoney(g.services),true],['Surcharges',salesMoney(g.surcharges)],['Cancelled units',salesMoney(g.cancel)],['Additional items',salesMoney(g.extra)]];
+    const want=(free||t).subtotal,diff=salesMoney(want-parts.reduce((n,x)=>n+x[1],0));
+    if(diff&&Math.abs(diff)<=0.005*((order.lines||[]).length+1)+1e-9){const big=parts.reduce((b,x)=>Math.abs(x[1])>Math.abs(b[1])?x:b,parts[0]);big[1]=salesMoney(big[1]+diff);}
+    parts.forEach(([label,v,always])=>{if(always||v)rows.push({label,value:money(v)});});
     if(freeRow)rows.push(freeRow);
     rows.push({label:'Subtotal',value:money(t.subtotal),strong:true,sep:true});
    }else{if(freeRow)rows.push(freeRow);rows.push({label:'Subtotal',value:money(t.subtotal),strong:!!freeRow,sep:!!freeRow});}

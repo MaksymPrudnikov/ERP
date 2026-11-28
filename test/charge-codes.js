@@ -57,6 +57,64 @@ module.exports=async function({page,eq}){
   return {opts,saved,has,a,b,gone:!('chargeCode' in DB.serviceRate.find(w=>w.id==='roughArris'))};
  }),{opts:['Default · Standard','HST + card','Card only','No charges'],saved:'none',has:true,a:['Rough Arris'],b:[],gone:true});
 
+ eq('аудит: Save пишет набор каждой работы и без кодов; код, поставленный работе потом, сохранённый заказ не меняет (и при новом Save); Update prices + Save — новый код',await run(()=>{
+  soDraft=null;soEdit=null;const keep=JSON.stringify(DB.serviceRate);
+  try{
+   const id=oqOrder(oqCustomer());soDraft=null;soEdit=null;
+   const o=salesRecord(id),t0=salesOrderCommercialTotals(o),hadKey=o.priceBook&&Object.prototype.hasOwnProperty.call(o.priceBook,'snap:svcOn:roughArris')?o.priceBook['snap:svcOn:roughArris']:'missing';
+   DB.serviceRate.find(w=>w.id==='roughArris').chargeCode='none';
+   const t1=salesOrderCommercialTotals(o);
+   salesOrderEdit(id);const open=salesOrderCommercialTotals(soDraft);
+   const saved=salesOrderSave();soDraft=null;soEdit=null;const o2=salesRecord(id),key=o2.priceBook&&o2.priceBook['snap:svcOn:roughArris'];
+   DB.serviceRate.find(w=>w.id==='roughArris').chargeCode='hst-card';
+   const t2=salesOrderCommercialTotals(salesRecord(id));
+   salesOrderEdit(id);salesUpdatePrices();salesOrderSave();soDraft=null;soEdit=null;const updated=salesRecord(id).priceBook['snap:svcOn:roughArris'];
+   return {updated,hadKey,same:t1.grand===t0.grand&&t1.energyBase===t0.energyBase,open:open.energyBase<t0.energyBase&&open.uncharged.some(f=>f.name==='Rough Arris'),saved:!!saved,key,keeps:t2.grand===open.grand&&t2.energyBase===open.energyBase};
+  }finally{DB.serviceRate=JSON.parse(keep);}
+ }),{updated:'hst,card',hadKey:null,same:true,open:false,saved:true,key:null,keeps:true});
+
+ eq('Commission (28.11): у каждого сбора галочка «в базе комиссии агента» — HST и свой PST не идут, остальное как было; снимок заказа; старый заказ — всё, кроме HST',await run(()=>{
+  const keep=JSON.stringify(DB.orderSetup);
+  try{
+   soDraft=null;soEdit=null;
+   orderSetupChargeAdd();const id=DB.orderSetup.charges[0].id;orderSetupChargeSet(id,'name','PST');orderSetupChargeSet(id,'kind','percent');orderSetupChargeSet(id,'value','8');orderSetupChargeSet(id,'enabled',true);orderSetupCodeToggle(0,id,true);
+   const c=newSalesOrderDraft().orderCharges,flags=[c.energy.com,c.hst.com,c.card.com,c.delivery.com,c.skidDeposit.com,c.extra[0].com];
+   const t=salesApplyOrderCharges(1000,c),pst=t.extra[0].amount,share=comNoHstShare(t);
+   const c2=JSON.parse(JSON.stringify(c));c2.extra[0].com=true;const t2=salesApplyOrderCharges(1000,c2);
+   const old=salesApplyOrderCharges(1000,{energy:{enabled:true,rate:9.75},hst:{enabled:true,rate:13}});
+   navGo('masterdata');mdSetTab('setup');render();const box=!!document.querySelector('[data-setup="hstCom"]')&&!!document.querySelector('[data-setup-charge-com="'+id+'"]');
+   return {flags,excl:t.comExcluded===salesMoney(t.hst+pst),share:Math.abs(share-(t.grand-t.hst-pst)/t.grand)<1e-12,ticked:t2.comExcluded===t2.hst,old:old.comExcluded===old.hst,box};
+  }finally{DB.orderSetup=JSON.parse(keep);normalizeOrderSetup();}
+ }),{flags:[true,false,true,true,true,false],excl:true,share:true,ticked:true,old:true,box:true});
+
+ eq('аудит Qwen №2: копейки — от итога заказа: сумма строк Products · sold = итог до HST, разбивка бланка (с отменёнными юнитами) = Subtotal',await run(()=>{
+  soDraft=null;soEdit=null;
+  const id=oqOrder(oqCustomer());salesOrderEdit(id);const o=soDraft;o.lines.forEach(l=>{l.qty=1;});
+  /* Каждая позиция — с половиной цента: сумма строк в центах уходит от итога. */
+  o.lines.forEach(l=>{const e=salesLineCommercialPrice(l,o).exact,x=+(Math.floor(e*100)/100+0.005+1-e).toFixed(6);salesExtraFormOpen('line:'+l.id);Object.assign(soExtraForm,{name:'Half',unit:'pc',rate:String(x)});salesExtraAdd();});
+  o.cancellations=[{id:'CX1',lineId:o.lines[0].id,units:['u1'],charge:12.34,at:new Date().toISOString()}];
+  const ex=o.lines.map(l=>salesLineCommercialPrice(l,o).exact),t=salesOrderCommercialTotals(o);
+  const rows=[];repSoldOrder(o,'',rows);const sold=salesMoney(rows.reduce((n,x)=>n+(x.amount||0),0));
+  const doc=docBuildModel('invoice',o,Object.assign({},docDefaultOptions('invoice'),{groupTotals:true})).end.rows,at=doc.findIndex(r=>r.label==='Subtotal');
+  const cents=v=>Math.round(+String(v).replace(/[^0-9.-]/g,'')*100),parts=doc.slice(0,at),sum=parts.reduce((n,r)=>n+cents(r.value),0);
+  soDraft=null;soEdit=null;
+  return {halves:ex.every(e=>Math.abs(e*1000%10-5)<1e-6),sold:sold===salesMoney(t.grand-t.hst),groups:sum===Math.round(t.subtotal*100),cancel:parts.some(r=>r.label==='Cancelled units')};
+ }),{halves:true,sold:true,groups:true,cancel:true});
+
+ eq('Adjustments с кодом (28.11): поправка «как стекло», с кодом заказа или Custom… — базы ES / HST / карты; кнопка у итога — Charges; итог не налезает',await run(()=>{
+  soDraft=null;soEdit=null;const o=ccOrder();o.orderCharges=normalizeSalesOrderCharges(o.orderCharges);salesSetOrderChargeEnabled('card',true);
+  const t0=salesOrderCommercialTotals(o);
+  salesAddAdjustment();salesSetAdjustment(0,'label','Crane rental');salesSetAdjustment(0,'amount','200');salesSetAdjustmentCode(0,'hst-card');
+  salesAddAdjustment();salesSetAdjustment(1,'label','City permit');salesSetAdjustment(1,'amount','50');salesSetAdjustmentCode(1,'custom');['energy','hst','card'].forEach(k=>salesSetAdjustmentOn(1,k,false));
+  const t=salesOrderCommercialTotals(o);
+  salesOpenMetrics('orderCharges');render();
+  const codes=[...document.querySelectorAll('[data-adjustment-code]')].map(s=>s.value),ticks=document.querySelectorAll('[data-adjustment-on]').length;
+  const items=[...document.querySelectorAll('.metric-order-charge-preview .metric-order-charge-item:not(.is-empty)')].map(x=>x.getBoundingClientRect()),apart=items.slice(1).every((r,i)=>r.left>=items[i].right-0.5);
+  salesSetAdjustmentCode(0,'');const back=!('on' in o.adjustments[0]);
+  salesCloseMetrics();const btn=(document.querySelector('.metric-order-service-add')||{}).textContent;soDraft=null;soEdit=null;
+  return {es:salesMoney(t.energyBase-t0.energyBase),hst:salesMoney(t.hstBase-t0.hstBase),free:t.uncharged.map(f=>f.name+' '+f.amount),codes,ticks,apart,back,btn:(btn||'').trim()};
+ }),{es:0,hst:200,free:['City permit 50'],codes:['hst-card','custom'],ticks:3,apart:true,back:true,btn:'Charges'});
+
  eq('Setup: «+ Charge» — свой сбор % с колонкой в Charge codes, в окне заказа со своим кодом, на бланке строкой; удалённый код уходит на первый',await run(()=>{
   const keep=JSON.stringify(DB.orderSetup);
   try{

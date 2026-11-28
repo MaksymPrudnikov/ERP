@@ -106,8 +106,11 @@ function comTotals(o){
  if(!comScope)return finOrderTotals(o);
  const k=o.id+'|'+(o.updatedAt||'');if(!comScope.totals.has(k))comScope.totals.set(k,finOrderTotals(o));return comScope.totals.get(k);
 }
-/* Доля заказа без HST: оплата делится в пропорции суммы заказа. */
-function comNoHstShare(t){return t&&t.grand>0?Math.max(0,(t.grand-t.hst)/t.grand):1;}
+/* Доля заказа, с которой платится комиссия: без сборов, которые в Data → Setup
+   не идут в комиссию (Commission; по умолчанию — HST; владелец 28.11.2026: «PST
+   тоже исключать… чтобы была возможность настроить»). Оплата делится в
+   пропорции суммы заказа. */
+function comNoHstShare(t){return t&&t.grand>0?Math.max(0,(t.grand-(t.comExcluded!=null?t.comExcluded:t.hst))/t.grand):1;}
 /* Заказы клиентов человека с оплатами за период (по дате оплаты). range —
    {from, to} днями или null (всё время). */
 function comOrders(ref,range){

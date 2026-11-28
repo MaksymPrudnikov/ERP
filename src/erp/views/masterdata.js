@@ -159,6 +159,8 @@ function viewMdSetup(){
    {k:'kind',label:'Type',type:'list',w:120,v:x=>x.kind==='percent'?'%':'Fixed',cell:x=>x.builtin?`<span class="mut">${x.kind==='percent'?'%':'Fixed'}</span>`:`<select class="md-kind" data-setup-charge-kind="${esc(x.id)}" ${onAct('change',orderSetupChargeSet,String(x.id),'kind',EL_VALUE)}><option value="percent" ${x.kind==='percent'?'selected':''}>%</option><option value="fixed" ${x.kind==='fixed'?'selected':''}>Fixed</option></select>`},
    {k:'value',label:'Value',type:'text',w:190,v:x=>x.builtin?String(s[x.id==='energy'?'energyRate':x.id==='hst'?'hstRate':x.id+'Amount']??''):String(x.value),cell:x=>x.id==='card'?'<span class="mut">by card below</span>':x.builtin?num(x.id==='energy'?'energyRate':x.id==='hst'?'hstRate':x.id+'Amount',x.kind==='percent'?'%':cur):`<span class="md-num"><input type="number" min="0" step="0.01" data-setup-charge-value="${esc(x.id)}" value="${x.value}" ${onAct('change',orderSetupChargeSet,String(x.id),'value',EL_VALUE)}><span class="mut">${x.kind==='percent'?'%':cur}</span></span>`},
    {k:'code',label:'Charge code',type:'list',w:200,v:x=>x.id==='card'?'':((codes.find(c=>c.id===code(x))||{}).name||''),cell:x=>x.id==='card'?'<span class="mut">—</span>':codeSel(x.id,code(x))},
+   /* В базе комиссии агента (Agents) — владелец 28.11.2026. */
+   {k:'com',label:'Commission',type:'list',w:120,v:x=>(x.builtin?s[x.id+'Com']:x.com)?'Yes':'No',cell:x=>x.builtin?on(x.id+'Com'):`<input type="checkbox" data-setup-charge-com="${esc(x.id)}" ${x.com?'checked':''} ${onAct('change',orderSetupChargeSet,String(x.id),'com',EL_CHECKED)}>`},
    {k:'means',label:'What it means',type:'text',v:x=>'',cell:x=>`<span class="mut">${x.id==='card'?'Rate by card below':esc(means(x.id,code(x),x.short||x.name))}</span>`}],
   row:i=>({attrs:` data-setup-charge="${esc(i.x.id)}"`,last:i.x.builtin?'':`<button type="button" class="sm dl" aria-label="Remove" title="Remove" ${onAct('click',orderSetupChargeRemove,String(i.x.id))}>×</button>`})});
  /* Коды: колонка на каждый процентный сбор; «What it means» — кто им пользуется. */
@@ -172,7 +174,7 @@ function viewMdSetup(){
   columns:()=>[{k:'name',label:'Name on order',type:'text',w:260,v:n=>n.name,cell:(n,v,i)=>`<input type="text" maxlength="60" value="${esc(n.name)}" ${onAct('change',orderSetupCardSet,i.i,'name',EL_VALUE)}>`},{k:'rate',label:'Rate',type:'number',w:170,v:n=>n.rate,cell:(n,v,i)=>`<span class="md-num"><input type="number" min="0" step="0.01" value="${n.rate}" ${onAct('change',orderSetupCardSet,i.i,'rate',EL_VALUE)}><span class="mut">%</span></span>`}],
   row:i=>({attrs:` data-setup-card="${esc(i.x.id)}"`,last:`<button type="button" class="sm dl" aria-label="Remove" title="Remove" ${onAct('click',orderSetupCardRemove,i.i)}>×</button>`})});
  return `<div class="md-setup" data-md-setup>
-  <h3>Order charges</h3><p class="mut">Defaults for new orders. Applied top to bottom: a charge is charged only on what is above it.</p>
+  <h3>Order charges</h3><p class="mut">Defaults for new orders. Applied top to bottom: a charge is charged only on what is above it. Commission — agents get paid on it.</p>
   ${chargeTable}
   <div class="row md-setup-row"><button type="button" data-setup-charge-add ${onAct('click',orderSetupChargeAdd)}>+ Charge</button><span class="mut">A new % charge adds a column to Charge codes.</span></div>
   <h3>Charge codes</h3><p class="mut">Which charges are charged on a thing. Glass, works, one-off services and the charges above all have a code.</p>
@@ -216,7 +218,7 @@ function orderSetupChargeAdd(){const s=DB.orderSetup;s.charges.push({id:'ch-'+Da
 function orderSetupChargeSet(id,k,v){
  const x=DB.orderSetup.charges.find(c=>c.id===id);if(!x)return;
  if(k==='value'){const n=Number(v);if(v===''||!Number.isFinite(n)||n<0){alert('Enter a value of zero or greater.');render();return;}x.value=n;}
- else if(k==='enabled')x.enabled=!!v;else if(k==='kind')x.kind=v==='percent'?'percent':'fixed';else if(k==='name')x.name=String(v);
+ else if(k==='enabled')x.enabled=!!v;else if(k==='com')x.com=!!v;else if(k==='kind')x.kind=v==='percent'?'percent':'fixed';else if(k==='name')x.name=String(v);
  normalizeOrderSetup();touch();render();
 }
 function orderSetupChargeRemove(id){

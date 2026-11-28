@@ -199,6 +199,10 @@ function salesMoney(value){return Math.round(+(value*100).toFixed(6))/100;}
    округление цены юнита и давало расхождение. salesExact убирает только шум
    двоичных чисел. */
 function salesExact(value){return +(+value).toFixed(6);}
+/* Ничьи — как Spiel (журнал «Счёт до цента как в Spiel», 02.11.2026): ближайшее
+   двоичное число и toFixed(2), 1.005 → 1.00, 8.345 → 8.35; так сошлись 4 заказа
+   Spiel до цента. Половина цента вверх (salesMoney) с ним сходится хуже — для
+   итогов заказа не брать (аудит Qwen 28.11.2026 предлагал — оставлено). */
 function salesCents(value){return +salesExact(value).toFixed(2);}
 /* Дюймы продажи: вверх до целого, как в Spiel. */
 function salesWholeInches(value){return Math.ceil(+value-1e-9);}
@@ -225,14 +229,24 @@ function salesApplyOrderCharges(subtotal,raw,itemBase){
   amt[k]=x.enabled?salesCents(bases[k]*rate/100):0;
  });
  const grand=salesMoney(Object.keys(amt).reduce((n,k)=>n+amt[k],base));
- return {charges:c,subtotal:base,energy:amt.energy,energyBase:bases.energy,hstBase:bases.hst,hst:amt.hst,cardBase:bases.card,card:amt.card,delivery:amt.delivery,skidDeposit:amt.skidDeposit,bases,
+ /* Сборы вне базы комиссии агента (Setup → Commission; erp/finance/commissions). */
+ const comExcluded=salesMoney([['energy',c.energy],['hst',c.hst],['card',c.card],['delivery',c.delivery],['skidDeposit',c.skidDeposit]].concat(c.extra.map(x=>[x.id,x])).reduce((n,[k,x])=>x.com===false?n+(amt[k]||0):n,0));
+ return {charges:c,subtotal:base,comExcluded,energy:amt.energy,energyBase:bases.energy,hstBase:bases.hst,hst:amt.hst,cardBase:bases.card,card:amt.card,delivery:amt.delivery,skidDeposit:amt.skidDeposit,bases,
   extra:c.extra.map(x=>({id:x.id,name:x.name,kind:x.kind,rate:x.kind==='percent'?x.value:null,amount:amt[x.id],enabled:x.enabled})),grand};
 }
 /* Набор сборов вещи со своим кодом (null — набор стекла и работ заказа).
    Работа — снимок заказа на Save (priceBook «snap:svcOn:…»), как цена;
    разовый сервис хранит набор сам. Позиции склада — по набору стекла. */
 function salesBookOn(key,live,order){const v=salesBook(key,live,order);return v==null?null:String(v).split(',').filter(Boolean);}
-function salesWorkOn(svc,order){return salesBookOn('snap:svcOn:'+svc,()=>{const w=salesServiceRateRow(svc),on=w&&w.chargeCode?orderSetupCodeOn(w.chargeCode):null;return on?on.join(','):null;},order);}
+/* Сохранённый заказ без снимка набора работы (записан, когда у работ кодов
+   не было) — набор стекла, как при его Save: код, поставленный работе потом,
+   его не меняет (аудит 27.11.2026). Открытый в Sales заказ и сама запись Save
+   берут сегодняшний код работы — его и записывает Save. */
+function salesWorkOn(svc,order){
+ const key='snap:svcOn:'+svc,b=order&&order.priceBook;
+ if(b&&!Object.prototype.hasOwnProperty.call(b,key)&&!salesBookRec&&order!==(typeof soDraft==='undefined'?null:soDraft))return null;
+ return salesBookOn(key,()=>{const w=salesServiceRateRow(svc),on=w&&w.chargeCode?orderSetupCodeOn(w.chargeCode):null;return on?on.join(','):null;},order);
+}
 function salesChargeRowOn(row,line,order){
  const xid=typeof salesExtraIdOfKey==='function'?salesExtraIdOfKey(row.key):'';
  if(xid){const x=(line.extraServices||[]).find(e=>e.id===xid);if(x&&Array.isArray(x.on))return x.on;if(x&&x.rateId)return salesWorkOn(x.rateId,order);return null;}
@@ -240,7 +254,7 @@ function salesChargeRowOn(row,line,order){
 }
 /* Есть ли в заказе вещи со своим кодом — иначе базы считать нечего. */
 function salesOrderOwnCodes(order){
- if((order.lines||[]).some(l=>(l.extraServices||[]).some(x=>Array.isArray(x.on))))return true;
+ if((order.lines||[]).some(l=>(l.extraServices||[]).some(x=>Array.isArray(x.on)))||(order.adjustments||[]).some(a=>Array.isArray(a.on)))return true;
  if((DB.serviceRate||[]).some(w=>w&&w.chargeCode))return true;
  const b=order.priceBook;if(b)for(const k in b)if(b[k]!=null&&k.indexOf('snap:svcOn:')===0)return true;
  return false;
@@ -250,6 +264,8 @@ function salesOrderOwnCodes(order){
 function salesOrderChargeDeltas(order,c){
  const pct=orderChargePctIds(c.extra),def=c.items.on,delta={},free=[];
  const add=(on,amount,name)=>{if(!on||amount==null)return;const same=on.length===def.length&&on.every(k=>def.includes(k));if(same)return;pct.forEach(k=>{const d=(on.includes(k)?1:0)-(def.includes(k)?1:0);if(d)delta[k]=salesExact((delta[k]||0)+d*amount);});if(!on.length)free.push({name,amount:salesMoney(amount)});};
+ /* Поправка заказа (Adjustments) со своим кодом — 28.11.2026. */
+ (order.adjustments||[]).forEach(a=>{if(Array.isArray(a.on)&&Number.isFinite(+a.amount))add(a.on,+a.amount,a.label||'Adjustment');});
  (order.lines||[]).forEach(line=>{
   const p=salesLineCommercialPrice(line,order);if(!p.complete||p.manual||!p.qty)return;
   const k=p.base>0?p.unit/p.base:1;
@@ -269,6 +285,9 @@ function salesOrderCommercialTotals(order){
  (order&&order.cancellations||[]).forEach(function(c){const v=unitChargeOf(c);if(v!=null)subtotal+=v;else missing++;});
  /* Поправки руками (normalizeSalesAdjustments). */
  (order&&order.adjustments||[]).forEach(function(a){if(Number.isFinite(+a.amount))subtotal+=+a.amount;});
+ /* Save пишет в снимок набор каждой работы заказа — и когда кодов у работ ещё
+    нет (аудит Qwen №3, 28.11.2026): нет ключа — значит строка новая, как у цены. */
+ if(salesBookRec&&order)(order.lines||[]).forEach(l=>{try{salesLineChargeRows(l,order).forEach(r=>{if(r.svc||salesExtraIdOfKey(r.key))salesChargeRowOn(r,l,order);});}catch(e){}});
  /* Свои коды (работа, разовый сервис, позиция склада): база каждого
     процентного сбора — сумма вещей с ним в наборе. */
  let itemBase=null,free=[];

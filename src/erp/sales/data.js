@@ -80,7 +80,10 @@ function normalizeSalesOrderCharges(raw){
  const s=orderSetup(),rc=raw.card&&typeof raw.card==='object'?raw.card:{};
  const network=salesRefId(rc.network)||((s.cardNetworks[0]?s.cardNetworks[0].id:'')),known=orderSetupNetwork(network);
  const ex=new Set(['energy','hst','card','delivery','skidDeposit']);
- const extra=(Array.isArray(raw.extra)?raw.extra:[]).filter(x=>x&&typeof x==='object'&&typeof x.id==='string'&&!ex.has(x.id)&&(ex.add(x.id),true)).map(x=>({id:x.id,name:salesString(x.name).slice(0,60)||'Charge',kind:x.kind==='percent'?'percent':'fixed',value:salesOrderChargeNumber(x.value,0),enabled:x.enabled===true,code:salesString(x.code),on:x.on}));
+ const extra=(Array.isArray(raw.extra)?raw.extra:[]).filter(x=>x&&typeof x==='object'&&typeof x.id==='string'&&!ex.has(x.id)&&(ex.add(x.id),true)).map(x=>({id:x.id,name:salesString(x.name).slice(0,60)||'Charge',kind:x.kind==='percent'?'percent':'fixed',value:salesOrderChargeNumber(x.value,0),enabled:x.enabled===true,code:salesString(x.code),on:x.on,com:x.com===true}));
+ /* В базе комиссии агента (Setup → Commission, 28.11.2026); нет в снимке — как
+    было: всё, кроме HST. */
+ const com=(x,def)=>({com:x&&typeof x.com==='boolean'?x.com:def});
  const pct=orderChargePctIds(extra),coded=Array.isArray(raw.codes);
  const codes=(coded?raw.codes:s.chargeCodes).filter(c=>c&&typeof c.id==='string').map(c=>({id:c.id,name:salesString(c.name).slice(0,40)||c.id,on:orderChargeSet(c.on,pct)}));
  const legacy=coded||raw.items?null:salesOrderChargeLegacyOn(raw);
@@ -90,11 +93,11 @@ function normalizeSalesOrderCharges(raw){
  return {
   codes,
   items:part(ri,'items',pct),
-  energy:Object.assign({enabled:raw.energy&&typeof raw.energy.enabled==='boolean'?raw.energy.enabled:s.energyOn,rate:salesOrderChargeNumber(raw.energy&&raw.energy.rate,s.energyRate)},part(raw.energy,'energy',[])),
-  hst:Object.assign({enabled:raw.hst&&typeof raw.hst.enabled==='boolean'?raw.hst.enabled:s.hstOn,rate:salesOrderChargeNumber(raw.hst&&raw.hst.rate,s.hstRate)},part(raw.hst,'hst',[])),
-  card:{enabled:!!rc.enabled,network:network,name:salesString(rc.name).slice(0,60)||(known&&known.name)||'Card fee',rate:salesOrderChargeNumber(rc.rate,known?known.rate:0)},
-  delivery:Object.assign({enabled:!!(raw.delivery&&raw.delivery.enabled),amount:salesOrderChargeNumber(raw.delivery&&raw.delivery.amount,0)},part(raw.delivery,'delivery',[])),
-  skidDeposit:Object.assign({enabled:!!(raw.skidDeposit&&raw.skidDeposit.enabled),amount:salesOrderChargeNumber(raw.skidDeposit&&raw.skidDeposit.amount,0)},part(raw.skidDeposit,'skidDeposit',[])),
+  energy:Object.assign({enabled:raw.energy&&typeof raw.energy.enabled==='boolean'?raw.energy.enabled:s.energyOn,rate:salesOrderChargeNumber(raw.energy&&raw.energy.rate,s.energyRate)},part(raw.energy,'energy',[]),com(raw.energy,true)),
+  hst:Object.assign({enabled:raw.hst&&typeof raw.hst.enabled==='boolean'?raw.hst.enabled:s.hstOn,rate:salesOrderChargeNumber(raw.hst&&raw.hst.rate,s.hstRate)},part(raw.hst,'hst',[]),com(raw.hst,false)),
+  card:Object.assign({enabled:!!rc.enabled,network:network,name:salesString(rc.name).slice(0,60)||(known&&known.name)||'Card fee',rate:salesOrderChargeNumber(rc.rate,known?known.rate:0)},com(rc,true)),
+  delivery:Object.assign({enabled:!!(raw.delivery&&raw.delivery.enabled),amount:salesOrderChargeNumber(raw.delivery&&raw.delivery.amount,0)},part(raw.delivery,'delivery',[]),com(raw.delivery,true)),
+  skidDeposit:Object.assign({enabled:!!(raw.skidDeposit&&raw.skidDeposit.enabled),amount:salesOrderChargeNumber(raw.skidDeposit&&raw.skidDeposit.amount,0)},part(raw.skidDeposit,'skidDeposit',[]),com(raw.skidDeposit,true)),
   extra:extra.map(x=>Object.assign(x,part(x,'',[])))
  };
 }
@@ -679,7 +682,10 @@ function normalizeSalesOrder(o){
    (владелец, 7.10.2026: «то, что касается денег, должно быть максимально
    флексибл — иногда где-то ошибка, и нужна возможность решить её руками»). */
 function normalizeSalesAdjustments(raw){
- return (Array.isArray(raw)?raw:[]).filter(x=>x&&typeof x==='object'&&Number.isFinite(+x.amount)).map(x=>({id:salesEntityId(x.id,'ADJ'),label:salesString(x.label).slice(0,120),amount:Math.round(+x.amount*100)/100}));
+ /* Свой набор сборов поправки (Code, владелец 28.11.2026: «чтобы было и там и
+    там… для чарджеса в целом, а не под стекла»): `on`, `code`; нет — как стекло. */
+ return (Array.isArray(raw)?raw:[]).filter(x=>x&&typeof x==='object'&&Number.isFinite(+x.amount)).map(x=>{const on=Array.isArray(x.on)?x.on.filter(k=>typeof k==='string'&&/^[A-Za-z0-9_-]{1,40}$/.test(k)):null;
+  return {id:salesEntityId(x.id,'ADJ'),label:salesString(x.label).slice(0,120),amount:Math.round(+x.amount*100)/100,...(on?{on,code:salesString(x.code).slice(0,40)}:{})};});
 }
 function salesNextMakeupCodeFromSet(used){const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';for(const c of letters)if(!used.has(c))return c;let n=27,code;do{code='MU-'+String(n++).padStart(3,'0');}while(used.has(code));return code;}
 function nextMakeupCode(order){return salesNextMakeupCodeFromSet(new Set((order.makeups||[]).map(m=>m.code)));}

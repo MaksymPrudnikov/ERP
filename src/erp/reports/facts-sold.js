@@ -80,6 +80,14 @@ function repSoldOrder(o,shipped,rows){
  [['energy','Energy surcharge'],['delivery','Delivery'],['card','Card fee'],['skidDeposit','Skid deposit']].forEach(([k,label])=>{if(t[k])put({category:'Order charges',type:label,product:label,amount:t[k]});});
  /* Свои сборы Setup (27.11.2026) — тоже Order charges. */
  (t.extra||[]).forEach(x=>{if(x.amount)put({category:'Order charges',type:x.name,product:x.name,amount:x.amount});});
+ /* Копейки — от итога заказа (аудит Qwen 28.11.2026): позиция доведена до своей
+    суммы, а итог заказа округляется один раз от точной суммы, — разница в цент
+    на самую крупную строку заказа: сумма строк = итог до HST до цента. Больше
+    полцента на строку — не округление, такое не прячем. */
+ if(cad&&!free&&t.complete&&rows.length){
+  const sum=salesMoney(rows.reduce((n,x)=>n+(x.amount||0),0)),diff=salesMoney(salesMoney(t.grand-t.hst)-sum);
+  if(diff&&Math.abs(diff)<=0.005*rows.length+1e-9){const big=rows.reduce((b,x)=>Math.abs(x.amount||0)>Math.abs(b.amount||0)?x:b,rows[0]);big.amount=salesMoney((big.amount||0)+diff);big.unitPrice=big.qty>0?big.amount/big.qty:null;}
+ }
 }
 /* Позиция: стекло и плёнка по лайтам, обвязка, работы, надбавки; деньги —
    на все живые юниты позиции. */
